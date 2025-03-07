@@ -1,115 +1,145 @@
 # Slack Exporter
-A python slack exporter
 
-- This is offered free of charge! 
-- Feel free to donate for coffee though, it **sustains me**.
-
-[![Donate Paypal](https://img.shields.io/badge/Donate-Paypal--Has--Fees-blue.svg?logo=paypal&style=popout)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RWYM3TQN4XGT4&source=url)
-
-[![Donate Bitcoin](https://img.shields.io/badge/Donate-Bitcoin--No--Fees-yellow.svg?logo=bitcoin&style=popout)](ReadmeAssets/bitcoin_donate.PNG?raw=true#bitcoin:bc1qzyvqlf2m3q9uhy6edp3mldlx4wamtl2snax45srnzc4lsg7uh2dsh6erxe)
-
-<img src="ReadmeAssets/bitcoin_donate.PNG?raw=true" alt="bitcoin:bc1qzyvqlf2m3q9uhy6edp3mldlx4wamtl2snax45srnzc4lsg7uh2dsh6erxe" width="200" height="auto">
+A Python script to export Slack conversations, canvases, and files.
 
 ## Description
 
-The included script 'slack_export.py' works with a provided token to export Channels, Private Channels, Direct Messages and Multi Person Messages.
+The `slack_export.py` script uses a Slack user token to export:
 
-This script finds all channels, private channels and direct messages that your user participates in, downloads the complete history for those converations and writes each conversation out to seperate json files.
+- Public Channels
+- Private Channels
+- Direct Messages (1:1 DMs)
+- Multi-Person Messages (Group DMs)
+- Canvases
+- Files
 
-This user centric history gathering is nice because the official slack data exporter only exports public channels.
+This script retrieves all conversations your user participates in, downloads their complete history, and saves each conversation as separate JSON files. It also exports canvases and files to dedicated directories. Unlike Slack's official exporter, which only covers public channels, this tool provides a user-centric export, including private content you have access to.
 
-There may be limitations on what you can export based on the paid status of your slack account.
+**Note**: Export capabilities may be limited by your Slack workspace's paid status or user permissions.
 
-This use of the API is blessed by Slack : https://get.slack.help/hc/en-us/articles/204897248
+Slack endorses this API usage for personal exports (see [Slack's API documentation](https://get.slack.help/hc/en-us/articles/204897248)):  
+"If you want to export the contents of your own private groups and direct messages, please see our API documentation."
 
-" If you want to export the contents of your own private groups and direct messages
-please see our API documentation."
+To obtain a user token (`xoxp-`), visit:  
+[https://api.slack.com/custom-integrations/legacy-tokens](https://api.slack.com/custom-integrations/legacy-tokens)
 
-One way to get your token is to obtain it here:
+---
 
-https://api.slack.com/custom-integrations/legacy-tokens
+## Credits
+
+This project is a fork of [zach-snell/slack-export](https://github.com/zach-snell/slack-export). Many thanks to Zach Snell for the original implementation, which served as the foundation for this version.
+
+---
 
 ## Dependencies
+
+Install the required Python packages:
+
+```bash
+pip install slack_sdk  # https://github.com/slackapi/python-slack-sdk
+pip install pick       # https://github.com/wong2/pick
+pip install requests   # For downloading files and canvases
 ```
-pip install slacker # https://github.com/os/slacker
-pip install pick # https://github.com/wong2/pick
-```
+
+---
 
 ## Basic Usage
+
+```bash
+# Export all Channels, DMs, canvases, and files
+python slack_export.py --token xoxp-123...
+
+# List available Channels and DMs without exporting
+python slack_export.py --token xoxp-123... --dryRun
+
+# Prompt to select Channels and DMs to export
+python slack_export.py --token xoxp-123... --prompt
+
+# Export to a zip file (e.g., for slack-export-viewer)
+python slack_export.py --token xoxp-123... --zip slack_export
 ```
-# Export all Channels and DMs
-python slack_export.py --token xoxs-123...
 
-# List the Channels and DMs available for export
-python slack_export.py --token xoxs-123... --dryRun
+Output is saved to a directory named `<timestamp>-slack_export` in the specified output path (default: current directory).
 
-# Prompt you to select the Channels and DMs to export
-python slack_export.py --token xoxs-123... --prompt
-
-# Generate a `slack_export.zip` file for use with slack-export-viewer
-python slack_export.py --token xoxs-123... --zip slack_export
-```
+---
 
 ## Selecting Conversations to Export
 
-This script exports **all** Channels and DMs by default.
+By default, the script exports **all** conversations, canvases, and files your user can access. Use these arguments to filter:
 
-To export only certain conversations, use one or more of the following arguments:
+- `--publicChannels [CHANNEL_NAME [CHANNEL_NAME ...]]`  
+  Export Public Channels (optionally filtered by names).
 
-* `--publicChannels [CHANNEL_NAME [CHANNEL_NAME ...]]`\
-Export Public Channels\
-(optionally filtered by the given channel names)
+- `--groups [GROUP_NAME [GROUP_NAME ...]]`  
+  Export Private Channels and Group DMs (optionally filtered by names).
 
-* `--groups [GROUP_NAME [GROUP_NAME ...]]`\
-Export Private Channels and Group DMs\
-(optionally filtered by the given group names)
+- `--directMessages [USER_NAME [USER_NAME ...]]`  
+  Export 1:1 DMs (optionally filtered by usernames).
 
-* `--directMessages [USER_NAME [USER_NAME ...]]`\
-Export 1:1 DMs\
-(optionally filtered by the given user names)
-
-* `--prompt`\
-Prompt you to select the conversations to export\
-(Any channel/group/user names specified with the other arguments take precedence.)
+- `--prompt`  
+  Interactively select conversations to export (overrides defaults unless other filters are specified).
 
 ### Examples
-```
-# Export only Public Channels
-python slack_export.py --token xoxs-123... --publicChannels
 
-# Export only the "General" and "Random" Public Channels
-python slack_export.py --token xoxs-123... --publicChannels General Random
+```bash
+# Export only Public Channels
+python slack_export.py --token xoxp-123... --publicChannels
+
+# Export only "General" and "Random" Public Channels
+python slack_export.py --token xoxp-123... --publicChannels General Random
 
 # Export only Private Channels and Group DMs
-python slack_export.py --token xoxs-123... --groups
+python slack_export.py --token xoxp-123... --groups
 
 # Export only the "my_private_channel" Private Channel
-python slack_export.py --token xoxs-123... --groups my_private_channel
+python slack_export.py --token xoxp-123... --groups my_private_channel
 
 # Export only 1:1 DMs
-python slack_export.py --token xoxs-123... --directMessages
+python slack_export.py --token xoxp-123... --directMessages
 
-# Export only 1:1 DMs with jane_smith and john_doe
-python slack_export.py --token xoxs-123... --directMessages jane_smith john_doe
+# Export 1:1 DMs with jane_smith and john_doe
+python slack_export.py --token xoxp-123... --directMessages jane_smith john_doe
 
-# Export only Public/Private Channels and Group DMs (no 1:1 DMs)
-python slack_export.py --token xoxs-123... --publicChannels --groups
+# Export Public and Private Channels/Group DMs (no 1:1 DMs)
+python slack_export.py --token xoxp-123... --publicChannels --groups
 
-# Export only 1:1 DMs with jane_smith and the Public Channels you select when prompted
-python slack_export.py --token xoxs-123... --directMessages jane_smith --publicChannels --prompt
-```
-This script is provided in an as-is state and I guarantee no updates or quality of service at this time.
-
-# Recommended related libraries
-
-This is designed to function with 'slack-export-viewer'.
-  ```
-  pip install slack-export-viewer
-  ```
-
-Then you can execute the viewer as documented
-```
-slack-export-viewer -z zipArchive.zip
+# Export DMs with jane_smith and prompt for Public Channels
+python slack_export.py --token xoxp-123... --directMessages jane_smith --publicChannels --prompt
 ```
 
+---
 
+## Output Structure
+
+- `users.json`: List of users in the workspace.
+- `channels.json`: Metadata for all exported conversations.
+- `<channel_name>/<date>.json`: Message history for each channel/DM, split by date.
+- `canvases/canvases.json`: Metadata for exported canvases.
+- `canvases/<canvas_title>_<id>.html`: Exported canvas files.
+- `files/files.json`: Metadata for exported files.
+- `files/<file_name>`: Exported files (e.g., PDFs, images).
+
+---
+
+## Recommended Tools
+
+This script pairs well with `slack-export-viewer` for viewing exported data:
+
+```bash
+pip install slack-export-viewer
+slack-export-viewer -z slack_export.zip
+```
+
+---
+
+## Limitations
+
+- Requires a legacy user token (`xoxp-`) with appropriate scopes (e.g., `channels:history`, `files:read`).
+- Export scope is limited to what your user can access.
+- Free Slack plans may restrict history or file access.
+
+---
+
+## License
+
+This script is provided as-is, with no guarantees of updates or support. See the original repository for licensing details: [zach-snell/slack-export](https://github.com/zach-snell/slack-export).
