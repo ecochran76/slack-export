@@ -80,71 +80,117 @@ pip install requests   # For downloading files and canvases
 
 ---
 
-## Basic Usage
+## Usage
+
+The script exports all conversations (public channels, private channels, group DMs, 1:1 DMs), canvases, and files your user can access by default, saving them to a directory named `<timestamp>-slack_export` (e.g., `20250303-172345-slack_export`). Use the flags below to customize the export process, filter conversations, or modify output behavior.
+
+### Command-Line Flags
+
+- **`--token TOKEN`**  
+  - **Required**: The Slack user token (`xoxp-...`) obtained from your Slack app.
+  - Example: `--token xoxp-123...`
+
+- **`--zip ZIP_NAME`**  
+  - Optional: Creates a zip archive of the export directory (e.g., `slack_export.zip`) and deletes the original folder after zipping.
+  - Useful for compatibility with tools like `slack-export-viewer`.
+  - Default: No zip file is created.
+  - Example: `--zip my_export`
+
+- **`-o, --output PATH`**  
+  - Optional: Specifies the base directory where the export folder (`<timestamp>-slack_export`) is created.
+  - Supports `~` for your home directory (e.g., `~/slack_backups` on Windows becomes `C:\Users\YourUsername\slack_backups`).
+  - Default: Current working directory.
+  - Example: `-o ~/slack_backups`
+
+- **`--dryRun`**  
+  - Optional: Lists all available conversations (public channels, private channels, group DMs, 1:1 DMs) your user can export without fetching or saving anything.
+  - Useful for previewing what will be exported.
+  - Default: Disabled (full export runs).
+  - Example: `--dryRun`
+
+- **`--publicChannels [CHANNEL_NAME ...]`**  
+  - Optional: Exports public channels. Without names, exports all public channels you’re in; with names, filters to the specified channels.
+  - Names are case-sensitive and must match exactly (e.g., `General`, not `general`).
+  - Default: Exports all public channels unless filtered.
+  - Example: `--publicChannels General Random`
+
+- **`--groups [GROUP_NAME ...]`**  
+  - Optional: Exports private channels and group DMs. Without names, exports all you’re in; with names, filters to the specified ones.
+  - Names must match exactly (e.g., `my_private_channel` or `mpdm-user1--user2-1`).
+  - Default: Exports all private channels and group DMs unless filtered.
+  - Example: `--groups my_private_channel`
+
+- **`--directMessages [USER_NAME ...]`**  
+  - Optional: Exports 1:1 DMs. Without names, exports all your DMs; with names, filters to the specified users.
+  - Uses Slack usernames (e.g., `jane_smith`), not display names.
+  - Default: Exports all 1:1 DMs unless filtered.
+  - Example: `--directMessages jane_smith john_doe`
+
+- **`--prompt`**  
+  - Optional: Opens an interactive menu to select conversations (public channels, private channels/group DMs, 1:1 DMs) to export.
+  - If combined with `--publicChannels`, `--groups`, or `--directMessages` with names, those named items are exported automatically, and the prompt applies to the unspecified types.
+  - Default: Disabled (exports all conversations unless filtered).
+  - Example: `--prompt`
+
+### Usage Examples
 
 ```bash
-# Export all Channels, DMs, canvases, and files
+# Export everything (channels, DMs, canvases, files) to the current directory
 python slack_export.py --token xoxp-123...
 
-# List available Channels and DMs without exporting
-python slack_export.py --token xoxp-123... --dryRun
+# Export everything and save to a custom directory
+python slack_export.py --token xoxp-123... -o ~/slack_backups
 
-# Prompt to select Channels and DMs to export
-python slack_export.py --token xoxp-123... --prompt
-
-# Export to a zip file (e.g., for slack-export-viewer)
+# Export everything into a zip file
 python slack_export.py --token xoxp-123... --zip slack_export
 
-# Specify an output directory (default: current directory)
-python slack_export.py --token xoxp-123... -o ~/slack_backups
+# Preview all exportable conversations without saving
+python slack_export.py --token xoxp-123... --dryRun
+
+# Export only specific public channels
+python slack_export.py --token xoxp-123... --publicChannels General Random
+
+# Export all private channels and group DMs to a custom directory
+python slack_export.py --token xoxp-123... --groups -o ~/backups
+
+# Export 1:1 DMs with specific users
+python slack_export.py --token xoxp-123... --directMessages jane_smith john_doe
+
+# Export all public channels and specific group DMs
+python slack_export.py --token xoxp-123... --publicChannels --groups mpdm-user1--user2-1
+
+# Export DMs with jane_smith and prompt for public channels
+python slack_export.py --token xoxp-123... --directMessages jane_smith --publicChannels --prompt
+
+# Prompt for all conversation types interactively
+python slack_export.py --token xoxp-123... --prompt
+
+# Export public/private channels (no DMs) into a zip file
+python slack_export.py --token xoxp-123... --publicChannels --groups --zip channels_only
 ```
 
-Output is saved to a directory named `<timestamp>-slack_export` in the specified path.
+### Notes on Behavior
+- **Default Behavior**: Without filtering flags (`--publicChannels`, `--groups`, `--directMessages`), all conversations, canvases, and files are exported unless `--prompt` is used to select manually.
+- **Combining Flags**: Use multiple flags to export specific subsets (e.g., `--publicChannels --directMessages` skips private channels/group DMs).
+- **Canvases and Files**: Always exported unless `--dryRun` is used, regardless of conversation filters.
+- **Rate Limits**: The script includes `sleep(1)` between API calls to respect Slack’s rate limits, which may slow large exports.
 
 ---
 
-## Selecting Conversations to Export
+## Credits
 
-By default, the script exports **all** conversations, canvases, and files your user can access. Use these arguments to filter:
+This project is a fork of [zach-snell/slack-export](https://github.com/zach-snell/slack-export). Many thanks to Zach Snell for the original implementation, which inspired and formed the basis for this enhanced version.
 
-- `--publicChannels [CHANNEL_NAME [CHANNEL_NAME ...]]`  
-  Export Public Channels (optionally filtered by names).
+---
 
-- `--groups [GROUP_NAME [GROUP_NAME ...]]`  
-  Export Private Channels and Group DMs (optionally filtered by names).
+## Dependencies
 
-- `--directMessages [USER_NAME [USER_NAME ...]]`  
-  Export 1:1 DMs (optionally filtered by usernames).
-
-- `--prompt`  
-  Interactively select conversations (overrides defaults unless filters are specified).
-
-### Examples
+Install the required Python packages:
 
 ```bash
-# Export only Public Channels
-python slack_export.py --token xoxp-123... --publicChannels
-
-# Export only "General" and "Random" Public Channels
-python slack_export.py --token xoxp-123... --publicChannels General Random
-
-# Export only Private Channels and Group DMs
-python slack_export.py --token xoxp-123... --groups
-
-# Export only the "my_private_channel" Private Channel
-python slack_export.py --token xoxp-123... --groups my_private_channel
-
-# Export only 1:1 DMs
-python slack_export.py --token xoxp-123... --directMessages
-
-# Export 1:1 DMs with jane_smith and john_doe
-python slack_export.py --token xoxp-123... --directMessages jane_smith john_doe
-
-# Export Public and Private Channels/Group DMs (no 1:1 DMs)
-python slack_export.py --token xoxp-123... --publicChannels --groups
-
-# Export DMs with jane_smith and prompt for Public Channels
-python slack_export.py --token xoxp-123... --directMessages jane_smith --publicChannels --prompt
+pip install slack_sdk  # https://github.com/slackapi/python-slack-sdk
+pip install pick       # https://github.com/wong2/pick
+pip install requests   # For downloading files and canvases
 ```
 
 ---
