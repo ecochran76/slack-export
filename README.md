@@ -13,21 +13,58 @@ The `slack_export.py` script uses a Slack user token to export:
 - Canvases
 - Files
 
-This script retrieves all conversations your user participates in, downloads their complete history, and saves each conversation as separate JSON files. It also exports canvases and files to dedicated directories. Unlike Slack's official exporter, which only covers public channels, this tool provides a user-centric export, including private content you have access to.
+This script retrieves all conversations your user participates in, downloads their complete message history, and saves each as separate JSON files. It also exports canvases and files you have access to into dedicated directories. Unlike Slack's official exporter, which only covers public channels, this tool provides a user-centric export, including private content you can see.
 
-**Note**: Export capabilities may be limited by your Slack workspace's paid status or user permissions.
+**Note**: Export capabilities may be limited by your Slack workspace’s plan (e.g., free plans restrict some historical data) or your user’s permissions.
 
 Slack endorses this API usage for personal exports (see [Slack's API documentation](https://get.slack.help/hc/en-us/articles/204897248)):  
-"If you want to export the contents of your own private groups and direct messages, please see our API documentation."
+*"If you want to export the contents of your own private groups and direct messages, please see our API documentation."*
 
-To obtain a user token (`xoxp-`), visit:  
-[https://api.slack.com/custom-integrations/legacy-tokens](https://api.slack.com/custom-integrations/legacy-tokens)
+### Getting a Slack Token
+
+To use this script, you need a Slack **user token** (starts with `xoxp-`). Legacy tokens are deprecated, so follow these steps to create a Slack app and obtain a user token:
+
+1. **Create a Slack App**:
+   - Go to [api.slack.com/apps](https://api.slack.com/apps) and click "Create New App".
+   - Name it (e.g., "Slack Exporter") and select your workspace.
+
+2. **Configure Permissions**:
+   - Navigate to "OAuth & Permissions".
+   - Under "User Token Scopes", add:
+     - `channels:history` (public channel messages)
+     - `groups:history` (private channel messages)
+     - `im:history` (1:1 DMs)
+     - `mpim:history` (group DMs)
+     - `files:read` (files and canvases)
+     - `users:read` (user info for names/IDs)
+   - These scopes enable the script to access your conversations, files, and canvases.
+
+3. **Install the App**:
+   - Go to "Install App" and click "Install to Workspace".
+   - Authorize as yourself (e.g., `ecochran76`).
+   - Copy the **User OAuth Token** (`xoxp-...`) from "OAuth & Permissions".
+
+4. **Use the Token**:
+   - Pass it to the script with the `--token` argument.
+
+#### Bot vs. User Tokens
+- **User Tokens (`xoxp-`)**:
+  - Act as you (e.g., `ecochran76`), exporting data you can see in Slack.
+  - Include private channels, DMs, and files/canvases you have access to, based on your permissions.
+  - **Required** for this script to export your full personal data.
+
+- **Bot Tokens (`xoxb-`)**:
+  - Represent a bot user tied to the app, not your account.
+  - Limited to public channels and bot interactions unless invited to private conversations.
+  - **Not suitable** here—using a bot token will omit private channels, DMs, and most user-specific files/canvases.
+
+Ensure you use a user token (`xoxp-`) for complete exports.
 
 ---
 
 ## Credits
 
-This project is a fork of [zach-snell/slack-export](https://github.com/zach-snell/slack-export). Many thanks to Zach Snell for the original implementation, which served as the foundation for this version.
+This project is a fork of [zach-snell/slack-export](https://github.com/zach-snell/slack-export). Many thanks to Zach Snell for the original implementation, which inspired and formed the basis for this enhanced version.
 
 ---
 
@@ -57,9 +94,12 @@ python slack_export.py --token xoxp-123... --prompt
 
 # Export to a zip file (e.g., for slack-export-viewer)
 python slack_export.py --token xoxp-123... --zip slack_export
+
+# Specify an output directory (default: current directory)
+python slack_export.py --token xoxp-123... -o ~/slack_backups
 ```
 
-Output is saved to a directory named `<timestamp>-slack_export` in the specified output path (default: current directory).
+Output is saved to a directory named `<timestamp>-slack_export` in the specified path.
 
 ---
 
@@ -77,7 +117,7 @@ By default, the script exports **all** conversations, canvases, and files your u
   Export 1:1 DMs (optionally filtered by usernames).
 
 - `--prompt`  
-  Interactively select conversations to export (overrides defaults unless other filters are specified).
+  Interactively select conversations (overrides defaults unless filters are specified).
 
 ### Examples
 
@@ -111,8 +151,8 @@ python slack_export.py --token xoxp-123... --directMessages jane_smith --publicC
 
 ## Output Structure
 
-- `users.json`: List of users in the workspace.
-- `channels.json`: Metadata for all exported conversations.
+- `users.json`: List of workspace users.
+- `channels.json`: Metadata for exported conversations.
 - `<channel_name>/<date>.json`: Message history for each channel/DM, split by date.
 - `canvases/canvases.json`: Metadata for exported canvases.
 - `canvases/<canvas_title>_<id>.html`: Exported canvas files.
@@ -123,7 +163,7 @@ python slack_export.py --token xoxp-123... --directMessages jane_smith --publicC
 
 ## Recommended Tools
 
-This script pairs well with `slack-export-viewer` for viewing exported data:
+Pairs with `slack-export-viewer` for viewing exports:
 
 ```bash
 pip install slack-export-viewer
@@ -134,9 +174,9 @@ slack-export-viewer -z slack_export.zip
 
 ## Limitations
 
-- Requires a legacy user token (`xoxp-`) with appropriate scopes (e.g., `channels:history`, `files:read`).
-- Export scope is limited to what your user can access.
-- Free Slack plans may restrict history or file access.
+- Requires a user token (`xoxp-`) with scopes like `channels:history`, `files:read`, etc.
+- Exports are limited to what your user can access in Slack.
+- Free Slack plans may restrict message history or file access.
 
 ---
 
