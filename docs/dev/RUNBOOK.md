@@ -205,10 +205,21 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added top-level and subcommand help text to parser definitions
 - Regenerated `docs/CLI.md` and `docs/slack-mirror.1`
 
+### 2026-02-24 — Docs generation wired into CI/release checks
+
+- Added CI workflow: `.github/workflows/ci.yml`
+  - installs package
+  - runs unit tests
+  - verifies generated docs are current
+- Added docs consistency checker:
+  - `scripts/check_generated_docs.py`
+  - regenerates docs and fails if `docs/CLI.md` or `docs/slack-mirror.1` are dirty
+- Updated config docs with local docs-check command
+
 ## Next Actions Queue
 
-1. Add docs generation into CI check or release flow
-2. Add command examples section to generated docs (template-driven)
+1. Add command examples section to generated docs (template-driven)
+2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 
 ## Decision Log Pointer
 

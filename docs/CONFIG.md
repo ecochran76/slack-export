@@ -41,6 +41,7 @@ python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace
 python -m slack_mirror.cli.main channels sync-from-tool
 python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md
 python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1
+python scripts/check_generated_docs.py
 
 # after install (entrypoint)
 slack-mirror --config config.yaml mirror init
