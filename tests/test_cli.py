@@ -48,6 +48,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.port, 8787)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_process_events(self):
+        parser = build_parser()
+        args = parser.parse_args(["mirror", "process-events", "--workspace", "default", "--limit", "10"])
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.limit, 10)
+        self.assertTrue(hasattr(args, "func"))
+
 
 if __name__ == "__main__":
     unittest.main()

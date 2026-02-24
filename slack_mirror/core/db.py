@@ -294,3 +294,21 @@ def insert_event(
                 json.dumps(payload, sort_keys=True),
             ),
         )
+
+
+def mark_event_status(
+    conn: sqlite3.Connection,
+    workspace_id: int,
+    event_id: str,
+    status: str,
+    error: str | None = None,
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            UPDATE events
+            SET status = ?, error = ?, processed_at = CURRENT_TIMESTAMP
+            WHERE workspace_id = ? AND event_id = ?
+            """,
+            (status, error, workspace_id, event_id),
+        )

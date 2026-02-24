@@ -123,9 +123,24 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `mirror serve-webhooks --workspace <name> [--bind] [--port]`
   - persists incoming events into `events` table with `pending` status
 
+### 2026-02-23 — Phase C (event processor worker)
+
+- Added event processor module:
+  - `slack_mirror/service/processor.py`
+  - consumes `events.status='pending'`
+  - applies basic upserts for:
+    - messages
+    - channel_created/channel_rename
+    - file_created/file_shared/file_change
+  - marks events as `processed` or `error`
+- Added CLI command:
+  - `mirror process-events --workspace <name> [--limit N]`
+- Added tests:
+  - `tests/test_processor.py`
+
 ## Next Actions Queue
 
-1. Add event processing worker (consume pending events and apply upserts)
+1. Expand event type coverage (message_changed/deleted, member joins/leaves, etc.)
 2. Add time-window controls (`--oldest`, `--latest`) for message backfill
 3. Add smarter file type coverage beyond current list (or remove restrictive filter)
 4. Add completion plumbing hooks for dynamic DB-backed values

@@ -190,6 +190,34 @@ def cmd_serve_webhooks(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_process_events(args: argparse.Namespace) -> int:
+    from slack_mirror.service.processor import process_pending_events
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_cfg = _workspace_config_by_name(args.config, args.workspace)
+    ws_row = get_workspace_by_name(conn, ws_cfg.get("name"))
+    if not ws_row:
+        workspace_id = upsert_workspace(
+            conn,
+            name=ws_cfg.get("name"),
+            team_id=ws_cfg.get("team_id"),
+            domain=ws_cfg.get("domain"),
+            config=ws_cfg,
+        )
+    else:
+        workspace_id = int(ws_row["id"])
+
+    result = process_pending_events(conn, workspace_id, limit=args.limit)
+    print(
+        f"Processed events workspace={ws_cfg.get('name')} scanned={result['scanned']} "
+        f"processed={result['processed']} errored={result['errored']}"
+    )
+    return 0 if result["errored"] == 0 else 1
+
+
 def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
     adapter = SlackChannelsAdapter()
     mappings = adapter.list_mappings()
@@ -239,6 +267,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--bind")
     p_serve.add_argument("--port", type=int)
     p_serve.set_defaults(func=cmd_serve_webhooks)
+
+    p_process = mirror_sub.add_parser("process-events")
+    p_process.add_argument("--workspace", required=True)
+    p_process.add_argument("--limit", type=int, default=100)
+    p_process.set_defaults(func=cmd_process_events)
 
     workspaces = sub.add_parser("workspaces")
     ws_sub = workspaces.add_subparsers(dest="ws_cmd")
