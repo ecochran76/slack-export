@@ -47,13 +47,24 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `completion print bash|zsh`
 - Added adapter for existing `~/.openclaw/workspace/scripts/slack_channels`
 
+### 2026-02-23 — Phase A scaffolding (packaging + tests + workspace bootstrap)
+
+- Added `pyproject.toml` with `slack-mirror` CLI entrypoint
+- Added tests:
+  - `tests/test_config.py`
+  - `tests/test_db.py`
+- Added workspace DB bootstrap commands:
+  - `workspaces sync-config`
+  - `workspaces list` now reads from DB
+- Added DB helpers: `upsert_workspace`, `list_workspaces`
+
 ## Next Actions Queue
 
-1. Wire CLI entrypoint via packaging (`pyproject.toml` script)
-2. Add unit tests for config interpolation + migrations
-3. Implement `workspaces add/verify` + workspace bootstrap into DB
-4. Build initial backfill engine (users/channels first)
-5. Add user-facing docs for config + quickstart for `slack-mirror`
+1. Add `workspaces verify` (auth test / token scope checks)
+2. Add initial Slack API client module with robust pagination helpers
+3. Implement backfill for users/channels into DB
+4. Add completion plumbing hooks for dynamic DB-backed values
+5. Add docs generation command implementation (Markdown/man output)
 
 ## Decision Log Pointer
 

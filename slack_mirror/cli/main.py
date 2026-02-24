@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from slack_mirror.core.config import load_config
-from slack_mirror.core.db import apply_migrations, connect
+from slack_mirror.core.db import apply_migrations, connect, list_workspaces, upsert_workspace
 from slack_mirror.integrations import SlackChannelsAdapter
 
 
@@ -18,15 +18,44 @@ def cmd_mirror_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_workspaces_list(args: argparse.Namespace) -> int:
+def _db_path_from_config(config_path: str) -> str:
+    cfg = load_config(config_path)
+    return cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
+
+
+def cmd_workspaces_sync(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
-    workspaces = cfg.get("workspaces", [])
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    imported = 0
+    for ws in cfg.get("workspaces", []):
+        if not ws.get("name"):
+            continue
+        upsert_workspace(
+            conn,
+            name=ws.get("name"),
+            team_id=ws.get("team_id"),
+            domain=ws.get("domain"),
+            config=ws,
+        )
+        imported += 1
+    print(f"Synced {imported} workspaces into {db_path}")
+    return 0
+
+
+def cmd_workspaces_list(args: argparse.Namespace) -> int:
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    rows = list_workspaces(conn)
+    payload = [dict(r) for r in rows]
     if args.json:
-        print(json.dumps(workspaces, indent=2))
+        print(json.dumps(payload, indent=2))
     else:
-        for ws in workspaces:
-            state = "enabled" if ws.get("enabled", True) else "disabled"
-            print(f"{ws.get('name')}\t{ws.get('team_id', '')}\t{state}")
+        for ws in payload:
+            print(f"{ws.get('name')}\t{ws.get('team_id', '')}\t{ws.get('domain', '') or ''}")
     return 0
 
 
@@ -71,6 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_ws_list = ws_sub.add_parser("list")
     p_ws_list.add_argument("--json", action="store_true")
     p_ws_list.set_defaults(func=cmd_workspaces_list)
+    p_ws_sync = ws_sub.add_parser("sync-config")
+    p_ws_sync.set_defaults(func=cmd_workspaces_sync)
 
     channels = sub.add_parser("channels")
     channels_sub = channels.add_subparsers(dest="channels_cmd")
