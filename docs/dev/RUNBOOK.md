@@ -74,13 +74,25 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `workspaces verify [--workspace <name>]`
   - `mirror backfill --workspace <name>`
 
+### 2026-02-23 — Phase B (message history backfill + checkpoints)
+
+- Added `conversations.history` pagination in `SlackApiClient`
+- Added message backfill flow with per-channel checkpoints in `sync_state`
+- Added DB helpers:
+  - `upsert_message`
+  - `list_channel_ids`
+  - `set_sync_state` / `get_sync_state`
+- Extended CLI `mirror backfill` with:
+  - `--include-messages`
+  - `--channel-limit`
+
 ## Next Actions Queue
 
-1. Add per-workspace sync_state updates for backfill checkpoints
-2. Implement message backfill (`conversations.history`) with pagination and upserts
-3. Add first integration test for `workspaces verify` in env-based test mode
-4. Add completion plumbing hooks for dynamic DB-backed values
-5. Add docs generation command implementation (Markdown/man output)
+1. Add time-window controls (`--oldest`, `--latest`) for message backfill
+2. Add file/canvas backfill pipeline into DB + local cache
+3. Add completion plumbing hooks for dynamic DB-backed values
+4. Add docs generation command implementation (Markdown/man output)
+5. Start realtime webhook ingestion skeleton (`service/server.py` + event log writes)
 
 ## Decision Log Pointer
 

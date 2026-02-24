@@ -6,9 +6,13 @@ from slack_mirror.cli.main import build_parser
 class CliTests(unittest.TestCase):
     def test_parse_mirror_backfill(self):
         parser = build_parser()
-        args = parser.parse_args(["mirror", "backfill", "--workspace", "default"])
+        args = parser.parse_args(
+            ["mirror", "backfill", "--workspace", "default", "--include-messages", "--channel-limit", "3"]
+        )
         self.assertEqual(args.command, "mirror")
         self.assertEqual(args.workspace, "default")
+        self.assertTrue(args.include_messages)
+        self.assertEqual(args.channel_limit, 3)
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_workspaces_verify(self):

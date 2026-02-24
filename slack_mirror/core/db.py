@@ -130,3 +130,68 @@ def upsert_channel(conn: sqlite3.Connection, workspace_id: int, channel: dict[st
                 json.dumps(channel, sort_keys=True),
             ),
         )
+
+
+def list_channel_ids(conn: sqlite3.Connection, workspace_id: int) -> list[str]:
+    rows = conn.execute(
+        "SELECT channel_id FROM channels WHERE workspace_id = ? ORDER BY channel_id",
+        (workspace_id,),
+    )
+    return [r["channel_id"] for r in rows]
+
+
+def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str, message: dict[str, Any]) -> None:
+    ts = message.get("ts")
+    if not ts:
+        return
+    edited_ts = ((message.get("edited") or {}).get("ts"))
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO messages(workspace_id, channel_id, ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, channel_id, ts) DO UPDATE SET
+              user_id=excluded.user_id,
+              text=excluded.text,
+              subtype=excluded.subtype,
+              thread_ts=excluded.thread_ts,
+              edited_ts=excluded.edited_ts,
+              deleted=excluded.deleted,
+              raw_json=excluded.raw_json,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                workspace_id,
+                channel_id,
+                ts,
+                message.get("user") or message.get("bot_id"),
+                message.get("text"),
+                message.get("subtype"),
+                message.get("thread_ts"),
+                edited_ts,
+                1 if message.get("subtype") == "message_deleted" else 0,
+                json.dumps(message, sort_keys=True),
+            ),
+        )
+
+
+def set_sync_state(conn: sqlite3.Connection, workspace_id: int, key: str, value: str) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO sync_state(workspace_id, key, value)
+            VALUES (?, ?, ?)
+            ON CONFLICT(workspace_id, key) DO UPDATE SET
+              value=excluded.value,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (workspace_id, key, value),
+        )
+
+
+def get_sync_state(conn: sqlite3.Connection, workspace_id: int, key: str) -> str | None:
+    row = conn.execute(
+        "SELECT value FROM sync_state WHERE workspace_id = ? AND key = ?",
+        (workspace_id, key),
+    ).fetchone()
+    return row["value"] if row else None
