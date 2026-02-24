@@ -216,10 +216,20 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - regenerates docs and fails if `docs/CLI.md` or `docs/slack-mirror.1` are dirty
 - Updated config docs with local docs-check command
 
+### 2026-02-24 — Docs generation examples pass
+
+- Added template-driven command examples in generated docs for key commands:
+  - top-level bootstrap/list usage
+  - `mirror backfill`
+  - `mirror serve-webhooks`
+  - `mirror process-events`
+  - `docs generate`
+- Regenerated `docs/CLI.md` and `docs/slack-mirror.1`
+
 ## Next Actions Queue
 
-1. Add command examples section to generated docs (template-driven)
-2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
+1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
+2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
 
 ## Decision Log Pointer
 

@@ -253,6 +253,31 @@ def _find_subparser_action(parser: argparse.ArgumentParser):
     return None
 
 
+def _example_commands_for(cmd: str) -> list[str]:
+    examples = {
+        "slack-mirror": [
+            "slack-mirror --config config.yaml mirror init",
+            "slack-mirror --config config.yaml workspaces list --json",
+        ],
+        "slack-mirror mirror backfill": [
+            "slack-mirror --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 10",
+            "slack-mirror --config config.yaml mirror backfill --workspace default --include-files --file-types all --cache-root ./cache",
+        ],
+        "slack-mirror mirror serve-webhooks": [
+            "slack-mirror --config config.yaml mirror serve-webhooks --workspace default --bind 127.0.0.1 --port 8787",
+        ],
+        "slack-mirror mirror process-events": [
+            "slack-mirror --config config.yaml mirror process-events --workspace default --limit 200",
+            "slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10",
+        ],
+        "slack-mirror docs generate": [
+            "slack-mirror --config config.yaml docs generate --format markdown --output docs/CLI.md",
+            "slack-mirror --config config.yaml docs generate --format man --output docs/slack-mirror.1",
+        ],
+    }
+    return examples.get(cmd, [])
+
+
 def _emit_markdown_for_parser(parser: argparse.ArgumentParser, cmd: str = "slack-mirror", depth: int = 2) -> list[str]:
     lines: list[str] = []
     heading = "#" * depth
@@ -310,6 +335,15 @@ def _emit_markdown_for_parser(parser: argparse.ArgumentParser, cmd: str = "slack
                 lines.append(f"- `{name}` — {detail}")
             else:
                 lines.append(f"- `{name}`")
+        lines.append("")
+
+    examples = _example_commands_for(cmd)
+    if examples:
+        lines.append("**Examples**")
+        lines.append("")
+        lines.append("```")
+        lines.extend(examples)
+        lines.append("```")
         lines.append("")
 
     sub = _find_subparser_action(parser)

@@ -15,6 +15,13 @@ usage: slack-mirror [-h] [--config CONFIG]
 **Arguments**
 
 
+**Examples**
+
+```
+slack-mirror --config config.yaml mirror init
+slack-mirror --config config.yaml workspaces list --json
+```
+
 **Subcommands**
 
 - `channels`
@@ -104,6 +111,13 @@ usage: slack-mirror docs generate [-h] [--format {markdown,man}]
 - `--format` — default: `markdown`
 - `--output`
 
+**Examples**
+
+```
+slack-mirror --config config.yaml docs generate --format markdown --output docs/CLI.md
+slack-mirror --config config.yaml docs generate --format man --output docs/slack-mirror.1
+```
+
 
 
 ## `slack-mirror mirror`
@@ -150,6 +164,13 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 - `--download-content`
 - `--cache-root` — default: `./cache`
 
+**Examples**
+
+```
+slack-mirror --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 10
+slack-mirror --config config.yaml mirror backfill --workspace default --include-files --file-types all --cache-root ./cache
+```
+
 
 ### `slack-mirror mirror init`
 **Usage**
@@ -177,6 +198,13 @@ usage: slack-mirror mirror process-events [-h] --workspace WORKSPACE
 - `--interval` — default: `2.0`
 - `--max-cycles`
 
+**Examples**
+
+```
+slack-mirror --config config.yaml mirror process-events --workspace default --limit 200
+slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10
+```
+
 
 ### `slack-mirror mirror serve-webhooks`
 **Usage**
@@ -191,6 +219,12 @@ usage: slack-mirror mirror serve-webhooks [-h] --workspace WORKSPACE
 - `--workspace`
 - `--bind`
 - `--port`
+
+**Examples**
+
+```
+slack-mirror --config config.yaml mirror serve-webhooks --workspace default --bind 127.0.0.1 --port 8787
+```
 
 
 
