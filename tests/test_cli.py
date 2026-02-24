@@ -92,11 +92,21 @@ class CliTests(unittest.TestCase):
 
     def test_parse_search_keyword(self):
         parser = build_parser()
-        args = parser.parse_args(["search", "keyword", "--workspace", "default", "--query", "deploy", "--limit", "5"])
+        args = parser.parse_args(
+            ["search", "keyword", "--workspace", "default", "--query", "deploy", "--limit", "5", "--no-fts"]
+        )
         self.assertEqual(args.command, "search")
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.query, "deploy")
         self.assertEqual(args.limit, 5)
+        self.assertTrue(args.no_fts)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_search_reindex_keyword(self):
+        parser = build_parser()
+        args = parser.parse_args(["search", "reindex-keyword", "--workspace", "default"])
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
         self.assertTrue(hasattr(args, "func"))
 
 

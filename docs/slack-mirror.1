@@ -190,17 +190,19 @@ slack-mirror --config config.yaml mirror serve-webhooks --workspace default --bi
 .SH SLACK-MIRROR SEARCH
 **Usage**
 
-usage: slack-mirror search [-h] {keyword} ...
+usage: slack-mirror search [-h] {reindex-keyword,keyword} ...
 
 **Arguments**
 **Subcommands**
 .IP \[bu] 2
 `keyword`
+.IP \[bu] 2
+`reindex-keyword`
 .SH SLACK-MIRROR SEARCH KEYWORD
 **Usage**
 
 usage: slack-mirror search keyword [-h] --workspace WORKSPACE --query QUERY
-                                   [--limit LIMIT] [--json]
+                                   [--limit LIMIT] [--no-fts] [--json]
 
 **Options**
 .IP \[bu] 2
@@ -210,11 +212,22 @@ usage: slack-mirror search keyword [-h] --workspace WORKSPACE --query QUERY
 .IP \[bu] 2
 `--limit` — maximum result rows; default: `20`
 .IP \[bu] 2
+`--no-fts` — disable FTS prefilter and use SQL fallback only
+.IP \[bu] 2
 `--json` — json output
 **Examples**
 
+slack-mirror --config config.yaml search reindex-keyword --workspace default
 slack-mirror --config config.yaml search keyword --workspace default --query deploy --limit 20
 
+.SH SLACK-MIRROR SEARCH REINDEX-KEYWORD
+**Usage**
+
+usage: slack-mirror search reindex-keyword [-h] --workspace WORKSPACE
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
 .SH SLACK-MIRROR WORKSPACES
 **Usage**
 

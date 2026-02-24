@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_user, upsert_workspace
-from slack_mirror.search.keyword import search_messages
+from slack_mirror.search.keyword import reindex_messages_fts, search_messages
 
 
 class SearchTests(unittest.TestCase):
@@ -55,9 +55,15 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["user_id"], "U2")
 
+            indexed = reindex_messages_fts(conn, workspace_id=ws_id)
+            self.assertGreaterEqual(indexed, 3)
+
             rows = search_messages(conn, workspace_id=ws_id, query="deploy -docs", limit=10)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["user_id"], "U1")
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy", limit=10, use_fts=True)
+            self.assertEqual(len(rows), 2)
 
 
 if __name__ == "__main__":

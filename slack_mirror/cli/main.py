@@ -251,6 +251,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         workspace_id=int(ws_row["id"]),
         query=args.query,
         limit=args.limit,
+        use_fts=not args.no_fts,
     )
 
     if args.json:
@@ -261,6 +262,22 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
             print(f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={r.get('text') or ''}")
 
     print(f"Keyword search workspace={args.workspace} query={args.query!r} results={len(rows)}")
+    return 0
+
+
+def cmd_search_reindex(args: argparse.Namespace) -> int:
+    from slack_mirror.search.keyword import reindex_messages_fts
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    count = reindex_messages_fts(conn, workspace_id=int(ws_row["id"]))
+    print(f"Reindexed messages_fts workspace={args.workspace} rows={count}")
     return 0
 
 
@@ -300,6 +317,7 @@ def _example_commands_for(cmd: str) -> list[str]:
             "slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10",
         ],
         "slack-mirror search keyword": [
+            "slack-mirror --config config.yaml search reindex-keyword --workspace default",
             "slack-mirror --config config.yaml search keyword --workspace default --query deploy --limit 20",
         ],
         "slack-mirror docs generate": [
@@ -498,7 +516,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -513,7 +531,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --query --limit --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --query --limit --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -593,13 +611,14 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword)'
+        _describe 'search command' '(keyword reindex-keyword)'
         return
       fi
       _arguments \
         '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
         '--query[keyword query]:query:' \
         '--limit[maximum result rows]:number:' \
+        '--no-fts[disable FTS prefilter]' \
         '--json[json output]'
       ;;
     completion)
@@ -687,6 +706,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     search = sub.add_parser("search", help="local keyword/semantic search commands")
     search_sub = search.add_subparsers(dest="search_cmd")
+    p_search_reindex = search_sub.add_parser("reindex-keyword", help="rebuild messages_fts index for a workspace")
+    p_search_reindex.add_argument("--workspace", required=True, help="workspace name")
+    p_search_reindex.set_defaults(func=cmd_search_reindex)
+
     p_search_kw = search_sub.add_parser("keyword", help="keyword search over mirrored messages")
     p_search_kw.add_argument("--workspace", required=True, help="workspace name")
     p_search_kw.add_argument(
@@ -695,6 +718,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="query text (supports from:, channel:, before:, after:, is:, has:link, quoted phrases, and -term)",
     )
     p_search_kw.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_kw.add_argument("--no-fts", action="store_true", help="disable FTS prefilter and use SQL fallback only")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)
 

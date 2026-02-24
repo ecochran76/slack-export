@@ -251,11 +251,24 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-24 — Search speed enhancement (FTS prefilter path)
+
+- Added migration `0003_messages_fts_v2.sql`:
+  - `messages_fts` now stores unindexed join keys (`workspace_id`, `channel_id`, `user_id`, `ts`) + indexed `text`
+- Added keyword-index maintenance command:
+  - `search reindex-keyword --workspace <name>`
+- Added FTS-aware query execution:
+  - `search keyword` now uses FTS prefilter when positive terms exist
+  - automatic SQL fallback when FTS index is missing/stale
+  - `--no-fts` flag to force SQL-only path
+- Updated bash/zsh completion for new search command/flag
+- Expanded tests for search parse + behavior with FTS reindex path
+
 ## Next Actions Queue
 
 1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-3. Add FTS-backed indexing/query path (with fallback) for faster keyword search at scale
+3. Add incremental FTS sync hooks during message upserts (avoid periodic full reindex)
 
 ## Decision Log Pointer
 
