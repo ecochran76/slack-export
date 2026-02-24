@@ -195,3 +195,57 @@ def get_sync_state(conn: sqlite3.Connection, workspace_id: int, key: str) -> str
         (workspace_id, key),
     ).fetchone()
     return row["value"] if row else None
+
+
+def upsert_file(conn: sqlite3.Connection, workspace_id: int, file_obj: dict[str, Any], local_path: str | None = None) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, size, local_path, checksum, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, file_id) DO UPDATE SET
+              name=excluded.name,
+              title=excluded.title,
+              mimetype=excluded.mimetype,
+              size=excluded.size,
+              local_path=excluded.local_path,
+              checksum=excluded.checksum,
+              raw_json=excluded.raw_json,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                workspace_id,
+                file_obj.get("id"),
+                file_obj.get("name"),
+                file_obj.get("title"),
+                file_obj.get("mimetype"),
+                file_obj.get("size"),
+                local_path,
+                None,
+                json.dumps(file_obj, sort_keys=True),
+            ),
+        )
+
+
+def upsert_canvas(
+    conn: sqlite3.Connection, workspace_id: int, canvas_obj: dict[str, Any], local_path: str | None = None
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO canvases(workspace_id, canvas_id, title, local_path, raw_json)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, canvas_id) DO UPDATE SET
+              title=excluded.title,
+              local_path=excluded.local_path,
+              raw_json=excluded.raw_json,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                workspace_id,
+                canvas_obj.get("id"),
+                canvas_obj.get("title"),
+                local_path,
+                json.dumps(canvas_obj, sort_keys=True),
+            ),
+        )

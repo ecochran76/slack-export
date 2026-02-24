@@ -62,6 +62,20 @@ class SlackApiClient:
             sleep(self.pause_seconds)
         return messages
 
+    def list_files(self, types: str | None = None) -> list[dict[str, Any]]:
+        files: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            resp = self.client.files_list(count=200, page=page, types=types)
+            current = resp.get("files", [])
+            files.extend(current)
+            pages = (resp.get("paging") or {}).get("pages", 1)
+            if page >= pages:
+                break
+            page += 1
+            sleep(self.pause_seconds)
+        return files
+
 
 def safe_auth_test(token: str) -> tuple[bool, str]:
     try:

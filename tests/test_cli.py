@@ -7,12 +7,25 @@ class CliTests(unittest.TestCase):
     def test_parse_mirror_backfill(self):
         parser = build_parser()
         args = parser.parse_args(
-            ["mirror", "backfill", "--workspace", "default", "--include-messages", "--channel-limit", "3"]
+            [
+                "mirror",
+                "backfill",
+                "--workspace",
+                "default",
+                "--include-messages",
+                "--channel-limit",
+                "3",
+                "--include-files",
+                "--cache-root",
+                "./cache-test",
+            ]
         )
         self.assertEqual(args.command, "mirror")
         self.assertEqual(args.workspace, "default")
         self.assertTrue(args.include_messages)
         self.assertEqual(args.channel_limit, 3)
+        self.assertTrue(args.include_files)
+        self.assertEqual(args.cache_root, "./cache-test")
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_workspaces_verify(self):

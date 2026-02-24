@@ -86,10 +86,22 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `--include-messages`
   - `--channel-limit`
 
+### 2026-02-23 — Phase B (files/canvases metadata backfill)
+
+- Checked the prior failed edit warning in `slack_mirror/core/slack_api.py` (it was a no-op edit attempt; file state is good)
+- Added `files.list` pagination helper in Slack API client
+- Added DB upserts:
+  - `upsert_file`
+  - `upsert_canvas`
+- Added backfill flow for files/canvases metadata + deterministic local cache paths
+- Extended CLI `mirror backfill` with:
+  - `--include-files`
+  - `--cache-root`
+
 ## Next Actions Queue
 
-1. Add time-window controls (`--oldest`, `--latest`) for message backfill
-2. Add file/canvas backfill pipeline into DB + local cache
+1. Add actual file/canvas content downloads with checksum + retry logic
+2. Add time-window controls (`--oldest`, `--latest`) for message backfill
 3. Add completion plumbing hooks for dynamic DB-backed values
 4. Add docs generation command implementation (Markdown/man output)
 5. Start realtime webhook ingestion skeleton (`service/server.py` + event log writes)

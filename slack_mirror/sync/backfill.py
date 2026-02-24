@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from slack_sdk.errors import SlackApiError
 
+from pathlib import Path
+
 from slack_mirror.core.db import (
     get_sync_state,
     list_channel_ids,
     set_sync_state,
+    upsert_canvas,
     upsert_channel,
+    upsert_file,
     upsert_message,
     upsert_user,
 )
@@ -61,3 +65,43 @@ def backfill_messages(
             set_sync_state(conn, workspace_id, checkpoint_key, newest_ts)
 
     return {"channels": processed_channels, "messages": total_messages, "skipped": skipped_channels}
+
+
+def _safe_name(value: str, fallback: str) -> str:
+    name = (value or fallback).strip()
+    return "".join(c for c in name if c.isalnum() or c in ("-", "_", ".")) or fallback
+
+
+def backfill_files_and_canvases(
+    *, token: str, workspace_id: int, conn, cache_root: str = "./cache"
+) -> dict[str, int]:
+    api = SlackApiClient(token)
+
+    files = api.list_files(types="images,snippets,gdocs,zips,pdfs")
+    canvases = api.list_files(types="canvas")
+
+    files_dir = Path(cache_root) / "files"
+    canvases_dir = Path(cache_root) / "canvases"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    canvases_dir.mkdir(parents=True, exist_ok=True)
+
+    file_count = 0
+    for f in files:
+        fid = f.get("id")
+        if not fid:
+            continue
+        local = files_dir / fid / _safe_name(f.get("name") or f.get("title") or fid, f"file_{fid}")
+        local.parent.mkdir(parents=True, exist_ok=True)
+        upsert_file(conn, workspace_id, f, local_path=str(local))
+        file_count += 1
+
+    canvas_count = 0
+    for c in canvases:
+        cid = c.get("id")
+        if not cid:
+            continue
+        local = canvases_dir / f"{cid}.html"
+        upsert_canvas(conn, workspace_id, c, local_path=str(local))
+        canvas_count += 1
+
+    return {"files": file_count, "canvases": canvas_count}

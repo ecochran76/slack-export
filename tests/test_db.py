@@ -11,6 +11,8 @@ from slack_mirror.core.db import (
     upsert_channel,
     upsert_message,
     upsert_workspace,
+    upsert_file,
+    upsert_canvas,
 )
 
 
@@ -37,6 +39,13 @@ class DbTests(unittest.TestCase):
             set_sync_state(conn, ws_id, "messages.oldest.C123", "123.45")
             state = get_sync_state(conn, ws_id, "messages.oldest.C123")
             self.assertEqual(state, "123.45")
+
+            upsert_file(conn, ws_id, {"id": "F1", "name": "a.txt", "title": "A"}, local_path="cache/files/F1/a.txt")
+            upsert_canvas(conn, ws_id, {"id": "CV1", "title": "Canvas 1"}, local_path="cache/canvases/CV1.html")
+            file_count = conn.execute("SELECT COUNT(*) AS c FROM files").fetchone()["c"]
+            canvas_count = conn.execute("SELECT COUNT(*) AS c FROM canvases").fetchone()["c"]
+            self.assertEqual(file_count, 1)
+            self.assertEqual(canvas_count, 1)
 
 
 if __name__ == "__main__":

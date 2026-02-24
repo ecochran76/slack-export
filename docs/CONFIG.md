@@ -34,6 +34,7 @@ python -m slack_mirror.cli.main --config config.yaml workspaces verify
 python -m slack_mirror.cli.main --config config.yaml workspaces list
 python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default
 python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 5
+python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default --include-files --cache-root ./cache
 python -m slack_mirror.cli.main channels sync-from-tool
 
 # after install (entrypoint)
