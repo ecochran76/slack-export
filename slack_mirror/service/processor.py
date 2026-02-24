@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from slack_mirror.core.db import mark_event_status, upsert_channel, upsert_file, upsert_message
@@ -13,7 +14,29 @@ def _apply_event(conn, workspace_id: int, payload: dict[str, Any]) -> str:
     if ev_type == "message":
         channel_id = ev.get("channel")
         if channel_id:
+            subtype = ev.get("subtype")
             upsert_channel(conn, workspace_id, {"id": channel_id, "name": channel_id})
+
+            if subtype == "message_changed":
+                nested = ev.get("message") or {}
+                if nested:
+                    nested["channel"] = channel_id
+                    upsert_message(conn, workspace_id, channel_id, nested)
+                    return "processed:message_changed"
+                return "ignored:message_changed_missing_nested"
+
+            if subtype == "message_deleted":
+                deleted = {
+                    "ts": ev.get("deleted_ts") or (ev.get("previous_message") or {}).get("ts"),
+                    "subtype": "message_deleted",
+                    "text": "",
+                    "channel": channel_id,
+                }
+                if deleted.get("ts"):
+                    upsert_message(conn, workspace_id, channel_id, deleted)
+                    return "processed:message_deleted"
+                return "ignored:message_deleted_missing_ts"
+
             upsert_message(conn, workspace_id, channel_id, ev)
             return "processed:message"
         return "ignored:message_no_channel"
@@ -71,3 +94,26 @@ def process_pending_events(conn, workspace_id: int, limit: int = 100) -> dict[st
             errored += 1
 
     return {"processed": processed, "errored": errored, "scanned": len(rows)}
+
+
+def run_processor_loop(
+    conn, workspace_id: int, *, limit: int = 100, interval_seconds: float = 2.0, max_cycles: int | None = None
+) -> dict[str, int]:
+    total_processed = 0
+    total_errored = 0
+    cycles = 0
+    while True:
+        result = process_pending_events(conn, workspace_id, limit=limit)
+        total_processed += result["processed"]
+        total_errored += result["errored"]
+        cycles += 1
+
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+
+        if result["scanned"] == 0:
+            time.sleep(interval_seconds)
+        else:
+            time.sleep(0.1)
+
+    return {"processed": total_processed, "errored": total_errored, "cycles": cycles}

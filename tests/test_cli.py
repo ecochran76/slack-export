@@ -50,10 +50,27 @@ class CliTests(unittest.TestCase):
 
     def test_parse_process_events(self):
         parser = build_parser()
-        args = parser.parse_args(["mirror", "process-events", "--workspace", "default", "--limit", "10"])
+        args = parser.parse_args(
+            [
+                "mirror",
+                "process-events",
+                "--workspace",
+                "default",
+                "--limit",
+                "10",
+                "--loop",
+                "--interval",
+                "0.5",
+                "--max-cycles",
+                "3",
+            ]
+        )
         self.assertEqual(args.command, "mirror")
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.limit, 10)
+        self.assertTrue(args.loop)
+        self.assertEqual(args.interval, 0.5)
+        self.assertEqual(args.max_cycles, 3)
         self.assertTrue(hasattr(args, "func"))
 
 

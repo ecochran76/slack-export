@@ -138,9 +138,17 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added tests:
   - `tests/test_processor.py`
 
+### 2026-02-23 — Phase C (expanded event coverage + loop mode)
+
+- Expanded processor message handling:
+  - supports `message_changed`
+  - supports `message_deleted`
+- Added processor loop mode:
+  - `mirror process-events --loop --interval <seconds> [--max-cycles N]`
+
 ## Next Actions Queue
 
-1. Expand event type coverage (message_changed/deleted, member joins/leaves, etc.)
+1. Add member/join/leave related event handling and channel membership table writes
 2. Add time-window controls (`--oldest`, `--latest`) for message backfill
 3. Add smarter file type coverage beyond current list (or remove restrictive filter)
 4. Add completion plumbing hooks for dynamic DB-backed values

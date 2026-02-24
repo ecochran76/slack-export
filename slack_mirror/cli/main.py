@@ -191,7 +191,7 @@ def cmd_serve_webhooks(args: argparse.Namespace) -> int:
 
 
 def cmd_process_events(args: argparse.Namespace) -> int:
-    from slack_mirror.service.processor import process_pending_events
+    from slack_mirror.service.processor import process_pending_events, run_processor_loop
 
     db_path = _db_path_from_config(args.config)
     conn = connect(db_path)
@@ -209,6 +209,20 @@ def cmd_process_events(args: argparse.Namespace) -> int:
         )
     else:
         workspace_id = int(ws_row["id"])
+
+    if args.loop:
+        result = run_processor_loop(
+            conn,
+            workspace_id,
+            limit=args.limit,
+            interval_seconds=args.interval,
+            max_cycles=args.max_cycles,
+        )
+        print(
+            f"Processor loop workspace={ws_cfg.get('name')} cycles={result['cycles']} "
+            f"processed={result['processed']} errored={result['errored']}"
+        )
+        return 0 if result["errored"] == 0 else 1
 
     result = process_pending_events(conn, workspace_id, limit=args.limit)
     print(
@@ -271,6 +285,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_process = mirror_sub.add_parser("process-events")
     p_process.add_argument("--workspace", required=True)
     p_process.add_argument("--limit", type=int, default=100)
+    p_process.add_argument("--loop", action="store_true")
+    p_process.add_argument("--interval", type=float, default=2.0)
+    p_process.add_argument("--max-cycles", type=int)
     p_process.set_defaults(func=cmd_process_events)
 
     workspaces = sub.add_parser("workspaces")
