@@ -5,6 +5,17 @@ import sqlite3
 from typing import Any
 
 
+def _normalize_user_ref(value: str) -> str:
+    v = (value or "").strip()
+    # Slack mention forms: <@U123>, <@U123|name>
+    if v.startswith("<@") and v.endswith(">"):
+        inner = v[2:-1]
+        return inner.split("|", 1)[0]
+    if v.startswith("@"):
+        return v[1:]
+    return v
+
+
 def _build_where_clause(raw_query: str) -> tuple[str, list[Any]]:
     tokens = shlex.split(raw_query)
     clauses: list[str] = ["m.workspace_id = ?", "m.deleted = 0"]
@@ -19,12 +30,26 @@ def _build_where_clause(raw_query: str) -> tuple[str, list[Any]]:
             continue
 
         if token.startswith("from:"):
-            value = token.split(":", 1)[1]
-            clause = "m.user_id = ?"
+            raw_value = token.split(":", 1)[1]
+            value = _normalize_user_ref(raw_value)
+            clause = """(
+                m.user_id = ?
+                OR m.user_id IN (
+                    SELECT u.user_id
+                    FROM users u
+                    WHERE u.workspace_id = m.workspace_id
+                      AND (
+                        u.user_id = ?
+                        OR lower(COALESCE(u.username, '')) = lower(?)
+                        OR lower(COALESCE(u.display_name, '')) = lower(?)
+                        OR lower(COALESCE(u.real_name, '')) = lower(?)
+                      )
+                )
+            )"""
             if negated:
-                clause = f"NOT ({clause})"
+                clause = f"NOT {clause}"
             clauses.append(clause)
-            params.append(value)
+            params.extend([value, value, value, value, value])
             continue
 
         if token.startswith("channel:"):

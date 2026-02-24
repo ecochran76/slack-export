@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_workspace
+from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.search.keyword import search_messages
 
 
@@ -16,6 +16,8 @@ class SearchTests(unittest.TestCase):
 
             ws_id = upsert_workspace(conn, name="default")
             upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_user(conn, ws_id, {"id": "U2", "name": "bob", "real_name": "Bob Example", "profile": {"display_name": "bobby"}})
             upsert_message(conn, ws_id, "C1", {"ts": "1.1", "text": "hello deploy world", "user": "U1"})
             upsert_message(
                 conn,
@@ -29,6 +31,14 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
 
             rows = search_messages(conn, workspace_id=ws_id, query="deploy from:U1", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["user_id"], "U1")
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy from:<@U1>", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["user_id"], "U1")
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy from:@alice", limit=10)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["user_id"], "U1")
 
