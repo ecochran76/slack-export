@@ -64,3 +64,69 @@ def list_workspaces(conn: sqlite3.Connection) -> list[sqlite3.Row]:
             "SELECT id, name, team_id, domain, created_at, updated_at FROM workspaces ORDER BY name"
         )
     )
+
+
+def get_workspace_by_name(conn: sqlite3.Connection, name: str) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT id, name, team_id, domain, config_json FROM workspaces WHERE name = ?",
+        (name,),
+    ).fetchone()
+
+
+def upsert_user(conn: sqlite3.Connection, workspace_id: int, user: dict[str, Any]) -> None:
+    profile = user.get("profile") or {}
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO users(workspace_id, user_id, username, display_name, real_name, email, is_bot, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, user_id) DO UPDATE SET
+              username=excluded.username,
+              display_name=excluded.display_name,
+              real_name=excluded.real_name,
+              email=excluded.email,
+              is_bot=excluded.is_bot,
+              raw_json=excluded.raw_json,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                workspace_id,
+                user.get("id"),
+                user.get("name"),
+                profile.get("display_name") or user.get("real_name"),
+                user.get("real_name"),
+                profile.get("email"),
+                1 if user.get("is_bot") else 0,
+                json.dumps(user, sort_keys=True),
+            ),
+        )
+
+
+def upsert_channel(conn: sqlite3.Connection, workspace_id: int, channel: dict[str, Any]) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO channels(workspace_id, channel_id, name, is_private, is_im, is_mpim, topic, purpose, raw_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, channel_id) DO UPDATE SET
+              name=excluded.name,
+              is_private=excluded.is_private,
+              is_im=excluded.is_im,
+              is_mpim=excluded.is_mpim,
+              topic=excluded.topic,
+              purpose=excluded.purpose,
+              raw_json=excluded.raw_json,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                workspace_id,
+                channel.get("id"),
+                channel.get("name") or channel.get("user") or channel.get("id"),
+                1 if channel.get("is_private") else 0,
+                1 if channel.get("is_im") else 0,
+                1 if channel.get("is_mpim") else 0,
+                (channel.get("topic") or {}).get("value"),
+                (channel.get("purpose") or {}).get("value"),
+                json.dumps(channel, sort_keys=True),
+            ),
+        )

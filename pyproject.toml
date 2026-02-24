@@ -19,4 +19,4 @@ dependencies = [
 slack-mirror = "slack_mirror.cli.main:main"
 
 [tool.setuptools]
-packages = ["slack_mirror", "slack_mirror.cli", "slack_mirror.core", "slack_mirror.integrations", "slack_mirror.search", "slack_mirror.service"]
+packages = ["slack_mirror", "slack_mirror.cli", "slack_mirror.core", "slack_mirror.integrations", "slack_mirror.search", "slack_mirror.service", "slack_mirror.sync"]

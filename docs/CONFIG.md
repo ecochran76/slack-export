@@ -30,7 +30,9 @@ workspaces:
 ```bash
 python -m slack_mirror.cli.main --config config.yaml mirror init
 python -m slack_mirror.cli.main --config config.yaml workspaces sync-config
+python -m slack_mirror.cli.main --config config.yaml workspaces verify
 python -m slack_mirror.cli.main --config config.yaml workspaces list
+python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default
 python -m slack_mirror.cli.main channels sync-from-tool
 
 # after install (entrypoint)

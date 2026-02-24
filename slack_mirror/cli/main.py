@@ -5,7 +5,13 @@ import json
 from pathlib import Path
 
 from slack_mirror.core.config import load_config
-from slack_mirror.core.db import apply_migrations, connect, list_workspaces, upsert_workspace
+from slack_mirror.core.db import (
+    apply_migrations,
+    connect,
+    get_workspace_by_name,
+    list_workspaces,
+    upsert_workspace,
+)
 from slack_mirror.integrations import SlackChannelsAdapter
 
 
@@ -23,14 +29,25 @@ def _db_path_from_config(config_path: str) -> str:
     return cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
 
 
+def _workspace_configs(config_path: str) -> list[dict]:
+    cfg = load_config(config_path)
+    return cfg.get("workspaces", [])
+
+
+def _workspace_config_by_name(config_path: str, name: str) -> dict:
+    for ws in _workspace_configs(config_path):
+        if ws.get("name") == name:
+            return ws
+    raise ValueError(f"Workspace '{name}' not found in config")
+
+
 def cmd_workspaces_sync(args: argparse.Namespace) -> int:
-    cfg = load_config(args.config)
     db_path = _db_path_from_config(args.config)
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
 
     imported = 0
-    for ws in cfg.get("workspaces", []):
+    for ws in _workspace_configs(args.config):
         if not ws.get("name"):
             continue
         upsert_workspace(
@@ -56,6 +73,59 @@ def cmd_workspaces_list(args: argparse.Namespace) -> int:
     else:
         for ws in payload:
             print(f"{ws.get('name')}\t{ws.get('team_id', '')}\t{ws.get('domain', '') or ''}")
+    return 0
+
+
+def cmd_workspaces_verify(args: argparse.Namespace) -> int:
+    from slack_mirror.core.slack_api import safe_auth_test
+
+    workspaces = _workspace_configs(args.config)
+    if args.workspace:
+        workspaces = [w for w in workspaces if w.get("name") == args.workspace]
+    failures = 0
+    for ws in workspaces:
+        name = ws.get("name") or "<unnamed>"
+        token = ws.get("token")
+        if not token:
+            failures += 1
+            print(f"{name}\tmissing_token")
+            continue
+        ok, msg = safe_auth_test(token)
+        status = "ok" if ok else "error"
+        if not ok:
+            failures += 1
+        print(f"{name}\t{status}\t{msg}")
+    return 1 if failures else 0
+
+
+def cmd_mirror_backfill(args: argparse.Namespace) -> int:
+    from slack_mirror.sync.backfill import backfill_users_and_channels
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_cfg = _workspace_config_by_name(args.config, args.workspace)
+    token = ws_cfg.get("token")
+    if not token:
+        raise ValueError(f"Workspace '{args.workspace}' has no token configured")
+
+    # Ensure workspace exists in DB
+    workspace_id = upsert_workspace(
+        conn,
+        name=ws_cfg.get("name"),
+        team_id=ws_cfg.get("team_id"),
+        domain=ws_cfg.get("domain"),
+        config=ws_cfg,
+    )
+    persisted = get_workspace_by_name(conn, ws_cfg.get("name"))
+    if not persisted:
+        raise RuntimeError("Failed to resolve workspace after upsert")
+
+    counts = backfill_users_and_channels(token=token, workspace_id=workspace_id, conn=conn)
+    print(
+        f"Backfill complete workspace={ws_cfg.get('name')} users={counts['users']} channels={counts['channels']}"
+    )
     return 0
 
 
@@ -94,6 +164,9 @@ def build_parser() -> argparse.ArgumentParser:
     mirror_sub = mirror.add_subparsers(dest="mirror_cmd")
     p_init = mirror_sub.add_parser("init")
     p_init.set_defaults(func=cmd_mirror_init)
+    p_backfill = mirror_sub.add_parser("backfill")
+    p_backfill.add_argument("--workspace", required=True)
+    p_backfill.set_defaults(func=cmd_mirror_backfill)
 
     workspaces = sub.add_parser("workspaces")
     ws_sub = workspaces.add_subparsers(dest="ws_cmd")
@@ -102,6 +175,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ws_list.set_defaults(func=cmd_workspaces_list)
     p_ws_sync = ws_sub.add_parser("sync-config")
     p_ws_sync.set_defaults(func=cmd_workspaces_sync)
+    p_ws_verify = ws_sub.add_parser("verify")
+    p_ws_verify.add_argument("--workspace")
+    p_ws_verify.set_defaults(func=cmd_workspaces_verify)
 
     channels = sub.add_parser("channels")
     channels_sub = channels.add_subparsers(dest="channels_cmd")

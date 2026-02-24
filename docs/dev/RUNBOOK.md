@@ -58,11 +58,27 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `workspaces list` now reads from DB
 - Added DB helpers: `upsert_workspace`, `list_workspaces`
 
+### 2026-02-23 — Phase B kickoff (API pagination + first backfill)
+
+- Added Slack API client module: `slack_mirror/core/slack_api.py`
+  - `auth_test`
+  - cursor-paginated `users_list`
+  - cursor-paginated `conversations_list`
+- Added first backfill worker: `slack_mirror/sync/backfill.py`
+  - backfills users + channels into DB
+- Added DB upsert helpers:
+  - `upsert_user`
+  - `upsert_channel`
+  - `get_workspace_by_name`
+- Extended CLI:
+  - `workspaces verify [--workspace <name>]`
+  - `mirror backfill --workspace <name>`
+
 ## Next Actions Queue
 
-1. Add `workspaces verify` (auth test / token scope checks)
-2. Add initial Slack API client module with robust pagination helpers
-3. Implement backfill for users/channels into DB
+1. Add per-workspace sync_state updates for backfill checkpoints
+2. Implement message backfill (`conversations.history`) with pagination and upserts
+3. Add first integration test for `workspaces verify` in env-based test mode
 4. Add completion plumbing hooks for dynamic DB-backed values
 5. Add docs generation command implementation (Markdown/man output)
 
