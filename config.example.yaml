@@ -1,0 +1,18 @@
+version: 1
+storage:
+  db_path: ${SLACK_MIRROR_DB:-./data/slack_mirror.db}
+  cache_root: ${SLACK_MIRROR_CACHE:-./cache}
+
+service:
+  bind: ${SLACK_MIRROR_BIND:-127.0.0.1}
+  port: ${SLACK_MIRROR_PORT:-8787}
+
+search:
+  embeddings_model: ${SLACK_MIRROR_EMBED_MODEL:-text-embedding-3-large}
+
+workspaces:
+  - name: default
+    team_id: ${SLACK_TEAM_ID:-}
+    token: ${SLACK_TOKEN:-}
+    signing_secret: ${SLACK_SIGNING_SECRET:-}
+    enabled: true

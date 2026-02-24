@@ -31,15 +31,29 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 - Captured architecture, roadmap, engineering plan, and runbook
 - Established docs split (`docs/` vs `docs/dev/`)
-- Next: implement Phase A scaffolding (config, schema, CLI skeleton)
+
+### 2026-02-23 — Phase A scaffolding (initial)
+
+- Added `config.example.yaml` with env-var interpolation patterns
+- Added `slack_mirror` package skeleton (`core`, `cli`, `search`, `service`, `integrations`)
+- Added SQLite migration scaffold: `slack_mirror/core/migrations/0001_init.sql`
+- Added config loader with `${ENV}` / `${ENV:-default}` support
+- Added DB connector + migration applier
+- Added CLI skeleton (`slack-mirror`) with stubs for:
+  - `mirror init`
+  - `workspaces list`
+  - `channels sync-from-tool`
+  - `docs generate`
+  - `completion print bash|zsh`
+- Added adapter for existing `~/.openclaw/workspace/scripts/slack_channels`
 
 ## Next Actions Queue
 
-1. Create modular package skeleton
-2. Add config loader with env interpolation
-3. Add SQLite migrations with workspace-aware schema
-4. Introduce CLI command groups for mirror/search/service
-5. Add placeholder docs generator/completion entrypoints
+1. Wire CLI entrypoint via packaging (`pyproject.toml` script)
+2. Add unit tests for config interpolation + migrations
+3. Implement `workspaces add/verify` + workspace bootstrap into DB
+4. Build initial backfill engine (users/channels first)
+5. Add user-facing docs for config + quickstart for `slack-mirror`
 
 ## Decision Log Pointer
 
