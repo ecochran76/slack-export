@@ -249,3 +249,17 @@ def upsert_canvas(
                 json.dumps(canvas_obj, sort_keys=True),
             ),
         )
+
+
+def update_file_download(
+    conn: sqlite3.Connection, workspace_id: int, file_id: str, local_path: str, checksum: str
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            UPDATE files
+            SET local_path = ?, checksum = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE workspace_id = ? AND file_id = ?
+            """,
+            (local_path, checksum, workspace_id, file_id),
+        )

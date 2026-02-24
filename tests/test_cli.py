@@ -16,6 +16,7 @@ class CliTests(unittest.TestCase):
                 "--channel-limit",
                 "3",
                 "--include-files",
+                "--download-content",
                 "--cache-root",
                 "./cache-test",
             ]
@@ -25,6 +26,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.include_messages)
         self.assertEqual(args.channel_limit, 3)
         self.assertTrue(args.include_files)
+        self.assertTrue(args.download_content)
         self.assertEqual(args.cache_root, "./cache-test")
         self.assertTrue(hasattr(args, "func"))
 

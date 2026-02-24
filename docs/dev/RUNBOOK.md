@@ -98,10 +98,21 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `--include-files`
   - `--cache-root`
 
+### 2026-02-23 — Phase B (file/canvas content downloads)
+
+- Added downloader module with retries + SHA256 checksum:
+  - `slack_mirror/sync/downloads.py`
+- Added file DB update helper:
+  - `update_file_download`
+- Extended file/canvas backfill to optionally download content:
+  - `--download-content`
+- Verified with bot token:
+  - `files_downloaded=15`, `canvases_downloaded=19`
+
 ## Next Actions Queue
 
-1. Add actual file/canvas content downloads with checksum + retry logic
-2. Add time-window controls (`--oldest`, `--latest`) for message backfill
+1. Add time-window controls (`--oldest`, `--latest`) for message backfill
+2. Add smarter file type coverage beyond current list (or remove restrictive filter)
 3. Add completion plumbing hooks for dynamic DB-backed values
 4. Add docs generation command implementation (Markdown/man output)
 5. Start realtime webhook ingestion skeleton (`service/server.py` + event log writes)

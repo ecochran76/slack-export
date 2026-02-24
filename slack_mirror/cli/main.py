@@ -136,20 +136,22 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
             channel_limit=args.channel_limit,
         )
 
-    file_counts = {"files": 0, "canvases": 0}
+    file_counts = {"files": 0, "canvases": 0, "files_downloaded": 0, "canvases_downloaded": 0}
     if args.include_files:
         file_counts = backfill_files_and_canvases(
             token=token,
             workspace_id=workspace_id,
             conn=conn,
             cache_root=args.cache_root,
+            download_content=args.download_content,
         )
 
     print(
         "Backfill complete "
         f"workspace={ws_cfg.get('name')} users={counts['users']} channels={counts['channels']} "
         f"message_channels={message_counts['channels']} messages={message_counts['messages']} "
-        f"skipped_channels={message_counts['skipped']} files={file_counts['files']} canvases={file_counts['canvases']}"
+        f"skipped_channels={message_counts['skipped']} files={file_counts['files']} canvases={file_counts['canvases']} "
+        f"files_downloaded={file_counts['files_downloaded']} canvases_downloaded={file_counts['canvases_downloaded']}"
     )
     return 0
 
@@ -194,6 +196,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--include-messages", action="store_true")
     p_backfill.add_argument("--channel-limit", type=int)
     p_backfill.add_argument("--include-files", action="store_true")
+    p_backfill.add_argument("--download-content", action="store_true")
     p_backfill.add_argument("--cache-root", default="./cache")
     p_backfill.set_defaults(func=cmd_mirror_backfill)
 

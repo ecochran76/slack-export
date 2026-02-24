@@ -8,6 +8,7 @@ from slack_mirror.core.db import (
     get_sync_state,
     list_channel_ids,
     set_sync_state,
+    update_file_download,
     upsert_canvas,
     upsert_channel,
     upsert_file,
@@ -15,6 +16,7 @@ from slack_mirror.core.db import (
     upsert_user,
 )
 from slack_mirror.core.slack_api import SlackApiClient
+from slack_mirror.sync.downloads import download_with_retries
 
 
 def backfill_users_and_channels(*, token: str, workspace_id: int, conn) -> dict[str, int]:
@@ -73,7 +75,12 @@ def _safe_name(value: str, fallback: str) -> str:
 
 
 def backfill_files_and_canvases(
-    *, token: str, workspace_id: int, conn, cache_root: str = "./cache"
+    *,
+    token: str,
+    workspace_id: int,
+    conn,
+    cache_root: str = "./cache",
+    download_content: bool = False,
 ) -> dict[str, int]:
     api = SlackApiClient(token)
 
@@ -86,6 +93,10 @@ def backfill_files_and_canvases(
     canvases_dir.mkdir(parents=True, exist_ok=True)
 
     file_count = 0
+    file_downloaded = 0
+    canvas_count = 0
+    canvas_downloaded = 0
+
     for f in files:
         fid = f.get("id")
         if not fid:
@@ -93,15 +104,30 @@ def backfill_files_and_canvases(
         local = files_dir / fid / _safe_name(f.get("name") or f.get("title") or fid, f"file_{fid}")
         local.parent.mkdir(parents=True, exist_ok=True)
         upsert_file(conn, workspace_id, f, local_path=str(local))
+
+        if download_content and f.get("url_private_download"):
+            ok, checksum_or_error = download_with_retries(f["url_private_download"], token, local)
+            if ok and checksum_or_error:
+                update_file_download(conn, workspace_id, fid, str(local), checksum_or_error)
+                file_downloaded += 1
         file_count += 1
 
-    canvas_count = 0
     for c in canvases:
         cid = c.get("id")
         if not cid:
             continue
         local = canvases_dir / f"{cid}.html"
         upsert_canvas(conn, workspace_id, c, local_path=str(local))
+
+        if download_content and c.get("url_private_download"):
+            ok, _ = download_with_retries(c["url_private_download"], token, local)
+            if ok:
+                canvas_downloaded += 1
         canvas_count += 1
 
-    return {"files": file_count, "canvases": canvas_count}
+    return {
+        "files": file_count,
+        "canvases": canvas_count,
+        "files_downloaded": file_downloaded,
+        "canvases_downloaded": canvas_downloaded,
+    }
