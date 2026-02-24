@@ -264,11 +264,20 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated bash/zsh completion for new search command/flag
 - Expanded tests for search parse + behavior with FTS reindex path
 
+### 2026-02-24 — Incremental FTS sync hooks
+
+- Added incremental `messages_fts` maintenance in `upsert_message(...)`:
+  - delete prior FTS row for `(workspace_id, channel_id, ts)`
+  - insert fresh FTS row for non-deleted messages
+  - keep deleted messages out of FTS
+- Added DB tests validating incremental FTS updates and delete behavior
+- Removes dependency on frequent full `reindex-keyword` for ongoing event/backfill updates
+
 ## Next Actions Queue
 
 1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-3. Add incremental FTS sync hooks during message upserts (avoid periodic full reindex)
+3. Add ranking/recency weighting to keyword search results
 
 ## Decision Log Pointer
 

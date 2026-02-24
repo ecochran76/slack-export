@@ -168,7 +168,11 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
     ts = message.get("ts")
     if not ts:
         return
+    user_id = message.get("user") or message.get("bot_id") or ""
+    text = message.get("text") or ""
     edited_ts = ((message.get("edited") or {}).get("ts"))
+    deleted = 1 if message.get("subtype") == "message_deleted" else 0
+
     with conn:
         conn.execute(
             """
@@ -188,15 +192,32 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
                 workspace_id,
                 channel_id,
                 ts,
-                message.get("user") or message.get("bot_id"),
-                message.get("text"),
+                user_id,
+                text,
                 message.get("subtype"),
                 message.get("thread_ts"),
                 edited_ts,
-                1 if message.get("subtype") == "message_deleted" else 0,
+                deleted,
                 json.dumps(message, sort_keys=True),
             ),
         )
+
+        # Incremental FTS maintenance for keyword search speed.
+        conn.execute(
+            """
+            DELETE FROM messages_fts
+            WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+            """,
+            (workspace_id, channel_id, ts),
+        )
+        if not deleted:
+            conn.execute(
+                """
+                INSERT INTO messages_fts(workspace_id, channel_id, user_id, ts, text)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (workspace_id, channel_id, user_id, ts, text),
+            )
 
 
 def set_sync_state(conn: sqlite3.Connection, workspace_id: int, key: str, value: str) -> None:
