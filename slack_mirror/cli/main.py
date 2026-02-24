@@ -689,7 +689,11 @@ def build_parser() -> argparse.ArgumentParser:
     search_sub = search.add_subparsers(dest="search_cmd")
     p_search_kw = search_sub.add_parser("keyword", help="keyword search over mirrored messages")
     p_search_kw.add_argument("--workspace", required=True, help="workspace name")
-    p_search_kw.add_argument("--query", required=True, help="keyword query")
+    p_search_kw.add_argument(
+        "--query",
+        required=True,
+        help="query text (supports from:, channel:, before:, after:, is:, has:link, quoted phrases, and -term)",
+    )
     p_search_kw.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)

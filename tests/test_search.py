@@ -17,11 +17,28 @@ class SearchTests(unittest.TestCase):
             ws_id = upsert_workspace(conn, name="default")
             upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
             upsert_message(conn, ws_id, "C1", {"ts": "1.1", "text": "hello deploy world", "user": "U1"})
-            upsert_message(conn, ws_id, "C1", {"ts": "1.2", "text": "something else", "user": "U2"})
+            upsert_message(
+                conn,
+                ws_id,
+                "C1",
+                {"ts": "1.2", "text": "deploy docs https://example.com", "user": "U2", "edited": {"ts": "1.21"}},
+            )
+            upsert_message(conn, ws_id, "C1", {"ts": "1.3", "text": "something else", "user": "U2"})
 
             rows = search_messages(conn, workspace_id=ws_id, query="deploy", limit=10)
+            self.assertEqual(len(rows), 2)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy from:U1", limit=10)
             self.assertEqual(len(rows), 1)
-            self.assertIn("deploy", rows[0]["text"])
+            self.assertEqual(rows[0]["user_id"], "U1")
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy has:link is:edited", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["user_id"], "U2")
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy -docs", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["user_id"], "U1")
 
 
 if __name__ == "__main__":

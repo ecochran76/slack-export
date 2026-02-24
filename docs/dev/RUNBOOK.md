@@ -239,6 +239,18 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `tests/test_search.py` for keyword search behavior
 - Updated docs command examples to include search usage
 
+### 2026-02-24 — Search syntax expansion (complex filters)
+
+- Extended keyword query parser to support inline filters/operators:
+  - `from:<user_id>`
+  - `channel:<channel_id_or_name>`
+  - `before:<ts>` / `after:<ts>`
+  - `is:thread` / `is:reply` / `is:edited`
+  - `has:link`
+  - quoted phrases and `-term` negation
+- Updated CLI help text for `search keyword --query`
+- Expanded tests to cover combined filter behavior and negation
+
 ## Next Actions Queue
 
 1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)

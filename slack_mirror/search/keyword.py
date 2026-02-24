@@ -1,7 +1,90 @@
 from __future__ import annotations
 
+import shlex
 import sqlite3
 from typing import Any
+
+
+def _build_where_clause(raw_query: str) -> tuple[str, list[Any]]:
+    tokens = shlex.split(raw_query)
+    clauses: list[str] = ["m.workspace_id = ?", "m.deleted = 0"]
+    params: list[Any] = []
+
+    for token in tokens:
+        negated = token.startswith("-")
+        if negated:
+            token = token[1:]
+
+        if not token:
+            continue
+
+        if token.startswith("from:"):
+            value = token.split(":", 1)[1]
+            clause = "m.user_id = ?"
+            if negated:
+                clause = f"NOT ({clause})"
+            clauses.append(clause)
+            params.append(value)
+            continue
+
+        if token.startswith("channel:"):
+            value = token.split(":", 1)[1]
+            clause = "(m.channel_id = ? OR c.name = ?)"
+            if negated:
+                clause = f"NOT {clause}"
+            clauses.append(clause)
+            params.extend([value, value])
+            continue
+
+        if token.startswith("before:"):
+            value = token.split(":", 1)[1]
+            clause = "CAST(m.ts AS REAL) <= CAST(? AS REAL)"
+            if negated:
+                clause = f"NOT ({clause})"
+            clauses.append(clause)
+            params.append(value)
+            continue
+
+        if token.startswith("after:"):
+            value = token.split(":", 1)[1]
+            clause = "CAST(m.ts AS REAL) >= CAST(? AS REAL)"
+            if negated:
+                clause = f"NOT ({clause})"
+            clauses.append(clause)
+            params.append(value)
+            continue
+
+        if token.startswith("has:"):
+            value = token.split(":", 1)[1].lower()
+            if value == "link":
+                clause = "(COALESCE(m.text,'') LIKE '%http://%' OR COALESCE(m.text,'') LIKE '%https://%')"
+                if negated:
+                    clause = f"NOT {clause}"
+                clauses.append(clause)
+            continue
+
+        if token.startswith("is:"):
+            value = token.split(":", 1)[1].lower()
+            mapping = {
+                "thread": "m.thread_ts IS NOT NULL",
+                "reply": "(m.thread_ts IS NOT NULL AND m.thread_ts != m.ts)",
+                "edited": "m.edited_ts IS NOT NULL",
+            }
+            clause = mapping.get(value)
+            if clause:
+                if negated:
+                    clause = f"NOT ({clause})"
+                clauses.append(clause)
+            continue
+
+        # Plain terms -> substring match on message text
+        clause = "COALESCE(m.text, '') LIKE ?"
+        if negated:
+            clause = f"NOT ({clause})"
+        clauses.append(clause)
+        params.append(f"%{token}%")
+
+    return " AND ".join(clauses), params
 
 
 def search_messages(
@@ -15,10 +98,9 @@ def search_messages(
     if not q:
         return []
 
-    # Use LIKE against canonical messages table to avoid relying on FTS shadow-table wiring.
-    like_q = f"%{q}%"
+    where_sql, params = _build_where_clause(q)
     rows = conn.execute(
-        """
+        f"""
         SELECT
           m.channel_id,
           c.name AS channel_name,
@@ -32,12 +114,10 @@ def search_messages(
         FROM messages m
         LEFT JOIN channels c
           ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
-        WHERE m.workspace_id = ?
-          AND m.deleted = 0
-          AND COALESCE(m.text, '') LIKE ?
+        WHERE {where_sql}
         ORDER BY CAST(m.ts AS REAL) DESC
         LIMIT ?
         """,
-        (workspace_id, like_q, max(1, limit)),
+        (workspace_id, *params, max(1, limit)),
     ).fetchall()
     return [dict(r) for r in rows]

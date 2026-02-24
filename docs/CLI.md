@@ -254,7 +254,7 @@ usage: slack-mirror search keyword [-h] --workspace WORKSPACE --query QUERY
 **Options**
 
 - `--workspace` — workspace name
-- `--query` — keyword query
+- `--query` — query text (supports from:, channel:, before:, after:, is:, has:link, quoted phrases, and -term)
 - `--limit` — maximum result rows; default: `20`
 - `--json` — json output
 
