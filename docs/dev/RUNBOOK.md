@@ -109,13 +109,27 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Verified with bot token:
   - `files_downloaded=15`, `canvases_downloaded=19`
 
+### 2026-02-23 — Phase C kickoff (webhook service skeleton)
+
+- Added HTTP webhook server skeleton:
+  - `slack_mirror/service/server.py`
+  - endpoint: `/slack/events`
+  - health endpoint: `/healthz`
+  - Slack signature verification + replay-window check
+  - URL verification challenge support
+- Added event-log DB helper:
+  - `insert_event`
+- Added CLI command:
+  - `mirror serve-webhooks --workspace <name> [--bind] [--port]`
+  - persists incoming events into `events` table with `pending` status
+
 ## Next Actions Queue
 
-1. Add time-window controls (`--oldest`, `--latest`) for message backfill
-2. Add smarter file type coverage beyond current list (or remove restrictive filter)
-3. Add completion plumbing hooks for dynamic DB-backed values
-4. Add docs generation command implementation (Markdown/man output)
-5. Start realtime webhook ingestion skeleton (`service/server.py` + event log writes)
+1. Add event processing worker (consume pending events and apply upserts)
+2. Add time-window controls (`--oldest`, `--latest`) for message backfill
+3. Add smarter file type coverage beyond current list (or remove restrictive filter)
+4. Add completion plumbing hooks for dynamic DB-backed values
+5. Add docs generation command implementation (Markdown/man output)
 
 ## Decision Log Pointer
 

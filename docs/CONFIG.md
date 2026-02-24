@@ -40,6 +40,9 @@ python -m slack_mirror.cli.main channels sync-from-tool
 
 # after install (entrypoint)
 slack-mirror --config config.yaml mirror init
+
+# webhook service
+python -m slack_mirror.cli.main --config config.yaml mirror serve-webhooks --workspace default --bind 127.0.0.1 --port 8787
 ```
 
 > Note: This is scaffold-level documentation during Phase A. Behavior and command names may evolve.

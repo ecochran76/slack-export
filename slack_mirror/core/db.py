@@ -263,3 +263,34 @@ def update_file_download(
             """,
             (local_path, checksum, workspace_id, file_id),
         )
+
+
+def insert_event(
+    conn: sqlite3.Connection,
+    workspace_id: int,
+    event_id: str,
+    event_ts: str | None,
+    event_type: str | None,
+    payload: dict[str, Any],
+    status: str = "pending",
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO events(workspace_id, event_id, event_ts, type, status, payload_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, event_id) DO UPDATE SET
+              event_ts=excluded.event_ts,
+              type=excluded.type,
+              status=excluded.status,
+              payload_json=excluded.payload_json
+            """,
+            (
+                workspace_id,
+                event_id,
+                event_ts,
+                event_type,
+                status,
+                json.dumps(payload, sort_keys=True),
+            ),
+        )

@@ -37,6 +37,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.workspace, "default")
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_serve_webhooks(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["mirror", "serve-webhooks", "--workspace", "default", "--bind", "0.0.0.0", "--port", "8787"]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.bind, "0.0.0.0")
+        self.assertEqual(args.port, 8787)
+        self.assertTrue(hasattr(args, "func"))
+
 
 if __name__ == "__main__":
     unittest.main()
