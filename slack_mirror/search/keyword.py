@@ -16,6 +16,17 @@ def _normalize_user_ref(value: str) -> str:
     return v
 
 
+def _normalize_channel_ref(value: str) -> str:
+    v = (value or "").strip()
+    # Slack channel mention forms: <#C123>, <#C123|general>
+    if v.startswith("<#") and v.endswith(">"):
+        inner = v[2:-1]
+        return inner.split("|", 1)[0]
+    if v.startswith("#"):
+        return v[1:]
+    return v
+
+
 def _build_where_clause(raw_query: str) -> tuple[str, list[Any]]:
     tokens = shlex.split(raw_query)
     clauses: list[str] = ["m.workspace_id = ?", "m.deleted = 0"]
@@ -53,12 +64,24 @@ def _build_where_clause(raw_query: str) -> tuple[str, list[Any]]:
             continue
 
         if token.startswith("channel:"):
-            value = token.split(":", 1)[1]
-            clause = "(m.channel_id = ? OR c.name = ?)"
+            raw_value = token.split(":", 1)[1]
+            value = _normalize_channel_ref(raw_value)
+            clause = """(
+                m.channel_id = ?
+                OR m.channel_id IN (
+                    SELECT ch.channel_id
+                    FROM channels ch
+                    WHERE ch.workspace_id = m.workspace_id
+                      AND (
+                        ch.channel_id = ?
+                        OR lower(COALESCE(ch.name, '')) = lower(?)
+                      )
+                )
+            )"""
             if negated:
                 clause = f"NOT {clause}"
             clauses.append(clause)
-            params.extend([value, value])
+            params.extend([value, value, value])
             continue
 
         if token.startswith("before:"):

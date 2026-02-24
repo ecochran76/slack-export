@@ -40,7 +40,7 @@ python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace
 python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default --include-files --download-content --cache-root ./cache
 python -m slack_mirror.cli.main channels sync-from-tool
 python -m slack_mirror.cli.main search keyword --workspace default --query deploy --limit 20
-python -m slack_mirror.cli.main search keyword --workspace default --query "deploy from:<@U123> has:link -draft after:1700000000"
+python -m slack_mirror.cli.main search keyword --workspace default --query "deploy from:<@U123> channel:<#C123> has:link -draft after:1700000000"
 python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md
 python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1
 python scripts/check_generated_docs.py
