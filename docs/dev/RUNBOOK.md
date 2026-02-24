@@ -178,10 +178,17 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added canvas/file dedupe by file id when broad file fetch is used
 - Updated CLI parsing tests and config docs examples
 
+### 2026-02-24 — CLI UX (dynamic completion plumbing)
+
+- Implemented `completion print bash|zsh` script emitters in CLI
+- Added DB-backed/dynamic workspace completion:
+  - completion scripts query `workspaces list --json` at completion time
+- Added completion coverage for key backfill/event flags (including `--file-types`)
+- Updated config docs with completion usage examples
+
 ## Next Actions Queue
 
-1. Add completion plumbing hooks for dynamic DB-backed values
-2. Add docs generation command implementation (Markdown/man output)
+1. Add docs generation command implementation (Markdown/man output)
 
 ## Decision Log Pointer
 

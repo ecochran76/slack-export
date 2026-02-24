@@ -251,12 +251,162 @@ def cmd_docs_generate(_: argparse.Namespace) -> int:
     return 0
 
 
+def _emit_bash_completion() -> str:
+    return r'''# bash completion for slack-mirror
+_slack_mirror_complete() {
+  local cur prev words cword
+  COMPREPLY=()
+  _get_comp_words_by_ref -n : cur prev words cword 2>/dev/null || {
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+  }
+
+  local top="mirror workspaces channels docs completion"
+  local mirror_sub="init backfill serve-webhooks process-events"
+  local ws_sub="list sync-config verify"
+  local channels_sub="sync-from-tool"
+  local docs_sub="generate"
+  local completion_sub="print"
+
+  if [[ ${#COMP_WORDS[@]} -le 2 ]]; then
+    COMPREPLY=( $(compgen -W "$top" -- "$cur") )
+    return 0
+  fi
+
+  case "${COMP_WORDS[1]}" in
+    mirror)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$mirror_sub" -- "$cur") )
+        return 0
+      fi
+      case "$prev" in
+        --workspace)
+          local w
+          w=$(slack-mirror --config "${SLACK_MIRROR_CONFIG:-config.yaml}" workspaces list --json 2>/dev/null | python3 -c 'import json,sys
+try:
+ d=json.load(sys.stdin)
+ print(" ".join([x.get("name","") for x in d if x.get("name")]))
+except Exception:
+ pass')
+          COMPREPLY=( $(compgen -W "$w" -- "$cur") )
+          return 0
+          ;;
+        --file-types)
+          COMPREPLY=( $(compgen -W "all images snippets gdocs zips pdfs" -- "$cur") )
+          return 0
+          ;;
+      esac
+      COMPREPLY=( $(compgen -W "--workspace --include-messages --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
+      ;;
+    workspaces)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$ws_sub" -- "$cur") )
+      else
+        COMPREPLY=( $(compgen -W "--workspace --json" -- "$cur") )
+      fi
+      ;;
+    channels)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$channels_sub" -- "$cur") )
+      else
+        COMPREPLY=( $(compgen -W "--json" -- "$cur") )
+      fi
+      ;;
+    docs)
+      COMPREPLY=( $(compgen -W "$docs_sub" -- "$cur") )
+      ;;
+    completion)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$completion_sub" -- "$cur") )
+      else
+        COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") )
+      fi
+      ;;
+  esac
+  return 0
+}
+complete -F _slack_mirror_complete slack-mirror
+'''
+
+
+def _emit_zsh_completion() -> str:
+    return r'''#compdef slack-mirror
+
+_slack_mirror_workspaces() {
+  local -a vals
+  vals=(${(f)"$(slack-mirror --config ${SLACK_MIRROR_CONFIG:-config.yaml} workspaces list --json 2>/dev/null | python3 -c 'import json,sys
+try:
+ d=json.load(sys.stdin)
+ print("\n".join([x.get("name","") for x in d if x.get("name")]))
+except Exception:
+ pass')"})
+  _describe 'workspace' vals
+}
+
+_slack_mirror() {
+  local -a top mirror_sub ws_sub
+  top=(mirror workspaces channels docs completion)
+  mirror_sub=(init backfill serve-webhooks process-events)
+  ws_sub=(list sync-config verify)
+
+  if (( CURRENT == 2 )); then
+    _describe 'command' top
+    return
+  fi
+
+  case $words[2] in
+    mirror)
+      if (( CURRENT == 3 )); then
+        _describe 'mirror command' mirror_sub
+        return
+      fi
+      _arguments \
+        '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
+        '--include-messages[include messages]' \
+        '--channel-limit[channel limit]:number:' \
+        '--oldest[oldest message ts]:timestamp:' \
+        '--latest[latest message ts]:timestamp:' \
+        '--include-files[include files/canvases]' \
+        '--file-types[file types csv or all]:types:(all images snippets gdocs zips pdfs)' \
+        '--download-content[download file/canvas content]' \
+        '--cache-root[cache root path]:path:_files' \
+        '--bind[bind address]:address:' \
+        '--port[port]:port:' \
+        '--limit[event limit]:number:' \
+        '--loop[loop mode]' \
+        '--interval[loop interval seconds]:number:' \
+        '--max-cycles[max loop cycles]:number:'
+      ;;
+    workspaces)
+      if (( CURRENT == 3 )); then
+        _describe 'workspaces command' ws_sub
+        return
+      fi
+      _arguments '--workspace[workspace name]:workspace:_slack_mirror_workspaces' '--json[json output]'
+      ;;
+    channels)
+      _arguments '--json[json output]'
+      ;;
+    completion)
+      if (( CURRENT == 3 )); then
+        _describe 'completion command' '(print)'
+      elif (( CURRENT == 4 )); then
+        _describe 'shell' '(bash zsh)'
+      fi
+      ;;
+  esac
+}
+
+_slack_mirror "$@"
+'''
+
+
 def cmd_completion(args: argparse.Namespace) -> int:
     shell = args.shell
     if shell == "bash":
-        print("# TODO: emit dynamic bash completion script")
+        print(_emit_bash_completion())
     elif shell == "zsh":
-        print("# TODO: emit dynamic zsh completion script")
+        print(_emit_zsh_completion())
     return 0
 
 
