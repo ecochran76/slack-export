@@ -132,6 +132,30 @@ def upsert_channel(conn: sqlite3.Connection, workspace_id: int, channel: dict[st
         )
 
 
+def upsert_channel_member(conn: sqlite3.Connection, workspace_id: int, channel_id: str, user_id: str) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO channel_members(workspace_id, channel_id, user_id)
+            VALUES (?, ?, ?)
+            ON CONFLICT(workspace_id, channel_id, user_id) DO UPDATE SET
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (workspace_id, channel_id, user_id),
+        )
+
+
+def remove_channel_member(conn: sqlite3.Connection, workspace_id: int, channel_id: str, user_id: str) -> None:
+    with conn:
+        conn.execute(
+            """
+            DELETE FROM channel_members
+            WHERE workspace_id = ? AND channel_id = ? AND user_id = ?
+            """,
+            (workspace_id, channel_id, user_id),
+        )
+
+
 def list_channel_ids(conn: sqlite3.Connection, workspace_id: int) -> list[str]:
     rows = conn.execute(
         "SELECT channel_id FROM channels WHERE workspace_id = ? ORDER BY channel_id",

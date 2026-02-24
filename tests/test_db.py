@@ -13,6 +13,8 @@ from slack_mirror.core.db import (
     upsert_workspace,
     upsert_file,
     upsert_canvas,
+    upsert_channel_member,
+    remove_channel_member,
 )
 
 
@@ -35,6 +37,13 @@ class DbTests(unittest.TestCase):
             upsert_message(conn, ws_id, "C123", {"ts": "123.45", "text": "hello", "user": "U1"})
             count = conn.execute("SELECT COUNT(*) AS c FROM messages").fetchone()["c"]
             self.assertEqual(count, 1)
+
+            upsert_channel_member(conn, ws_id, "C123", "U1")
+            member_count = conn.execute("SELECT COUNT(*) AS c FROM channel_members").fetchone()["c"]
+            self.assertEqual(member_count, 1)
+            remove_channel_member(conn, ws_id, "C123", "U1")
+            member_count = conn.execute("SELECT COUNT(*) AS c FROM channel_members").fetchone()["c"]
+            self.assertEqual(member_count, 0)
 
             set_sync_state(conn, ws_id, "messages.oldest.C123", "123.45")
             state = get_sync_state(conn, ws_id, "messages.oldest.C123")

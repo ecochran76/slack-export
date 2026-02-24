@@ -67,6 +67,33 @@ class ProcessorTests(unittest.TestCase):
             ).fetchone()["deleted"]
             self.assertEqual(deleted_flag, 1)
 
+    def test_process_member_join_leave(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+            ws_id = upsert_workspace(conn, name="default")
+
+            join_payload = {
+                "event_id": "E5",
+                "event_time": 127,
+                "event": {"type": "member_joined_channel", "channel": "C2", "user": "U2"},
+            }
+            leave_payload = {
+                "event_id": "E6",
+                "event_time": 128,
+                "event": {"type": "member_left_channel", "channel": "C2", "user": "U2"},
+            }
+            insert_event(conn, ws_id, "E5", "127", "member_joined_channel", join_payload)
+            insert_event(conn, ws_id, "E6", "128", "member_left_channel", leave_payload)
+
+            result = process_pending_events(conn, ws_id, limit=10)
+            self.assertEqual(result["processed"], 2)
+
+            member_count = conn.execute("SELECT COUNT(*) AS c FROM channel_members").fetchone()["c"]
+            self.assertEqual(member_count, 0)
+
     def test_run_processor_loop(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

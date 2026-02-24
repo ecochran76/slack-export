@@ -146,13 +146,24 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added processor loop mode:
   - `mirror process-events --loop --interval <seconds> [--max-cycles N]`
 
+### 2026-02-24 — Phase C (channel membership events)
+
+- Added DB migration:
+  - `0002_channel_members.sql`
+- Added DB helpers:
+  - `upsert_channel_member`
+  - `remove_channel_member`
+- Expanded event processor coverage:
+  - `member_joined_channel`
+  - `member_left_channel`
+- Added tests for channel membership writes and event handling
+
 ## Next Actions Queue
 
-1. Add member/join/leave related event handling and channel membership table writes
-2. Add time-window controls (`--oldest`, `--latest`) for message backfill
-3. Add smarter file type coverage beyond current list (or remove restrictive filter)
-4. Add completion plumbing hooks for dynamic DB-backed values
-5. Add docs generation command implementation (Markdown/man output)
+1. Add time-window controls (`--oldest`, `--latest`) for message backfill
+2. Add smarter file type coverage beyond current list (or remove restrictive filter)
+3. Add completion plumbing hooks for dynamic DB-backed values
+4. Add docs generation command implementation (Markdown/man output)
 
 ## Decision Log Pointer
 

@@ -4,7 +4,14 @@ import json
 import time
 from typing import Any
 
-from slack_mirror.core.db import mark_event_status, upsert_channel, upsert_file, upsert_message
+from slack_mirror.core.db import (
+    mark_event_status,
+    remove_channel_member,
+    upsert_channel,
+    upsert_channel_member,
+    upsert_file,
+    upsert_message,
+)
 
 
 def _apply_event(conn, workspace_id: int, payload: dict[str, Any]) -> str:
@@ -57,6 +64,23 @@ def _apply_event(conn, workspace_id: int, payload: dict[str, Any]) -> str:
             upsert_channel(conn, workspace_id, channel)
             return "processed:channel_rename"
         return "ignored:channel_rename_missing_id"
+
+    if ev_type == "member_joined_channel":
+        channel_id = ev.get("channel")
+        user_id = ev.get("user")
+        if channel_id and user_id:
+            upsert_channel(conn, workspace_id, {"id": channel_id, "name": channel_id})
+            upsert_channel_member(conn, workspace_id, channel_id, user_id)
+            return "processed:member_joined_channel"
+        return "ignored:member_joined_channel_missing_fields"
+
+    if ev_type == "member_left_channel":
+        channel_id = ev.get("channel")
+        user_id = ev.get("user")
+        if channel_id and user_id:
+            remove_channel_member(conn, workspace_id, channel_id, user_id)
+            return "processed:member_left_channel"
+        return "ignored:member_left_channel_missing_fields"
 
     if ev_type in {"file_created", "file_shared", "file_change"}:
         file_obj = ev.get("file") or {}
