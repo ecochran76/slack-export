@@ -235,6 +235,35 @@ def cmd_process_events(args: argparse.Namespace) -> int:
     return 0 if result["errored"] == 0 else 1
 
 
+def cmd_search_keyword(args: argparse.Namespace) -> int:
+    from slack_mirror.search.keyword import search_messages
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    rows = search_messages(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        query=args.query,
+        limit=args.limit,
+    )
+
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        for r in rows:
+            channel = r.get("channel_name") or r.get("channel_id")
+            print(f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={r.get('text') or ''}")
+
+    print(f"Keyword search workspace={args.workspace} query={args.query!r} results={len(rows)}")
+    return 0
+
+
 def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
     adapter = SlackChannelsAdapter()
     mappings = adapter.list_mappings()
@@ -269,6 +298,9 @@ def _example_commands_for(cmd: str) -> list[str]:
         "slack-mirror mirror process-events": [
             "slack-mirror --config config.yaml mirror process-events --workspace default --limit 200",
             "slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10",
+        ],
+        "slack-mirror search keyword": [
+            "slack-mirror --config config.yaml search keyword --workspace default --query deploy --limit 20",
         ],
         "slack-mirror docs generate": [
             "slack-mirror --config config.yaml docs generate --format markdown --output docs/CLI.md",
@@ -413,7 +445,7 @@ _slack_mirror_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
   }
 
-  local top="mirror workspaces channels docs completion"
+  local top="mirror workspaces channels search docs completion"
   local mirror_sub="init backfill serve-webhooks process-events"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -464,6 +496,26 @@ except Exception:
         COMPREPLY=( $(compgen -W "--json" -- "$cur") )
       fi
       ;;
+    search)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "keyword" -- "$cur") )
+      else
+        case "$prev" in
+          --workspace)
+            local w
+            w=$(slack-mirror --config "${SLACK_MIRROR_CONFIG:-config.yaml}" workspaces list --json 2>/dev/null | python3 -c 'import json,sys
+try:
+ d=json.load(sys.stdin)
+ print(" ".join([x.get("name","") for x in d if x.get("name")]))
+except Exception:
+ pass')
+            COMPREPLY=( $(compgen -W "$w" -- "$cur") )
+            return 0
+            ;;
+        esac
+        COMPREPLY=( $(compgen -W "--workspace --query --limit --json" -- "$cur") )
+      fi
+      ;;
     docs)
       COMPREPLY=( $(compgen -W "$docs_sub" -- "$cur") )
       ;;
@@ -497,7 +549,7 @@ except Exception:
 
 _slack_mirror() {
   local -a top mirror_sub ws_sub
-  top=(mirror workspaces channels docs completion)
+  top=(mirror workspaces channels search docs completion)
   mirror_sub=(init backfill serve-webhooks process-events)
   ws_sub=(list sync-config verify)
 
@@ -538,6 +590,17 @@ _slack_mirror() {
       ;;
     channels)
       _arguments '--json[json output]'
+      ;;
+    search)
+      if (( CURRENT == 3 )); then
+        _describe 'search command' '(keyword)'
+        return
+      fi
+      _arguments \
+        '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
+        '--query[keyword query]:query:' \
+        '--limit[maximum result rows]:number:' \
+        '--json[json output]'
       ;;
     completion)
       if (( CURRENT == 3 )); then
@@ -621,6 +684,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_sync = channels_sub.add_parser("sync-from-tool")
     p_sync.add_argument("--json", action="store_true")
     p_sync.set_defaults(func=cmd_channels_sync_from_tool)
+
+    search = sub.add_parser("search", help="local keyword/semantic search commands")
+    search_sub = search.add_subparsers(dest="search_cmd")
+    p_search_kw = search_sub.add_parser("keyword", help="keyword search over mirrored messages")
+    p_search_kw.add_argument("--workspace", required=True, help="workspace name")
+    p_search_kw.add_argument("--query", required=True, help="keyword query")
+    p_search_kw.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_kw.add_argument("--json", action="store_true", help="json output")
+    p_search_kw.set_defaults(func=cmd_search_keyword)
 
     docs = sub.add_parser("docs", help="CLI docs generation commands")
     docs_sub = docs.add_subparsers(dest="docs_cmd")

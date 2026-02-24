@@ -226,10 +226,24 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `docs generate`
 - Regenerated `docs/CLI.md` and `docs/slack-mirror.1`
 
+### 2026-02-24 — Phase D kickoff (keyword search command)
+
+- Added search module:
+  - `slack_mirror/search/keyword.py`
+  - keyword search over mirrored messages table
+- Added CLI command:
+  - `search keyword --workspace <name> --query <text> [--limit N] [--json]`
+- Added shell-completion support for `search keyword` in bash/zsh generators
+- Added tests:
+  - CLI parse coverage for search command
+  - `tests/test_search.py` for keyword search behavior
+- Updated docs command examples to include search usage
+
 ## Next Actions Queue
 
 1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
+3. Add FTS-backed indexing/query path (with fallback) for faster keyword search at scale
 
 ## Decision Log Pointer
 

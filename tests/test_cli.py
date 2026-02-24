@@ -90,6 +90,15 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.output, "/tmp/slack-mirror.1")
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_keyword(self):
+        parser = build_parser()
+        args = parser.parse_args(["search", "keyword", "--workspace", "default", "--query", "deploy", "--limit", "5"])
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.query, "deploy")
+        self.assertEqual(args.limit, 5)
+        self.assertTrue(hasattr(args, "func"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,7 @@ Slack workspace mirror CLI for backfills, webhook ingest, and processing.
 
 ```
 usage: slack-mirror [-h] [--config CONFIG]
-                    {mirror,workspaces,channels,docs,completion} ...
+                    {mirror,workspaces,channels,search,docs,completion} ...
 ```
 
 **Options**
@@ -28,6 +28,7 @@ slack-mirror --config config.yaml workspaces list --json
 - `completion`
 - `docs`
 - `mirror`
+- `search`
 - `workspaces`
 
 ## `slack-mirror channels`
@@ -224,6 +225,43 @@ usage: slack-mirror mirror serve-webhooks [-h] --workspace WORKSPACE
 
 ```
 slack-mirror --config config.yaml mirror serve-webhooks --workspace default --bind 127.0.0.1 --port 8787
+```
+
+
+
+## `slack-mirror search`
+**Usage**
+
+```
+usage: slack-mirror search [-h] {keyword} ...
+```
+
+**Arguments**
+
+
+**Subcommands**
+
+- `keyword`
+
+### `slack-mirror search keyword`
+**Usage**
+
+```
+usage: slack-mirror search keyword [-h] --workspace WORKSPACE --query QUERY
+                                   [--limit LIMIT] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--query` — keyword query
+- `--limit` — maximum result rows; default: `20`
+- `--json` — json output
+
+**Examples**
+
+```
+slack-mirror --config config.yaml search keyword --workspace default --query deploy --limit 20
 ```
 
 
