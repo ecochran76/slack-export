@@ -44,17 +44,25 @@ class SlackApiClient:
             sleep(self.pause_seconds)
         return conversations
 
-    def conversation_history(self, channel_id: str, oldest: str = "0") -> list[dict[str, Any]]:
+    def conversation_history(
+        self,
+        channel_id: str,
+        oldest: str = "0",
+        latest: str | None = None,
+    ) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = []
         cursor: str | None = None
         while True:
-            resp = self.client.conversations_history(
-                channel=channel_id,
-                limit=200,
-                cursor=cursor,
-                oldest=oldest,
-                inclusive=True,
-            )
+            params: dict[str, Any] = {
+                "channel": channel_id,
+                "limit": 200,
+                "cursor": cursor,
+                "oldest": oldest,
+                "inclusive": True,
+            }
+            if latest:
+                params["latest"] = latest
+            resp = self.client.conversations_history(**params)
             messages.extend(resp.get("messages", []))
             cursor = (resp.get("response_metadata") or {}).get("next_cursor") or None
             if not cursor:

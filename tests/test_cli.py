@@ -15,6 +15,10 @@ class CliTests(unittest.TestCase):
                 "--include-messages",
                 "--channel-limit",
                 "3",
+                "--oldest",
+                "1700000000.000000",
+                "--latest",
+                "1800000000.000000",
                 "--include-files",
                 "--download-content",
                 "--cache-root",
@@ -25,6 +29,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.workspace, "default")
         self.assertTrue(args.include_messages)
         self.assertEqual(args.channel_limit, 3)
+        self.assertEqual(args.oldest, "1700000000.000000")
+        self.assertEqual(args.latest, "1800000000.000000")
         self.assertTrue(args.include_files)
         self.assertTrue(args.download_content)
         self.assertEqual(args.cache_root, "./cache-test")

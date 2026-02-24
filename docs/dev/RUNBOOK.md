@@ -158,12 +158,22 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `member_left_channel`
 - Added tests for channel membership writes and event handling
 
+### 2026-02-24 — Phase B/C utility (message backfill time windows)
+
+- Extended CLI `mirror backfill` with message window flags:
+  - `--oldest`
+  - `--latest`
+- Extended backfill message path to pass bounds into `conversations.history`
+- Preserved checkpoint behavior for default incremental mode only:
+  - when no explicit `--oldest/--latest` is provided, checkpoint updates continue
+  - when explicit bounds are provided, run is windowed and does not mutate channel checkpoint
+- Updated CLI parsing tests and config docs examples
+
 ## Next Actions Queue
 
-1. Add time-window controls (`--oldest`, `--latest`) for message backfill
-2. Add smarter file type coverage beyond current list (or remove restrictive filter)
-3. Add completion plumbing hooks for dynamic DB-backed values
-4. Add docs generation command implementation (Markdown/man output)
+1. Add smarter file type coverage beyond current list (or remove restrictive filter)
+2. Add completion plumbing hooks for dynamic DB-backed values
+3. Add docs generation command implementation (Markdown/man output)
 
 ## Decision Log Pointer
 

@@ -38,7 +38,13 @@ def backfill_users_and_channels(*, token: str, workspace_id: int, conn) -> dict[
 
 
 def backfill_messages(
-    *, token: str, workspace_id: int, conn, channel_limit: int | None = None
+    *,
+    token: str,
+    workspace_id: int,
+    conn,
+    channel_limit: int | None = None,
+    oldest: str | None = None,
+    latest: str | None = None,
 ) -> dict[str, int]:
     api = SlackApiClient(token)
     channel_ids = list_channel_ids(conn, workspace_id)
@@ -50,9 +56,9 @@ def backfill_messages(
     skipped_channels = 0
     for channel_id in channel_ids:
         checkpoint_key = f"messages.oldest.{channel_id}"
-        oldest = get_sync_state(conn, workspace_id, checkpoint_key) or "0"
+        effective_oldest = oldest if oldest is not None else (get_sync_state(conn, workspace_id, checkpoint_key) or "0")
         try:
-            messages = api.conversation_history(channel_id=channel_id, oldest=oldest)
+            messages = api.conversation_history(channel_id=channel_id, oldest=effective_oldest, latest=latest)
         except SlackApiError as exc:
             if exc.response.get("error") in {"not_in_channel", "missing_scope", "channel_not_found"}:
                 skipped_channels += 1
@@ -62,7 +68,7 @@ def backfill_messages(
             upsert_message(conn, workspace_id, channel_id, msg)
         total_messages += len(messages)
         processed_channels += 1
-        if messages:
+        if messages and oldest is None and latest is None:
             newest_ts = max(str(m.get("ts", "0")) for m in messages)
             set_sync_state(conn, workspace_id, checkpoint_key, newest_ts)
 

@@ -135,6 +135,8 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
             workspace_id=workspace_id,
             conn=conn,
             channel_limit=args.channel_limit,
+            oldest=args.oldest,
+            latest=args.latest,
         )
 
     file_counts = {"files": 0, "canvases": 0, "files_downloaded": 0, "canvases_downloaded": 0}
@@ -271,6 +273,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--workspace", required=True)
     p_backfill.add_argument("--include-messages", action="store_true")
     p_backfill.add_argument("--channel-limit", type=int)
+    p_backfill.add_argument("--oldest", help="oldest message ts boundary (inclusive)")
+    p_backfill.add_argument("--latest", help="latest message ts boundary (inclusive)")
     p_backfill.add_argument("--include-files", action="store_true")
     p_backfill.add_argument("--download-content", action="store_true")
     p_backfill.add_argument("--cache-root", default="./cache")
