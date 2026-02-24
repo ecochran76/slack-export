@@ -246,8 +246,101 @@ def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_docs_generate(_: argparse.Namespace) -> int:
-    print("TODO: wire automatic CLI docs generation")
+def _collect_option_flags(parser: argparse.ArgumentParser) -> list[str]:
+    flags: list[str] = []
+    for action in parser._actions:  # noqa: SLF001
+        if action.option_strings:
+            flags.extend(action.option_strings)
+    return sorted(set(flags))
+
+
+def _find_subparser_action(parser: argparse.ArgumentParser):
+    for action in parser._actions:  # noqa: SLF001
+        if isinstance(action, argparse._SubParsersAction):  # noqa: SLF001
+            return action
+    return None
+
+
+def _emit_markdown_for_parser(parser: argparse.ArgumentParser, cmd: str = "slack-mirror", depth: int = 2) -> list[str]:
+    lines: list[str] = []
+    heading = "#" * depth
+    lines.append(f"{heading} `{cmd}`")
+
+    if parser.description:
+        lines.append(parser.description)
+        lines.append("")
+
+    usage = parser.format_usage().strip()
+    if usage:
+        lines.append("**Usage**")
+        lines.append("")
+        lines.append("```")
+        lines.append(usage)
+        lines.append("```")
+        lines.append("")
+
+    flags = _collect_option_flags(parser)
+    if flags:
+        lines.append("**Options**")
+        lines.append("")
+        for f in flags:
+            lines.append(f"- `{f}`")
+        lines.append("")
+
+    sub = _find_subparser_action(parser)
+    if sub:
+        lines.append("**Subcommands**")
+        lines.append("")
+        for name in sorted(sub.choices.keys()):
+            lines.append(f"- `{name}`")
+        lines.append("")
+
+        for name in sorted(sub.choices.keys()):
+            child = sub.choices[name]
+            lines.extend(_emit_markdown_for_parser(child, cmd=f"{cmd} {name}", depth=min(depth + 1, 6)))
+            lines.append("")
+
+    return lines
+
+
+def _markdown_to_man(markdown_text: str, name: str = "slack-mirror") -> str:
+    lines = [
+        f".TH {name.upper()} 1",
+        ".SH NAME",
+        f"{name} - CLI documentation",
+    ]
+    for raw in markdown_text.splitlines():
+        line = raw.rstrip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            title = line.lstrip("#").strip().strip("`")
+            lines.append(f".SH {title.upper()}")
+        elif line.startswith("- "):
+            lines.append(f".IP \\[bu] 2\n{line[2:]}")
+        else:
+            cleaned = line.replace("`", "")
+            lines.append(cleaned)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def cmd_docs_generate(args: argparse.Namespace) -> int:
+    parser = build_parser()
+    markdown = "\n".join(_emit_markdown_for_parser(parser, cmd="slack-mirror", depth=1)).strip() + "\n"
+
+    output = args.output
+    if args.format == "markdown":
+        content = markdown
+        output = output or "docs/CLI.md"
+    else:
+        content = _markdown_to_man(markdown, name="slack-mirror")
+        output = output or "docs/slack-mirror.1"
+
+    out_path = Path(output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(content, encoding="utf-8")
+    print(f"Generated {args.format} docs at {out_path}")
     return 0
 
 
@@ -470,6 +563,8 @@ def build_parser() -> argparse.ArgumentParser:
     docs = sub.add_parser("docs")
     docs_sub = docs.add_subparsers(dest="docs_cmd")
     p_docs = docs_sub.add_parser("generate")
+    p_docs.add_argument("--format", choices=["markdown", "man"], default="markdown")
+    p_docs.add_argument("--output")
     p_docs.set_defaults(func=cmd_docs_generate)
 
     completion = sub.add_parser("completion")

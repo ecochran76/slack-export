@@ -82,6 +82,14 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.max_cycles, 3)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_docs_generate(self):
+        parser = build_parser()
+        args = parser.parse_args(["docs", "generate", "--format", "man", "--output", "/tmp/slack-mirror.1"])
+        self.assertEqual(args.command, "docs")
+        self.assertEqual(args.format, "man")
+        self.assertEqual(args.output, "/tmp/slack-mirror.1")
+        self.assertTrue(hasattr(args, "func"))
+
 
 if __name__ == "__main__":
     unittest.main()

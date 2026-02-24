@@ -1,0 +1,259 @@
+.TH SLACK-MIRROR 1
+.SH NAME
+slack-mirror - CLI documentation
+.SH SLACK-MIRROR
+**Usage**
+
+usage: slack-mirror [-h] [--config CONFIG]
+                    {mirror,workspaces,channels,docs,completion} ...
+
+**Options**
+.IP \[bu] 2
+`--config`
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+**Subcommands**
+.IP \[bu] 2
+`channels`
+.IP \[bu] 2
+`completion`
+.IP \[bu] 2
+`docs`
+.IP \[bu] 2
+`mirror`
+.IP \[bu] 2
+`workspaces`
+.SH SLACK-MIRROR CHANNELS
+**Usage**
+
+usage: slack-mirror channels [-h] {sync-from-tool} ...
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+**Subcommands**
+.IP \[bu] 2
+`sync-from-tool`
+.SH SLACK-MIRROR CHANNELS SYNC-FROM-TOOL
+**Usage**
+
+usage: slack-mirror channels sync-from-tool [-h] [--json]
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--json`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR COMPLETION
+**Usage**
+
+usage: slack-mirror completion [-h] {print} ...
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+**Subcommands**
+.IP \[bu] 2
+`print`
+.SH SLACK-MIRROR COMPLETION PRINT
+**Usage**
+
+usage: slack-mirror completion print [-h] {bash,zsh}
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR DOCS
+**Usage**
+
+usage: slack-mirror docs [-h] {generate} ...
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+**Subcommands**
+.IP \[bu] 2
+`generate`
+.SH SLACK-MIRROR DOCS GENERATE
+**Usage**
+
+usage: slack-mirror docs generate [-h] [--format {markdown,man}]
+                                  [--output OUTPUT]
+
+**Options**
+.IP \[bu] 2
+`--format`
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--output`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR MIRROR
+**Usage**
+
+usage: slack-mirror mirror [-h]
+                           {init,backfill,serve-webhooks,process-events} ...
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+**Subcommands**
+.IP \[bu] 2
+`backfill`
+.IP \[bu] 2
+`init`
+.IP \[bu] 2
+`process-events`
+.IP \[bu] 2
+`serve-webhooks`
+.SH SLACK-MIRROR MIRROR BACKFILL
+**Usage**
+
+usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
+                                    [--include-messages]
+                                    [--channel-limit CHANNEL_LIMIT]
+                                    [--oldest OLDEST] [--latest LATEST]
+                                    [--include-files]
+                                    [--file-types FILE_TYPES]
+                                    [--download-content]
+                                    [--cache-root CACHE_ROOT]
+
+**Options**
+.IP \[bu] 2
+`--cache-root`
+.IP \[bu] 2
+`--channel-limit`
+.IP \[bu] 2
+`--download-content`
+.IP \[bu] 2
+`--file-types`
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--include-files`
+.IP \[bu] 2
+`--include-messages`
+.IP \[bu] 2
+`--latest`
+.IP \[bu] 2
+`--oldest`
+.IP \[bu] 2
+`--workspace`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR MIRROR INIT
+**Usage**
+
+usage: slack-mirror mirror init [-h]
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR MIRROR PROCESS-EVENTS
+**Usage**
+
+usage: slack-mirror mirror process-events [-h] --workspace WORKSPACE
+                                          [--limit LIMIT] [--loop]
+                                          [--interval INTERVAL]
+                                          [--max-cycles MAX_CYCLES]
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--interval`
+.IP \[bu] 2
+`--limit`
+.IP \[bu] 2
+`--loop`
+.IP \[bu] 2
+`--max-cycles`
+.IP \[bu] 2
+`--workspace`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR MIRROR SERVE-WEBHOOKS
+**Usage**
+
+usage: slack-mirror mirror serve-webhooks [-h] --workspace WORKSPACE
+                                          [--bind BIND] [--port PORT]
+
+**Options**
+.IP \[bu] 2
+`--bind`
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--port`
+.IP \[bu] 2
+`--workspace`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR WORKSPACES
+**Usage**
+
+usage: slack-mirror workspaces [-h] {list,sync-config,verify} ...
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+**Subcommands**
+.IP \[bu] 2
+`list`
+.IP \[bu] 2
+`sync-config`
+.IP \[bu] 2
+`verify`
+.SH SLACK-MIRROR WORKSPACES LIST
+**Usage**
+
+usage: slack-mirror workspaces list [-h] [--json]
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--json`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR WORKSPACES SYNC-CONFIG
+**Usage**
+
+usage: slack-mirror workspaces sync-config [-h]
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`-h`
+.SH SLACK-MIRROR WORKSPACES VERIFY
+**Usage**
+
+usage: slack-mirror workspaces verify [-h] [--workspace WORKSPACE]
+
+**Options**
+.IP \[bu] 2
+`--help`
+.IP \[bu] 2
+`--workspace`
+.IP \[bu] 2
+`-h`

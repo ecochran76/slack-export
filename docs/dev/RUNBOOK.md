@@ -186,9 +186,20 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added completion coverage for key backfill/event flags (including `--file-types`)
 - Updated config docs with completion usage examples
 
+### 2026-02-24 — Docs generation command implemented
+
+- Implemented `docs generate` with output targets:
+  - `--format markdown` (default) -> `docs/CLI.md` (default path)
+  - `--format man` -> `docs/slack-mirror.1` (default path)
+- Added parser support:
+  - `docs generate --format <markdown|man> --output <path>`
+- Added CLI parse test coverage for docs generation flags
+- Updated config docs with docs-generation command examples
+
 ## Next Actions Queue
 
-1. Add docs generation command implementation (Markdown/man output)
+1. Expand docs generation fidelity (option descriptions/examples per command)
+2. Add docs generation into CI check or release flow
 
 ## Decision Log Pointer
 
