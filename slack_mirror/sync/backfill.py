@@ -87,11 +87,18 @@ def backfill_files_and_canvases(
     conn,
     cache_root: str = "./cache",
     download_content: bool = False,
+    file_types: str = "images,snippets,gdocs,zips,pdfs",
 ) -> dict[str, int]:
     api = SlackApiClient(token)
 
-    files = api.list_files(types="images,snippets,gdocs,zips,pdfs")
+    normalized_types = (file_types or "").strip().lower()
+    file_types_arg = None if normalized_types in {"", "all", "*"} else file_types
+
+    files = api.list_files(types=file_types_arg)
     canvases = api.list_files(types="canvas")
+    canvas_ids = {c.get("id") for c in canvases if c.get("id")}
+    if canvas_ids:
+        files = [f for f in files if f.get("id") not in canvas_ids]
 
     files_dir = Path(cache_root) / "files"
     canvases_dir = Path(cache_root) / "canvases"

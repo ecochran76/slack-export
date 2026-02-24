@@ -169,11 +169,19 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - when explicit bounds are provided, run is windowed and does not mutate channel checkpoint
 - Updated CLI parsing tests and config docs examples
 
+### 2026-02-24 — Phase B utility (smarter file type coverage)
+
+- Extended files/canvases backfill with configurable file types:
+  - new `mirror backfill --file-types <csv|all>` flag
+  - default remains `images,snippets,gdocs,zips,pdfs`
+  - `all` (or `*`) pulls all non-canvas file types
+- Added canvas/file dedupe by file id when broad file fetch is used
+- Updated CLI parsing tests and config docs examples
+
 ## Next Actions Queue
 
-1. Add smarter file type coverage beyond current list (or remove restrictive filter)
-2. Add completion plumbing hooks for dynamic DB-backed values
-3. Add docs generation command implementation (Markdown/man output)
+1. Add completion plumbing hooks for dynamic DB-backed values
+2. Add docs generation command implementation (Markdown/man output)
 
 ## Decision Log Pointer
 

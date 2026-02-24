@@ -147,6 +147,7 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
             conn=conn,
             cache_root=args.cache_root,
             download_content=args.download_content,
+            file_types=args.file_types,
         )
 
     print(
@@ -276,6 +277,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--oldest", help="oldest message ts boundary (inclusive)")
     p_backfill.add_argument("--latest", help="latest message ts boundary (inclusive)")
     p_backfill.add_argument("--include-files", action="store_true")
+    p_backfill.add_argument(
+        "--file-types",
+        default="images,snippets,gdocs,zips,pdfs",
+        help="files.list types filter; use 'all' to fetch all non-canvas file types",
+    )
     p_backfill.add_argument("--download-content", action="store_true")
     p_backfill.add_argument("--cache-root", default="./cache")
     p_backfill.set_defaults(func=cmd_mirror_backfill)

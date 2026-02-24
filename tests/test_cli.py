@@ -20,6 +20,8 @@ class CliTests(unittest.TestCase):
                 "--latest",
                 "1800000000.000000",
                 "--include-files",
+                "--file-types",
+                "all",
                 "--download-content",
                 "--cache-root",
                 "./cache-test",
@@ -32,6 +34,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.oldest, "1700000000.000000")
         self.assertEqual(args.latest, "1800000000.000000")
         self.assertTrue(args.include_files)
+        self.assertEqual(args.file_types, "all")
         self.assertTrue(args.download_content)
         self.assertEqual(args.cache_root, "./cache-test")
         self.assertTrue(hasattr(args, "func"))
