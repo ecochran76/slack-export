@@ -246,14 +246,6 @@ def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
     return 0
 
 
-def _collect_option_flags(parser: argparse.ArgumentParser) -> list[str]:
-    flags: list[str] = []
-    for action in parser._actions:  # noqa: SLF001
-        if action.option_strings:
-            flags.extend(action.option_strings)
-    return sorted(set(flags))
-
-
 def _find_subparser_action(parser: argparse.ArgumentParser):
     for action in parser._actions:  # noqa: SLF001
         if isinstance(action, argparse._SubParsersAction):  # noqa: SLF001
@@ -279,12 +271,45 @@ def _emit_markdown_for_parser(parser: argparse.ArgumentParser, cmd: str = "slack
         lines.append("```")
         lines.append("")
 
-    flags = _collect_option_flags(parser)
-    if flags:
+    option_actions = [
+        a
+        for a in parser._actions  # noqa: SLF001
+        if a.option_strings and not isinstance(a, argparse._HelpAction)  # noqa: SLF001
+    ]
+    if option_actions:
         lines.append("**Options**")
         lines.append("")
-        for f in flags:
-            lines.append(f"- `{f}`")
+        for action in option_actions:
+            flags = ", ".join(f"`{f}`" for f in action.option_strings)
+            details: list[str] = []
+            if getattr(action, "help", None):
+                details.append(str(action.help))
+            default = getattr(action, "default", None)
+            if default not in (None, argparse.SUPPRESS, False):
+                details.append(f"default: `{default}`")
+            line = f"- {flags}"
+            if details:
+                line += f" — {'; '.join(details)}"
+            lines.append(line)
+        lines.append("")
+
+    positional_actions = [
+        a
+        for a in parser._actions  # noqa: SLF001
+        if not a.option_strings and a.dest not in {"help"}
+    ]
+    if positional_actions:
+        lines.append("**Arguments**")
+        lines.append("")
+        for action in positional_actions:
+            if isinstance(action, argparse._SubParsersAction):  # noqa: SLF001
+                continue
+            name = getattr(action, "metavar", None) or action.dest
+            detail = str(action.help) if getattr(action, "help", None) else ""
+            if detail:
+                lines.append(f"- `{name}` — {detail}")
+            else:
+                lines.append(f"- `{name}`")
         lines.append("")
 
     sub = _find_subparser_action(parser)
@@ -504,22 +529,25 @@ def cmd_completion(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="slack-mirror")
+    parser = argparse.ArgumentParser(
+        prog="slack-mirror",
+        description="Slack workspace mirror CLI for backfills, webhook ingest, and processing.",
+    )
     parser.add_argument("--config", default="config.yaml")
 
     sub = parser.add_subparsers(dest="command")
 
-    mirror = sub.add_parser("mirror")
+    mirror = sub.add_parser("mirror", help="mirror ingestion and processing commands")
     mirror_sub = mirror.add_subparsers(dest="mirror_cmd")
-    p_init = mirror_sub.add_parser("init")
+    p_init = mirror_sub.add_parser("init", help="initialize sqlite storage and apply migrations")
     p_init.set_defaults(func=cmd_mirror_init)
-    p_backfill = mirror_sub.add_parser("backfill")
-    p_backfill.add_argument("--workspace", required=True)
-    p_backfill.add_argument("--include-messages", action="store_true")
-    p_backfill.add_argument("--channel-limit", type=int)
+    p_backfill = mirror_sub.add_parser("backfill", help="run API backfill into local DB/cache")
+    p_backfill.add_argument("--workspace", required=True, help="workspace name from config")
+    p_backfill.add_argument("--include-messages", action="store_true", help="include message history")
+    p_backfill.add_argument("--channel-limit", type=int, help="limit channels processed in this run")
     p_backfill.add_argument("--oldest", help="oldest message ts boundary (inclusive)")
     p_backfill.add_argument("--latest", help="latest message ts boundary (inclusive)")
-    p_backfill.add_argument("--include-files", action="store_true")
+    p_backfill.add_argument("--include-files", action="store_true", help="include files and canvases metadata")
     p_backfill.add_argument(
         "--file-types",
         default="images,snippets,gdocs,zips,pdfs",
@@ -529,13 +557,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--cache-root", default="./cache")
     p_backfill.set_defaults(func=cmd_mirror_backfill)
 
-    p_serve = mirror_sub.add_parser("serve-webhooks")
+    p_serve = mirror_sub.add_parser("serve-webhooks", help="run Slack events webhook receiver")
     p_serve.add_argument("--workspace", required=True)
     p_serve.add_argument("--bind")
     p_serve.add_argument("--port", type=int)
     p_serve.set_defaults(func=cmd_serve_webhooks)
 
-    p_process = mirror_sub.add_parser("process-events")
+    p_process = mirror_sub.add_parser("process-events", help="process pending webhook events from DB")
     p_process.add_argument("--workspace", required=True)
     p_process.add_argument("--limit", type=int, default=100)
     p_process.add_argument("--loop", action="store_true")
@@ -543,7 +571,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_process.add_argument("--max-cycles", type=int)
     p_process.set_defaults(func=cmd_process_events)
 
-    workspaces = sub.add_parser("workspaces")
+    workspaces = sub.add_parser("workspaces", help="workspace config/bootstrap/verification commands")
     ws_sub = workspaces.add_subparsers(dest="ws_cmd")
     p_ws_list = ws_sub.add_parser("list")
     p_ws_list.add_argument("--json", action="store_true")
@@ -554,20 +582,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_ws_verify.add_argument("--workspace")
     p_ws_verify.set_defaults(func=cmd_workspaces_verify)
 
-    channels = sub.add_parser("channels")
+    channels = sub.add_parser("channels", help="channel mapping integration helpers")
     channels_sub = channels.add_subparsers(dest="channels_cmd")
     p_sync = channels_sub.add_parser("sync-from-tool")
     p_sync.add_argument("--json", action="store_true")
     p_sync.set_defaults(func=cmd_channels_sync_from_tool)
 
-    docs = sub.add_parser("docs")
+    docs = sub.add_parser("docs", help="CLI docs generation commands")
     docs_sub = docs.add_subparsers(dest="docs_cmd")
     p_docs = docs_sub.add_parser("generate")
     p_docs.add_argument("--format", choices=["markdown", "man"], default="markdown")
     p_docs.add_argument("--output")
     p_docs.set_defaults(func=cmd_docs_generate)
 
-    completion = sub.add_parser("completion")
+    completion = sub.add_parser("completion", help="shell completion script emitters")
     p_completion = completion.add_subparsers(dest="completion_cmd")
     p_comp = p_completion.add_parser("print")
     p_comp.add_argument("shell", choices=["bash", "zsh"])

@@ -196,10 +196,19 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added CLI parse test coverage for docs generation flags
 - Updated config docs with docs-generation command examples
 
+### 2026-02-24 — Docs generation fidelity pass
+
+- Improved generated docs to include richer option details:
+  - option help text
+  - default values when applicable
+- Added positional argument section generation
+- Added top-level and subcommand help text to parser definitions
+- Regenerated `docs/CLI.md` and `docs/slack-mirror.1`
+
 ## Next Actions Queue
 
-1. Expand docs generation fidelity (option descriptions/examples per command)
-2. Add docs generation into CI check or release flow
+1. Add docs generation into CI check or release flow
+2. Add command examples section to generated docs (template-driven)
 
 ## Decision Log Pointer
 

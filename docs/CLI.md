@@ -1,4 +1,6 @@
 # `slack-mirror`
+Slack workspace mirror CLI for backfills, webhook ingest, and processing.
+
 **Usage**
 
 ```
@@ -8,9 +10,10 @@ usage: slack-mirror [-h] [--config CONFIG]
 
 **Options**
 
-- `--config`
-- `--help`
-- `-h`
+- `--config` — default: `config.yaml`
+
+**Arguments**
+
 
 **Subcommands**
 
@@ -27,10 +30,8 @@ usage: slack-mirror [-h] [--config CONFIG]
 usage: slack-mirror channels [-h] {sync-from-tool} ...
 ```
 
-**Options**
+**Arguments**
 
-- `--help`
-- `-h`
 
 **Subcommands**
 
@@ -45,9 +46,7 @@ usage: slack-mirror channels sync-from-tool [-h] [--json]
 
 **Options**
 
-- `--help`
 - `--json`
-- `-h`
 
 
 
@@ -58,10 +57,8 @@ usage: slack-mirror channels sync-from-tool [-h] [--json]
 usage: slack-mirror completion [-h] {print} ...
 ```
 
-**Options**
+**Arguments**
 
-- `--help`
-- `-h`
 
 **Subcommands**
 
@@ -74,10 +71,9 @@ usage: slack-mirror completion [-h] {print} ...
 usage: slack-mirror completion print [-h] {bash,zsh}
 ```
 
-**Options**
+**Arguments**
 
-- `--help`
-- `-h`
+- `shell`
 
 
 
@@ -88,10 +84,8 @@ usage: slack-mirror completion print [-h] {bash,zsh}
 usage: slack-mirror docs [-h] {generate} ...
 ```
 
-**Options**
+**Arguments**
 
-- `--help`
-- `-h`
 
 **Subcommands**
 
@@ -107,10 +101,8 @@ usage: slack-mirror docs generate [-h] [--format {markdown,man}]
 
 **Options**
 
-- `--format`
-- `--help`
+- `--format` — default: `markdown`
 - `--output`
-- `-h`
 
 
 
@@ -122,10 +114,8 @@ usage: slack-mirror mirror [-h]
                            {init,backfill,serve-webhooks,process-events} ...
 ```
 
-**Options**
+**Arguments**
 
-- `--help`
-- `-h`
 
 **Subcommands**
 
@@ -150,17 +140,15 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 
 **Options**
 
-- `--cache-root`
-- `--channel-limit`
+- `--workspace` — workspace name from config
+- `--include-messages` — include message history
+- `--channel-limit` — limit channels processed in this run
+- `--oldest` — oldest message ts boundary (inclusive)
+- `--latest` — latest message ts boundary (inclusive)
+- `--include-files` — include files and canvases metadata
+- `--file-types` — files.list types filter; use 'all' to fetch all non-canvas file types; default: `images,snippets,gdocs,zips,pdfs`
 - `--download-content`
-- `--file-types`
-- `--help`
-- `--include-files`
-- `--include-messages`
-- `--latest`
-- `--oldest`
-- `--workspace`
-- `-h`
+- `--cache-root` — default: `./cache`
 
 
 ### `slack-mirror mirror init`
@@ -169,11 +157,6 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 ```
 usage: slack-mirror mirror init [-h]
 ```
-
-**Options**
-
-- `--help`
-- `-h`
 
 
 ### `slack-mirror mirror process-events`
@@ -188,13 +171,11 @@ usage: slack-mirror mirror process-events [-h] --workspace WORKSPACE
 
 **Options**
 
-- `--help`
-- `--interval`
-- `--limit`
-- `--loop`
-- `--max-cycles`
 - `--workspace`
-- `-h`
+- `--limit` — default: `100`
+- `--loop`
+- `--interval` — default: `2.0`
+- `--max-cycles`
 
 
 ### `slack-mirror mirror serve-webhooks`
@@ -207,11 +188,9 @@ usage: slack-mirror mirror serve-webhooks [-h] --workspace WORKSPACE
 
 **Options**
 
-- `--bind`
-- `--help`
-- `--port`
 - `--workspace`
-- `-h`
+- `--bind`
+- `--port`
 
 
 
@@ -222,10 +201,8 @@ usage: slack-mirror mirror serve-webhooks [-h] --workspace WORKSPACE
 usage: slack-mirror workspaces [-h] {list,sync-config,verify} ...
 ```
 
-**Options**
+**Arguments**
 
-- `--help`
-- `-h`
 
 **Subcommands**
 
@@ -242,9 +219,7 @@ usage: slack-mirror workspaces list [-h] [--json]
 
 **Options**
 
-- `--help`
 - `--json`
-- `-h`
 
 
 ### `slack-mirror workspaces sync-config`
@@ -253,11 +228,6 @@ usage: slack-mirror workspaces list [-h] [--json]
 ```
 usage: slack-mirror workspaces sync-config [-h]
 ```
-
-**Options**
-
-- `--help`
-- `-h`
 
 
 ### `slack-mirror workspaces verify`
@@ -269,6 +239,4 @@ usage: slack-mirror workspaces verify [-h] [--workspace WORKSPACE]
 
 **Options**
 
-- `--help`
 - `--workspace`
-- `-h`
