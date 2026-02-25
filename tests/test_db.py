@@ -5,16 +5,18 @@ from pathlib import Path
 from slack_mirror.core.db import (
     apply_migrations,
     connect,
+    get_message_embedding,
     get_sync_state,
     list_workspaces,
-    set_sync_state,
-    upsert_channel,
-    upsert_message,
-    upsert_workspace,
-    upsert_file,
-    upsert_canvas,
-    upsert_channel_member,
     remove_channel_member,
+    set_sync_state,
+    upsert_canvas,
+    upsert_channel,
+    upsert_channel_member,
+    upsert_file,
+    upsert_message,
+    upsert_message_embedding,
+    upsert_workspace,
 )
 
 
@@ -37,6 +39,48 @@ class DbTests(unittest.TestCase):
             upsert_message(conn, ws_id, "C123", {"ts": "123.45", "text": "hello", "user": "U1"})
             count = conn.execute("SELECT COUNT(*) AS c FROM messages").fetchone()["c"]
             self.assertEqual(count, 1)
+
+            upsert_message_embedding(
+                conn,
+                workspace_id=ws_id,
+                channel_id="C123",
+                ts="123.45",
+                model_id="test-embed-v1",
+                embedding=[0.1, 0.2, 0.3],
+                content_hash="h1",
+            )
+            emb = get_message_embedding(
+                conn,
+                workspace_id=ws_id,
+                channel_id="C123",
+                ts="123.45",
+                model_id="test-embed-v1",
+            )
+            self.assertIsNotNone(emb)
+            self.assertEqual(emb["dim"], 3)
+            self.assertEqual(emb["content_hash"], "h1")
+            self.assertEqual([round(x, 5) for x in emb["embedding"]], [0.1, 0.2, 0.3])
+
+            upsert_message_embedding(
+                conn,
+                workspace_id=ws_id,
+                channel_id="C123",
+                ts="123.45",
+                model_id="test-embed-v1",
+                embedding=[0.9, 0.8, 0.7, 0.6],
+                content_hash="h2",
+            )
+            emb = get_message_embedding(
+                conn,
+                workspace_id=ws_id,
+                channel_id="C123",
+                ts="123.45",
+                model_id="test-embed-v1",
+            )
+            self.assertIsNotNone(emb)
+            self.assertEqual(emb["dim"], 4)
+            self.assertEqual(emb["content_hash"], "h2")
+            self.assertEqual([round(x, 5) for x in emb["embedding"]], [0.9, 0.8, 0.7, 0.6])
 
             fts_count = conn.execute(
                 "SELECT COUNT(*) AS c FROM messages_fts WHERE workspace_id = ? AND channel_id = ? AND ts = ?",

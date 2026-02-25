@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from array import array
 from pathlib import Path
 from typing import Any
 
@@ -218,6 +219,65 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
                 """,
                 (workspace_id, channel_id, user_id, ts, text),
             )
+
+
+def upsert_message_embedding(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    channel_id: str,
+    ts: str,
+    model_id: str,
+    embedding: list[float],
+    content_hash: str,
+) -> None:
+    if not embedding:
+        raise ValueError("embedding must not be empty")
+    vec = array("f", embedding)
+    dim = len(vec)
+    payload = vec.tobytes()
+
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO message_embeddings(
+              workspace_id, channel_id, ts, model_id, dim, embedding_blob, content_hash
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, channel_id, ts, model_id) DO UPDATE SET
+              dim=excluded.dim,
+              embedding_blob=excluded.embedding_blob,
+              content_hash=excluded.content_hash,
+              embedded_at=CURRENT_TIMESTAMP
+            """,
+            (workspace_id, channel_id, ts, model_id, dim, payload, content_hash),
+        )
+
+
+def get_message_embedding(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    channel_id: str,
+    ts: str,
+    model_id: str,
+) -> dict[str, Any] | None:
+    row = conn.execute(
+        """
+        SELECT workspace_id, channel_id, ts, model_id, dim, embedding_blob, content_hash, embedded_at
+        FROM message_embeddings
+        WHERE workspace_id = ? AND channel_id = ? AND ts = ? AND model_id = ?
+        """,
+        (workspace_id, channel_id, ts, model_id),
+    ).fetchone()
+    if not row:
+        return None
+
+    out = dict(row)
+    vec = array("f")
+    vec.frombytes(out["embedding_blob"])
+    out["embedding"] = vec.tolist()
+    return out
 
 
 def set_sync_state(conn: sqlite3.Connection, workspace_id: int, key: str, value: str) -> None:

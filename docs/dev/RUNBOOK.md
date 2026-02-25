@@ -27,6 +27,15 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Phase E semantic plan approved
+
+- Added implementation plan doc: `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`
+- Locked incremental PR plan (PR1..PR5) for semantic/hybrid search rollout
+- Chosen approach for current architecture:
+  - SQLite-first semantic implementation now
+  - maintain backend boundary compatible with future Postgres/pgvector profile
+
+
 ### 2026-02-23 — Planning docs baseline
 
 - Captured architecture, roadmap, engineering plan, and runbook
@@ -285,9 +294,10 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
-2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-3. Expose ranking mode knobs/weights via CLI/config for tuning
+1. **Phase E PR1**: add `message_embeddings` migration + DB helpers + tests
+2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
+3. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
+4. Expose ranking mode knobs/weights via CLI/config for tuning
 
 ## Decision Log Pointer
 
