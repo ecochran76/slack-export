@@ -180,10 +180,28 @@ class CliTests(unittest.TestCase):
 
     def test_parse_search_semantic_alias(self):
         parser = build_parser()
-        args = parser.parse_args(["search", "semantic", "--workspace", "default", "--query", "deploy incidents"])
+        args = parser.parse_args(
+            [
+                "search",
+                "semantic",
+                "--workspace",
+                "default",
+                "--query",
+                "deploy incidents",
+                "--group-by-thread",
+                "--dedupe",
+                "--snippet-chars",
+                "200",
+                "--explain",
+            ]
+        )
         self.assertEqual(args.command, "search")
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.query, "deploy incidents")
+        self.assertTrue(args.group_by_thread)
+        self.assertTrue(args.dedupe)
+        self.assertEqual(args.snippet_chars, 200)
+        self.assertTrue(args.explain)
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_search_reindex_keyword(self):

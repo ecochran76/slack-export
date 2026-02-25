@@ -27,6 +27,18 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F PR-F2 (thread grouping, dedupe, snippets, explain)
+
+- Added result shaping flags to `search keyword` / `search semantic`:
+  - `--group-by-thread`
+  - `--dedupe`
+  - `--snippet-chars <n>`
+  - `--explain`
+- Implemented thread-level best-hit grouping and near-duplicate text collapse
+- Added concise snippet generation for terminal output and JSON enrichment
+- Added explain output for source + score components per row
+- Updated completion/help wiring and semantic CLI parser coverage
+
 ### 2026-02-25 — Phase F PR-F1 (source include/exclude + strict source filters)
 
 - Added query syntax support in search parser:

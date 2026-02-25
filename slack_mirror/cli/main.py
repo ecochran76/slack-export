@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -319,12 +320,75 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
+    # Optional result shaping (PR-F2)
+    if args.group_by_thread:
+        grouped: dict[tuple[str, str], dict] = {}
+        for r in rows:
+            thread_root = str(r.get("thread_ts") or r.get("ts") or "")
+            key = (str(r.get("channel_id") or ""), thread_root)
+            score = float(r.get("_hybrid_score") or r.get("_score") or r.get("_semantic_score") or 0.0)
+            current = grouped.get(key)
+            current_score = float(current.get("_hybrid_score") or current.get("_score") or current.get("_semantic_score") or 0.0) if current else -1e9
+            if current is None or score > current_score:
+                grouped[key] = r
+        rows = list(grouped.values())
+
+    if args.dedupe:
+        seen: set[str] = set()
+        deduped: list[dict] = []
+        for r in rows:
+            text = " ".join((r.get("text") or "").lower().split())
+            sig = hashlib.sha1(f"{r.get('channel_id')}|{text}".encode("utf-8")).hexdigest()
+            if sig in seen:
+                continue
+            seen.add(sig)
+            deduped.append(r)
+        rows = deduped
+
+    rows = rows[: max(1, args.limit)]
+
+    def _snippet(text: str, query: str, max_chars: int) -> str:
+        t = (text or "").replace("\n", " ").strip()
+        if len(t) <= max_chars:
+            return t
+        terms = [tok for tok in query.replace('"', " ").split() if ":" not in tok and not tok.startswith("-")]
+        lower = t.lower()
+        idx = -1
+        for term in terms:
+            i = lower.find(term.lower())
+            if i >= 0:
+                idx = i
+                break
+        if idx < 0:
+            return t[: max_chars - 1] + "…"
+        start = max(0, idx - max_chars // 3)
+        end = min(len(t), start + max_chars)
+        out = t[start:end]
+        if start > 0:
+            out = "…" + out
+        if end < len(t):
+            out = out + "…"
+        return out
+
     if args.json:
+        if args.snippet_chars and args.snippet_chars > 0:
+            for r in rows:
+                r["snippet"] = _snippet(str(r.get("text") or ""), args.query, args.snippet_chars)
         print(json.dumps(rows, indent=2))
     else:
         for r in rows:
             channel = r.get("channel_name") or r.get("channel_id")
-            print(f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={r.get('text') or ''}")
+            base = r.get("text") or ""
+            text_out = _snippet(str(base), args.query, args.snippet_chars) if args.snippet_chars else str(base)
+            line = f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={text_out}"
+            if args.explain:
+                line += (
+                    f" | src={r.get('_source')}"
+                    f" lex={r.get('_lexical_score', r.get('_score', 0))}"
+                    f" sem={r.get('_semantic_score', 0)}"
+                    f" hyb={r.get('_hybrid_score', 0)}"
+                )
+            print(line)
 
     source_counts: dict[str, int] = {}
     for r in rows:
@@ -357,6 +421,14 @@ def cmd_search_semantic(args: argparse.Namespace) -> int:
         args.rank_recency_weight = None
     if not hasattr(args, "no_fts"):
         args.no_fts = False
+    if not hasattr(args, "group_by_thread"):
+        args.group_by_thread = False
+    if not hasattr(args, "dedupe"):
+        args.dedupe = False
+    if not hasattr(args, "snippet_chars"):
+        args.snippet_chars = 280
+    if not hasattr(args, "explain"):
+        args.explain = False
     return cmd_search_keyword(args)
 
 
@@ -686,7 +758,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --no-fts --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -786,6 +858,10 @@ _slack_mirror() {
         '--rank-link-weight[keyword link boost weight]:number:' \
         '--rank-thread-weight[keyword thread boost weight]:number:' \
         '--rank-recency-weight[keyword recency weight]:number:' \
+        '--group-by-thread[group results by thread root]' \
+        '--dedupe[collapse near-duplicate text]' \
+        '--snippet-chars[snippet length]:number:' \
+        '--explain[show score/source details]' \
         '--no-fts[disable FTS prefilter]' \
         '--json[json output]'
       ;;
@@ -927,6 +1003,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_kw.add_argument("--rank-link-weight", type=float, default=None, help="keyword ranking link-presence weight")
     p_search_kw.add_argument("--rank-thread-weight", type=float, default=None, help="keyword ranking thread boost weight")
     p_search_kw.add_argument("--rank-recency-weight", type=float, default=None, help="keyword ranking recency weight")
+    p_search_kw.add_argument("--group-by-thread", action="store_true", help="return best result per thread root")
+    p_search_kw.add_argument("--dedupe", action="store_true", help="collapse near-duplicate text results")
+    p_search_kw.add_argument("--snippet-chars", type=int, default=280, help="snippet length for text output")
+    p_search_kw.add_argument("--explain", action="store_true", help="show score/source details per result")
     p_search_kw.add_argument("--no-fts", action="store_true", help="disable FTS prefilter and use SQL fallback only")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)
@@ -940,6 +1020,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search_sem.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_sem.add_argument("--model", default=None, help="embedding model id (default from config: search.semantic.model)")
+    p_search_sem.add_argument("--group-by-thread", action="store_true", help="return best result per thread root")
+    p_search_sem.add_argument("--dedupe", action="store_true", help="collapse near-duplicate text results")
+    p_search_sem.add_argument("--snippet-chars", type=int, default=280, help="snippet length for text output")
+    p_search_sem.add_argument("--explain", action="store_true", help="show score/source details per result")
     p_search_sem.add_argument("--json", action="store_true", help="json output")
     p_search_sem.set_defaults(func=cmd_search_semantic)
 
