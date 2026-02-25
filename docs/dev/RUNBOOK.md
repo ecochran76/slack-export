@@ -27,6 +27,17 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F PR-F3 (adapter-style search interfaces)
+
+- Added reusable search platform interfaces in `slack_mirror/search/platform.py`
+  - `CorpusAdapter` protocol
+  - shared `SearchDocument` model
+- Added SQLite adapter implementation in `slack_mirror/search/sqlite_adapter.py`
+- Refactored keyword search engine to use adapter retrieval methods for:
+  - lexical candidate collection
+  - semantic candidate collection
+- Preserved existing ranking behavior while decoupling retrieval backend from engine logic
+
 ### 2026-02-25 — Phase F PR-F2 (thread grouping, dedupe, snippets, explain)
 
 - Added result shaping flags to `search keyword` / `search semantic`:

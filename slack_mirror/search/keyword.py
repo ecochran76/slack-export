@@ -7,6 +7,8 @@ from array import array
 from hashlib import blake2b
 from typing import Any
 
+from slack_mirror.search.sqlite_adapter import SQLiteCorpusAdapter
+
 
 def _normalize_user_ref(value: str) -> str:
     v = (value or "").strip()
@@ -299,31 +301,19 @@ def _search_lexical(
             """
             fts_params.append(match)
 
-    sql = f"""
-        SELECT
-          m.channel_id,
-          c.name AS channel_name,
-          m.ts,
-          m.user_id,
-          m.text,
-          m.subtype,
-          m.thread_ts,
-          m.edited_ts,
-          m.deleted
-        FROM messages m
-        LEFT JOIN channels c
-          ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
-        WHERE {where_sql}
-          {{fts_clause}}
-        ORDER BY CAST(m.ts AS REAL) DESC
-        LIMIT ?
-    """
     candidate_limit = max(max(1, limit) * 5, 100)
-    rows = conn.execute(sql.format(fts_clause=fts_sql), (workspace_id, *params, *fts_params, candidate_limit)).fetchall()
-    if use_fts and positive_terms and not rows:
-        rows = conn.execute(sql.format(fts_clause=""), (workspace_id, *params, candidate_limit)).fetchall()
+    adapter = SQLiteCorpusAdapter(conn)
+    rows = adapter.lexical_candidates(
+        workspace_id=workspace_id,
+        where_sql=where_sql,
+        params=params,
+        fts_sql=fts_sql,
+        fts_params=fts_params,
+        candidate_limit=candidate_limit,
+        fallback_without_fts=(use_fts and bool(positive_terms)),
+    )
     ranked = _rank_rows(
-        [dict(r) for r in rows],
+        rows,
         positive_terms,
         term_weight=rank_term_weight,
         link_weight=rank_link_weight,
@@ -347,39 +337,21 @@ def _search_semantic(
     query_vec = _embed_text_local(" ".join(positive_terms) if positive_terms else query)
     candidate_limit = max(max(1, limit) * 8, 200)
 
-    rows = conn.execute(
-        f"""
-        SELECT
-          m.channel_id,
-          c.name AS channel_name,
-          m.ts,
-          m.user_id,
-          m.text,
-          m.subtype,
-          m.thread_ts,
-          m.edited_ts,
-          m.deleted,
-          e.embedding_blob,
-          e.dim
-        FROM messages m
-        JOIN message_embeddings e
-          ON e.workspace_id = m.workspace_id AND e.channel_id = m.channel_id AND e.ts = m.ts
-        LEFT JOIN channels c
-          ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
-        WHERE {where_sql}
-          AND e.model_id = ?
-        ORDER BY CAST(m.ts AS REAL) DESC
-        LIMIT ?
-        """,
-        (workspace_id, *params, model_id, candidate_limit),
-    ).fetchall()
+    adapter = SQLiteCorpusAdapter(conn)
+    rows = adapter.semantic_candidates(
+        workspace_id=workspace_id,
+        where_sql=where_sql,
+        params=params,
+        model_id=model_id,
+        candidate_limit=candidate_limit,
+    )
 
     scored: list[dict[str, Any]] = []
     for r in rows:
         vec = array("f")
         vec.frombytes(r["embedding_blob"])
         sem = _cosine(query_vec, vec.tolist())
-        scored.append({**dict(r), "_semantic_score": round(sem, 6)})
+        scored.append({**r, "_semantic_score": round(sem, 6)})
 
     scored.sort(key=lambda x: (x.get("_semantic_score", 0.0), float(x.get("ts") or 0.0)), reverse=True)
     for s in scored:
