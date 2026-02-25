@@ -146,6 +146,9 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
         raise ValueError(f"Workspace '{args.workspace}' has no token configured")
     _enforce_auth_mode(token, args.auth_mode, command_name="mirror backfill")
 
+    if args.messages_only and not args.include_messages:
+        raise ValueError("mirror backfill: --messages-only requires --include-messages")
+
     # Ensure workspace exists in DB
     workspace_id = upsert_workspace(
         conn,
@@ -158,7 +161,12 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
     if not persisted:
         raise RuntimeError("Failed to resolve workspace after upsert")
 
-    counts = backfill_users_and_channels(token=token, workspace_id=workspace_id, conn=conn)
+    channels_override = [c.strip() for c in (args.channels or "").split(",") if c.strip()]
+
+    counts = {"users": 0, "channels": 0}
+    if not args.messages_only:
+        counts = backfill_users_and_channels(token=token, workspace_id=workspace_id, conn=conn)
+
     message_counts = {"channels": 0, "messages": 0, "skipped": 0}
     if args.include_messages:
         message_counts = backfill_messages(
@@ -168,6 +176,7 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
             channel_limit=args.channel_limit,
             oldest=args.oldest,
             latest=args.latest,
+            channel_ids_override=channels_override or None,
         )
 
     file_counts = {"files": 0, "canvases": 0, "files_downloaded": 0, "canvases_downloaded": 0}
@@ -611,7 +620,7 @@ except Exception:
           return 0
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -705,6 +714,8 @@ _slack_mirror() {
         '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
         '--auth-mode[auth mode guardrail]:mode:(bot user)' \
         '--include-messages[include messages]' \
+        '--messages-only[skip users/channels bootstrap and pull messages only]' \
+        '--channels[channel id csv for message-only mode]:channels:' \
         '--channel-limit[channel limit]:number:' \
         '--oldest[oldest message ts]:timestamp:' \
         '--latest[latest message ts]:timestamp:' \
@@ -792,6 +803,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="auth guardrail mode; defaults to bot and requires explicit user override",
     )
     p_backfill.add_argument("--include-messages", action="store_true", help="include message history")
+    p_backfill.add_argument(
+        "--messages-only",
+        action="store_true",
+        help="skip users/channels bootstrap and only backfill messages",
+    )
+    p_backfill.add_argument(
+        "--channels",
+        help="optional CSV of channel IDs for message-only pulls (avoids channels bootstrap dependency)",
+    )
     p_backfill.add_argument("--channel-limit", type=int, help="limit channels processed in this run")
     p_backfill.add_argument("--oldest", help="oldest message ts boundary (inclusive)")
     p_backfill.add_argument("--latest", help="latest message ts boundary (inclusive)")

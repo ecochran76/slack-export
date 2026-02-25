@@ -45,9 +45,10 @@ def backfill_messages(
     channel_limit: int | None = None,
     oldest: str | None = None,
     latest: str | None = None,
+    channel_ids_override: list[str] | None = None,
 ) -> dict[str, int]:
     api = SlackApiClient(token)
-    channel_ids = list_channel_ids(conn, workspace_id)
+    channel_ids = channel_ids_override[:] if channel_ids_override else list_channel_ids(conn, workspace_id)
     if channel_limit:
         channel_ids = channel_ids[:channel_limit]
 

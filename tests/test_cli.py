@@ -15,6 +15,9 @@ class CliTests(unittest.TestCase):
                 "--auth-mode",
                 "user",
                 "--include-messages",
+                "--messages-only",
+                "--channels",
+                "C123,C456",
                 "--channel-limit",
                 "3",
                 "--oldest",
@@ -33,6 +36,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.auth_mode, "user")
         self.assertTrue(args.include_messages)
+        self.assertTrue(args.messages_only)
+        self.assertEqual(args.channels, "C123,C456")
         self.assertEqual(args.channel_limit, 3)
         self.assertEqual(args.oldest, "1700000000.000000")
         self.assertEqual(args.latest, "1800000000.000000")

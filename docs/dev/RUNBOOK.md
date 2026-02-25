@@ -27,6 +27,16 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Backfill message-only mode (queue item #2)
+
+- Added dedicated backfill mode to skip users/channels bootstrap:
+  - `mirror backfill --include-messages --messages-only`
+- Added optional channel override for user-token pulls:
+  - `--channels C123,C456`
+- Extended message backfill worker to accept explicit channel id overrides
+- Added CLI parse coverage for new flags in `tests/test_cli.py`
+- Updated shell completion (bash/zsh) for new backfill flags
+
 ### 2026-02-24 — CLI auth-mode guardrails (queue item #1)
 
 - Added CLI guardrail mode for backfill auth:
@@ -357,10 +367,10 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-2. Expose ranking mode knobs/weights via CLI/config for tuning
-3. Expand semantic eval dataset from sample to real gold set (30-100 queries)
-4. Add CI runtime dependency note/check so local CLI test runs fail fast when `pyyaml` missing
+1. Expose ranking mode knobs/weights via CLI/config for tuning
+2. Expand semantic eval dataset from sample to real gold set (30-100 queries)
+3. Add CI runtime dependency note/check so local CLI test runs fail fast when `pyyaml` missing
+4. Add functional test coverage for message-only backfill execution path
 
 ## Decision Log Pointer
 
