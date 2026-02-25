@@ -27,6 +27,20 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Phase E PR4 (semantic alias + config knobs)
+
+- Added `search semantic` command alias (maps to semantic mode)
+- Added config-backed semantic defaults:
+  - `search.semantic.mode_default`
+  - `search.semantic.model`
+  - `search.semantic.weights.{lexical,semantic,semantic_scale}`
+- Added CLI knobs for hybrid tuning:
+  - `--lexical-weight`
+  - `--semantic-weight`
+  - `--semantic-scale`
+- Updated shell completion entries for new search command/flags
+- Updated `config.example.yaml` with semantic settings block
+
 ### 2026-02-24 — Phase E PR3 (hybrid retrieval mode)
 
 - Extended `search keyword` with retrieval mode support:
@@ -321,7 +335,7 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. **Phase E PR4**: add `search semantic` alias command + config knobs for fusion weights/model defaults
+1. **Phase E PR5**: eval harness + perf instrumentation + rollout gates
 2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 3. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
 4. Expose ranking mode knobs/weights via CLI/config for tuning

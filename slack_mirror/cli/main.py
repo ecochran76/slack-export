@@ -238,7 +238,8 @@ def cmd_process_events(args: argparse.Namespace) -> int:
 def cmd_search_keyword(args: argparse.Namespace) -> int:
     from slack_mirror.search.keyword import search_messages
 
-    db_path = _db_path_from_config(args.config)
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
 
@@ -246,14 +247,24 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     if not ws_row:
         raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
 
+    semantic_cfg = cfg.get("search", {}).get("semantic", {})
+    mode = args.mode or semantic_cfg.get("mode_default", "lexical")
+    model = args.model or semantic_cfg.get("model", "local-hash-128")
+    lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else semantic_cfg.get("weights", {}).get("lexical", 0.6))
+    semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
+    semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
+
     rows = search_messages(
         conn,
         workspace_id=int(ws_row["id"]),
         query=args.query,
         limit=args.limit,
         use_fts=not args.no_fts,
-        mode=args.mode,
-        model_id=args.model,
+        mode=mode,
+        model_id=model,
+        lexical_weight=lexical_weight,
+        semantic_weight=semantic_weight,
+        semantic_scale=semantic_scale,
     )
 
     if args.json:
@@ -263,8 +274,13 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
             channel = r.get("channel_name") or r.get("channel_id")
             print(f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={r.get('text') or ''}")
 
-    print(f"Keyword search workspace={args.workspace} mode={args.mode} query={args.query!r} results={len(rows)}")
+    print(f"Keyword search workspace={args.workspace} mode={mode} query={args.query!r} results={len(rows)}")
     return 0
+
+
+def cmd_search_semantic(args: argparse.Namespace) -> int:
+    args.mode = "semantic"
+    return cmd_search_keyword(args)
 
 
 def cmd_search_reindex(args: argparse.Namespace) -> int:
@@ -369,6 +385,8 @@ def _example_commands_for(cmd: str) -> list[str]:
         "slack-mirror search keyword": [
             "slack-mirror --config config.yaml search reindex-keyword --workspace default",
             "slack-mirror --config config.yaml search keyword --workspace default --query deploy --limit 20",
+            "slack-mirror --config config.yaml search keyword --workspace default --query \"release incident\" --mode hybrid",
+            "slack-mirror --config config.yaml search semantic --workspace default --query \"refund issue last sprint\"",
         ],
         "slack-mirror docs generate": [
             "slack-mirror --config config.yaml docs generate --format markdown --output docs/CLI.md",
@@ -566,7 +584,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -587,7 +605,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --no-fts --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -668,7 +686,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword reindex-keyword)'
+        _describe 'search command' '(keyword semantic reindex-keyword)'
         return
       fi
       _arguments \
@@ -677,6 +695,9 @@ _slack_mirror() {
         '--limit[maximum result rows]:number:' \
         '--mode[search mode]:mode:(lexical semantic hybrid)' \
         '--model[embedding model id]:model:' \
+        '--lexical-weight[hybrid lexical weight]:number:' \
+        '--semantic-weight[hybrid semantic weight]:number:' \
+        '--semantic-scale[semantic score scaling factor]:number:' \
         '--no-fts[disable FTS prefilter]' \
         '--json[json output]'
       ;;
@@ -792,13 +813,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_kw.add_argument(
         "--mode",
         choices=["lexical", "semantic", "hybrid"],
-        default="lexical",
-        help="search retrieval mode",
+        default=None,
+        help="search retrieval mode (default from config: search.semantic.mode_default)",
     )
-    p_search_kw.add_argument("--model", default="local-hash-128", help="embedding model id for semantic/hybrid modes")
+    p_search_kw.add_argument("--model", default=None, help="embedding model id (default from config: search.semantic.model)")
+    p_search_kw.add_argument("--lexical-weight", type=float, default=None, help="hybrid lexical score weight")
+    p_search_kw.add_argument("--semantic-weight", type=float, default=None, help="hybrid semantic score weight")
+    p_search_kw.add_argument("--semantic-scale", type=float, default=None, help="semantic score scaling factor")
     p_search_kw.add_argument("--no-fts", action="store_true", help="disable FTS prefilter and use SQL fallback only")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)
+
+    p_search_sem = search_sub.add_parser("semantic", help="semantic search over mirrored messages")
+    p_search_sem.add_argument("--workspace", required=True, help="workspace name")
+    p_search_sem.add_argument(
+        "--query",
+        required=True,
+        help="semantic query text (supports from:, channel:, before:, after:, is:, has:link, quoted phrases, and -term)",
+    )
+    p_search_sem.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_sem.add_argument("--model", default=None, help="embedding model id (default from config: search.semantic.model)")
+    p_search_sem.add_argument("--json", action="store_true", help="json output")
+    p_search_sem.set_defaults(func=cmd_search_semantic)
 
     docs = sub.add_parser("docs", help="CLI docs generation commands")
     docs_sub = docs.add_subparsers(dest="docs_cmd")

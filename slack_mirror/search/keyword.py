@@ -318,6 +318,9 @@ def search_messages(
     use_fts: bool = True,
     mode: str = "lexical",
     model_id: str = "local-hash-128",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -344,7 +347,11 @@ def search_messages(
             merged[key] = {**row, "_lexical_score": 0.0, "_semantic_score": float(row.get("_semantic_score") or 0.0)}
 
     for row in merged.values():
-        row["_hybrid_score"] = round((0.6 * float(row.get("_lexical_score") or 0.0)) + (0.4 * float(row.get("_semantic_score") or 0.0) * 10.0), 6)
+        row["_hybrid_score"] = round(
+            (lexical_weight * float(row.get("_lexical_score") or 0.0))
+            + (semantic_weight * float(row.get("_semantic_score") or 0.0) * semantic_scale),
+            6,
+        )
 
     out = sorted(merged.values(), key=lambda x: (float(x.get("_hybrid_score") or 0.0), float(x.get("ts") or 0.0)), reverse=True)
     return out[: max(1, limit)]

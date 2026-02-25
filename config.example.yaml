@@ -9,6 +9,13 @@ service:
 
 search:
   embeddings_model: ${SLACK_MIRROR_EMBED_MODEL:-text-embedding-3-large}
+  semantic:
+    mode_default: ${SLACK_MIRROR_SEARCH_MODE:-lexical}
+    model: ${SLACK_MIRROR_SEARCH_SEM_MODEL:-local-hash-128}
+    weights:
+      lexical: ${SLACK_MIRROR_SEARCH_LEXICAL_WEIGHT:-0.6}
+      semantic: ${SLACK_MIRROR_SEARCH_SEMANTIC_WEIGHT:-0.4}
+      semantic_scale: ${SLACK_MIRROR_SEARCH_SEMANTIC_SCALE:-10.0}
 
 workspaces:
   - name: default
