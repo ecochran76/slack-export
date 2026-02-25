@@ -12,6 +12,8 @@ class CliTests(unittest.TestCase):
                 "backfill",
                 "--workspace",
                 "default",
+                "--auth-mode",
+                "user",
                 "--include-messages",
                 "--channel-limit",
                 "3",
@@ -29,6 +31,7 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(args.command, "mirror")
         self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.auth_mode, "user")
         self.assertTrue(args.include_messages)
         self.assertEqual(args.channel_limit, 3)
         self.assertEqual(args.oldest, "1700000000.000000")

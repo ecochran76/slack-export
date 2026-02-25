@@ -100,6 +100,35 @@ def cmd_workspaces_verify(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+def _detect_token_mode(token: str | None) -> str:
+    t = (token or "").strip()
+    if t.startswith("xoxb-"):
+        return "bot"
+    if t.startswith("xoxp-"):
+        return "user"
+    return "unknown"
+
+
+def _enforce_auth_mode(token: str | None, auth_mode: str, *, command_name: str) -> None:
+    detected = _detect_token_mode(token)
+    mode = (auth_mode or "bot").lower()
+
+    if mode not in {"bot", "user"}:
+        raise ValueError(f"Unsupported auth mode: {auth_mode}")
+
+    if mode == "bot" and detected == "user":
+        raise ValueError(
+            f"{command_name}: detected a user token, but auth mode defaults to 'bot'. "
+            "Re-run with --auth-mode user to explicitly allow user-token operation."
+        )
+
+    if mode == "user" and detected == "bot":
+        raise ValueError(
+            f"{command_name}: detected a bot token, but --auth-mode user was requested. "
+            "Use --auth-mode bot (or omit the flag)."
+        )
+
+
 def cmd_mirror_backfill(args: argparse.Namespace) -> int:
     from slack_mirror.sync.backfill import (
         backfill_files_and_canvases,
@@ -115,6 +144,7 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
     token = ws_cfg.get("token")
     if not token:
         raise ValueError(f"Workspace '{args.workspace}' has no token configured")
+    _enforce_auth_mode(token, args.auth_mode, command_name="mirror backfill")
 
     # Ensure workspace exists in DB
     workspace_id = upsert_workspace(
@@ -576,8 +606,12 @@ except Exception:
           COMPREPLY=( $(compgen -W "all images snippets gdocs zips pdfs" -- "$cur") )
           return 0
           ;;
+        --auth-mode)
+          COMPREPLY=( $(compgen -W "bot user" -- "$cur") )
+          return 0
+          ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --include-messages --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -669,6 +703,7 @@ _slack_mirror() {
       fi
       _arguments \
         '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
+        '--auth-mode[auth mode guardrail]:mode:(bot user)' \
         '--include-messages[include messages]' \
         '--channel-limit[channel limit]:number:' \
         '--oldest[oldest message ts]:timestamp:' \
@@ -750,6 +785,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.set_defaults(func=cmd_mirror_init)
     p_backfill = mirror_sub.add_parser("backfill", help="run API backfill into local DB/cache")
     p_backfill.add_argument("--workspace", required=True, help="workspace name from config")
+    p_backfill.add_argument(
+        "--auth-mode",
+        choices=["bot", "user"],
+        default="bot",
+        help="auth guardrail mode; defaults to bot and requires explicit user override",
+    )
     p_backfill.add_argument("--include-messages", action="store_true", help="include message history")
     p_backfill.add_argument("--channel-limit", type=int, help="limit channels processed in this run")
     p_backfill.add_argument("--oldest", help="oldest message ts boundary (inclusive)")

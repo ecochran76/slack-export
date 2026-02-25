@@ -27,6 +27,17 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — CLI auth-mode guardrails (queue item #1)
+
+- Added CLI guardrail mode for backfill auth:
+  - `mirror backfill --auth-mode bot|user` (default: `bot`)
+- Added token-type detection and enforcement:
+  - user token with default `bot` mode now fails with explicit override guidance
+  - mismatched `--auth-mode user` + bot token also fails
+- Updated completion support (bash/zsh) for `--auth-mode`
+- Added tests for guardrail helpers:
+  - `tests/test_auth_mode.py`
+
 ### 2026-02-24 — Phase E PR5 (eval harness + instrumentation)
 
 - Added evaluation harness script: `scripts/eval_search.py`
@@ -346,10 +357,10 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
-2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-3. Expose ranking mode knobs/weights via CLI/config for tuning
-4. Expand semantic eval dataset from sample to real gold set (30-100 queries)
+1. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
+2. Expose ranking mode knobs/weights via CLI/config for tuning
+3. Expand semantic eval dataset from sample to real gold set (30-100 queries)
+4. Add CI runtime dependency note/check so local CLI test runs fail fast when `pyyaml` missing
 
 ## Decision Log Pointer
 
