@@ -27,6 +27,18 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F PR-F5 (portable eval harness + benchmark packs)
+
+- Upgraded `scripts/eval_search.py` with portable corpus modes:
+  - `--corpus slack-db`
+  - `--corpus dir`
+- Added baseline benchmark packs:
+  - `docs/dev/benchmarks/slack_smoke.jsonl`
+  - `docs/dev/benchmarks/dir_docs_smoke.jsonl`
+- Updated eval documentation:
+  - `docs/dev/SEARCH_EVAL.md` now includes cross-corpus usage and id conventions
+- Verified both corpus modes execute and report nDCG/MRR/hit/latency metrics
+
 ### 2026-02-25 — Phase F PR-F4 (directory corpus adapter + CLI entrypoint)
 
 - Added directory corpus search adapter: `slack_mirror/search/dir_adapter.py`

@@ -4,13 +4,31 @@
 
 Script: `scripts/eval_search.py`
 
-Run:
+## Corpus modes
+
+- `--corpus slack-db` (default): evaluate mirrored Slack DB
+- `--corpus dir`: evaluate a directory/file corpus
+
+### Slack DB run
 
 ```bash
 PYTHONPATH=. python3 scripts/eval_search.py \
-  --db ./data/slack_mirror.db \
+  --corpus slack-db \
+  --db ./.local/state/slack_mirror_test.db \
   --workspace default \
-  --dataset ./docs/dev/search_eval_dataset.jsonl \
+  --dataset ./docs/dev/benchmarks/slack_smoke.jsonl \
+  --mode hybrid \
+  --limit 10
+```
+
+### Directory run
+
+```bash
+PYTHONPATH=. python3 scripts/eval_search.py \
+  --corpus dir \
+  --path ./docs \
+  --glob "**/*.md" \
+  --dataset ./docs/dev/benchmarks/dir_docs_smoke.jsonl \
   --mode hybrid \
   --limit 10
 ```
@@ -18,9 +36,13 @@ PYTHONPATH=. python3 scripts/eval_search.py \
 Dataset format (`jsonl`):
 
 ```json
-{"query":"deploy incident","relevant":{"C123:1740421200.123":2,"C123:1740422200.555":1}}
-{"query":"refund issue last sprint","relevant":{"C999:1740020000.000":2}}
+{"query":"deploy incident","relevant":{"C123:1740421200.123":2,"general:1740422200.555":1}}
+{"query":"refund issue last sprint","relevant":{"dev/PHASE_E_SEMANTIC_SEARCH.md":2}}
 ```
+
+ID conventions:
+- Slack DB: `channel_id:ts` (or `channel_name:ts`)
+- Directory corpus: relative file path (e.g., `dev/SEARCH_EVAL.md`)
 
 Relevance labels:
 - `0` = not relevant (omit from map)
