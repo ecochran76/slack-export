@@ -27,6 +27,19 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Ranking weight knobs via CLI/config (queue item #3)
+
+- Added keyword ranking weight knobs in `search keyword`:
+  - `--rank-term-weight`
+  - `--rank-link-weight`
+  - `--rank-thread-weight`
+  - `--rank-recency-weight`
+- Added config support for keyword ranking defaults:
+  - `search.keyword.weights.{term,link,thread,recency}`
+- Wired ranking weights through search engine scoring path
+- Updated shell completion for the new search flags
+- Added CLI parse coverage for ranking-weight flags
+
 ### 2026-02-24 — Backfill message-only mode (queue item #2)
 
 - Added dedicated backfill mode to skip users/channels bootstrap:
@@ -367,10 +380,10 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. Expose ranking mode knobs/weights via CLI/config for tuning
-2. Expand semantic eval dataset from sample to real gold set (30-100 queries)
-3. Add CI runtime dependency note/check so local CLI test runs fail fast when `pyyaml` missing
-4. Add functional test coverage for message-only backfill execution path
+1. Expand semantic eval dataset from sample to real gold set (30-100 queries)
+2. Add CI runtime dependency note/check so local CLI test runs fail fast when `pyyaml` missing
+3. Add functional test coverage for message-only backfill execution path
+4. Add functional test coverage for auth-mode and ranking weight behavior end-to-end
 
 ## Decision Log Pointer
 

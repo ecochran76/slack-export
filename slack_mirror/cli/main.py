@@ -287,12 +287,18 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     if not ws_row:
         raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
 
-    semantic_cfg = cfg.get("search", {}).get("semantic", {})
+    search_cfg = cfg.get("search", {})
+    semantic_cfg = search_cfg.get("semantic", {})
+    keyword_cfg = search_cfg.get("keyword", {})
     mode = args.mode or semantic_cfg.get("mode_default", "lexical")
     model = args.model or semantic_cfg.get("model", "local-hash-128")
     lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else semantic_cfg.get("weights", {}).get("lexical", 0.6))
     semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
     semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
+    rank_term_weight = float(args.rank_term_weight if args.rank_term_weight is not None else keyword_cfg.get("weights", {}).get("term", 5.0))
+    rank_link_weight = float(args.rank_link_weight if args.rank_link_weight is not None else keyword_cfg.get("weights", {}).get("link", 1.0))
+    rank_thread_weight = float(args.rank_thread_weight if args.rank_thread_weight is not None else keyword_cfg.get("weights", {}).get("thread", 0.5))
+    rank_recency_weight = float(args.rank_recency_weight if args.rank_recency_weight is not None else keyword_cfg.get("weights", {}).get("recency", 2.0))
 
     t0 = time.perf_counter()
     rows = search_messages(
@@ -306,6 +312,10 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         lexical_weight=lexical_weight,
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
+        rank_term_weight=rank_term_weight,
+        rank_link_weight=rank_link_weight,
+        rank_thread_weight=rank_thread_weight,
+        rank_recency_weight=rank_recency_weight,
     )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -659,7 +669,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --no-fts --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -755,6 +765,10 @@ _slack_mirror() {
         '--lexical-weight[hybrid lexical weight]:number:' \
         '--semantic-weight[hybrid semantic weight]:number:' \
         '--semantic-scale[semantic score scaling factor]:number:' \
+        '--rank-term-weight[keyword term-frequency weight]:number:' \
+        '--rank-link-weight[keyword link boost weight]:number:' \
+        '--rank-thread-weight[keyword thread boost weight]:number:' \
+        '--rank-recency-weight[keyword recency weight]:number:' \
         '--no-fts[disable FTS prefilter]' \
         '--json[json output]'
       ;;
@@ -892,6 +906,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_kw.add_argument("--lexical-weight", type=float, default=None, help="hybrid lexical score weight")
     p_search_kw.add_argument("--semantic-weight", type=float, default=None, help="hybrid semantic score weight")
     p_search_kw.add_argument("--semantic-scale", type=float, default=None, help="semantic score scaling factor")
+    p_search_kw.add_argument("--rank-term-weight", type=float, default=None, help="keyword ranking term-frequency weight")
+    p_search_kw.add_argument("--rank-link-weight", type=float, default=None, help="keyword ranking link-presence weight")
+    p_search_kw.add_argument("--rank-thread-weight", type=float, default=None, help="keyword ranking thread boost weight")
+    p_search_kw.add_argument("--rank-recency-weight", type=float, default=None, help="keyword ranking recency weight")
     p_search_kw.add_argument("--no-fts", action="store_true", help="disable FTS prefilter and use SQL fallback only")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)

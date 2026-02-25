@@ -148,7 +148,15 @@ def reindex_messages_fts(conn: sqlite3.Connection, *, workspace_id: int) -> int:
     return int(row[0] if row else 0)
 
 
-def _rank_rows(rows: list[dict[str, Any]], positive_terms: list[str]) -> list[dict[str, Any]]:
+def _rank_rows(
+    rows: list[dict[str, Any]],
+    positive_terms: list[str],
+    *,
+    term_weight: float = 5.0,
+    link_weight: float = 1.0,
+    thread_weight: float = 0.5,
+    recency_weight: float = 2.0,
+) -> list[dict[str, Any]]:
     if not rows:
         return rows
 
@@ -177,7 +185,12 @@ def _rank_rows(rows: list[dict[str, Any]], positive_terms: list[str]) -> list[di
             ts = 0.0
         recency = (ts / max_ts) if max_ts > 0 else 0.0
 
-        score = (term_hits * 5.0) + (1.0 if has_link else 0.0) + (0.5 if is_thread else 0.0) + (recency * 2.0)
+        score = (
+            (term_hits * term_weight)
+            + (link_weight if has_link else 0.0)
+            + (thread_weight if is_thread else 0.0)
+            + (recency * recency_weight)
+        )
         ranked.append({**r, "_score": round(score, 4)})
 
     ranked.sort(key=lambda x: (x.get("_score", 0.0), float(x.get("ts") or 0.0)), reverse=True)
@@ -209,6 +222,10 @@ def _search_lexical(
     query: str,
     limit: int,
     use_fts: bool,
+    rank_term_weight: float,
+    rank_link_weight: float,
+    rank_thread_weight: float,
+    rank_recency_weight: float,
 ) -> list[dict[str, Any]]:
     positive_terms, where_sql, params = _parse_query(query)
 
@@ -253,7 +270,14 @@ def _search_lexical(
     rows = conn.execute(sql.format(fts_clause=fts_sql), (workspace_id, *params, *fts_params, candidate_limit)).fetchall()
     if use_fts and positive_terms and not rows:
         rows = conn.execute(sql.format(fts_clause=""), (workspace_id, *params, candidate_limit)).fetchall()
-    ranked = _rank_rows([dict(r) for r in rows], positive_terms)[: max(1, limit)]
+    ranked = _rank_rows(
+        [dict(r) for r in rows],
+        positive_terms,
+        term_weight=rank_term_weight,
+        link_weight=rank_link_weight,
+        thread_weight=rank_thread_weight,
+        recency_weight=rank_recency_weight,
+    )[: max(1, limit)]
     for r in ranked:
         r.setdefault("_source", "lexical")
     return ranked
@@ -325,6 +349,10 @@ def search_messages(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    rank_term_weight: float = 5.0,
+    rank_link_weight: float = 1.0,
+    rank_thread_weight: float = 0.5,
+    rank_recency_weight: float = 2.0,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -332,11 +360,31 @@ def search_messages(
 
     mode = (mode or "lexical").lower()
     if mode == "lexical":
-        return _search_lexical(conn, workspace_id=workspace_id, query=q, limit=limit, use_fts=use_fts)
+        return _search_lexical(
+            conn,
+            workspace_id=workspace_id,
+            query=q,
+            limit=limit,
+            use_fts=use_fts,
+            rank_term_weight=rank_term_weight,
+            rank_link_weight=rank_link_weight,
+            rank_thread_weight=rank_thread_weight,
+            rank_recency_weight=rank_recency_weight,
+        )
     if mode == "semantic":
         return _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=limit)
 
-    lexical = _search_lexical(conn, workspace_id=workspace_id, query=q, limit=max(limit * 2, 20), use_fts=use_fts)
+    lexical = _search_lexical(
+        conn,
+        workspace_id=workspace_id,
+        query=q,
+        limit=max(limit * 2, 20),
+        use_fts=use_fts,
+        rank_term_weight=rank_term_weight,
+        rank_link_weight=rank_link_weight,
+        rank_thread_weight=rank_thread_weight,
+        rank_recency_weight=rank_recency_weight,
+    )
     semantic = _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=max(limit * 2, 20))
 
     merged: dict[tuple[str, str], dict[str, Any]] = {}

@@ -153,6 +153,31 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.model, "local-hash-128")
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_keyword_ranking_weights(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "keyword",
+                "--workspace",
+                "default",
+                "--query",
+                "deploy",
+                "--rank-term-weight",
+                "6.0",
+                "--rank-link-weight",
+                "2.0",
+                "--rank-thread-weight",
+                "1.5",
+                "--rank-recency-weight",
+                "3.0",
+            ]
+        )
+        self.assertEqual(args.rank_term_weight, 6.0)
+        self.assertEqual(args.rank_link_weight, 2.0)
+        self.assertEqual(args.rank_thread_weight, 1.5)
+        self.assertEqual(args.rank_recency_weight, 3.0)
+
     def test_parse_search_semantic_alias(self):
         parser = build_parser()
         args = parser.parse_args(["search", "semantic", "--workspace", "default", "--query", "deploy incidents"])
