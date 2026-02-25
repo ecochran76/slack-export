@@ -27,6 +27,16 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F PR-F1 (source include/exclude + strict source filters)
+
+- Added query syntax support in search parser:
+  - `in:<source1,source2>`
+  - `source:<pattern>` / `channel:<pattern>` with `*` wildcard
+  - negated source filters (e.g. `-source:oc-*`)
+- Applied these filters at query-planner layer so they affect lexical + semantic paths consistently
+- Updated CLI help text to document `in:` and `source:` filter support
+- Added parser behavior tests in `tests/test_search.py`
+
 ### 2026-02-25 — Phase F planning kickoff (reusable search platform)
 
 - Added roadmap doc: `docs/dev/PHASE_F_SEARCH_PLATFORM.md`

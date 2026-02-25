@@ -31,6 +31,11 @@ def _fts_escape(term: str) -> str:
     return f'"{t}"' if t else ""
 
 
+def _glob_to_like(value: str) -> str:
+    # simple glob-style wildcard support for source/channel filters
+    return (value or "").replace("*", "%")
+
+
 def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[list[str], str, list[Any]]:
     tokens = shlex.split(raw_query)
     clauses: list[str] = ["m.workspace_id = ?", "m.deleted = 0"]
@@ -64,8 +69,55 @@ def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[
             params.extend([value, value, value, value, value])
             continue
 
-        if token.startswith("channel:"):
+        if token.startswith("in:"):
+            raw_values = [v.strip() for v in token.split(":", 1)[1].split(",") if v.strip()]
+            if raw_values:
+                parts: list[str] = []
+                for raw in raw_values:
+                    value = _normalize_channel_ref(raw)
+                    if "*" in value:
+                        parts.append(
+                            """m.channel_id IN (
+                                SELECT ch.channel_id
+                                FROM channels ch
+                                WHERE ch.workspace_id = m.workspace_id
+                                  AND lower(COALESCE(ch.name, '')) LIKE lower(?)
+                            )"""
+                        )
+                        params.append(_glob_to_like(value))
+                    else:
+                        parts.append(
+                            """(
+                                m.channel_id = ?
+                                OR m.channel_id IN (
+                                    SELECT ch.channel_id
+                                    FROM channels ch
+                                    WHERE ch.workspace_id = m.workspace_id
+                                      AND (
+                                        ch.channel_id = ?
+                                        OR lower(COALESCE(ch.name, '')) = lower(?)
+                                      )
+                                )
+                            )"""
+                        )
+                        params.extend([value, value, value])
+                clause = "(" + " OR ".join(parts) + ")"
+                clauses.append(f"NOT {clause}" if negated else clause)
+            continue
+
+        if token.startswith("source:") or token.startswith("channel:"):
             value = _normalize_channel_ref(token.split(":", 1)[1])
+            if "*" in value:
+                clause = """m.channel_id IN (
+                    SELECT ch.channel_id
+                    FROM channels ch
+                    WHERE ch.workspace_id = m.workspace_id
+                      AND lower(COALESCE(ch.name, '')) LIKE lower(?)
+                )"""
+                clauses.append(f"NOT ({clause})" if negated else clause)
+                params.append(_glob_to_like(value))
+                continue
+
             clause = """(
                 m.channel_id = ?
                 OR m.channel_id IN (

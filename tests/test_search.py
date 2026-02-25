@@ -49,6 +49,15 @@ class SearchTests(unittest.TestCase):
             rows = search_messages(conn, workspace_id=ws_id, query="deploy channel:#general", limit=10)
             self.assertEqual(len(rows), 2)
 
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy in:#general", limit=10)
+            self.assertEqual(len(rows), 2)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy source:gen*", limit=10)
+            self.assertEqual(len(rows), 2)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy -source:gen*", limit=10)
+            self.assertEqual(len(rows), 0)
+
             rows = search_messages(conn, workspace_id=ws_id, query="deploy channel:<#C1>", limit=10)
             self.assertEqual(len(rows), 2)
 
