@@ -27,6 +27,15 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F planning kickoff (reusable search platform)
+
+- Added roadmap doc: `docs/dev/PHASE_F_SEARCH_PLATFORM.md`
+- Defined adapter-based search architecture for reuse across:
+  - DB corpora
+  - directory/file corpora
+  - mixed attachment corpora
+- Prioritized quick wins + PR sequence for a portable search stack
+
 ### 2026-02-24 — Semi-permanent local test DB baseline
 
 - Added setup guide: `docs/dev/TEST_DB_SETUP.md`
@@ -392,7 +401,7 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 1. Expand semantic eval dataset from sample to real gold set (30-100 queries)
 2. Add CI runtime dependency note/check so local CLI test runs fail fast when `pyyaml` missing
 3. Add functional test coverage for message-only backfill execution path
-4. Add functional test coverage for auth-mode and ranking weight behavior end-to-end
+4. Plan Phase F reusable search platform roadmap (DB + directory corpus support)
 
 ## Decision Log Pointer
 
