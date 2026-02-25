@@ -340,6 +340,23 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
 
 def cmd_search_semantic(args: argparse.Namespace) -> int:
     args.mode = "semantic"
+    # Ensure all attributes expected by cmd_search_keyword exist with defaults
+    if not hasattr(args, "lexical_weight"):
+        args.lexical_weight = None
+    if not hasattr(args, "semantic_weight"):
+        args.semantic_weight = None
+    if not hasattr(args, "semantic_scale"):
+        args.semantic_scale = None
+    if not hasattr(args, "rank_term_weight"):
+        args.rank_term_weight = None
+    if not hasattr(args, "rank_link_weight"):
+        args.rank_link_weight = None
+    if not hasattr(args, "rank_thread_weight"):
+        args.rank_thread_weight = None
+    if not hasattr(args, "rank_recency_weight"):
+        args.rank_recency_weight = None
+    if not hasattr(args, "no_fts"):
+        args.no_fts = False
     return cmd_search_keyword(args)
 
 
