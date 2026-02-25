@@ -273,11 +273,21 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added DB tests validating incremental FTS updates and delete behavior
 - Removes dependency on frequent full `reindex-keyword` for ongoing event/backfill updates
 
+### 2026-02-24 — Keyword ranking/weighting pass
+
+- Added ranking layer on keyword search results (applied after SQL/FTS candidate fetch):
+  - term frequency boost
+  - link presence boost
+  - thread participation boost
+  - recency weighting
+- Expanded candidate window before ranking (`limit*5`, min 100) to improve relevance quality
+- Keeps deterministic top-N output while preserving `--limit`
+
 ## Next Actions Queue
 
 1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-3. Add ranking/recency weighting to keyword search results
+3. Expose ranking mode knobs/weights via CLI/config for tuning
 
 ## Decision Log Pointer
 

@@ -144,6 +144,42 @@ def reindex_messages_fts(conn: sqlite3.Connection, *, workspace_id: int) -> int:
     return int(row[0] if row else 0)
 
 
+def _rank_rows(rows: list[dict[str, Any]], positive_terms: list[str]) -> list[dict[str, Any]]:
+    if not rows:
+        return rows
+
+    max_ts = 0.0
+    for r in rows:
+        try:
+            max_ts = max(max_ts, float(r.get("ts") or 0.0))
+        except Exception:
+            pass
+
+    ranked: list[dict[str, Any]] = []
+    for r in rows:
+        text = (r.get("text") or "").lower()
+        term_hits = 0
+        for t in positive_terms:
+            tt = (t or "").lower().strip()
+            if tt:
+                term_hits += text.count(tt)
+
+        has_link = ("http://" in text) or ("https://" in text)
+        is_thread = bool(r.get("thread_ts"))
+
+        try:
+            ts = float(r.get("ts") or 0.0)
+        except Exception:
+            ts = 0.0
+        recency = (ts / max_ts) if max_ts > 0 else 0.0
+
+        score = (term_hits * 5.0) + (1.0 if has_link else 0.0) + (0.5 if is_thread else 0.0) + (recency * 2.0)
+        ranked.append({**r, "_score": round(score, 4)})
+
+    ranked.sort(key=lambda x: (x.get("_score", 0.0), float(x.get("ts") or 0.0)), reverse=True)
+    return ranked
+
+
 def search_messages(
     conn: sqlite3.Connection,
     *,
@@ -197,16 +233,18 @@ def search_messages(
     """
 
     # First pass (optional FTS prefilter)
+    candidate_limit = max(max(1, limit) * 5, 100)
     rows = conn.execute(
         sql.format(fts_clause=fts_sql),
-        (workspace_id, *params, *fts_params, max(1, limit)),
+        (workspace_id, *params, *fts_params, candidate_limit),
     ).fetchall()
 
     # Fallback if FTS index is stale/missing for this workspace.
     if use_fts and positive_terms and not rows:
         rows = conn.execute(
             sql.format(fts_clause=""),
-            (workspace_id, *params, max(1, limit)),
+            (workspace_id, *params, candidate_limit),
         ).fetchall()
 
-    return [dict(r) for r in rows]
+    ranked = _rank_rows([dict(r) for r in rows], positive_terms)
+    return ranked[: max(1, limit)]
