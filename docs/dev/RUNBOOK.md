@@ -27,6 +27,21 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F PR-F6 (optional reranker + query profiles)
+
+- Added optional reranking controls:
+  - `--rerank`
+  - `--rerank-top-n`
+- Added saved query profile support:
+  - `--profile <name>`
+  - config-backed profiles under `search.query_profiles`
+- Query profile capabilities include:
+  - query prefix injection (scoping/filter presets)
+  - mode/model defaults
+  - semantic and keyword weight presets
+- Added heuristic reranker pass in search engine for top-N refinement
+- Updated `config.example.yaml` with a sample `nylon-research` profile
+
 ### 2026-02-25 — Phase F PR-F5 (portable eval harness + benchmark packs)
 
 - Upgraded `scripts/eval_search.py` with portable corpus modes:

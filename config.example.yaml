@@ -22,6 +22,19 @@ search:
       lexical: ${SLACK_MIRROR_SEARCH_LEXICAL_WEIGHT:-0.6}
       semantic: ${SLACK_MIRROR_SEARCH_SEMANTIC_WEIGHT:-0.4}
       semantic_scale: ${SLACK_MIRROR_SEARCH_SEMANTIC_SCALE:-10.0}
+  query_profiles:
+    nylon-research:
+      mode: hybrid
+      query_prefix: "in:general,reu2022,website -source:oc-*"
+      semantic_weights:
+        lexical: 0.55
+        semantic: 0.45
+        semantic_scale: 10.0
+      keyword_weights:
+        term: 5.5
+        link: 1.0
+        thread: 0.6
+        recency: 2.0
 
 workspaces:
   - name: default

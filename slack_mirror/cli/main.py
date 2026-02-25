@@ -291,21 +291,31 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     search_cfg = cfg.get("search", {})
     semantic_cfg = search_cfg.get("semantic", {})
     keyword_cfg = search_cfg.get("keyword", {})
-    mode = args.mode or semantic_cfg.get("mode_default", "lexical")
-    model = args.model or semantic_cfg.get("model", "local-hash-128")
-    lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else semantic_cfg.get("weights", {}).get("lexical", 0.6))
-    semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
-    semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
-    rank_term_weight = float(args.rank_term_weight if args.rank_term_weight is not None else keyword_cfg.get("weights", {}).get("term", 5.0))
-    rank_link_weight = float(args.rank_link_weight if args.rank_link_weight is not None else keyword_cfg.get("weights", {}).get("link", 1.0))
-    rank_thread_weight = float(args.rank_thread_weight if args.rank_thread_weight is not None else keyword_cfg.get("weights", {}).get("thread", 0.5))
-    rank_recency_weight = float(args.rank_recency_weight if args.rank_recency_weight is not None else keyword_cfg.get("weights", {}).get("recency", 2.0))
+    profiles = search_cfg.get("query_profiles", {})
+    profile_cfg = profiles.get(args.profile, {}) if args.profile else {}
+
+    mode = args.mode or profile_cfg.get("mode") or semantic_cfg.get("mode_default", "lexical")
+    model = args.model or profile_cfg.get("model") or semantic_cfg.get("model", "local-hash-128")
+    profile_sem_w = profile_cfg.get("semantic_weights", {})
+    profile_kw_w = profile_cfg.get("keyword_weights", {})
+
+    lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else profile_sem_w.get("lexical", semantic_cfg.get("weights", {}).get("lexical", 0.6)))
+    semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else profile_sem_w.get("semantic", semantic_cfg.get("weights", {}).get("semantic", 0.4)))
+    semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else profile_sem_w.get("semantic_scale", semantic_cfg.get("weights", {}).get("semantic_scale", 10.0)))
+    rank_term_weight = float(args.rank_term_weight if args.rank_term_weight is not None else profile_kw_w.get("term", keyword_cfg.get("weights", {}).get("term", 5.0)))
+    rank_link_weight = float(args.rank_link_weight if args.rank_link_weight is not None else profile_kw_w.get("link", keyword_cfg.get("weights", {}).get("link", 1.0)))
+    rank_thread_weight = float(args.rank_thread_weight if args.rank_thread_weight is not None else profile_kw_w.get("thread", keyword_cfg.get("weights", {}).get("thread", 0.5)))
+    rank_recency_weight = float(args.rank_recency_weight if args.rank_recency_weight is not None else profile_kw_w.get("recency", keyword_cfg.get("weights", {}).get("recency", 2.0)))
+
+    base_query = args.query
+    if profile_cfg.get("query_prefix"):
+        base_query = f"{profile_cfg.get('query_prefix')} {base_query}".strip()
 
     t0 = time.perf_counter()
     rows = search_messages(
         conn,
         workspace_id=int(ws_row["id"]),
-        query=args.query,
+        query=base_query,
         limit=args.limit,
         use_fts=not args.no_fts,
         mode=mode,
@@ -317,6 +327,8 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         rank_link_weight=rank_link_weight,
         rank_thread_weight=rank_thread_weight,
         rank_recency_weight=rank_recency_weight,
+        rerank=args.rerank,
+        rerank_top_n=args.rerank_top_n,
     )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -396,7 +408,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         source_counts[src] = source_counts.get(src, 0) + 1
 
     print(
-        f"Keyword search workspace={args.workspace} mode={mode} query={args.query!r} "
+        f"Keyword search workspace={args.workspace} mode={mode} profile={args.profile or 'none'} query={base_query!r} "
         f"results={len(rows)} latency_ms={elapsed_ms:.2f} sources={source_counts}"
     )
     return 0
@@ -429,6 +441,12 @@ def cmd_search_semantic(args: argparse.Namespace) -> int:
         args.snippet_chars = 280
     if not hasattr(args, "explain"):
         args.explain = False
+    if not hasattr(args, "rerank"):
+        args.rerank = False
+    if not hasattr(args, "rerank_top_n"):
+        args.rerank_top_n = 50
+    if not hasattr(args, "profile"):
+        args.profile = None
     return cmd_search_keyword(args)
 
 
@@ -779,7 +797,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --no-fts --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --profile --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --rerank --rerank-top-n --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -868,6 +886,7 @@ _slack_mirror() {
       fi
       _arguments \
         '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
+        '--profile[named query profile]:profile:' \
         '--path[directory root]:path:_files -/' \
         '--glob[file glob]:glob:' \
         '--query[keyword query]:query:' \
@@ -885,6 +904,8 @@ _slack_mirror() {
         '--dedupe[collapse near-duplicate text]' \
         '--snippet-chars[snippet length]:number:' \
         '--explain[show score/source details]' \
+        '--rerank[apply optional heuristic reranking]' \
+        '--rerank-top-n[top N rerank window]:number:' \
         '--no-fts[disable FTS prefilter]' \
         '--json[json output]'
       ;;
@@ -1006,6 +1027,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_search_kw = search_sub.add_parser("keyword", help="keyword search over mirrored messages")
     p_search_kw.add_argument("--workspace", required=True, help="workspace name")
+    p_search_kw.add_argument("--profile", default=None, help="named query profile from config search.query_profiles")
     p_search_kw.add_argument(
         "--query",
         required=True,
@@ -1030,12 +1052,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_kw.add_argument("--dedupe", action="store_true", help="collapse near-duplicate text results")
     p_search_kw.add_argument("--snippet-chars", type=int, default=280, help="snippet length for text output")
     p_search_kw.add_argument("--explain", action="store_true", help="show score/source details per result")
+    p_search_kw.add_argument("--rerank", action="store_true", help="apply optional heuristic reranking")
+    p_search_kw.add_argument("--rerank-top-n", type=int, default=50, help="top N rows to rerank when --rerank is enabled")
     p_search_kw.add_argument("--no-fts", action="store_true", help="disable FTS prefilter and use SQL fallback only")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)
 
     p_search_sem = search_sub.add_parser("semantic", help="semantic search over mirrored messages")
     p_search_sem.add_argument("--workspace", required=True, help="workspace name")
+    p_search_sem.add_argument("--profile", default=None, help="named query profile from config search.query_profiles")
     p_search_sem.add_argument(
         "--query",
         required=True,
@@ -1047,6 +1072,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_sem.add_argument("--dedupe", action="store_true", help="collapse near-duplicate text results")
     p_search_sem.add_argument("--snippet-chars", type=int, default=280, help="snippet length for text output")
     p_search_sem.add_argument("--explain", action="store_true", help="show score/source details per result")
+    p_search_sem.add_argument("--rerank", action="store_true", help="apply optional heuristic reranking")
+    p_search_sem.add_argument("--rerank-top-n", type=int, default=50, help="top N rows to rerank when --rerank is enabled")
     p_search_sem.add_argument("--json", action="store_true", help="json output")
     p_search_sem.set_defaults(func=cmd_search_semantic)
 

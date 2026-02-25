@@ -163,6 +163,8 @@ class CliTests(unittest.TestCase):
                 "default",
                 "--query",
                 "deploy",
+                "--profile",
+                "nylon-research",
                 "--rank-term-weight",
                 "6.0",
                 "--rank-link-weight",
@@ -171,12 +173,18 @@ class CliTests(unittest.TestCase):
                 "1.5",
                 "--rank-recency-weight",
                 "3.0",
+                "--rerank",
+                "--rerank-top-n",
+                "25",
             ]
         )
+        self.assertEqual(args.profile, "nylon-research")
         self.assertEqual(args.rank_term_weight, 6.0)
         self.assertEqual(args.rank_link_weight, 2.0)
         self.assertEqual(args.rank_thread_weight, 1.5)
         self.assertEqual(args.rank_recency_weight, 3.0)
+        self.assertTrue(args.rerank)
+        self.assertEqual(args.rerank_top_n, 25)
 
     def test_parse_search_semantic_alias(self):
         parser = build_parser()
