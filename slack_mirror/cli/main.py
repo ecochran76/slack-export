@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from slack_mirror.core.config import load_config
@@ -254,6 +255,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
     semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
 
+    t0 = time.perf_counter()
     rows = search_messages(
         conn,
         workspace_id=int(ws_row["id"]),
@@ -266,6 +268,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
     )
+    elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
     if args.json:
         print(json.dumps(rows, indent=2))
@@ -274,7 +277,15 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
             channel = r.get("channel_name") or r.get("channel_id")
             print(f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={r.get('text') or ''}")
 
-    print(f"Keyword search workspace={args.workspace} mode={mode} query={args.query!r} results={len(rows)}")
+    source_counts: dict[str, int] = {}
+    for r in rows:
+        src = str(r.get("_source") or "unknown")
+        source_counts[src] = source_counts.get(src, 0) + 1
+
+    print(
+        f"Keyword search workspace={args.workspace} mode={mode} query={args.query!r} "
+        f"results={len(rows)} latency_ms={elapsed_ms:.2f} sources={source_counts}"
+    )
     return 0
 
 

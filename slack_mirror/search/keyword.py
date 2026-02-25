@@ -253,7 +253,10 @@ def _search_lexical(
     rows = conn.execute(sql.format(fts_clause=fts_sql), (workspace_id, *params, *fts_params, candidate_limit)).fetchall()
     if use_fts and positive_terms and not rows:
         rows = conn.execute(sql.format(fts_clause=""), (workspace_id, *params, candidate_limit)).fetchall()
-    return _rank_rows([dict(r) for r in rows], positive_terms)[: max(1, limit)]
+    ranked = _rank_rows([dict(r) for r in rows], positive_terms)[: max(1, limit)]
+    for r in ranked:
+        r.setdefault("_source", "lexical")
+    return ranked
 
 
 def _search_semantic(
@@ -306,6 +309,7 @@ def _search_semantic(
     for s in scored:
         s.pop("embedding_blob", None)
         s.pop("dim", None)
+        s.setdefault("_source", "semantic")
     return scored[: max(1, limit)]
 
 
@@ -338,13 +342,24 @@ def search_messages(
     merged: dict[tuple[str, str], dict[str, Any]] = {}
     for row in lexical:
         key = (str(row.get("channel_id")), str(row.get("ts")))
-        merged[key] = {**row, "_lexical_score": float(row.get("_score") or 0.0), "_semantic_score": 0.0}
+        merged[key] = {
+            **row,
+            "_lexical_score": float(row.get("_score") or 0.0),
+            "_semantic_score": 0.0,
+            "_source": "lexical",
+        }
     for row in semantic:
         key = (str(row.get("channel_id")), str(row.get("ts")))
         if key in merged:
             merged[key]["_semantic_score"] = float(row.get("_semantic_score") or 0.0)
+            merged[key]["_source"] = "hybrid"
         else:
-            merged[key] = {**row, "_lexical_score": 0.0, "_semantic_score": float(row.get("_semantic_score") or 0.0)}
+            merged[key] = {
+                **row,
+                "_lexical_score": 0.0,
+                "_semantic_score": float(row.get("_semantic_score") or 0.0),
+                "_source": "semantic",
+            }
 
     for row in merged.values():
         row["_hybrid_score"] = round(

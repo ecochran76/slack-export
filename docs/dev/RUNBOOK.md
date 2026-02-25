@@ -27,6 +27,17 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Phase E PR5 (eval harness + instrumentation)
+
+- Added evaluation harness script: `scripts/eval_search.py`
+  - computes nDCG/MRR/hit@k and latency percentiles for lexical/semantic/hybrid
+- Added eval docs and sample dataset:
+  - `docs/dev/SEARCH_EVAL.md`
+  - `docs/dev/search_eval_dataset.jsonl`
+- Added lightweight search instrumentation in CLI summary:
+  - latency in ms
+  - result source breakdown (`lexical` / `semantic` / `hybrid`)
+
 ### 2026-02-24 — Phase E PR4 (semantic alias + config knobs)
 
 - Added `search semantic` command alias (maps to semantic mode)
@@ -335,10 +346,10 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. **Phase E PR5**: eval harness + perf instrumentation + rollout gates
-2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
-3. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
-4. Expose ranking mode knobs/weights via CLI/config for tuning
+1. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
+2. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
+3. Expose ranking mode knobs/weights via CLI/config for tuning
+4. Expand semantic eval dataset from sample to real gold set (30-100 queries)
 
 ## Decision Log Pointer
 
