@@ -281,6 +281,54 @@ def cmd_search_reindex(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
+    from slack_mirror.sync.embeddings import backfill_message_embeddings
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    result = backfill_message_embeddings(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        model_id=args.model,
+        limit=args.limit,
+    )
+    print(
+        f"Embeddings backfill workspace={args.workspace} model={args.model} "
+        f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']}"
+    )
+    return 0
+
+
+def cmd_embeddings_process(args: argparse.Namespace) -> int:
+    from slack_mirror.sync.embeddings import process_embedding_jobs
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    result = process_embedding_jobs(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        model_id=args.model,
+        limit=args.limit,
+    )
+    print(
+        f"Embedding jobs workspace={args.workspace} model={args.model} jobs={result['jobs']} "
+        f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']}"
+    )
+    return 0 if result["errored"] == 0 else 1
+
+
 def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
     adapter = SlackChannelsAdapter()
     mappings = adapter.list_mappings()
@@ -464,7 +512,7 @@ _slack_mirror_complete() {
   }
 
   local top="mirror workspaces channels search docs completion"
-  local mirror_sub="init backfill serve-webhooks process-events"
+  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs serve-webhooks process-events"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -498,7 +546,7 @@ except Exception:
           return 0
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --include-messages --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --include-messages --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -568,7 +616,7 @@ except Exception:
 _slack_mirror() {
   local -a top mirror_sub ws_sub
   top=(mirror workspaces channels search docs completion)
-  mirror_sub=(init backfill serve-webhooks process-events)
+  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs serve-webhooks process-events)
   ws_sub=(list sync-config verify)
 
   if (( CURRENT == 2 )); then
@@ -592,6 +640,7 @@ _slack_mirror() {
         '--file-types[file types csv or all]:types:(all images snippets gdocs zips pdfs)' \
         '--download-content[download file/canvas content]' \
         '--cache-root[cache root path]:path:_files' \
+        '--model[embedding model id]:model:' \
         '--bind[bind address]:address:' \
         '--port[port]:port:' \
         '--limit[event limit]:number:' \
@@ -672,6 +721,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--download-content", action="store_true")
     p_backfill.add_argument("--cache-root", default="./cache")
     p_backfill.set_defaults(func=cmd_mirror_backfill)
+
+    p_emb_backfill = mirror_sub.add_parser("embeddings-backfill", help="backfill message embeddings")
+    p_emb_backfill.add_argument("--workspace", required=True, help="workspace name")
+    p_emb_backfill.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_emb_backfill.add_argument("--limit", type=int, default=1000, help="maximum messages to scan")
+    p_emb_backfill.set_defaults(func=cmd_embeddings_backfill)
+
+    p_emb_process = mirror_sub.add_parser("process-embedding-jobs", help="process queued embedding jobs")
+    p_emb_process.add_argument("--workspace", required=True, help="workspace name")
+    p_emb_process.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_emb_process.add_argument("--limit", type=int, default=200, help="maximum jobs to process")
+    p_emb_process.set_defaults(func=cmd_embeddings_process)
 
     p_serve = mirror_sub.add_parser("serve-webhooks", help="run Slack events webhook receiver")
     p_serve.add_argument("--workspace", required=True)

@@ -40,6 +40,9 @@ class DbTests(unittest.TestCase):
             count = conn.execute("SELECT COUNT(*) AS c FROM messages").fetchone()["c"]
             self.assertEqual(count, 1)
 
+            pending_jobs = conn.execute("SELECT COUNT(*) AS c FROM embedding_jobs WHERE status='pending'").fetchone()["c"]
+            self.assertEqual(pending_jobs, 1)
+
             upsert_message_embedding(
                 conn,
                 workspace_id=ws_id,

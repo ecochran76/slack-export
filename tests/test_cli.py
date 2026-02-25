@@ -57,6 +57,28 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.port, 8787)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_embeddings_backfill(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["mirror", "embeddings-backfill", "--workspace", "default", "--model", "local-hash-128", "--limit", "50"]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.model, "local-hash-128")
+        self.assertEqual(args.limit, 50)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_process_embedding_jobs(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["mirror", "process-embedding-jobs", "--workspace", "default", "--model", "local-hash-128", "--limit", "20"]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.model, "local-hash-128")
+        self.assertEqual(args.limit, 20)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_process_events(self):
         parser = build_parser()
         args = parser.parse_args(

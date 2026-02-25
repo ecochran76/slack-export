@@ -165,6 +165,62 @@ def list_channel_ids(conn: sqlite3.Connection, workspace_id: int) -> list[str]:
     return [r["channel_id"] for r in rows]
 
 
+def enqueue_embedding_job(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    channel_id: str,
+    ts: str,
+    reason: str = "upsert",
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO embedding_jobs(workspace_id, channel_id, ts, reason, status)
+            VALUES (?, ?, ?, ?, 'pending')
+            ON CONFLICT(workspace_id, channel_id, ts) DO UPDATE SET
+              reason=excluded.reason,
+              status='pending',
+              error=NULL,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (workspace_id, channel_id, ts, reason),
+        )
+
+
+def list_pending_embedding_jobs(conn: sqlite3.Connection, workspace_id: int, limit: int = 100) -> list[sqlite3.Row]:
+    return list(
+        conn.execute(
+            """
+            SELECT id, workspace_id, channel_id, ts, reason, status, error, created_at, updated_at
+            FROM embedding_jobs
+            WHERE workspace_id = ? AND status = 'pending'
+            ORDER BY id ASC
+            LIMIT ?
+            """,
+            (workspace_id, limit),
+        )
+    )
+
+
+def mark_embedding_job_status(
+    conn: sqlite3.Connection,
+    *,
+    job_id: int,
+    status: str,
+    error: str | None = None,
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            UPDATE embedding_jobs
+            SET status = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (status, error, job_id),
+        )
+
+
 def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str, message: dict[str, Any]) -> None:
     ts = message.get("ts")
     if not ts:
@@ -218,6 +274,27 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (workspace_id, channel_id, user_id, ts, text),
+            )
+            conn.execute(
+                """
+                INSERT INTO embedding_jobs(workspace_id, channel_id, ts, reason, status)
+                VALUES (?, ?, ?, 'upsert', 'pending')
+                ON CONFLICT(workspace_id, channel_id, ts) DO UPDATE SET
+                  reason='upsert',
+                  status='pending',
+                  error=NULL,
+                  updated_at=CURRENT_TIMESTAMP
+                """,
+                (workspace_id, channel_id, ts),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE embedding_jobs
+                SET status='skipped', error='message_deleted', updated_at=CURRENT_TIMESTAMP
+                WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+                """,
+                (workspace_id, channel_id, ts),
             )
 
 

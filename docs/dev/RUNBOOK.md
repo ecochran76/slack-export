@@ -27,6 +27,20 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Phase E PR2 kickoff (embedding queue + backfill commands)
+
+- Added migration: `0005_embedding_jobs.sql`
+- Added embedding-job queue hooks in message upsert path
+- Added local embedding sync module: `slack_mirror/sync/embeddings.py`
+  - `backfill_message_embeddings(...)`
+  - `process_embedding_jobs(...)`
+- Added CLI commands:
+  - `mirror embeddings-backfill`
+  - `mirror process-embedding-jobs`
+- Added test coverage:
+  - `tests/test_embeddings.py`
+  - extended `tests/test_db.py` for embedding job enqueue behavior
+
 ### 2026-02-24 — Phase E semantic plan approved
 
 - Added implementation plan doc: `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`
@@ -294,7 +308,7 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. **Phase E PR1**: add `message_embeddings` migration + DB helpers + tests
+1. **Phase E PR3**: hybrid retrieval path (`lexical|semantic|hybrid`) with score fusion
 2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 3. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
 4. Expose ranking mode knobs/weights via CLI/config for tuning
