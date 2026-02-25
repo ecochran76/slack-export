@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import math
 import shlex
 import sqlite3
+from array import array
+from hashlib import blake2b
 from typing import Any
 
 
@@ -28,7 +31,7 @@ def _fts_escape(term: str) -> str:
     return f'"{t}"' if t else ""
 
 
-def _parse_query(raw_query: str) -> tuple[list[str], str, list[Any]]:
+def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[list[str], str, list[Any]]:
     tokens = shlex.split(raw_query)
     clauses: list[str] = ["m.workspace_id = ?", "m.deleted = 0"]
     params: list[Any] = []
@@ -115,9 +118,10 @@ def _parse_query(raw_query: str) -> tuple[list[str], str, list[Any]]:
         # Plain term
         if not negated:
             positive_terms.append(token)
-        clause = "COALESCE(m.text, '') LIKE ?"
-        clauses.append(f"NOT ({clause})" if negated else clause)
-        params.append(f"%{token}%")
+        if include_term_clauses or negated:
+            clause = "COALESCE(m.text, '') LIKE ?"
+            clauses.append(f"NOT ({clause})" if negated else clause)
+            params.append(f"%{token}%")
 
     where_sql = " AND ".join(clauses)
     return positive_terms, where_sql, params
@@ -180,19 +184,33 @@ def _rank_rows(rows: list[dict[str, Any]], positive_terms: list[str]) -> list[di
     return ranked
 
 
-def search_messages(
+def _embed_text_local(text: str, dim: int = 128) -> list[float]:
+    vec = [0.0] * dim
+    for tok in shlex.split((text or "").lower().replace("\n", " ")):
+        h = blake2b(tok.encode("utf-8"), digest_size=8).digest()
+        idx = int.from_bytes(h, "little") % dim
+        vec[idx] += 1.0
+    norm = math.sqrt(sum(v * v for v in vec))
+    if norm > 0:
+        vec = [v / norm for v in vec]
+    return vec
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    return sum(x * y for x, y in zip(a, b))
+
+
+def _search_lexical(
     conn: sqlite3.Connection,
     *,
     workspace_id: int,
     query: str,
-    limit: int = 20,
-    use_fts: bool = True,
+    limit: int,
+    use_fts: bool,
 ) -> list[dict[str, Any]]:
-    q = (query or "").strip()
-    if not q:
-        return []
-
-    positive_terms, where_sql, params = _parse_query(q)
+    positive_terms, where_sql, params = _parse_query(query)
 
     fts_sql = ""
     fts_params: list[Any] = []
@@ -231,20 +249,102 @@ def search_messages(
         ORDER BY CAST(m.ts AS REAL) DESC
         LIMIT ?
     """
-
-    # First pass (optional FTS prefilter)
     candidate_limit = max(max(1, limit) * 5, 100)
+    rows = conn.execute(sql.format(fts_clause=fts_sql), (workspace_id, *params, *fts_params, candidate_limit)).fetchall()
+    if use_fts and positive_terms and not rows:
+        rows = conn.execute(sql.format(fts_clause=""), (workspace_id, *params, candidate_limit)).fetchall()
+    return _rank_rows([dict(r) for r in rows], positive_terms)[: max(1, limit)]
+
+
+def _search_semantic(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    query: str,
+    model_id: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    positive_terms, where_sql, params = _parse_query(query, include_term_clauses=False)
+    query_vec = _embed_text_local(" ".join(positive_terms) if positive_terms else query)
+    candidate_limit = max(max(1, limit) * 8, 200)
+
     rows = conn.execute(
-        sql.format(fts_clause=fts_sql),
-        (workspace_id, *params, *fts_params, candidate_limit),
+        f"""
+        SELECT
+          m.channel_id,
+          c.name AS channel_name,
+          m.ts,
+          m.user_id,
+          m.text,
+          m.subtype,
+          m.thread_ts,
+          m.edited_ts,
+          m.deleted,
+          e.embedding_blob,
+          e.dim
+        FROM messages m
+        JOIN message_embeddings e
+          ON e.workspace_id = m.workspace_id AND e.channel_id = m.channel_id AND e.ts = m.ts
+        LEFT JOIN channels c
+          ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+        WHERE {where_sql}
+          AND e.model_id = ?
+        ORDER BY CAST(m.ts AS REAL) DESC
+        LIMIT ?
+        """,
+        (workspace_id, *params, model_id, candidate_limit),
     ).fetchall()
 
-    # Fallback if FTS index is stale/missing for this workspace.
-    if use_fts and positive_terms and not rows:
-        rows = conn.execute(
-            sql.format(fts_clause=""),
-            (workspace_id, *params, candidate_limit),
-        ).fetchall()
+    scored: list[dict[str, Any]] = []
+    for r in rows:
+        vec = array("f")
+        vec.frombytes(r["embedding_blob"])
+        sem = _cosine(query_vec, vec.tolist())
+        scored.append({**dict(r), "_semantic_score": round(sem, 6)})
 
-    ranked = _rank_rows([dict(r) for r in rows], positive_terms)
-    return ranked[: max(1, limit)]
+    scored.sort(key=lambda x: (x.get("_semantic_score", 0.0), float(x.get("ts") or 0.0)), reverse=True)
+    for s in scored:
+        s.pop("embedding_blob", None)
+        s.pop("dim", None)
+    return scored[: max(1, limit)]
+
+
+def search_messages(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    query: str,
+    limit: int = 20,
+    use_fts: bool = True,
+    mode: str = "lexical",
+    model_id: str = "local-hash-128",
+) -> list[dict[str, Any]]:
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    mode = (mode or "lexical").lower()
+    if mode == "lexical":
+        return _search_lexical(conn, workspace_id=workspace_id, query=q, limit=limit, use_fts=use_fts)
+    if mode == "semantic":
+        return _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=limit)
+
+    lexical = _search_lexical(conn, workspace_id=workspace_id, query=q, limit=max(limit * 2, 20), use_fts=use_fts)
+    semantic = _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=max(limit * 2, 20))
+
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in lexical:
+        key = (str(row.get("channel_id")), str(row.get("ts")))
+        merged[key] = {**row, "_lexical_score": float(row.get("_score") or 0.0), "_semantic_score": 0.0}
+    for row in semantic:
+        key = (str(row.get("channel_id")), str(row.get("ts")))
+        if key in merged:
+            merged[key]["_semantic_score"] = float(row.get("_semantic_score") or 0.0)
+        else:
+            merged[key] = {**row, "_lexical_score": 0.0, "_semantic_score": float(row.get("_semantic_score") or 0.0)}
+
+    for row in merged.values():
+        row["_hybrid_score"] = round((0.6 * float(row.get("_lexical_score") or 0.0)) + (0.4 * float(row.get("_semantic_score") or 0.0) * 10.0), 6)
+
+    out = sorted(merged.values(), key=lambda x: (float(x.get("_hybrid_score") or 0.0), float(x.get("ts") or 0.0)), reverse=True)
+    return out[: max(1, limit)]

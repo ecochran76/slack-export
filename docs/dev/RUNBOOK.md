@@ -27,6 +27,19 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Phase E PR3 (hybrid retrieval mode)
+
+- Extended `search keyword` with retrieval mode support:
+  - `--mode lexical|semantic|hybrid`
+  - `--model <embedding-model-id>` for semantic/hybrid paths
+- Implemented semantic retrieval path in `slack_mirror/search/keyword.py`:
+  - vector scoring over `message_embeddings`
+  - cosine similarity scoring
+- Implemented hybrid score fusion (lexical + semantic merge)
+- Added test coverage updates:
+  - `tests/test_search.py` semantic/hybrid assertions
+  - `tests/test_cli.py` parsing coverage for `--mode semantic`
+
 ### 2026-02-24 — Phase E PR2 kickoff (embedding queue + backfill commands)
 
 - Added migration: `0005_embedding_jobs.sql`
@@ -308,7 +321,7 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Next Actions Queue
 
-1. **Phase E PR3**: hybrid retrieval path (`lexical|semantic|hybrid`) with score fusion
+1. **Phase E PR4**: add `search semantic` alias command + config knobs for fusion weights/model defaults
 2. Add scoped auth-mode guardrails in CLI (`bot` default + explicit `user` override)
 3. Add a dedicated backfill mode that skips users/channels bootstrap for user-token-only message pulls
 4. Expose ranking mode knobs/weights via CLI/config for tuning

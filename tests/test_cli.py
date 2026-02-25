@@ -124,6 +124,27 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.no_fts)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_keyword_mode_semantic(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "keyword",
+                "--workspace",
+                "default",
+                "--query",
+                "deploy incident",
+                "--mode",
+                "semantic",
+                "--model",
+                "local-hash-128",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.mode, "semantic")
+        self.assertEqual(args.model, "local-hash-128")
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_reindex_keyword(self):
         parser = build_parser()
         args = parser.parse_args(["search", "reindex-keyword", "--workspace", "default"])

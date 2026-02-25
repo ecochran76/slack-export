@@ -252,6 +252,8 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         query=args.query,
         limit=args.limit,
         use_fts=not args.no_fts,
+        mode=args.mode,
+        model_id=args.model,
     )
 
     if args.json:
@@ -261,7 +263,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
             channel = r.get("channel_name") or r.get("channel_id")
             print(f"[{channel}] ts={r.get('ts')} user={r.get('user_id')} text={r.get('text') or ''}")
 
-    print(f"Keyword search workspace={args.workspace} query={args.query!r} results={len(rows)}")
+    print(f"Keyword search workspace={args.workspace} mode={args.mode} query={args.query!r} results={len(rows)}")
     return 0
 
 
@@ -579,7 +581,13 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --query --limit --no-fts --json" -- "$cur") )
+        case "$prev" in
+          --mode)
+            COMPREPLY=( $(compgen -W "lexical semantic hybrid" -- "$cur") )
+            return 0
+            ;;
+        esac
+        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -667,6 +675,8 @@ _slack_mirror() {
         '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
         '--query[keyword query]:query:' \
         '--limit[maximum result rows]:number:' \
+        '--mode[search mode]:mode:(lexical semantic hybrid)' \
+        '--model[embedding model id]:model:' \
         '--no-fts[disable FTS prefilter]' \
         '--json[json output]'
       ;;
@@ -779,6 +789,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="query text (supports from:, channel:, before:, after:, is:, has:link, quoted phrases, and -term)",
     )
     p_search_kw.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_kw.add_argument(
+        "--mode",
+        choices=["lexical", "semantic", "hybrid"],
+        default="lexical",
+        help="search retrieval mode",
+    )
+    p_search_kw.add_argument("--model", default="local-hash-128", help="embedding model id for semantic/hybrid modes")
     p_search_kw.add_argument("--no-fts", action="store_true", help="disable FTS prefilter and use SQL fallback only")
     p_search_kw.add_argument("--json", action="store_true", help="json output")
     p_search_kw.set_defaults(func=cmd_search_keyword)

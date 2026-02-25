@@ -4,6 +4,7 @@ from pathlib import Path
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
+from slack_mirror.sync.embeddings import process_embedding_jobs
 
 
 class SearchTests(unittest.TestCase):
@@ -64,6 +65,30 @@ class SearchTests(unittest.TestCase):
 
             rows = search_messages(conn, workspace_id=ws_id, query="deploy", limit=10, use_fts=True)
             self.assertEqual(len(rows), 2)
+
+            job_result = process_embedding_jobs(conn, workspace_id=ws_id, limit=50)
+            self.assertEqual(job_result["errored"], 0)
+
+            sem_rows = search_messages(
+                conn,
+                workspace_id=ws_id,
+                query="deployment docs",
+                mode="semantic",
+                model_id="local-hash-128",
+                limit=10,
+            )
+            self.assertGreaterEqual(len(sem_rows), 1)
+
+            hyb_rows = search_messages(
+                conn,
+                workspace_id=ws_id,
+                query="deploy docs",
+                mode="hybrid",
+                model_id="local-hash-128",
+                limit=10,
+            )
+            self.assertGreaterEqual(len(hyb_rows), 1)
+            self.assertIn("_hybrid_score", hyb_rows[0])
 
 
 if __name__ == "__main__":
