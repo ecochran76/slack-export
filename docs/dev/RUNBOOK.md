@@ -27,6 +27,15 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-24 — Semi-permanent local test DB baseline
+
+- Added setup guide: `docs/dev/TEST_DB_SETUP.md`
+- Standardized local test DB pathing (gitignored):
+  - `config.local.yaml`
+  - `.local/state/slack_mirror_test.db`
+  - `.local/cache`
+- Updated `.gitignore` to keep local DB/config runtime artifacts out of repo
+
 ### 2026-02-24 — Ranking weight knobs via CLI/config (queue item #3)
 
 - Added keyword ranking weight knobs in `search keyword`:

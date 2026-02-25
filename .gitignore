@@ -105,3 +105,9 @@ venv.bak/
 
 out.txt
 exports/
+
+# Local runtime state (semi-permanent test DB, local configs, caches)
+.local/
+data/
+config.yaml
+config.local.yaml
