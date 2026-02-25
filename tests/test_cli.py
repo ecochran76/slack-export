@@ -204,6 +204,32 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.explain)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_query_dir(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "query-dir",
+                "--path",
+                "docs",
+                "--query",
+                "semantic search",
+                "--mode",
+                "hybrid",
+                "--glob",
+                "**/*.md",
+                "--limit",
+                "5",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.path, "docs")
+        self.assertEqual(args.query, "semantic search")
+        self.assertEqual(args.mode, "hybrid")
+        self.assertEqual(args.glob, "**/*.md")
+        self.assertEqual(args.limit, 5)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_reindex_keyword(self):
         parser = build_parser()
         args = parser.parse_args(["search", "reindex-keyword", "--workspace", "default"])

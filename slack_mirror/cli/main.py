@@ -432,6 +432,27 @@ def cmd_search_semantic(args: argparse.Namespace) -> int:
     return cmd_search_keyword(args)
 
 
+def cmd_search_query_dir(args: argparse.Namespace) -> int:
+    from slack_mirror.search.dir_adapter import query_directory
+
+    rows = query_directory(
+        root=args.path,
+        query=args.query,
+        mode=args.mode,
+        glob=args.glob,
+        limit=args.limit,
+    )
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        for r in rows:
+            print(f"[{r.get('path')}] score={r.get('_score')} snippet={r.get('snippet')}")
+    print(
+        f"Directory search path={args.path} mode={args.mode} query={args.query!r} results={len(rows)} glob={args.glob}"
+    )
+    return 0
+
+
 def cmd_search_reindex(args: argparse.Namespace) -> int:
     from slack_mirror.search.keyword import reindex_messages_fts
 
@@ -737,7 +758,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -758,7 +779,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --no-fts --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --no-fts --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -842,11 +863,13 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic reindex-keyword)'
+        _describe 'search command' '(keyword semantic query-dir reindex-keyword)'
         return
       fi
       _arguments \
         '--workspace[workspace name]:workspace:_slack_mirror_workspaces' \
+        '--path[directory root]:path:_files -/' \
+        '--glob[file glob]:glob:' \
         '--query[keyword query]:query:' \
         '--limit[maximum result rows]:number:' \
         '--mode[search mode]:mode:(lexical semantic hybrid)' \
@@ -1026,6 +1049,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_sem.add_argument("--explain", action="store_true", help="show score/source details per result")
     p_search_sem.add_argument("--json", action="store_true", help="json output")
     p_search_sem.set_defaults(func=cmd_search_semantic)
+
+    p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
+    p_search_dir.add_argument("--path", required=True, help="root directory")
+    p_search_dir.add_argument("--query", required=True, help="query text")
+    p_search_dir.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default="hybrid")
+    p_search_dir.add_argument("--glob", default="**/*.md", help="file glob relative to root")
+    p_search_dir.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_dir.add_argument("--json", action="store_true", help="json output")
+    p_search_dir.set_defaults(func=cmd_search_query_dir)
 
     docs = sub.add_parser("docs", help="CLI docs generation commands")
     docs_sub = docs.add_subparsers(dest="docs_cmd")

@@ -27,6 +27,15 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 
 ## Milestone Log
 
+### 2026-02-25 — Phase F PR-F4 (directory corpus adapter + CLI entrypoint)
+
+- Added directory corpus search adapter: `slack_mirror/search/dir_adapter.py`
+- Added CLI command:
+  - `search query-dir --path <root> --query <text> [--mode lexical|semantic|hybrid] [--glob ...]`
+- Directory search returns scored file hits with snippets for quick triage
+- Updated completion/parser coverage for `query-dir`
+- Confirmed command works against local docs corpus
+
 ### 2026-02-25 — Phase F PR-F3 (adapter-style search interfaces)
 
 - Added reusable search platform interfaces in `slack_mirror/search/platform.py`
