@@ -433,6 +433,18 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-26 — Live mode operationalization (always-on workers)
+
+- Added tmux launcher script:
+  - `scripts/live_mode_tmux.sh`
+  - starts 3-pane live stack:
+    - `mirror serve-webhooks`
+    - `mirror process-events --loop`
+    - `mirror process-embedding-jobs` in a short loop
+- Added focused operations doc:
+  - `docs/dev/LIVE_MODE.md`
+  - quick start, manual commands, and health checks
+
 ### 2026-02-24 — Search speed enhancement (FTS prefilter path)
 
 - Added migration `0003_messages_fts_v2.sql`:
