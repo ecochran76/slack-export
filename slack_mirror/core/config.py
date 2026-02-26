@@ -26,7 +26,7 @@ def _load_dotenv(dotenv_path: Path) -> None:
         value = value.strip()
         if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
             value = value[1:-1]
-        if key and key not in os.environ:
+        if key:
             os.environ[key] = value
 
 
