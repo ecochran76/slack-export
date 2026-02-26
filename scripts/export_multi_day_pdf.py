@@ -8,6 +8,7 @@ from pathlib import Path
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+from pypdf import PdfReader, PdfWriter
 
 
 def wrap(text: str, width: int = 112) -> list[str]:
@@ -27,7 +28,7 @@ def wrap(text: str, width: int = 112) -> list[str]:
     return out
 
 
-def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachments: bool) -> None:
+def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachments: bool, attach_files: bool) -> None:
     c = canvas.Canvas(str(output_pdf), pagesize=letter)
     w, h = letter
     y = h - 40
@@ -60,6 +61,7 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
             return
 
     line("Slack Export - Multi-day, multi-channel package", 14, 20)
+    file_paths_to_attach: set[str] = set()
 
     for jp in json_paths:
         data = json.loads(jp.read_text(encoding="utf-8"))
@@ -81,11 +83,33 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
                 for a in atts:
                     link = a.get("local_path") or a.get("permalink") or ""
                     line(f"    - {a.get('name') or a.get('id')} {link}", 8, 10, x=x)
-                    if embed_attachments and (a.get("mimetype") or "").lower().startswith("image/") and a.get("local_path"):
-                        draw_image(str(a.get("local_path")), x=x + 10, max_width=252.0)
+                    lp = a.get("local_path")
+                    if lp:
+                        file_paths_to_attach.add(str(lp))
+                    if embed_attachments and (a.get("mimetype") or "").lower().startswith("image/") and lp:
+                        draw_image(str(lp), x=x + 10, max_width=252.0)
             line("", 9, 8, x=x)
 
     c.save()
+
+    if attach_files and file_paths_to_attach:
+        reader = PdfReader(str(output_pdf))
+        writer = PdfWriter()
+        for p in reader.pages:
+            writer.add_page(p)
+        attached = 0
+        for fp in sorted(file_paths_to_attach):
+            path = Path(fp)
+            if not path.exists() or not path.is_file():
+                continue
+            try:
+                writer.add_attachment(path.name, path.read_bytes())
+                attached += 1
+            except Exception:
+                continue
+        with output_pdf.open("wb") as f:
+            writer.write(f)
+        print(f"Attached files: {attached}")
 
 
 def main() -> int:
@@ -93,12 +117,13 @@ def main() -> int:
     ap.add_argument("--inputs", nargs="+", required=True, help="Input JSON export files")
     ap.add_argument("--output", required=True)
     ap.add_argument("--embed-attachments", action="store_true")
+    ap.add_argument("--attach-files", action="store_true", help="attach source files to the output PDF")
     args = ap.parse_args()
 
     inputs = [Path(p) for p in args.inputs]
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
-    render_json_exports(inputs, out, args.embed_attachments)
+    render_json_exports(inputs, out, args.embed_attachments, args.attach_files)
     print(f"Wrote combined PDF: {out}")
     return 0
 

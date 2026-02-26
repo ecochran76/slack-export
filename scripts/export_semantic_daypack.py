@@ -54,6 +54,7 @@ def main() -> int:
     ap.add_argument("--outdir", default="exports/semantic-daypack")
     ap.add_argument("--output-pdf", default="exports/semantic-daypack.pdf")
     ap.add_argument("--embed-attachments", action="store_true")
+    ap.add_argument("--attach-files", action="store_true", help="attach source files directly into final PDF")
     args = ap.parse_args()
 
     outdir = Path(args.outdir)
@@ -138,6 +139,8 @@ def main() -> int:
     ]
     if args.embed_attachments:
         combine_cmd.append("--embed-attachments")
+    if args.attach_files:
+        combine_cmd.append("--attach-files")
     run(combine_cmd)
 
     print(f"Exported {len(json_exports)} day bundles -> {args.output_pdf}")

@@ -9,6 +9,7 @@ from pathlib import Path
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+from pypdf import PdfReader, PdfWriter
 
 
 def wrap(text: str, width: int = 110) -> list[str]:
@@ -33,6 +34,7 @@ def main() -> int:
     ap.add_argument("--input-json", required=True)
     ap.add_argument("--output-pdf", required=True)
     ap.add_argument("--embed-attachments", action="store_true", help="embed image attachments directly into PDF when local_path exists")
+    ap.add_argument("--attach-files", action="store_true", help="attach source files to the PDF as embedded attachments")
     args = ap.parse_args()
 
     data = json.loads(Path(args.input_json).read_text(encoding="utf-8"))
@@ -76,6 +78,8 @@ def main() -> int:
     line(f"Exported: {dt.datetime.now().isoformat(timespec='seconds')}", 10, 18)
     line("-" * 100, 9, 12)
 
+    file_paths_to_attach: set[str] = set()
+
     for m in data.get("messages", []):
         is_reply = bool(m.get("thread_ts")) and str(m.get("thread_ts")) != str(m.get("ts"))
         x = 90 if is_reply else 40
@@ -95,11 +99,34 @@ def main() -> int:
             for a in atts:
                 link = a.get("local_path") or a.get("permalink") or ""
                 line(f"    - {a.get('name') or a.get('id')} {link}", 8, 10, x=x)
-                if args.embed_attachments and (a.get("mimetype") or "").lower().startswith("image/") and a.get("local_path"):
-                    draw_image(str(a.get("local_path")), x=x + 10, max_width=252.0)
+                lp = a.get("local_path")
+                if lp:
+                    file_paths_to_attach.add(str(lp))
+                if args.embed_attachments and (a.get("mimetype") or "").lower().startswith("image/") and lp:
+                    draw_image(str(lp), x=x + 10, max_width=252.0)
         line("", 9, 8, x=x)
 
     c.save()
+
+    if args.attach_files and file_paths_to_attach:
+        reader = PdfReader(str(out))
+        writer = PdfWriter()
+        for p in reader.pages:
+            writer.add_page(p)
+        attached = 0
+        for fp in sorted(file_paths_to_attach):
+            path = Path(fp)
+            if not path.exists() or not path.is_file():
+                continue
+            try:
+                writer.add_attachment(path.name, path.read_bytes())
+                attached += 1
+            except Exception:
+                continue
+        with out.open("wb") as f:
+            writer.write(f)
+        print(f"Attached files: {attached}")
+
     print(f"Wrote PDF: {out}")
     return 0
 
