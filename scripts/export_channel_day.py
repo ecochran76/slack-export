@@ -23,6 +23,27 @@ def parse_ts(ts: str, tz_name: str) -> str:
     return t.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
+def resolve_user_label(conn: sqlite3.Connection, ws_id: int, user_id: str | None) -> str:
+    if not user_id:
+        return "unknown"
+    row = conn.execute(
+        "select raw_json from users where workspace_id=? and user_id=?",
+        (ws_id, user_id),
+    ).fetchone()
+    if not row or not row[0]:
+        return user_id
+    try:
+        data = json.loads(row[0])
+    except Exception:
+        return user_id
+    profile = data.get("profile") or {}
+    for key in ("display_name", "real_name", "name"):
+        val = profile.get(key) or data.get(key)
+        if isinstance(val, str) and val.strip():
+            return f"{val.strip()} ({user_id})"
+    return user_id
+
+
 def load_rows(conn: sqlite3.Connection, workspace: str, channel: str, day: str, tz_name: str):
     start_ts, end_ts = day_bounds_epoch(day, tz_name)
     ws = conn.execute("select id from workspaces where name=?", (workspace,)).fetchone()
@@ -121,9 +142,10 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
     for r in rows:
         ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json = r
         attachments = extract_attachments(conn, ws_id, raw_json)
+        user_label = resolve_user_label(conn, ws_id, user_id)
         lines.append("<div class='m'>")
         lines.append(
-            f"<div class='meta'><b>{html.escape(user_id or 'unknown')}</b> · {html.escape(parse_ts(str(ts), tz_name))}"
+            f"<div class='meta'><b>{html.escape(user_label)}</b> · {html.escape(parse_ts(str(ts), tz_name))}"
             + (f" · subtype={html.escape(subtype)}" if subtype else "")
             + (" · deleted" if int(deleted or 0) else "")
             + (f" · thread={html.escape(str(thread_ts))}" if thread_ts else "")
@@ -175,7 +197,9 @@ def main() -> int:
             serial.append(
                 {
                     "ts": ts,
+                    "human_ts": parse_ts(str(ts), args.tz),
                     "user_id": user_id,
+                    "user_label": resolve_user_label(conn, ws_id, user_id),
                     "text": text,
                     "subtype": subtype,
                     "thread_ts": thread_ts,

@@ -57,7 +57,7 @@ def main() -> int:
     line("-" * 100, 9, 12)
 
     for m in data.get("messages", []):
-        meta = f"[{m.get('ts')}] {m.get('user_id') or 'unknown'}"
+        meta = f"[{m.get('human_ts') or m.get('ts')}] {m.get('user_label') or m.get('user_id') or 'unknown'}"
         if m.get("thread_ts"):
             meta += f" thread={m.get('thread_ts')}"
         if m.get("deleted"):
