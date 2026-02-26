@@ -433,6 +433,23 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-26 — Repo-bundled Slack Mirror agent skill pack
+
+- Added installable skill pack to repo:
+  - `agent-skills/slack-mirror-orchestrator`
+  - `agent-skills/slack-mirror-live-ops`
+  - `agent-skills/slack-mirror-ingest`
+  - `agent-skills/slack-mirror-search`
+  - `agent-skills/slack-mirror-export`
+- Added cross-runtime installer script:
+  - `scripts/install_agent_skills.sh`
+  - default targets:
+    - `~/.openclaw/skills`
+    - `~/.codex/skills`
+    - `~/.gemini/skills`
+- Added documentation:
+  - `docs/dev/AGENT_SKILLS.md`
+
 ### 2026-02-26 — Export workflows (HTML/JSON/PDF + semantic daypack)
 
 - Added export workflow docs:
