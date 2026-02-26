@@ -71,8 +71,40 @@ sqlite3 cache/slack_mirror.db "select status, count(*) from events group by stat
 sqlite3 cache/slack_mirror.db "select status, count(*) from embedding_jobs group by status order by status;"
 ```
 
+## Auto-start via systemd (user services)
+
+Install and start all three services:
+
+```bash
+scripts/install_live_mode_systemd_user.sh default config.local.yaml 8787
+```
+
+Check status:
+
+```bash
+systemctl --user status slack-mirror-webhooks.service slack-mirror-events.service slack-mirror-embeddings.service
+```
+
+Follow logs:
+
+```bash
+journalctl --user -u slack-mirror-webhooks.service -u slack-mirror-events.service -u slack-mirror-embeddings.service -f
+```
+
+Enable auto-start after reboot/login:
+
+```bash
+systemctl --user enable slack-mirror-webhooks.service slack-mirror-events.service slack-mirror-embeddings.service
+```
+
+(Optional) keep user services running without active login session:
+
+```bash
+loginctl enable-linger "$USER"
+```
+
 ## Notes
 
 - Keep event processor interval low (1-3s) for responsive updates.
 - Embedding loop frequency trades off freshness vs compute; 5-15s is a good default.
-- If process restarts are needed, prefer tmux kill + relaunch for a clean state.
+- For local dev, tmux is easiest to inspect interactively; systemd is better for unattended operation.

@@ -444,6 +444,13 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Added focused operations doc:
   - `docs/dev/LIVE_MODE.md`
   - quick start, manual commands, and health checks
+- Added systemd user-service installer:
+  - `scripts/install_live_mode_systemd_user.sh`
+  - installs/enables/starts:
+    - `slack-mirror-webhooks.service`
+    - `slack-mirror-events.service`
+    - `slack-mirror-embeddings.service`
+  - includes journald/status commands for ops visibility
 
 ### 2026-02-24 — Search speed enhancement (FTS prefilter path)
 
