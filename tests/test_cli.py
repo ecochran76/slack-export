@@ -54,6 +54,35 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.workspace, "default")
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_oauth_callback(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "mirror",
+                "oauth-callback",
+                "--workspace",
+                "default",
+                "--cert-file",
+                "./localhost+2.pem",
+                "--key-file",
+                "./localhost+2-key.pem",
+                "--scopes",
+                "chat:write,channels:history",
+                "--user-scopes",
+                "channels:history",
+            ]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.cert_file, "./localhost+2.pem")
+        self.assertEqual(args.key_file, "./localhost+2-key.pem")
+        self.assertEqual(args.bind, "localhost")
+        self.assertEqual(args.port, 3000)
+        self.assertEqual(args.callback_path, "/slack/oauth/callback")
+        self.assertEqual(args.scopes, "chat:write,channels:history")
+        self.assertEqual(args.user_scopes, "channels:history")
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_serve_webhooks(self):
         parser = build_parser()
         args = parser.parse_args(

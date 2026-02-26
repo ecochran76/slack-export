@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 from slack_mirror.core.config import load_config
 from slack_mirror.core.db import (
@@ -198,6 +199,92 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
         f"skipped_channels={message_counts['skipped']} files={file_counts['files']} canvases={file_counts['canvases']} "
         f"files_downloaded={file_counts['files_downloaded']} canvases_downloaded={file_counts['canvases_downloaded']}"
     )
+    return 0
+
+
+def cmd_mirror_oauth_callback(args: argparse.Namespace) -> int:
+    from slack_mirror.service.oauth import (
+        build_install_url,
+        exchange_oauth_code,
+        format_tokens_summary,
+        generate_state,
+        maybe_open_browser,
+        run_local_oauth_callback,
+    )
+
+    ws_cfg = _workspace_config_by_name(args.config, args.workspace)
+
+    client_id = args.client_id or ws_cfg.get("client_id")
+    client_secret = args.client_secret or ws_cfg.get("client_secret")
+    if not client_id:
+        raise ValueError("Missing client_id. Provide --client-id or set workspaces[].client_id in config")
+    if not client_secret:
+        raise ValueError("Missing client_secret. Provide --client-secret or set workspaces[].client_secret in config")
+
+    bind = args.bind
+    port = args.port
+    callback_path = args.callback_path
+    redirect_uri = args.redirect_uri or f"https://{bind}:{port}{callback_path}"
+
+    parsed = urlparse(redirect_uri)
+    if parsed.scheme != "https":
+        raise ValueError("redirect_uri must be https://")
+
+    state = args.state or generate_state()
+
+    scopes = [s.strip() for s in (args.scopes or "").split(",") if s.strip()]
+    user_scopes = [s.strip() for s in (args.user_scopes or "").split(",") if s.strip()]
+    if not scopes and not user_scopes:
+        raise ValueError("Provide --scopes and/or --user-scopes")
+
+    install_url = build_install_url(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        scopes=scopes,
+        user_scopes=user_scopes or None,
+        state=state,
+    )
+
+    print("Install URL:")
+    print(install_url)
+
+    if args.open_browser:
+        maybe_open_browser(install_url)
+
+    print(
+        f"Listening for OAuth callback on https://{bind}:{port}{callback_path} "
+        f"(timeout={args.timeout}s)"
+    )
+    cb = run_local_oauth_callback(
+        bind=bind,
+        port=port,
+        callback_path=callback_path,
+        cert_file=args.cert_file,
+        key_file=args.key_file,
+        timeout_seconds=args.timeout,
+        expected_state=state,
+    )
+    if cb.error:
+        raise RuntimeError(f"OAuth callback returned error: {cb.error}")
+
+    token_payload = exchange_oauth_code(
+        client_id=client_id,
+        client_secret=client_secret,
+        code=cb.code,
+        redirect_uri=redirect_uri,
+    )
+
+    print("\nOAuth token exchange complete:")
+    print(format_tokens_summary(token_payload))
+    print("\nSuggested config snippet:")
+    print(
+        f"workspaces:\n"
+        f"  - name: {args.workspace}\n"
+        f"    token: {token_payload.get('access_token', '')}\n"
+        f"    user_token: {token_payload.get('authed_user', {}).get('access_token', '')}\n"
+        f"    team_id: {token_payload.get('team', {}).get('id', ws_cfg.get('team_id', ''))}\n"
+    )
+
     return 0
 
 
@@ -563,6 +650,9 @@ def _example_commands_for(cmd: str) -> list[str]:
             "slack-mirror --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 10",
             "slack-mirror --config config.yaml mirror backfill --workspace default --include-files --file-types all --cache-root ./cache",
         ],
+        "slack-mirror mirror oauth-callback": [
+            "slack-mirror --config config.yaml mirror oauth-callback --workspace default --cert-file ./localhost+2.pem --key-file ./localhost+2-key.pem --scopes chat:write,channels:history --open-browser",
+        ],
         "slack-mirror mirror serve-webhooks": [
             "slack-mirror --config config.yaml mirror serve-webhooks --workspace default --bind 127.0.0.1 --port 8787",
         ],
@@ -720,7 +810,7 @@ _slack_mirror_complete() {
   }
 
   local top="mirror workspaces channels search docs completion"
-  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs serve-webhooks process-events"
+  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -758,7 +848,7 @@ except Exception:
           return 0
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -834,7 +924,7 @@ except Exception:
 _slack_mirror() {
   local -a top mirror_sub ws_sub
   top=(mirror workspaces channels search docs completion)
-  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs serve-webhooks process-events)
+  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events)
   ws_sub=(list sync-config verify)
 
   if (( CURRENT == 2 )); then
@@ -862,8 +952,19 @@ _slack_mirror() {
         '--download-content[download file/canvas content]' \
         '--cache-root[cache root path]:path:_files' \
         '--model[embedding model id]:model:' \
+        '--client-id[Slack app client ID]:id:' \
+        '--client-secret[Slack app client secret]:secret:' \
         '--bind[bind address]:address:' \
         '--port[port]:port:' \
+        '--callback-path[oauth callback path]:path:' \
+        '--redirect-uri[explicit redirect uri]:uri:' \
+        '--cert-file[tls cert pem]:path:_files' \
+        '--key-file[tls key pem]:path:_files' \
+        '--scopes[bot scopes csv]:scopes:' \
+        '--user-scopes[user scopes csv]:scopes:' \
+        '--state[oauth state value]:state:' \
+        '--timeout[oauth callback timeout seconds]:number:' \
+        '--open-browser[open install URL in browser]' \
         '--limit[event limit]:number:' \
         '--loop[loop mode]' \
         '--interval[loop interval seconds]:number:' \
@@ -987,6 +1088,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_emb_process.add_argument("--model", default="local-hash-128", help="embedding model id")
     p_emb_process.add_argument("--limit", type=int, default=200, help="maximum jobs to process")
     p_emb_process.set_defaults(func=cmd_embeddings_process)
+
+    p_oauth = mirror_sub.add_parser("oauth-callback", help="run local HTTPS Slack OAuth callback handler")
+    p_oauth.add_argument("--workspace", required=True, help="workspace name from config")
+    p_oauth.add_argument("--client-id", help="Slack app client ID (defaults to workspace config client_id)")
+    p_oauth.add_argument("--client-secret", help="Slack app client secret (defaults to workspace config client_secret)")
+    p_oauth.add_argument("--bind", default="localhost", help="HTTPS callback bind host")
+    p_oauth.add_argument("--port", type=int, default=3000, help="HTTPS callback port")
+    p_oauth.add_argument("--callback-path", default="/slack/oauth/callback", help="OAuth callback path")
+    p_oauth.add_argument("--redirect-uri", help="explicit redirect URI (must match Slack app config)")
+    p_oauth.add_argument("--cert-file", required=True, help="TLS cert PEM file (mkcert localhost cert)")
+    p_oauth.add_argument("--key-file", required=True, help="TLS key PEM file (mkcert localhost key)")
+    p_oauth.add_argument("--scopes", default="", help="comma-separated bot scopes")
+    p_oauth.add_argument("--user-scopes", default="", help="comma-separated user scopes")
+    p_oauth.add_argument("--state", help="optional OAuth state override")
+    p_oauth.add_argument("--timeout", type=int, default=180, help="callback wait timeout in seconds")
+    p_oauth.add_argument("--open-browser", action="store_true", help="open install URL automatically")
+    p_oauth.set_defaults(func=cmd_mirror_oauth_callback)
 
     p_serve = mirror_sub.add_parser("serve-webhooks", help="run Slack events webhook receiver")
     p_serve.add_argument("--workspace", required=True)

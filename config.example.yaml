@@ -39,6 +39,9 @@ search:
 workspaces:
   - name: default
     team_id: ${SLACK_TEAM_ID:-}
-    token: ${SLACK_TOKEN:-}
+    client_id: ${SLACK_CLIENT_ID:-}
+    client_secret: ${SLACK_CLIENT_SECRET:-}
+    token: ${SLACK_BOT_TOKEN:-${SLACK_TOKEN:-}}
+    user_token: ${SLACK_USER_TOKEN:-}
     signing_secret: ${SLACK_SIGNING_SECRET:-}
     enabled: true
