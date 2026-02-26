@@ -132,10 +132,12 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
         "<html><head><meta charset='utf-8'>",
         f"<title>{html.escape(workspace)} #{html.escape(channel_name)} {html.escape(day)}</title>",
         "<style>body{font-family:Arial,sans-serif;max-width:980px;margin:24px auto;line-height:1.4}"
-        ".m{border-bottom:1px solid #ddd;padding:10px 0}.m.reply{margin-left:56px;border-left:6px solid #94a3b8;padding:12px 0 12px 18px;background:#f8fafc;border-radius:6px}"
-        ".reply-badge{display:inline-block;background:#334155;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;margin-right:8px;letter-spacing:.02em}"
+        ".m{border-bottom:1px solid #ddd;padding:10px 0;position:relative}"
+        ".m.reply{margin-left:96px;padding:12px 0 12px 22px;background:#f8fafc;border-radius:6px;border-left:8px solid #334155}"
+        ".m.reply:before{content:'';position:absolute;left:-74px;top:22px;width:64px;height:0;border-top:3px solid #334155;opacity:.9}"
+        ".reply-badge{display:inline-block;background:#0f172a;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;margin-right:8px;letter-spacing:.02em}"
         ".meta{color:#555;font-size:12px}.txt{white-space:pre-wrap}.att{margin-top:6px;font-size:13px}"
-        ".thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #ddd;border-radius:4px;margin-top:4px}"
+        ".att a{color:#0b57d0;text-decoration:underline}.thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #ddd;border-radius:4px;margin-top:4px}"
         " code{background:#f4f4f4;padding:1px 4px}"
         "</style></head><body>",
         f"<h1>{html.escape(workspace)} / #{html.escape(channel_name)}</h1>",
@@ -166,11 +168,14 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
                 thumb = ""
                 if local_path and mimetype.startswith("image/"):
                     thumb = f"<br><img class='thumb' src='{html.escape(local_path)}' alt='{html.escape(a.get('name') or 'attachment')}' />"
+                name = html.escape(a.get("name") or "file")
+                href = html.escape(str(link)) if link else ""
+                label = f"<a href='{href}' target='_blank' rel='noopener'>{name}</a>" if href else name
                 lines.append(
                     "<li>"
-                    + html.escape(a.get("name") or "file")
+                    + label
                     + (f" (<code>{html.escape(a.get('mimetype') or '')}</code>)" if a.get("mimetype") else "")
-                    + (f" — {html.escape(str(link))}" if link else "")
+                    + (f" — <code>{href}</code>" if href else "")
                     + thumb
                     + "</li>"
                 )
