@@ -42,6 +42,21 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
         c.drawString(x, y, s[:185])
         y -= gap
 
+    def line_link(label: str, url: str, size: int = 8, gap: int = 10, x: int = 40):
+        nonlocal y
+        if y < 50:
+            c.showPage()
+            y = h - 40
+        c.setFont("Helvetica", size)
+        txt = label[:185]
+        c.drawString(x, y, txt)
+        width = c.stringWidth(txt, "Helvetica", size)
+        try:
+            c.linkURL(url, (x, y - 2, x + width, y + size + 1), relative=0)
+        except Exception:
+            pass
+        y -= gap
+
     def draw_image(path: str, x: int, max_width: float = 252.0):
         nonlocal y
         try:
@@ -82,7 +97,13 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
                 line("  attachments:", 9, 11, x=x)
                 for a in atts:
                     link = a.get("local_path") or a.get("permalink") or ""
-                    line(f"    - {a.get('name') or a.get('id')} {link}", 8, 10, x=x)
+                    name = a.get('name') or a.get('id') or 'attachment'
+                    line(f"    - {name} {link}", 8, 10, x=x)
+                    if link:
+                        link_url = str(link)
+                        if link_url.startswith('/'):
+                            link_url = 'file://' + link_url
+                        line_link(f"      open: {name}", link_url, 8, 10, x=x+10)
                     lp = a.get("local_path")
                     if lp:
                         file_paths_to_attach.add(str(lp))
