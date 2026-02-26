@@ -54,17 +54,22 @@ def main() -> int:
         c.drawString(x, y, s[:180])
         y -= gap
 
-    def line_link(label: str, url: str, size: int = 8, gap: int = 10, x: int = 40):
+    def line_link(label: str, url: str, size: int = 9, gap: int = 12, x: int = 40):
         nonlocal y, c
         if y < 50:
             c.showPage()
             y = h - 40
-        c.setFont("Helvetica", size)
-        txt = label[:180]
+        txt = ("🔗 " + label)[:180]
+        c.setFillColorRGB(0.02, 0.29, 0.77)
+        c.setFont("Helvetica-Bold", size)
         c.drawString(x, y, txt)
-        width = c.stringWidth(txt, "Helvetica", size)
+        width = c.stringWidth(txt, "Helvetica-Bold", size)
+        c.setLineWidth(0.8)
+        c.setStrokeColorRGB(0.02, 0.29, 0.77)
+        c.line(x, y - 1, x + width, y - 1)
+        c.setFillColorRGB(0, 0, 0)
         try:
-            c.linkURL(url, (x, y - 2, x + width, y + size + 1), relative=0)
+            c.linkURL(url, (x, y - 3, x + width, y + size + 2), relative=0)
         except Exception:
             pass
         y -= gap
