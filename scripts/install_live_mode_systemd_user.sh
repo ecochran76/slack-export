@@ -14,6 +14,11 @@ PORT="${3:-8787}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT_DIR="${HOME}/.config/systemd/user"
+SLACK_MIRROR_BIN="$(command -v slack-mirror || true)"
+if [[ -z "${SLACK_MIRROR_BIN}" ]]; then
+  echo "slack-mirror not found in PATH" >&2
+  exit 1
+fi
 
 mkdir -p "${UNIT_DIR}"
 
@@ -26,7 +31,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=${REPO_ROOT}
-ExecStart=/usr/bin/env slack-mirror --config ${CONFIG} mirror serve-webhooks --workspace ${WORKSPACE} --bind 127.0.0.1 --port ${PORT}
+ExecStart=${SLACK_MIRROR_BIN} --config ${CONFIG} mirror serve-webhooks --workspace ${WORKSPACE} --bind 127.0.0.1 --port ${PORT}
 Restart=always
 RestartSec=2
 
@@ -43,7 +48,7 @@ Wants=network-online.target slack-mirror-webhooks.service
 [Service]
 Type=simple
 WorkingDirectory=${REPO_ROOT}
-ExecStart=/usr/bin/env slack-mirror --config ${CONFIG} mirror process-events --workspace ${WORKSPACE} --loop --interval 2
+ExecStart=${SLACK_MIRROR_BIN} --config ${CONFIG} mirror process-events --workspace ${WORKSPACE} --loop --interval 2
 Restart=always
 RestartSec=2
 
@@ -60,7 +65,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=${REPO_ROOT}
-ExecStart=/usr/bin/env bash -lc 'while true; do slack-mirror --config ${CONFIG} mirror process-embedding-jobs --workspace ${WORKSPACE} --limit 500; sleep 5; done'
+ExecStart=/usr/bin/env bash -lc 'while true; do "${SLACK_MIRROR_BIN}" --config ${CONFIG} mirror process-embedding-jobs --workspace ${WORKSPACE} --limit 500; sleep 5; done'
 Restart=always
 RestartSec=2
 
