@@ -433,6 +433,21 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-26 — Export workflows (HTML/JSON/PDF + semantic daypack)
+
+- Added export workflow docs:
+  - `docs/dev/EXPORTS.md`
+- Documents current scripts:
+  - `scripts/export_channel_day.py`
+  - `scripts/export_channel_day_pdf.py`
+  - `scripts/export_multi_day_pdf.py`
+  - `scripts/export_semantic_daypack.py`
+- Includes current PDF options and behavior:
+  - inline image embedding (`--embed-attachments`)
+  - embedded PDF file attachments (`--attach-files`)
+  - prominent clickable attachment links
+  - speaker color-coded bold datestamp lines
+
 ### 2026-02-26 — User-scope isolated install/update/uninstall system
 
 - Added installer lifecycle script:
