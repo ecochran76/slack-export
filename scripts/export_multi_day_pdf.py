@@ -38,8 +38,32 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
         if y < 50:
             c.showPage()
             y = h - 40
+        c.setFillColorRGB(0, 0, 0)
         c.setFont("Helvetica", size)
         c.drawString(x, y, s[:185])
+        y -= gap
+
+    speaker_colors = [
+        (0.0, 0.0, 0.0),
+        (0.05, 0.18, 0.45),
+        (0.0, 0.35, 0.1),
+        (0.35, 0.12, 0.45),
+        (0.45, 0.2, 0.0),
+        (0.35, 0.0, 0.0),
+    ]
+    speaker_index: dict[str, int] = {}
+
+    def line_meta(s: str, speaker_key: str, gap: int = 12, x: int = 40):
+        nonlocal y
+        if y < 50:
+            c.showPage()
+            y = h - 40
+        idx = speaker_index.setdefault(speaker_key, len(speaker_index))
+        r, g, b = speaker_colors[idx % len(speaker_colors)]
+        c.setFillColorRGB(r, g, b)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(x, y, s[:185])
+        c.setFillColorRGB(0, 0, 0)
         y -= gap
 
     def line_link(label: str, url: str, size: int = 9, gap: int = 12, x: int = 40):
@@ -94,7 +118,12 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
             x = 88 if is_reply else 40
             if is_reply:
                 line("[THREAD REPLY]", 8, 10, x=x)
-            line(f"[{m.get('human_ts') or m.get('ts')}] {m.get('user_label') or m.get('user_id') or 'unknown'}", 9, 12, x=x)
+            line_meta(
+                f"[{m.get('human_ts') or m.get('ts')}] {m.get('user_label') or m.get('user_id') or 'unknown'}",
+                speaker_key=str(m.get('user_id') or m.get('user_label') or 'unknown'),
+                gap=12,
+                x=x,
+            )
             for l in wrap(m.get("text") or "", 114):
                 line("  " + l, 9, 11, x=x)
             atts = m.get("attachments") or []

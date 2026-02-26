@@ -50,8 +50,32 @@ def main() -> int:
         if y < 50:
             c.showPage()
             y = h - 40
+        c.setFillColorRGB(0, 0, 0)
         c.setFont("Helvetica", size)
         c.drawString(x, y, s[:180])
+        y -= gap
+
+    speaker_colors = [
+        (0.0, 0.0, 0.0),      # black
+        (0.05, 0.18, 0.45),    # dark blue
+        (0.0, 0.35, 0.1),      # dark green
+        (0.35, 0.12, 0.45),    # dark purple
+        (0.45, 0.2, 0.0),      # dark orange/brown
+        (0.35, 0.0, 0.0),      # dark red
+    ]
+    speaker_index: dict[str, int] = {}
+
+    def line_meta(s: str, speaker_key: str, gap: int = 12, x: int = 40):
+        nonlocal y, c
+        if y < 50:
+            c.showPage()
+            y = h - 40
+        idx = speaker_index.setdefault(speaker_key, len(speaker_index))
+        r, g, b = speaker_colors[idx % len(speaker_colors)]
+        c.setFillColorRGB(r, g, b)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(x, y, s[:180])
+        c.setFillColorRGB(0, 0, 0)
         y -= gap
 
     def line_link(label: str, url: str, size: int = 9, gap: int = 12, x: int = 40):
@@ -110,7 +134,7 @@ def main() -> int:
             meta += " deleted"
         if is_reply:
             line("[THREAD REPLY]", 8, 10, x=x)
-        line(meta, 9, 12, x=x)
+        line_meta(meta, speaker_key=str(m.get('user_id') or m.get('user_label') or 'unknown'), gap=12, x=x)
         for l in wrap(m.get("text") or "", 116):
             line("  " + l, 9, 11, x=x)
         atts = m.get("attachments") or []
