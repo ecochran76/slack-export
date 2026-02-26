@@ -23,7 +23,7 @@ systemctl --user --no-pager --full status "${UNITS[@]}" 2>/dev/null | sed -n '1,
 echo
 
 echo "== webhook healthz =="
-if curl -fsS "http://127.0.0.1:${PORT}/healthz"; then
+if curl --max-time 2 -fsS "http://127.0.0.1:${PORT}/healthz"; then
   echo
 else
   echo "healthz check failed on port ${PORT}" >&2
