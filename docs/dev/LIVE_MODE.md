@@ -97,6 +97,12 @@ Enable auto-start after reboot/login:
 systemctl --user enable slack-mirror-webhooks.service slack-mirror-events.service slack-mirror-embeddings.service
 ```
 
+Uninstall (disable/stop/remove units):
+
+```bash
+scripts/uninstall_live_mode_systemd_user.sh
+```
+
 (Optional) keep user services running without active login session:
 
 ```bash

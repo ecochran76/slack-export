@@ -451,6 +451,9 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
     - `slack-mirror-events.service`
     - `slack-mirror-embeddings.service`
   - includes journald/status commands for ops visibility
+- Added clean uninstall helper:
+  - `scripts/uninstall_live_mode_systemd_user.sh`
+  - disables/stops services, removes user unit files, reloads systemd user daemon
 
 ### 2026-02-24 — Search speed enhancement (FTS prefilter path)
 
