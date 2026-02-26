@@ -132,8 +132,10 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
         "<html><head><meta charset='utf-8'>",
         f"<title>{html.escape(workspace)} #{html.escape(channel_name)} {html.escape(day)}</title>",
         "<style>body{font-family:Arial,sans-serif;max-width:980px;margin:24px auto;line-height:1.4}"
-        ".m{border-bottom:1px solid #ddd;padding:10px 0}.meta{color:#555;font-size:12px}"
-        ".txt{white-space:pre-wrap}.att{margin-top:6px;font-size:13px} code{background:#f4f4f4;padding:1px 4px}"
+        ".m{border-bottom:1px solid #ddd;padding:10px 0}.m.reply{margin-left:28px;border-left:3px solid #e5e7eb;padding-left:12px}"
+        ".meta{color:#555;font-size:12px}.txt{white-space:pre-wrap}.att{margin-top:6px;font-size:13px}"
+        ".thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #ddd;border-radius:4px;margin-top:4px}"
+        " code{background:#f4f4f4;padding:1px 4px}"
         "</style></head><body>",
         f"<h1>{html.escape(workspace)} / #{html.escape(channel_name)}</h1>",
         f"<p><b>Date:</b> {html.escape(day)} ({html.escape(tz_name)})</p>",
@@ -143,7 +145,8 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
         ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json = r
         attachments = extract_attachments(conn, ws_id, raw_json)
         user_label = resolve_user_label(conn, ws_id, user_id)
-        lines.append("<div class='m'>")
+        is_reply = bool(thread_ts) and str(thread_ts) != str(ts)
+        lines.append("<div class='m reply'>" if is_reply else "<div class='m'>")
         lines.append(
             f"<div class='meta'><b>{html.escape(user_label)}</b> · {html.escape(parse_ts(str(ts), tz_name))}"
             + (f" · subtype={html.escape(subtype)}" if subtype else "")
@@ -156,11 +159,17 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
             lines.append("<div class='att'><b>Attachments</b><ul>")
             for a in attachments:
                 link = a.get("local_path") or a.get("permalink") or ""
+                mimetype = (a.get("mimetype") or "").lower()
+                local_path = a.get("local_path") or ""
+                thumb = ""
+                if local_path and mimetype.startswith("image/"):
+                    thumb = f"<br><img class='thumb' src='{html.escape(local_path)}' alt='{html.escape(a.get('name') or 'attachment')}' />"
                 lines.append(
                     "<li>"
                     + html.escape(a.get("name") or "file")
                     + (f" (<code>{html.escape(a.get('mimetype') or '')}</code>)" if a.get("mimetype") else "")
                     + (f" — {html.escape(str(link))}" if link else "")
+                    + thumb
                     + "</li>"
                 )
             lines.append("</ul></div>")
