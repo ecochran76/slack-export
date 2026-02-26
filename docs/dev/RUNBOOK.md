@@ -433,6 +433,23 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-26 — User-scope isolated install/update/uninstall system
+
+- Added installer lifecycle script:
+  - `scripts/user_env.sh`
+  - subcommands:
+    - `install` (snapshot repo -> user app dir, create venv, install package, init/sync DB)
+    - `update` (refresh app/venv, preserve config + DB, run migrations)
+    - `uninstall [--purge-data]` (remove runtime; optional data/config purge)
+    - `status`
+- Added docs:
+  - `docs/dev/USER_INSTALL.md`
+- Designed for independent user runtime at:
+  - app: `~/.local/share/slack-mirror/app`
+  - venv: `~/.local/share/slack-mirror/venv`
+  - config: `~/.config/slack-mirror/config.yaml`
+  - data: `~/.local/share/slack-mirror/var`
+
 ### 2026-02-26 — Live mode operationalization (always-on workers)
 
 - Added tmux launcher script:
