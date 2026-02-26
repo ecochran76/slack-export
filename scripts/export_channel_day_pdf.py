@@ -78,12 +78,14 @@ def main() -> int:
 
     for m in data.get("messages", []):
         is_reply = bool(m.get("thread_ts")) and str(m.get("thread_ts")) != str(m.get("ts"))
-        x = 58 if is_reply else 40
+        x = 90 if is_reply else 40
         meta = f"[{m.get('human_ts') or m.get('ts')}] {m.get('user_label') or m.get('user_id') or 'unknown'}"
         if m.get("thread_ts"):
             meta += f" thread={m.get('thread_ts')}"
         if m.get("deleted"):
             meta += " deleted"
+        if is_reply:
+            line("[THREAD REPLY]", 8, 10, x=x)
         line(meta, 9, 12, x=x)
         for l in wrap(m.get("text") or "", 116):
             line("  " + l, 9, 11, x=x)

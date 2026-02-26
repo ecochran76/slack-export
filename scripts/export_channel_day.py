@@ -132,7 +132,8 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
         "<html><head><meta charset='utf-8'>",
         f"<title>{html.escape(workspace)} #{html.escape(channel_name)} {html.escape(day)}</title>",
         "<style>body{font-family:Arial,sans-serif;max-width:980px;margin:24px auto;line-height:1.4}"
-        ".m{border-bottom:1px solid #ddd;padding:10px 0}.m.reply{margin-left:28px;border-left:3px solid #e5e7eb;padding-left:12px}"
+        ".m{border-bottom:1px solid #ddd;padding:10px 0}.m.reply{margin-left:56px;border-left:6px solid #94a3b8;padding:12px 0 12px 18px;background:#f8fafc;border-radius:6px}"
+        ".reply-badge{display:inline-block;background:#334155;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;margin-right:8px;letter-spacing:.02em}"
         ".meta{color:#555;font-size:12px}.txt{white-space:pre-wrap}.att{margin-top:6px;font-size:13px}"
         ".thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #ddd;border-radius:4px;margin-top:4px}"
         " code{background:#f4f4f4;padding:1px 4px}"
@@ -147,8 +148,9 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, rows,
         user_label = resolve_user_label(conn, ws_id, user_id)
         is_reply = bool(thread_ts) and str(thread_ts) != str(ts)
         lines.append("<div class='m reply'>" if is_reply else "<div class='m'>")
+        meta_prefix = "<span class='reply-badge'>THREAD REPLY</span>" if is_reply else ""
         lines.append(
-            f"<div class='meta'><b>{html.escape(user_label)}</b> · {html.escape(parse_ts(str(ts), tz_name))}"
+            f"<div class='meta'>{meta_prefix}<b>{html.escape(user_label)}</b> · {html.escape(parse_ts(str(ts), tz_name))}"
             + (f" · subtype={html.escape(subtype)}" if subtype else "")
             + (" · deleted" if int(deleted or 0) else "")
             + (f" · thread={html.escape(str(thread_ts))}" if thread_ts else "")
