@@ -9,6 +9,27 @@ import yaml
 _ENV_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)(?::-([^}]*))?\}")
 
 
+def _load_dotenv(dotenv_path: Path) -> None:
+    if not dotenv_path.exists():
+        raise FileNotFoundError(f"dotenv file not found: {dotenv_path}")
+
+    for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+            value = value[1:-1]
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 @dataclass
 class Config:
     data: dict[str, Any]
@@ -37,4 +58,12 @@ def load_config(path: str | Path) -> Config:
     if not path.exists():
         raise FileNotFoundError(f"Config not found: {path}")
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+    dotenv = raw.get("dotenv")
+    if dotenv:
+        dotenv_path = Path(str(dotenv)).expanduser()
+        if not dotenv_path.is_absolute():
+            dotenv_path = (path.parent / dotenv_path).resolve()
+        _load_dotenv(dotenv_path)
+
     return Config(data=_expand_env(raw))

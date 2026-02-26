@@ -22,6 +22,21 @@ class ConfigTests(unittest.TestCase):
             cfg = load_config(p)
             self.assertEqual(cfg.get("value"), "hello")
 
+    def test_dotenv_is_loaded_before_interpolation(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            env_file = td_path / "test.env"
+            env_file.write_text("SLACK_TEST_TOKEN_FROM_DOTENV=xoxb-test\n", encoding="utf-8")
+            os.environ.pop("SLACK_TEST_TOKEN_FROM_DOTENV", None)
+
+            p = td_path / "config.yaml"
+            p.write_text(
+                "dotenv: ./test.env\nworkspaces:\n  - name: soylei\n    token: ${SLACK_TEST_TOKEN_FROM_DOTENV:-}\n",
+                encoding="utf-8",
+            )
+            cfg = load_config(p)
+            self.assertEqual(cfg.get("workspaces")[0]["token"], "xoxb-test")
+
 
 if __name__ == "__main__":
     unittest.main()
