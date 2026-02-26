@@ -143,10 +143,12 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
 
     ws_cfg = _workspace_config_by_name(args.config, args.workspace)
-    token = ws_cfg.get("token")
+    auth_mode = (args.auth_mode or "bot").lower()
+    token_key = "user_token" if auth_mode == "user" else "token"
+    token = ws_cfg.get(token_key)
     if not token:
-        raise ValueError(f"Workspace '{args.workspace}' has no token configured")
-    _enforce_auth_mode(token, args.auth_mode, command_name="mirror backfill")
+        raise ValueError(f"Workspace '{args.workspace}' has no {token_key} configured")
+    _enforce_auth_mode(token, auth_mode, command_name="mirror backfill")
 
     if args.messages_only and not args.include_messages:
         raise ValueError("mirror backfill: --messages-only requires --include-messages")
