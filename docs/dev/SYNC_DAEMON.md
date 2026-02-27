@@ -19,6 +19,17 @@ Behavior:
 slack-mirror --config config.local.yaml mirror status --json
 ```
 
+Health-gate examples:
+
+```bash
+# Print per-row status plus one HEALTHY/UNHEALTHY summary line
+slack-mirror --config config.local.yaml mirror status --healthy
+
+# CI gate: return exit code 2 if any workspace/class exceeds thresholds
+slack-mirror --config config.local.yaml mirror status \
+  --healthy --fail-on-gap --max-zero-msg 0 --max-stale 0 --stale-hours 24
+```
+
 Reports by workspace/channel class:
 - channel count
 - zero-message channels
