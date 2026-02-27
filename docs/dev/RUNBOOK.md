@@ -433,6 +433,16 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-26 — First-class sync/daemon/status contract
+
+- Promoted completeness operations into first-class mirror commands in CLI:
+  - `mirror sync`
+  - `mirror status`
+  - `mirror daemon`
+- Added doc:
+  - `docs/dev/SYNC_DAEMON.md`
+- Goal: no “magic incantation” workflows for routine completeness/reconcile.
+
 ### 2026-02-26 — Mirror completeness hardening
 
 - Added thread-reply ingestion during message backfill:

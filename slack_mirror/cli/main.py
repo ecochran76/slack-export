@@ -365,6 +365,176 @@ def cmd_process_events(args: argparse.Namespace) -> int:
     return 0 if result["errored"] == 0 else 1
 
 
+def _workspace_names(config_path: str, workspace: str | None = None) -> list[str]:
+    cfg = load_config(config_path)
+    names = [ws.get("name") for ws in cfg.data.get("workspaces", []) if ws.get("name")]
+    if workspace:
+        if workspace not in names:
+            raise ValueError(f"Workspace '{workspace}' not found in config")
+        return [workspace]
+    return names
+
+
+def cmd_mirror_sync(args: argparse.Namespace) -> int:
+    names = _workspace_names(args.config, args.workspace)
+    auth_mode = (args.auth_mode or "user").lower()
+    for ws in names:
+        print(f"[sync] workspace={ws} auth_mode={auth_mode}")
+        backfill_workspace(
+            config_path=args.config,
+            workspace_name=ws,
+            include_messages=True,
+            include_files=bool(args.include_files),
+            file_types=args.file_types,
+            download_content=bool(args.download_content),
+            cache_root=args.cache_root,
+            auth_mode=auth_mode,
+            messages_only=bool(args.messages_only),
+            channels_csv=args.channels,
+            channel_limit=args.channel_limit,
+            oldest=args.oldest,
+            latest=args.latest,
+        )
+
+        if args.reindex_keyword:
+            db = Database(config_path=args.config)
+            workspace_id = db.workspace_id(ws)
+            rows = rebuild_messages_fts(db.conn, workspace_id)
+            print(f"[sync] reindex-keyword workspace={ws} rows={rows}")
+
+        if args.refresh_embeddings:
+            backfill_message_embeddings(
+                config_path=args.config,
+                workspace_name=ws,
+                model=args.model,
+                limit=args.embedding_scan_limit,
+            )
+            stats = process_embedding_jobs(
+                config_path=args.config,
+                workspace_name=ws,
+                model=args.model,
+                limit=args.embedding_job_limit,
+            )
+            print(
+                "[sync] embeddings workspace={ws} jobs={jobs} processed={processed} skipped={skipped} errored={errored}".format(
+                    ws=ws,
+                    jobs=stats.get("jobs"),
+                    processed=stats.get("processed"),
+                    skipped=stats.get("skipped"),
+                    errored=stats.get("errored"),
+                )
+            )
+    return 0
+
+
+def cmd_mirror_status(args: argparse.Namespace) -> int:
+    conn = Database(config_path=args.config).conn
+    stale_seconds = float(args.stale_hours) * 3600.0
+    now_ts = time.time()
+
+    params: list[object] = [now_ts - stale_seconds]
+    where_ws = ""
+    if args.workspace:
+        where_ws = " where w.name=?"
+        params.append(args.workspace)
+
+    q = f"""
+    with last_msg as (
+      select workspace_id, channel_id, max(cast(ts as real)) as max_ts
+      from messages
+      group by workspace_id, channel_id
+    )
+    select w.name as workspace,
+           case
+             when c.is_im=1 then 'im'
+             when c.is_mpim=1 then 'mpim'
+             when c.is_private=1 then 'private'
+             else 'public'
+           end as channel_class,
+           count(*) as channels,
+           sum(case when lm.max_ts is null then 1 else 0 end) as zero_msg_channels,
+           sum(case when lm.max_ts is not null and lm.max_ts < ? then 1 else 0 end) as stale_channels,
+           max(lm.max_ts) as class_latest_ts
+    from channels c
+    join workspaces w on w.id=c.workspace_id
+    left join last_msg lm on lm.workspace_id=c.workspace_id and lm.channel_id=c.channel_id
+    {where_ws}
+    group by w.name, channel_class
+    order by w.name, channel_class
+    """
+    rows = conn.execute(q, tuple(params)).fetchall()
+
+    out = []
+    for ws, cls, channels, zero_msg, stale, latest in rows:
+        out.append(
+            {
+                "workspace": ws,
+                "class": cls,
+                "channels": int(channels or 0),
+                "zero_msg_channels": int(zero_msg or 0),
+                "stale_channels": int(stale or 0),
+                "latest_ts": float(latest) if latest else None,
+            }
+        )
+
+    if args.json:
+        print(json.dumps(out, indent=2))
+        return 0
+
+    print("workspace\tclass\tchannels\tzero_msg\tstale\tlatest_ts")
+    for r in out:
+        print(
+            f"{r['workspace']}\t{r['class']}\t{r['channels']}\t{r['zero_msg_channels']}\t{r['stale_channels']}\t{r['latest_ts'] or '-'}"
+        )
+    return 0
+
+
+def cmd_mirror_daemon(args: argparse.Namespace) -> int:
+    names = _workspace_names(args.config, args.workspace)
+    print(f"Starting mirror daemon for workspaces: {', '.join(names)}")
+    last_reconcile = 0.0
+    cycle = 0
+    while True:
+        cycle += 1
+        for ws in names:
+            process_pending_events(
+                config_path=args.config,
+                workspace_name=ws,
+                limit=args.event_limit,
+            )
+            process_embedding_jobs(
+                config_path=args.config,
+                workspace_name=ws,
+                model=args.model,
+                limit=args.embedding_limit,
+            )
+
+        if args.reconcile_minutes > 0 and (time.time() - last_reconcile) >= args.reconcile_minutes * 60:
+            for ws in names:
+                backfill_workspace(
+                    config_path=args.config,
+                    workspace_name=ws,
+                    include_messages=True,
+                    include_files=False,
+                    file_types="all",
+                    download_content=False,
+                    cache_root=args.cache_root,
+                    auth_mode=args.auth_mode,
+                    messages_only=True,
+                    channels_csv=None,
+                    channel_limit=args.reconcile_channel_limit,
+                    oldest=None,
+                    latest=None,
+                )
+            last_reconcile = time.time()
+            print(f"[daemon] reconcile complete cycle={cycle}")
+
+        if args.max_cycles and cycle >= args.max_cycles:
+            print(f"[daemon] reached max cycles ({args.max_cycles}), exiting")
+            return 0
+        time.sleep(args.interval)
+
+
 def cmd_search_keyword(args: argparse.Namespace) -> int:
     from slack_mirror.search.keyword import search_messages
 
