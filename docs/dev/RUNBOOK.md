@@ -433,6 +433,17 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Updated CLI help text for `search keyword --query`
 - Expanded tests to cover combined filter behavior and negation
 
+### 2026-02-26 — Mirror completeness hardening
+
+- Added thread-reply ingestion during message backfill:
+  - `slack_mirror/sync/backfill.py` now fetches `conversations.replies` for roots with `reply_count > 0`
+- Added completeness audit script:
+  - `scripts/audit_mirror_completeness.py`
+  - reports per-workspace/channel-class freshness and zero-message coverage
+- Added catch-up sweep script:
+  - `scripts/catchup_mirror.sh`
+  - runs user-auth message catch-up + embedding job processing + audit output
+
 ### 2026-02-26 — Repo-bundled Slack Mirror agent skill pack
 
 - Added installable skill pack to repo:

@@ -67,7 +67,31 @@ def backfill_messages(
             raise
         for msg in messages:
             upsert_message(conn, workspace_id, channel_id, msg)
-        total_messages += len(messages)
+
+        # Thread completeness: pull replies for roots that advertise replies.
+        reply_roots = [
+            str(m.get("ts"))
+            for m in messages
+            if m.get("ts") and int(m.get("reply_count") or 0) > 0
+        ]
+        thread_reply_count = 0
+        for thread_ts in reply_roots:
+            try:
+                replies = api.conversation_replies(
+                    channel_id=channel_id,
+                    thread_ts=thread_ts,
+                    oldest=effective_oldest,
+                    latest=latest,
+                )
+            except SlackApiError as exc:
+                if exc.response.get("error") in {"not_in_channel", "missing_scope", "channel_not_found", "thread_not_found"}:
+                    continue
+                raise
+            for r in replies:
+                upsert_message(conn, workspace_id, channel_id, r)
+            thread_reply_count += len(replies)
+
+        total_messages += len(messages) + thread_reply_count
         processed_channels += 1
         if messages and oldest is None and latest is None:
             newest_ts = max(str(m.get("ts", "0")) for m in messages)
