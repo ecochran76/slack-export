@@ -367,7 +367,7 @@ def cmd_process_events(args: argparse.Namespace) -> int:
 
 def _workspace_names(config_path: str, workspace: str | None = None) -> list[str]:
     cfg = load_config(config_path)
-    names = [ws.get("name") for ws in cfg.data.get("workspaces", []) if ws.get("name")]
+    names = [ws.get("name") for ws in cfg.get("workspaces", []) if ws.get("name")]
     if workspace:
         if workspace not in names:
             raise ValueError(f"Workspace '{workspace}' not found in config")
@@ -376,59 +376,93 @@ def _workspace_names(config_path: str, workspace: str | None = None) -> list[str
 
 
 def cmd_mirror_sync(args: argparse.Namespace) -> int:
+    from slack_mirror.search.keyword import reindex_messages_fts
+    from slack_mirror.sync.backfill import (
+        backfill_files_and_canvases,
+        backfill_messages,
+        backfill_users_and_channels,
+    )
+    from slack_mirror.sync.embeddings import backfill_message_embeddings, process_embedding_jobs
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
     names = _workspace_names(args.config, args.workspace)
     auth_mode = (args.auth_mode or "user").lower()
-    for ws in names:
-        print(f"[sync] workspace={ws} auth_mode={auth_mode}")
-        backfill_workspace(
-            config_path=args.config,
-            workspace_name=ws,
-            include_messages=True,
-            include_files=bool(args.include_files),
-            file_types=args.file_types,
-            download_content=bool(args.download_content),
-            cache_root=args.cache_root,
-            auth_mode=auth_mode,
-            messages_only=bool(args.messages_only),
-            channels_csv=args.channels,
+
+    for ws_name in names:
+        ws_cfg = _workspace_config_by_name(args.config, ws_name)
+        token_key = "user_token" if auth_mode == "user" else "token"
+        token = ws_cfg.get(token_key)
+        if not token:
+            raise ValueError(f"Workspace '{ws_name}' has no {token_key} configured")
+        _enforce_auth_mode(token, auth_mode, command_name="mirror sync")
+
+        ws_row = get_workspace_by_name(conn, ws_name)
+        if not ws_row:
+            workspace_id = upsert_workspace(
+                conn,
+                name=ws_cfg.get("name"),
+                team_id=ws_cfg.get("team_id"),
+                domain=ws_cfg.get("domain"),
+                config=ws_cfg,
+            )
+        else:
+            workspace_id = int(ws_row["id"])
+
+        if not args.messages_only:
+            backfill_users_and_channels(token=token, workspace_id=workspace_id, conn=conn)
+
+        channels_override = [c.strip() for c in (args.channels or "").split(",") if c.strip()]
+        msg_stats = backfill_messages(
+            token=token,
+            workspace_id=workspace_id,
+            conn=conn,
             channel_limit=args.channel_limit,
             oldest=args.oldest,
             latest=args.latest,
+            channel_ids_override=channels_override or None,
         )
 
-        if args.reindex_keyword:
-            db = Database(config_path=args.config)
-            workspace_id = db.workspace_id(ws)
-            rows = rebuild_messages_fts(db.conn, workspace_id)
-            print(f"[sync] reindex-keyword workspace={ws} rows={rows}")
+        if args.include_files:
+            backfill_files_and_canvases(
+                token=token,
+                workspace_id=workspace_id,
+                conn=conn,
+                cache_root=args.cache_root,
+                download_content=bool(args.download_content),
+                file_types=args.file_types,
+            )
 
         if args.refresh_embeddings:
             backfill_message_embeddings(
-                config_path=args.config,
-                workspace_name=ws,
-                model=args.model,
+                conn,
+                workspace_id=workspace_id,
+                model_id=args.model,
                 limit=args.embedding_scan_limit,
             )
-            stats = process_embedding_jobs(
-                config_path=args.config,
-                workspace_name=ws,
-                model=args.model,
+            process_embedding_jobs(
+                conn,
+                workspace_id=workspace_id,
+                model_id=args.model,
                 limit=args.embedding_job_limit,
             )
-            print(
-                "[sync] embeddings workspace={ws} jobs={jobs} processed={processed} skipped={skipped} errored={errored}".format(
-                    ws=ws,
-                    jobs=stats.get("jobs"),
-                    processed=stats.get("processed"),
-                    skipped=stats.get("skipped"),
-                    errored=stats.get("errored"),
-                )
-            )
+
+        if args.reindex_keyword:
+            rows = reindex_messages_fts(conn, workspace_id=workspace_id)
+            print(f"[sync] reindex-keyword workspace={ws_name} rows={rows}")
+
+        print(
+            f"[sync] workspace={ws_name} message_channels={msg_stats.get('channels', 0)} messages={msg_stats.get('messages', 0)} skipped={msg_stats.get('skipped', 0)}"
+        )
     return 0
 
 
 def cmd_mirror_status(args: argparse.Namespace) -> int:
-    conn = Database(config_path=args.config).conn
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
     stale_seconds = float(args.stale_hours) * 3600.0
     now_ts = time.time()
 
@@ -490,41 +524,58 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
 
 
 def cmd_mirror_daemon(args: argparse.Namespace) -> int:
+    from slack_mirror.service.processor import process_pending_events
+    from slack_mirror.sync.backfill import backfill_messages
+    from slack_mirror.sync.embeddings import process_embedding_jobs
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
     names = _workspace_names(args.config, args.workspace)
+    ws_state: dict[str, dict[str, object]] = {}
+    for ws_name in names:
+        ws_cfg = _workspace_config_by_name(args.config, ws_name)
+        ws_row = get_workspace_by_name(conn, ws_name)
+        if not ws_row:
+            workspace_id = upsert_workspace(
+                conn,
+                name=ws_cfg.get("name"),
+                team_id=ws_cfg.get("team_id"),
+                domain=ws_cfg.get("domain"),
+                config=ws_cfg,
+            )
+        else:
+            workspace_id = int(ws_row["id"])
+        token_key = "user_token" if (args.auth_mode or "user") == "user" else "token"
+        token = ws_cfg.get(token_key)
+        if not token:
+            raise ValueError(f"Workspace '{ws_name}' has no {token_key} configured")
+        ws_state[ws_name] = {"id": workspace_id, "token": token}
+
     print(f"Starting mirror daemon for workspaces: {', '.join(names)}")
     last_reconcile = 0.0
     cycle = 0
     while True:
         cycle += 1
-        for ws in names:
-            process_pending_events(
-                config_path=args.config,
-                workspace_name=ws,
-                limit=args.event_limit,
-            )
+        for ws_name in names:
+            state = ws_state[ws_name]
+            process_pending_events(conn, int(state["id"]), limit=args.event_limit)
             process_embedding_jobs(
-                config_path=args.config,
-                workspace_name=ws,
-                model=args.model,
+                conn,
+                workspace_id=int(state["id"]),
+                model_id=args.model,
                 limit=args.embedding_limit,
             )
 
         if args.reconcile_minutes > 0 and (time.time() - last_reconcile) >= args.reconcile_minutes * 60:
-            for ws in names:
-                backfill_workspace(
-                    config_path=args.config,
-                    workspace_name=ws,
-                    include_messages=True,
-                    include_files=False,
-                    file_types="all",
-                    download_content=False,
-                    cache_root=args.cache_root,
-                    auth_mode=args.auth_mode,
-                    messages_only=True,
-                    channels_csv=None,
+            for ws_name in names:
+                state = ws_state[ws_name]
+                backfill_messages(
+                    token=str(state["token"]),
+                    workspace_id=int(state["id"]),
+                    conn=conn,
                     channel_limit=args.reconcile_channel_limit,
-                    oldest=None,
-                    latest=None,
                 )
             last_reconcile = time.time()
             print(f"[daemon] reconcile complete cycle={cycle}")
@@ -982,7 +1033,7 @@ _slack_mirror_complete() {
   }
 
   local top="mirror workspaces channels search docs completion"
-  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events"
+  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -1020,7 +1071,7 @@ except Exception:
           return 0
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser --refresh-embeddings --embedding-scan-limit --embedding-job-limit --reindex-keyword --stale-hours --json --event-limit --embedding-limit --reconcile-minutes --reconcile-channel-limit" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -1096,7 +1147,7 @@ except Exception:
 _slack_mirror() {
   local -a top mirror_sub ws_sub
   top=(mirror workspaces channels search docs completion)
-  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events)
+  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
   if (( CURRENT == 2 )); then
@@ -1291,6 +1342,44 @@ def build_parser() -> argparse.ArgumentParser:
     p_process.add_argument("--interval", type=float, default=2.0)
     p_process.add_argument("--max-cycles", type=int)
     p_process.set_defaults(func=cmd_process_events)
+
+    p_sync = mirror_sub.add_parser("sync", help="run full reconcile sync (messages/threads + optional embeddings)")
+    p_sync.add_argument("--workspace", help="optional workspace name (default: all workspaces)")
+    p_sync.add_argument("--auth-mode", default="user", choices=["bot", "user"], help="auth mode for backfill")
+    p_sync.add_argument("--include-files", action="store_true", help="include files/canvases metadata")
+    p_sync.add_argument("--file-types", default="all", help="files.list types filter")
+    p_sync.add_argument("--download-content", action="store_true", help="download file/canvas content")
+    p_sync.add_argument("--cache-root", default="./cache")
+    p_sync.add_argument("--messages-only", action="store_true", help="skip users/channels bootstrap and pull messages only")
+    p_sync.add_argument("--channels", help="csv list of channel ids (messages-only mode)")
+    p_sync.add_argument("--channel-limit", type=int, help="cap channels processed")
+    p_sync.add_argument("--oldest", help="oldest message ts boundary (inclusive)")
+    p_sync.add_argument("--latest", help="latest message ts boundary (inclusive)")
+    p_sync.add_argument("--refresh-embeddings", action="store_true", help="enqueue and process embedding catch-up")
+    p_sync.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_sync.add_argument("--embedding-scan-limit", type=int, default=50000)
+    p_sync.add_argument("--embedding-job-limit", type=int, default=5000)
+    p_sync.add_argument("--reindex-keyword", action="store_true", help="rebuild FTS index after sync")
+    p_sync.set_defaults(func=cmd_mirror_sync)
+
+    p_status = mirror_sub.add_parser("status", help="show mirror coverage/freshness by workspace and channel class")
+    p_status.add_argument("--workspace", help="optional workspace name")
+    p_status.add_argument("--stale-hours", type=float, default=24.0, help="stale threshold in hours")
+    p_status.add_argument("--json", action="store_true")
+    p_status.set_defaults(func=cmd_mirror_status)
+
+    p_daemon = mirror_sub.add_parser("daemon", help="unified event+embedding loop with periodic reconcile")
+    p_daemon.add_argument("--workspace", help="optional workspace name (default: all workspaces)")
+    p_daemon.add_argument("--interval", type=float, default=2.0, help="loop interval in seconds")
+    p_daemon.add_argument("--event-limit", type=int, default=1000)
+    p_daemon.add_argument("--embedding-limit", type=int, default=1000)
+    p_daemon.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_daemon.add_argument("--reconcile-minutes", type=float, default=30.0, help="periodic reconcile cadence (0 disables)")
+    p_daemon.add_argument("--reconcile-channel-limit", type=int, default=300)
+    p_daemon.add_argument("--auth-mode", default="user", choices=["bot", "user"], help="auth mode for reconcile backfill")
+    p_daemon.add_argument("--cache-root", default="./cache")
+    p_daemon.add_argument("--max-cycles", type=int)
+    p_daemon.set_defaults(func=cmd_mirror_daemon)
 
     workspaces = sub.add_parser("workspaces", help="workspace config/bootstrap/verification commands")
     ws_sub = workspaces.add_subparsers(dest="ws_cmd")
