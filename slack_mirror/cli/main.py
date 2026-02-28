@@ -764,7 +764,9 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
 
 
 def cmd_search_semantic(args: argparse.Namespace) -> int:
-    args.mode = "semantic"
+    # Respect an explicit --mode if provided; default to semantic for the alias.
+    if not getattr(args, "mode", None):
+        args.mode = "semantic"
     # Ensure all attributes expected by cmd_search_keyword exist with defaults
     if not hasattr(args, "lexical_weight"):
         args.lexical_weight = None
