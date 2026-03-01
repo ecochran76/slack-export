@@ -1,0 +1,101 @@
+{
+  "workspace": "soylei",
+  "channel": "colorbiotics",
+  "channel_id": "C06FH1RJSG0",
+  "day": "2024-01-24",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706111124.759059",
+      "human_ts": "2024-01-24 09:45:24 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06EZBXNG5D",
+          "name": "FW: Supplier Documents for Bio-MAG",
+          "mimetype": "text/html",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06EZBXNG5D/fw__supplier_documents_for_bio-mag",
+          "local_path": ".local/cache/files/F06EZBXNG5D/FWSupplierDocumentsforBio-MAG"
+        }
+      ]
+    },
+    {
+      "ts": "1706111134.894659",
+      "human_ts": "2024-01-24 09:45:34 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "<@U012MBNJ67K> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706111140.932119",
+      "human_ts": "2024-01-24 09:45:40 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706111146.059799",
+      "human_ts": "2024-01-24 09:45:46 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U011U13BEPR> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706111156.975699",
+      "human_ts": "2024-01-24 09:45:56 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<@U012M8NDV3K> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706111161.366139",
+      "human_ts": "2024-01-24 09:46:01 CST",
+      "user_id": "U012ETLV6NQ",
+      "user_label": "Baker (U012ETLV6NQ)",
+      "text": "<@U012ETLV6NQ> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706111169.689019",
+      "human_ts": "2024-01-24 09:46:09 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "<@U012212P2PQ> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

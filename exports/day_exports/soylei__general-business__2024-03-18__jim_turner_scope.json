@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-03-18",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1710764527.269099",
+      "human_ts": "2024-03-18 07:22:07 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Gents, todays call is just the board, so Chris Eric and me. Thanks",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710796780.897499",
+      "human_ts": "2024-03-18 16:19:40 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U012MBNJ67K> Have you had the accounting firm document an updated indirect rate for Soylei? Currently at 10%\u2026\u2026\u2026even a modest and very reasonable increase to 25% would create an additional $15,000 for every $100,000 in grant billables for Soylei. The next quarter starts in 2 weeks and we can go back 90 days on Federal contracts for billing. Have you engaged the USDA on updating Soylei\u2019s indirect rate?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

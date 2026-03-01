@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "website",
+  "channel_id": "C06L8DVBWQP",
+  "day": "2024-03-21",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1711024480.732609",
+      "human_ts": "2024-03-21 07:34:40 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U011U13BEPR> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1711024480.823749",
+      "human_ts": "2024-03-21 07:34:40 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

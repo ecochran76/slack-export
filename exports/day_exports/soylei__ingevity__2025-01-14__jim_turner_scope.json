@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "ingevity",
+  "channel_id": "C06DPD6K6B1",
+  "day": "2025-01-14",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1736896274.570579",
+      "human_ts": "2025-01-14 17:11:14 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has left the channel",
+      "subtype": "channel_leave",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

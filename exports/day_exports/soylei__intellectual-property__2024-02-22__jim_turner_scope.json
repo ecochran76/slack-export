@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "intellectual-property",
+  "channel_id": "C03PCPYHFHU",
+  "day": "2024-02-22",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708627142.714359",
+      "human_ts": "2024-02-22 12:39:02 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Can each of you look at the 30 patents and independently tell me what should stay or go\u2026once finished, we can compile and decide. Thanks",
+      "subtype": null,
+      "thread_ts": "1708627142.714359",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "workspace": "soylei",
+  "channel": "finance",
+  "channel_id": "C06EZLKEE2J",
+  "day": "2024-01-23",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706019578.738289",
+      "human_ts": "2024-01-23 08:19:38 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U0127BGJ3U5> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706020279.515569",
+      "human_ts": "2024-01-23 08:31:19 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U011U13BEPR> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706020279.622229",
+      "human_ts": "2024-01-23 08:31:19 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706020279.690179",
+      "human_ts": "2024-01-23 08:31:19 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "<@U012MBNJ67K> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706020565.371689",
+      "human_ts": "2024-01-23 08:36:05 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U012MBNJ67K> do you have a ledger that shows how expenses were allocated to the USDA grant?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706020604.716679",
+      "human_ts": "2024-01-23 08:36:44 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "Yes, I'll post in shortly",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": "1706020610.000000",
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706025499.496559",
+      "human_ts": "2024-01-23 09:58:19 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U012MBNJ67K> we'll need to set up a time this week to transfer signature authority at the banks over to the Board\n\nalso the credit cards",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706026451.645039",
+      "human_ts": "2024-01-23 10:14:11 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "We will need to get new credit cards, becuase they are attached to all of my personal cards.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706026472.327029",
+      "human_ts": "2024-01-23 10:14:32 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "But yes we can do the bank transfer this week",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706026511.639109",
+      "human_ts": "2024-01-23 10:15:11 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Wednesday or Thursday work best for me.",
+      "subtype": null,
+      "thread_ts": "1706026511.639109",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706027670.637579",
+      "human_ts": "2024-01-23 10:34:30 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06FKUPAV7B",
+          "name": "Soylei Reimbursement 1.2.2024_NH.xlsx",
+          "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06FKUPAV7B/soylei_reimbursement_1.2.2024_nh.xlsx",
+          "local_path": ".local/cache/files/F06FKUPAV7B/SoyleiReimbursement1.2.2024_NH.xlsx"
+        }
+      ]
+    },
+    {
+      "ts": "1706028735.711639",
+      "human_ts": "2024-01-23 10:52:15 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Do we have access to all 3 budget periods or only BP1?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706028769.452049",
+      "human_ts": "2024-01-23 10:52:49 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "All 3 budgets",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706047748.579049",
+      "human_ts": "2024-01-23 16:09:08 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "either is good for me as well",
+      "subtype": "thread_broadcast",
+      "thread_ts": "1706026511.639109",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

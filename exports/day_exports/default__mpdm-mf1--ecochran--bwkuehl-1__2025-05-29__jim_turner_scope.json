@@ -1,0 +1,485 @@
+{
+  "workspace": "default",
+  "channel": "mpdm-mf1--ecochran--bwkuehl-1",
+  "channel_id": "GH0TH8JPK",
+  "day": "2025-05-29",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1748545157.806249",
+      "human_ts": "2025-05-29 13:59:17 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "I fucked up guys.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748545165.034439",
+      "human_ts": "2025-05-29 13:59:25 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "I responded to a Chris text.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748545168.224229",
+      "human_ts": "2025-05-29 13:59:28 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "Oh god, make it stop",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748545171.756279",
+      "human_ts": "2025-05-29 13:59:31 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "HA",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748545175.118799",
+      "human_ts": "2025-05-29 13:59:35 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "10 texts in the last 10 minutes",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748545271.484579",
+      "human_ts": "2025-05-29 14:01:11 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "Those are rookie numbers",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748545471.758179",
+      "human_ts": "2025-05-29 14:04:31 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "I think he thinks that SL is going to be yielding $160k/mo by early next year. I'm guessing on the timeline. But if the demo is in Aug, and it goes well I'm going to guess that he'll think they'll roll it out quickly. Seems optimistic to me, but I'm all for it.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08ULRLCUUA",
+          "name": "image.png",
+          "mimetype": "image/png",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08ULRLCUUA/image.png",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748545490.548609",
+      "human_ts": "2025-05-29 14:04:50 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "He texted me that as well",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748546197.170079",
+      "human_ts": "2025-05-29 14:16:37 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "Apparently we want to do CIP in Brazil. Eric, you're hot to trot on that right?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08UE8UCK2A",
+          "name": "image.png",
+          "mimetype": "image/png",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08UE8UCK2A/image.png",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748546224.082179",
+      "human_ts": "2025-05-29 14:17:04 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "Cold. In. Place. Eric LOOOVES Cold. In. Place. That's what you hope to do forever right?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748546287.428759",
+      "human_ts": "2025-05-29 14:18:07 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": ":rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing::rolling_on_the_floor_laughing:",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748546323.709809",
+      "human_ts": "2025-05-29 14:18:43 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "cold in place... big yikes",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748546769.497249",
+      "human_ts": "2025-05-29 14:26:09 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "Should I text Chris and be like \"Oh man, Eric was just saying how much he wanted to go back to cold in place stuff\"",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748546773.370949",
+      "human_ts": "2025-05-29 14:26:13 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "I think I should",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748546803.565179",
+      "human_ts": "2025-05-29 14:26:43 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "<https://files.slack.com/files-tmb/TEG3AC109-F08U2B0QT27-244c49b75e/20250527_2216_quirky_channel_manager_simple_compose_01jwae7r6cfxy8h53rvgc5df22_360.gif|https://files.slack.com/files-tmb/TEG3AC109-F08U2B0QT27-244c49b75e/20250527_2216_qui[\u2026]nel_manager_simple_compose_01jwae7r6cfxy8h53rvgc5df22_360.gif>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08U2B0QT27",
+          "name": "20250527_2216_Quirky Channel Manager_simple_compose_01jwae7r6cfxy8h53rvgc5df22.gif",
+          "mimetype": "image/gif",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08U2B0QT27/20250527_2216_quirky_channel_manager_simple_compose_01jwae7r6cfxy8h53rvgc5df22.gif",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748547888.802679",
+      "human_ts": "2025-05-29 14:44:48 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "They pull a knife, you pull a gun. He sends one of yours to the hospital, you send one of his to the morgue.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08UNK74KSQ",
+          "name": "20250529_1443_Businessman Shovels Dirt_simple_compose_01jwes3s2bf739bapw3yx0rpwq.gif",
+          "mimetype": "image/gif",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08UNK74KSQ/20250529_1443_businessman_shovels_dirt_simple_compose_01jwes3s2bf739bapw3yx0rpwq.gif",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748547990.955299",
+      "human_ts": "2025-05-29 14:46:30 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "Oh fick",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548040.457999",
+      "human_ts": "2025-05-29 14:47:20 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "This was just the first shot. I'll spend more time tonight, come up with something truly wonderful",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548055.273259",
+      "human_ts": "2025-05-29 14:47:35 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "i hear some dihydrogen monoxide mixed with some sodium chloride is also a great CIP additive",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548207.825039",
+      "human_ts": "2025-05-29 14:50:07 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "but does it scale",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548248.089489",
+      "human_ts": "2025-05-29 14:50:48 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "i dare you to make Slack Forrester your new avatar",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548275.369419",
+      "human_ts": "2025-05-29 14:51:15 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "so are you pioneering the CIP product then <@UEGM25PMG>?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548290.555649",
+      "human_ts": "2025-05-29 14:51:30 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "i hear it needs some improvements",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548322.520389",
+      "human_ts": "2025-05-29 14:52:02 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "fortunately open ai's safety features will not likely allow generation of images or videos featuring mily white fluids",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548362.401159",
+      "human_ts": "2025-05-29 14:52:42 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "Oh I bet you you can work around it. Honestly I feel like you're daring me to. Also, this was 100% Baker's idea. I was just the one to implement it.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548377.793709",
+      "human_ts": "2025-05-29 14:52:57 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "So make sure when you escalate, you include him in the shot",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548424.402889",
+      "human_ts": "2025-05-29 14:53:44 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "I already fired a warning shot with baker",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08UYC8KP89",
+          "name": "20250428_2039_Beachside Friendship_simple_compose_01jszk5m2ffmm8j1z62013xy52.gif",
+          "mimetype": "image/gif",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08UYC8KP89/20250428_2039_beachside_friendship_simple_compose_01jszk5m2ffmm8j1z62013xy52.gif",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748548437.812809",
+      "human_ts": "2025-05-29 14:53:57 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "..... god damnit",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748548748.254299",
+      "human_ts": "2025-05-29 14:59:08 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08VAA5K1NC",
+          "name": "20250529_1458_Stylish Witch Cooking_simple_compose_01jwesyxavetpan9jcdyvjpnz0.gif",
+          "mimetype": "image/gif",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08VAA5K1NC/20250529_1458_stylish_witch_cooking_simple_compose_01jwesyxavetpan9jcdyvjpnz0.gif",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748549337.635739",
+      "human_ts": "2025-05-29 15:08:57 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "this vendetta is going to get ugly",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F08VABVVD6C",
+          "name": "image.png",
+          "mimetype": "image/png",
+          "permalink": "https://polycy.slack.com/files/UEGM25PMG/F08VABVVD6C/image.png",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1748549359.475129",
+      "human_ts": "2025-05-29 15:09:19 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "oh boy....",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748550146.325539",
+      "human_ts": "2025-05-29 15:22:26 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "I have no problem with making a buy out offer, but it needs to actually be a fair one. Whether Chris likes it or not, they are members. And there are some at a minimum ethical obligations, if not legal, that he/you have towards the members. Buying them out in bad faith... I know that there's a desire to be done working with them, but let's not let it be done the wrong way",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748550199.327149",
+      "human_ts": "2025-05-29 15:23:19 CDT",
+      "user_id": "UEGM25PMG",
+      "user_label": "Eric (UEGM25PMG)",
+      "text": "preach brutha",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748550222.481399",
+      "human_ts": "2025-05-29 15:23:42 CDT",
+      "user_id": "UELBG2KEE",
+      "user_label": "Bak3r Kuehl (UELBG2KEE)",
+      "text": "yeah cant have a facebook situation and then dont want to be jim turner",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1748550556.183359",
+      "human_ts": "2025-05-29 15:29:16 CDT",
+      "user_id": "UEL5S4PTR",
+      "user_label": "mf1 (UEL5S4PTR)",
+      "text": "We should look at a buy out that includes a royalty or something comparable. Basically, you're entitled to X% of the profit for Y years or whatever. Then we do the offer whenever and they at least get some of the short term profit while getting them out of the business. Since we can't afford a \"fair\" offer right now",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

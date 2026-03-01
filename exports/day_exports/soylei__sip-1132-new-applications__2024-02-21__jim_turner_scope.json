@@ -1,0 +1,69 @@
+{
+  "workspace": "soylei",
+  "channel": "sip-1132-new-applications",
+  "channel_id": "C06LFQ21532",
+  "day": "2024-02-21",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708540026.800839",
+      "human_ts": "2024-02-21 12:27:06 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "The epoxidized fatty ester (ethyl?) sample from Galata arrived and is with Baker and Sharan.",
+      "subtype": null,
+      "thread_ts": "1708540026.800839",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708540062.739199",
+      "human_ts": "2024-02-21 12:27:42 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "set the channel description: SIP-1132 is the SESO emulsion",
+      "subtype": "channel_purpose",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708541229.553229",
+      "human_ts": "2024-02-21 12:47:09 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<!channel> If you have a conflict with the above mentioned time, please respond by COB today, otherwise I'll assume you're available and get things scheduled",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708542639.129099",
+      "human_ts": "2024-02-21 13:10:39 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "I am available after 11:30",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708544719.156499",
+      "human_ts": "2024-02-21 13:45:19 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Monday is better than Tuesday, but I make either work",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

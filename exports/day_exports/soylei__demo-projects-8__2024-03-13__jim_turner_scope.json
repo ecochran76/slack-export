@@ -1,0 +1,121 @@
+{
+  "workspace": "soylei",
+  "channel": "demo-projects-8",
+  "channel_id": "C03MVBA6KPX",
+  "day": "2024-03-13",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706111245.021429",
+      "human_ts": "2024-01-24 09:47:25 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Rutgers is noted on the Sripath website as a research partner\n\nThus I would not consider Rutgers to be a fully unbiased participant",
+      "subtype": null,
+      "thread_ts": "1706111245.021429",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710356309.003859",
+      "human_ts": "2024-03-13 13:58:29 CDT",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "Here is NCAT's final report on section W10.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06PDN2DUSW",
+          "name": "Chapter 22_Soylei_Nam Report.docx",
+          "mimetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06PDN2DUSW/chapter_22_soylei_nam_report.docx",
+          "local_path": ".local/cache/files/F06PDN2DUSW/Chapter22_Soylei_NamReport.docx"
+        }
+      ]
+    },
+    {
+      "ts": "1710360211.628469",
+      "human_ts": "2024-03-13 15:03:31 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Nacu, withhout reading these results, whats your thoughts and conclusions?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710360976.290729",
+      "human_ts": "2024-03-13 15:16:16 CDT",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "Conclusions, based on the the tests  listed in this report, our section performed  similar  to the SBS section (more rutting and and more severity), however both are still under  \"allowed\"  margins.   The section will be divided into two sub-sections. One  subsection will be treated with a spray-on rejuvenator and the other will be used as the control.  We have the opportunity to chose which product we send for testing.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710365325.568019",
+      "human_ts": "2024-03-13 16:28:45 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "I think our test section had excellent performance. Remember the premise of the Florida DOT test section for the Florida DOT experimental plan?\n\nThe field performance is what is important. Failure in rutting is &gt;10mm. Cracking is &gt;10% (failure will occur) or &gt;30% (failure is eminent) in the wheel paths.\n\nI think the report can be substantially improved.\n\n<@U06F97BPQJU> should I provide a detailed review back to NCAT?\n\nEvery high volume pavement undergoes preventative maintenance within the first 1-2 years in a 20 design life. It also undergoes routine maintenance every 3-4 years after the routine maintenance. We designed this test section to last 1 3-year loading cycle for 10 million ESALs and it has now lasted 20 million ESALs which is twice as long as its original design life without any maintenance!",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710365746.455729",
+      "human_ts": "2024-03-13 16:35:46 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "So the questions are: 1. What maintenance treatment is going to be done that arrests or slows the cracking? 2. Are we going to do any testing and evaluation before August and if so, what? 3. Are we going to receive materials to develop a mix design and evaluate the mix design? 4. Is a trial production and paving going to be done with East Alabama Paving before paving a test section in August?\n\nContractors start developing their mix designs in March to be paved in June or later to provide a reasonable timeframe in Northern climates.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710367029.047929",
+      "human_ts": "2024-03-13 16:57:09 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Gents, I'm a novice here, but I will say that for a zero VOC, renewable soy based product to perform \"substantually\" in the ballpark of SBS (a pretty nasty product) is pretty compelling. \nI'd love for the test to have proven us better, but \"just as good\" will suffice commercially. \nChris, anything you might do to enhance this outcome and review, full steam ahead  ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710370431.014029",
+      "human_ts": "2024-03-13 17:53:51 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "This guy is \"liking\" Adventus posts on LinkedIn... Be advised",
+      "subtype": "thread_broadcast",
+      "thread_ts": "1706111245.021429",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06P0D5JJP9",
+          "name": "Screenshot_20240313_175202_LinkedIn.jpg",
+          "mimetype": "image/jpeg",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06P0D5JJP9/screenshot_20240313_175202_linkedin.jpg",
+          "local_path": ".local/cache/files/F06P0D5JJP9/Screenshot_20240313_175202_LinkedIn.jpg"
+        }
+      ]
+    }
+  ]
+}

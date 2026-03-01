@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "vitalaplus_manufacturing",
+  "channel_id": "C04N92FLRUY",
+  "day": "2024-01-19",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1705686182.295619",
+      "human_ts": "2024-01-19 11:43:02 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

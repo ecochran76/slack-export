@@ -1,0 +1,89 @@
+{
+  "workspace": "soylei",
+  "channel": "demo-projects-8",
+  "channel_id": "C03MVBA6KPX",
+  "day": "2024-04-05",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1712353407.219239",
+      "human_ts": "2024-04-05 16:43:27 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06TFFH4FUH",
+          "name": "Congressman Zach Nunn CPF Form_Transportation 04-05-2024 Final.docx",
+          "mimetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06TFFH4FUH/congressman_zach_nunn_cpf_form_transportation_04-05-2024_final.docx",
+          "local_path": ".local/cache/files/F06TFFH4FUH/CongressmanZachNunnCPFForm_Transportation04-05-2024Final.docx"
+        }
+      ]
+    },
+    {
+      "ts": "1712353573.282999",
+      "human_ts": "2024-04-05 16:46:13 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Here is the application the president's office at Iowa State University submitted to Congressman Nunn's office today.  This is another opportunity like the projects we have developed with Fayette and Clayton counties through Congresswoman Hinson's office for the 2025 construction season.  We will work on this new submittal with the construction being done in the 2026 construction season.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712353618.658919",
+      "human_ts": "2024-04-05 16:46:58 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": " Very cool",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712354209.301549",
+      "human_ts": "2024-04-05 16:56:49 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Austin and I sat in on the FHWA on the Low Carbon Transportation Materials webinar yesterday with the upper tier management of the Iowa DOT.  I have been tasked with developing the application for the Iowa DOT for the $22 million application due June 10, 2024.  We know 4 of the 6 FHWA personnel very well in the program that will evaluate applications.  Here is more details about the program: <https://www.fhwa.dot.gov/lowcarbon/>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712354627.315739",
+      "human_ts": "2024-04-05 17:03:47 CDT",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Based on the funding and formulations, this is an opportunity for SoyLei products to be in 10-40% of the Iowa DOT asphalt paving projects over a 6-year period beginning in the 2026 construction season through the 2031 construction season.  The next round will be putting out $800 million for local agencies and we will work to coordinate this opportunities with the counties, cities and towns in Iowa.  Likely the $1.2 billion allocated to State Transportation agencies will have probably about 20 states approved, well short of all states and result in another application process for State Transportation agencies in a year.  First, we will develop a 1-page white paper for the Iowa DOT Director Marler to discuss with Governor Reynolds.........he meets with the governor weekly and will engage her on the subject next week and present the white paper to the governor the following week.  We are going to call the initiative Grow Iowa.......biomaterials grown, produced and sold in Iowa and growing the Iowa economy!",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712355464.788919",
+      "human_ts": "2024-04-05 17:17:44 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Lets talk on Monday...pretty exciting. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

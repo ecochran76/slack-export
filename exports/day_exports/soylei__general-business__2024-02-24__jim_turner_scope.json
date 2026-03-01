@@ -1,0 +1,189 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-24",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708793014.714639",
+      "human_ts": "2024-02-24 10:43:34 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U06F97BPQJU> Do you believe the Vitala+ emulsions should be shelved? Could the economics be shared?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708793442.159549",
+      "human_ts": "2024-02-24 10:50:42 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Are we abandoning fog seals and seal coats because they are not black? The only application where I have heard this is important is for outdoor basketball and tennis courts. Without googling or searching the internet, can someone explain the difference between pavement preservation and pavement maintenance?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708793469.317599",
+      "human_ts": "2024-02-24 10:51:09 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06LJG9SGHJ",
+          "name": "Image from iOS.jpg",
+          "mimetype": "image/jpeg",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06LJG9SGHJ/image_from_ios.jpg",
+          "local_path": ".local/cache/files/F06LJG9SGHJ/ImagefromiOS.jpg"
+        }
+      ]
+    },
+    {
+      "ts": "1708793550.820179",
+      "human_ts": "2024-02-24 10:52:30 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Pavement preservation includes applying fog seals and seal coats sometimes the same year the pavement layer was constructed but certainly within 2 years. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708793770.972689",
+      "human_ts": "2024-02-24 10:56:10 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Let\u2019s do a simply field test and go spray Krylon paint on a faded asphalt pavement, a 1 foot strip across the entire lane and let\u2019s see what it looks like a few months later and continue to imagine what the customer thinks and if they would buy a pigment modified Vitala or Vitala+ fog seal/seal coat again.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708797318.493929",
+      "human_ts": "2024-02-24 11:55:18 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Wednesday this week I drove to Omaha. Just west of Adair, Iowa my son engaged me on a conversation about the pavement being red.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708797378.860499",
+      "human_ts": "2024-02-24 11:56:18 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06L9FY1BLN",
+          "name": "Image from iOS.jpg",
+          "mimetype": "image/jpeg",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06L9FY1BLN/image_from_ios.jpg",
+          "local_path": ".local/cache/files/F06L9FY1BLN/ImagefromiOS.jpg"
+        }
+      ]
+    },
+    {
+      "ts": "1708797457.376469",
+      "human_ts": "2024-02-24 11:57:37 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06LD7TE4TX",
+          "name": "Image from iOS.jpg",
+          "mimetype": "image/jpeg",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06LD7TE4TX/image_from_ios.jpg",
+          "local_path": ".local/cache/files/F06LD7TE4TX/ImagefromiOS.jpg"
+        }
+      ]
+    },
+    {
+      "ts": "1708797554.209779",
+      "human_ts": "2024-02-24 11:59:14 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Although not with a lot of clarity from driving at 70+ mph, the pavement is failing at the longitudinal joint and not in the wheel paths from truck loading.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708797703.023239",
+      "human_ts": "2024-02-24 12:01:43 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "To share my answer to my son of why the pavement is red. It is from the use of quartzite from South Dakota that contains some iron. And it is really important to have skid resistance on roads especially very high volume roads like I-80 which quartzite provides.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708797835.381549",
+      "human_ts": "2024-02-24 12:03:55 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "So we can understand the requirements the Iowa DOT understanding their specifications and what is on their roadway network. Skid resistance is a requirement and color is not. Longer life is highly desirable and embedded in their specifications.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708797910.064229",
+      "human_ts": "2024-02-24 12:05:10 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Again, the pavement is failing at the longitudinal joint. Our Vitala+ emulsion would have extended this pavement for many years. Now we are going to see it reconstructed over a 2-year period with a lot of construction costs and tens of thousands if not more in work zone traffic delays. And Vitala+ can go over paint stripping without needing new paint.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708797956.136029",
+      "human_ts": "2024-02-24 12:05:56 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "What do we know and believe are most important to the Iowa DOT?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

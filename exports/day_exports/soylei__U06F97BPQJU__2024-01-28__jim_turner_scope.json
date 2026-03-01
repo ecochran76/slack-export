@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "U06F97BPQJU",
+  "channel_id": "D06ELAJLRHR",
+  "day": "2024-01-28",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706453166.491119",
+      "human_ts": "2024-01-28 08:46:06 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Eric, I didn\u2019t ask about the educational reimbursement for Nacu. If he can\u2019t repay the business now, it needs to be paid back before any distribution to the owners, at minimum. If he leaves, it needs to be paid back (I\u2019ve done this with a simple demand note signed and agreed to) Let me know what you reviewed with him. Thanks",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706460481.934619",
+      "human_ts": "2024-01-28 10:48:01 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "I asked him about it Thursday when we went to the banks. He said he hadn't done it yet but would do so. The line for me is I'm not going to be too willing to furnish my own capital to cover expenses while these frivolities remain outstanding",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

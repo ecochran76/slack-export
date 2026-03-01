@@ -1,0 +1,41 @@
+{
+  "workspace": "soylei",
+  "channel": "U06F97BPQJU",
+  "channel_id": "D06ELAJLRHR",
+  "day": "2024-02-15",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708037274.071739",
+      "human_ts": "2024-02-15 16:47:54 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Can I include this resume of yours with the NSF proposal or do you have something else you'd prefer to be used?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06KS401RNC",
+          "name": "7. Jim_Turner.docx.pdf",
+          "mimetype": "application/pdf",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06KS401RNC/7._jim_turner.docx.pdf",
+          "local_path": ".local/cache/files/F06KS401RNC/7.Jim_Turner.docx.pdf"
+        }
+      ]
+    },
+    {
+      "ts": "1708037767.096369",
+      "human_ts": "2024-02-15 16:56:07 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Sure",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

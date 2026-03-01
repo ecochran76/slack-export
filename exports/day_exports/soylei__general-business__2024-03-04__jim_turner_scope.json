@@ -1,0 +1,57 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-03-04",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1709561077.152229",
+      "human_ts": "2024-03-04 08:04:37 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Do me a favor, send me your 3 top priorities weekly, lets make Monday...short and sweet, not paragraphes\n",
+      "subtype": null,
+      "thread_ts": "1709561077.152229",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709563069.405819",
+      "human_ts": "2024-03-04 08:37:49 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Craig Stevens Ph.D.\n\nR&amp;D Technical Director \u2013 Process Development &amp; Scale Up\n\nKraton Polymers U.S. LLC\n\nWork: +1 281 676 2410  |  Mobile: +1 832 472 1414  |  Fax: +1 281 676 2411\n\n16400 Park Row, Houston TX 77084\n\nNYSE \u2013 KRA  |  <http://www.kraton.com|www.kraton.com>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709563462.439969",
+      "human_ts": "2024-03-04 08:44:22 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Laurand Lewandowski, Ph.D.\n\nDirector, Asphalt Innovation\n\nAsphalt Innovation | Roofing S&amp;T\n\nP: <tel:7403217663|740-321-7663> | M: <tel:7403045722|740-304-5722>\n\n<mailto:Laurand.Lewandowski@owenscorning.com|Laurand.Lewandowski@owenscorning.com>\n\n\n\n\n\n\nROOFING",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709563577.667109",
+      "human_ts": "2024-03-04 08:46:17 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Shane E. Madison\nGeneral Manager \u2013 Industrial Group\nP:   <tel:5152617793|(515) 261-7793>\nC:   <tel:5153144367|(515) 314-4367>\n<mailto:smadison@senecaco.com|smadison@senecaco.com>&lt;<mailto:smadison@senecaco.com|<mailto:smadison@senecaco.com>>&gt;\n<http://www.senecaco.com|www.senecaco.com>&lt;<http://www.senecaco.com|http://www.senecaco.com>&gt;",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

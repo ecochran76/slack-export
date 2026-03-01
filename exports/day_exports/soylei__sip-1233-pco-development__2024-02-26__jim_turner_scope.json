@@ -1,0 +1,45 @@
+{
+  "workspace": "soylei",
+  "channel": "sip-1233-pco-development",
+  "channel_id": "C06KQ7U9S4D",
+  "day": "2024-02-26",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708961635.659729",
+      "human_ts": "2024-02-26 09:33:55 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Understand, pls let me know when you have the next batch in the oven. Thanks",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708989984.806599",
+      "human_ts": "2024-02-26 17:26:24 CST",
+      "user_id": "U012ETLV6NQ",
+      "user_label": "Baker (U012ETLV6NQ)",
+      "text": "The next batch is in the oven ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708991354.040269",
+      "human_ts": "2024-02-26 17:49:14 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": ":+1: ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

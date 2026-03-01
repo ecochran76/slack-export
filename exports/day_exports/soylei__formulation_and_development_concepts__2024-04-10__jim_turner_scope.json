@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "formulation_and_development_concepts",
+  "channel_id": "C06F7SD9Z0A",
+  "day": "2024-04-10",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1712760211.865639",
+      "human_ts": "2024-04-10 09:43:31 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Michael, here what I think needs to happen. We establish a bimonthly meeting. This meeting focuses on Stage gate, general development, tech service and brainstorm. Set a standard time, I like 8:30am, Monday or Friday. This meeting needs an brief/basic agenda and is limited to 1hr. You and I pass items through stage gate...\n\n",
+      "subtype": null,
+      "thread_ts": "1712760211.865639",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

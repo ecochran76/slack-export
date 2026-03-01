@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "U06F97BPQJU",
+  "channel_id": "D06ELAJLRHR",
+  "day": "2024-02-12",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1707765438.391209",
+      "human_ts": "2024-02-12 13:17:18 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Eric, I'll have to jump off the call today 2:00pm. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "workspace": "soylei",
+  "channel": "crm-links-discussion",
+  "channel_id": "C06G58P2M2Q",
+  "day": "2024-01-29",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706538963.414769",
+      "human_ts": "2024-01-29 08:36:03 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<@U012M8NDV3K> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539018.563849",
+      "human_ts": "2024-01-29 08:36:58 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "has renamed the channel from \"crm-links\" to \"crm-links-discussion\"",
+      "subtype": "channel_name",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539049.494469",
+      "human_ts": "2024-01-29 08:37:29 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "<@U012MBNJ67K> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539049.592199",
+      "human_ts": "2024-01-29 08:37:29 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "<@U012212P2PQ> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539049.729569",
+      "human_ts": "2024-01-29 08:37:29 CST",
+      "user_id": "U012ETLV6NQ",
+      "user_label": "Baker (U012ETLV6NQ)",
+      "text": "<@U012ETLV6NQ> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539049.846769",
+      "human_ts": "2024-01-29 08:37:29 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U0127BGJ3U5> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539049.933909",
+      "human_ts": "2024-01-29 08:37:29 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U011U13BEPR> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539050.036489",
+      "human_ts": "2024-01-29 08:37:30 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706539062.322039",
+      "human_ts": "2024-01-29 08:37:42 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "CRM folder is here: <https://drive.google.com/drive/folders/1P8JTgipoM8WXCZGV2E0ctIoiJmtOfmbL>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706558546.990769",
+      "human_ts": "2024-01-29 14:02:26 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06FYDMV78E",
+          "name": "RE: Introduction to Chris Williams",
+          "mimetype": "text/html",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06FYDMV78E/re__introduction_to_chris_williams",
+          "local_path": ".local/cache/files/F06FYDMV78E/REIntroductiontoChrisWilliams"
+        }
+      ]
+    },
+    {
+      "ts": "1706558727.330829",
+      "human_ts": "2024-01-29 14:05:27 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Note that people are still linking us to Colorbiotics.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

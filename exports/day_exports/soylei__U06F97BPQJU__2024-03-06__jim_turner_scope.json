@@ -1,0 +1,81 @@
+{
+  "workspace": "soylei",
+  "channel": "U06F97BPQJU",
+  "channel_id": "D06ELAJLRHR",
+  "day": "2024-03-06",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1709733870.817289",
+      "human_ts": "2024-03-06 08:04:30 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Eric, I made no comments during the USB review\u2026any of these long term (politically skewed) relationships you can direct the interaction with me. As an aside, any non-political relationships, all the commercial questions should come through me\u2026case in point, Mike Kvach will join probably within the month\u2026we have our own commercial plan with target customers, etc\u2026I know you probably know this already\u2026",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709736812.508759",
+      "human_ts": "2024-03-06 08:53:32 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "If you have ideas on how to better align usb goals with Soylei commercial goals I'm all ears\n\nI am encouraged even they are internally conflicted about HOSO",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709736863.853549",
+      "human_ts": "2024-03-06 08:54:23 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "This is first year I felt it was safe to even hint at hedging away from high oleic in that room",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709737379.862539",
+      "human_ts": "2024-03-06 09:02:59 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Lets schedule a time to talk",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709737915.145779",
+      "human_ts": "2024-03-06 09:11:55 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "If you are available in an hour or so I will call from the airport",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709738112.601019",
+      "human_ts": "2024-03-06 09:15:12 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Actually on with Ergon at 10am. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "workspace": "soylei",
+  "channel": "apex-1132-seso-roof",
+  "channel_id": "C06BSTT8K8R",
+  "day": "2024-03-11",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1710164597.178279",
+      "human_ts": "2024-03-11 08:43:17 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": ":wave: I\u2019ve set up an email address for this channel:\n&gt; _<mailto:sip-1132-seso-roof-aaaaluswciacdg7anrwxvvgnlq@soyleiinnovations.slack.com|sip-1132-seso-roof-aaaaluswciacdg7anrwxvvgnlq@soyleiinnovations.slack.com>_\nAny email sent or forwarded to this address will be posted directly to sip-1132-seso-roof :sparkles:<https://slack.com/help/articles/206819278-Send-emails-to-Slack|Learn more> about sending email to Slack.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710164603.894669",
+      "human_ts": "2024-03-11 08:43:23 CDT",
+      "user_id": "USLACKBOT",
+      "user_label": "Slackbot (USLACKBOT)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06NQ8K6Y3G",
+          "name": "Fwd: FW: PRI: Test & Evaluation Status Report 1, Characterization of Invigosoy Prototype Apshalt Shingle Rejuvenator",
+          "mimetype": "text/html",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06NQ8K6Y3G/fwd__fw__pri__test___evaluation_status_report_1__characterization_of_invigosoy_prototype_apshalt_shingle_rejuvenator",
+          "local_path": ".local/cache/files/F06NQ8K6Y3G/FwdFWPRITestEvaluationStatusReport1CharacterizationofInvigosoyPrototypeApshaltShingleRejuvenator"
+        }
+      ]
+    },
+    {
+      "ts": "1710178381.780519",
+      "human_ts": "2024-03-11 12:33:01 CDT",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<@U06F97BPQJU> Nacu has agreed to take ownership of the next round of PRI data, so he'll get back to you on timelines and which data we're planning to collect.\n\nBaker and I will continue to work on the paper with the goal to have it submitted in 2 weeks.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1710178538.818989",
+      "human_ts": "2024-03-11 12:35:38 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Thank you",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

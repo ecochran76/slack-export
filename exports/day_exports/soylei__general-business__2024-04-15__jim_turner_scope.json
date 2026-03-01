@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-04-15",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1713185201.585659",
+      "human_ts": "2024-04-15 07:46:41 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "This is an update to scheduled meetings for Soylei: \n\nShareholder meeting - mid November (annually).\n    \u25e6 Timing is to optimize tax position for year end\n    \u25e6 The week of Thanksgiving\nBoard meetings - 2nd week of June &amp; 2 week of December\n     -  Eric to arrange and send meeting invite\n\nDevelopment &amp; Stage gate &amp; Brainstorming meetings\n\u2022 Michael has set the schedule already\nMonthly review - this will happen monthly after we have the certified financials. \n    - Nacu will organize and send a meeting note\n\nWeekly commercial meeting will replace the update call monday at 8:30am. This will just be Nacu, Austin, Mike and Jim...other will be asked to join as needed. ",
+      "subtype": null,
+      "thread_ts": "1713185201.585659",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

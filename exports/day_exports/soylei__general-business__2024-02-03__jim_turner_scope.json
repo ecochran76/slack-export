@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-03",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706990134.236579",
+      "human_ts": "2024-02-03 13:55:34 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<Http://danimerscientific.com|Http://danimerscientific.com>\n\nInteresting\u2026",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

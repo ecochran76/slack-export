@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-03-25",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1711371238.077749",
+      "human_ts": "2024-03-25 07:53:58 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Nacu, Austin and I are attending WOA. I'm unable to call in this morning. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "hunt-refining",
+  "channel_id": "C05SWHFP676",
+  "day": "2024-01-23",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706019525.170339",
+      "human_ts": "2024-01-23 08:18:45 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

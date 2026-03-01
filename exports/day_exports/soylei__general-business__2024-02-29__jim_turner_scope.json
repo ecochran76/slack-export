@@ -1,0 +1,45 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-29",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1709231242.892929",
+      "human_ts": "2024-02-29 12:27:22 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U012MBNJ67K> Jim and Chris and I think this is worth the preliminary application. Once the website is back up, would you please submit  one? (It looks pretty quick)\n\n<https://www.crhventures.com/accelerator/roads-of-the-future>",
+      "subtype": null,
+      "thread_ts": "1709231242.892929",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709231479.026409",
+      "human_ts": "2024-02-29 12:31:19 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "Yes!",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709241319.363889",
+      "human_ts": "2024-02-29 15:15:19 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "I'm putting this here because it crosses <#C06KT1M5BGA> and <#C06BSTT8K8R|>. Baker does not have the bandwidth to do the CaSH and M&amp;M prep on his own, he's going to need help. <@U0127BGJ3U5> has agreed that Andrew can divert his ISU time towards that for awhile.\n\nEric has asked me to see if Sharan could be diverted towards assisting with that as well. And that's a question for <@U012212P2PQ> &amp;/or <@U06F97BPQJU>.",
+      "subtype": null,
+      "thread_ts": "1709241319.363889",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-03-01",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1709300362.865379",
+      "human_ts": "2024-03-01 07:39:22 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "<https://soylei.com> the developer is putting the final touches on it. More will be adjust as we Stargate items and bring other items online.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709306407.635539",
+      "human_ts": "2024-03-01 09:20:07 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Can I get a summary recommendation (not a spreadsheet) of the patents you all are recommending we pay royalties obligations on? Also like to know the $$ amount of the updated recommendation. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709306473.300269",
+      "human_ts": "2024-03-01 09:21:13 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "You want us to compile it yes?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709306477.058459",
+      "human_ts": "2024-03-01 09:21:17 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "For everyone",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709306644.199629",
+      "human_ts": "2024-03-01 09:24:04 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Actually I asked a while ago for a recommendation, the distilled list...a purdent, thoughtful but no BS patents list. ",
+      "subtype": null,
+      "thread_ts": "1709306644.199629",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709306720.966069",
+      "human_ts": "2024-03-01 09:25:20 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Nacu Austin and I are working on that right now.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709309789.906159",
+      "human_ts": "2024-03-01 10:16:29 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<@U0127BGJ3U5> <@U012ETLV6NQ> <@U012212P2PQ> and <@U06F97BPQJU> Gate meeting planning for Thursday after lunch. Agenda is as follows:\n1. SIP 1333 discussion. Go over gate 0, determine if it moves to Stage 1\n    a. <@U012212P2PQ> <@U0127BGJ3U5> <@U012M8NDV3K> and <@U06F97BPQJU> are needed\n2. PCO development. Go over development plan. Go over stage gate progress. Discuss IP ownership issues. \nIf anyone has specific conflicts with any time in the afternoon, please let me know.",
+      "subtype": null,
+      "thread_ts": "1709309789.906159",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709309830.112039",
+      "human_ts": "2024-03-01 10:17:10 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U011U13BEPR>?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709313062.787009",
+      "human_ts": "2024-03-01 11:11:02 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<!channel> Austin and I put together an Employee/Member Resource allocation sheet, that way we know where everyone is currently allocated. I think procedure should be that if anyone is going to be moved to other activities it will need to be approved.\n\nWhere things get slightly more complicated is when employees are partial ISU/SL. Note that I am only tracking the SL component of employees effort. This affects primarily Andrew and Baker.\n\n<https://docs.google.com/spreadsheets/d/1hK6uEwcaEGSNKceuyj3Sl3rbOUg5pwgME0J5nN_rtGE/edit#gid=0>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

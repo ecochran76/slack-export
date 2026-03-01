@@ -1,0 +1,21 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-22",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708619443.882899",
+      "human_ts": "2024-02-22 10:30:43 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": " Michael, thanks for sending your top priorities and a detail of your work, I appreciate it! ",
+      "subtype": null,
+      "thread_ts": "1708619443.882899",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

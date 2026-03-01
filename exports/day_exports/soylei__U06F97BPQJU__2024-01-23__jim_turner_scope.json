@@ -1,0 +1,168 @@
+{
+  "workspace": "soylei",
+  "channel": "U06F97BPQJU",
+  "channel_id": "D06ELAJLRHR",
+  "day": "2024-01-23",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1706024838.692229",
+      "human_ts": "2024-01-23 09:47:18 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Eric, I'm traveling in the car today. 2 things...bank signature authority and credit card authority. Both need 2 board members...either you or Chris locally, and probably me as a backup. Same for the CC. Also, you need to send me a non compete and I'm assuming everyone else has a NC? ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706024938.569659",
+      "human_ts": "2024-01-23 09:48:58 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "As we look at the financials we need a column on the P&amp;L that denote an item covered by grant dollars...",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706024989.369339",
+      "human_ts": "2024-01-23 09:49:49 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "the non-compete is a component of our operating agreement",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06ESCWAEB1",
+          "name": "000 SIGNED CORP BINDER - SoyLei Innovations, LLC (2).pdf",
+          "mimetype": "application/pdf",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06ESCWAEB1/000_signed_corp_binder_-_soylei_innovations__llc__2_.pdf",
+          "local_path": ".local/cache/files/F06ESCWAEB1/000SIGNEDCORPBINDER-SoyLeiInnovationsLLC2.pdf"
+        },
+        {
+          "id": "F06F0AEM9F0",
+          "name": "image.png",
+          "mimetype": "image/png",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06F0AEM9F0/image.png",
+          "local_path": ".local/cache/files/F06F0AEM9F0/image.png"
+        }
+      ]
+    },
+    {
+      "ts": "1706025142.425459",
+      "human_ts": "2024-01-23 09:52:22 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "this amendment defines the board of managers",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06FKK1KPND",
+          "name": "2023-12-14 SoyLei Operating agreement amendment Board of Managers.pdf",
+          "mimetype": "application/pdf",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06FKK1KPND/2023-12-14_soylei_operating_agreement_amendment_board_of_managers.pdf",
+          "local_path": ".local/cache/files/F06FKK1KPND/2023-12-14SoyLeiOperatingagreementamendmentBoardofManagers.pdf"
+        }
+      ]
+    },
+    {
+      "ts": "1706025209.458389",
+      "human_ts": "2024-01-23 09:53:29 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "these minutes record the election of Chris and Michael and I to the board",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06ESDRC72T",
+          "name": "2023-12-14 SoyLei Manager Meeting Minutes.pdf",
+          "mimetype": "application/pdf",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06ESDRC72T/2023-12-14_soylei_manager_meeting_minutes.pdf",
+          "local_path": ".local/cache/files/F06ESDRC72T/2023-12-14SoyLeiManagerMeetingMinutes.pdf"
+        }
+      ]
+    },
+    {
+      "ts": "1706025295.416199",
+      "human_ts": "2024-01-23 09:54:55 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Michael resigned from the board 12/22",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06FVPT6YD6",
+          "name": "2023-12-22 Michael Forrester Board Resignation .pdf",
+          "mimetype": "application/pdf",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06FVPT6YD6/2023-12-22_michael_forrester_board_resignation_.pdf",
+          "local_path": ".local/cache/files/F06FVPT6YD6/2023-12-22MichaelForresterBoardResignation.pdf"
+        }
+      ]
+    },
+    {
+      "ts": "1706025336.635309",
+      "human_ts": "2024-01-23 09:55:36 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "we need to record minutes acknowledging your election as a member of the Board of Manager s",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706025476.314349",
+      "human_ts": "2024-01-23 09:57:56 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Ok, good...as a practical matter, have the bank(s) and card company been updated?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706025545.202409",
+      "human_ts": "2024-01-23 09:59:05 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "transfer of all the \"keys\" was stipulated last week but Nacu was out of the country so it's going to have to be this week",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1706025565.074539",
+      "human_ts": "2024-01-23 09:59:25 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "10-4",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-23",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708696199.727769",
+      "human_ts": "2024-02-23 07:49:59 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Gents, \n\nWhen I said I would work with Soylei, I had no idea how apparently dysfunctional some of the relationships are between some of you guys. Too many people complaining to me\u2026like I\u2019m some traffic cop on the playground regarding basic BS\u2026all while you all have known each other for many, many years. Let me be clear, this business has no time for that, I certainly have no time for that. \n\nGrowing a business is hard enough, you 6 owners need to get your shit together. Just so we are clear, when I ask for something to be done, it needs to be done promptly, in a few days, not weeks. Things like weekly priorities (top 3 simply stated). Take patents review - 60-70% of the patents need to be abandoned, in my view\u2026saving the business perhaps $50-75k and allowing us to move on. This should have been done in a couple of days, discussed and than acted on. Prior development work, like Vitala+ need to be shelved\u2026I\u2019m not spending time, money effort on anything that doesn\u2019t make commercial, financial and operational sense for this business in the near term. These are my calls, that\u2019s what I laid out and you owners agreed to. \n\nI\u2019ll be on the Monday morning call\n",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708718200.768399",
+      "human_ts": "2024-02-23 13:56:40 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "My proposed 3 priorities are:\n1. Qualifying products for use by local, state and federal agencies.\n2. Building relationships for Soylei with companies. e.g. Inbra, Ingevity, Oldcastle, Hunt, Valero, InRoads, STATE Testing, Seneca, etc.\n3. Helping to streamline product applications including customizing asphalt binder and mix formulations.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708718355.094199",
+      "human_ts": "2024-02-23 13:59:15 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "In terms of patents, keep all that are associated with RAFT including the molecules, method of making and applications. Surfactants and initiators should be kept. Certainly jettison the ATRP patents.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

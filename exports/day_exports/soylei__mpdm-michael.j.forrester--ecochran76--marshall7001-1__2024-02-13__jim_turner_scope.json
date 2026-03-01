@@ -1,0 +1,81 @@
+{
+  "workspace": "soylei",
+  "channel": "mpdm-michael.j.forrester--ecochran76--marshall7001-1",
+  "channel_id": "C06JHNT6CUV",
+  "day": "2024-02-13",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1707846097.013109",
+      "human_ts": "2024-02-13 11:41:37 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Hey folks,\n\nJim was asking me about the shingles manuscript and after chatting for a bit he's asking for the three of us to sit down. I think topics are going to be:\n1. The shingles manuscript and general roofing product discussion\n2. Patent discussion. \nI'd like to schedule it for Thursday afternoon if possible as I haven't had a chance to personally go through the patents yet, and would like to do so before we meet. Would 2:00 Thursday work for both of you?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707846807.962959",
+      "human_ts": "2024-02-13 11:53:27 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Ii'm in a meeting with Chris at 1pm in intrans. Unlikely I will be back to Sweeney by 2. 2:30 maybe",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707846831.033929",
+      "human_ts": "2024-02-13 11:53:51 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Do we want to just do 3:00?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707847270.072129",
+      "human_ts": "2024-02-13 12:01:10 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "OK",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707847282.787209",
+      "human_ts": "2024-02-13 12:01:22 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Jim if you confirm that works for you I'll send the invite",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707847345.747199",
+      "human_ts": "2024-02-13 12:02:25 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "That works for me",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

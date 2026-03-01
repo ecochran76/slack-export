@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "board",
+  "channel_id": "C06FUE87BK7",
+  "day": "2024-04-01",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1711983377.155459",
+      "human_ts": "2024-04-01 09:56:17 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "To confirm, Jim, you said\nAndrew -&gt; 0% SoyLei\nNacu -&gt; 100% SoyLei?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1711983620.921599",
+      "human_ts": "2024-04-01 10:00:20 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Correct",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

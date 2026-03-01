@@ -1,0 +1,173 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-04-02",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1712067599.450839",
+      "human_ts": "2024-04-02 09:19:59 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Someone's famous\n\n<https://www.news.iastate.edu/news/2024/04/02/researchparkinnovation|https://www.news.iastate.edu/news/2024/04/02/researchparkinnovation>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712067665.953559",
+      "human_ts": "2024-04-02 09:21:05 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Needs a link on the website",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712067743.162749",
+      "human_ts": "2024-04-02 09:22:23 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712067790.235219",
+      "human_ts": "2024-04-02 09:23:10 CDT",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "to the compnay website",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712067861.816439",
+      "human_ts": "2024-04-02 09:24:21 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "It is linked",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06SE6Q8BM0",
+          "name": "Screenshot_20240402_092404_Brave.jpg",
+          "mimetype": "image/jpeg",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06SE6Q8BM0/screenshot_20240402_092404_brave.jpg",
+          "local_path": ".local/cache/files/F06SE6Q8BM0/Screenshot_20240402_092404_Brave.jpg"
+        }
+      ]
+    },
+    {
+      "ts": "1712067963.584699",
+      "human_ts": "2024-04-02 09:26:03 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Unless I missed it, it\u2019s not on the SoyLei site\u2026",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712067987.674439",
+      "human_ts": "2024-04-02 09:26:27 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Oh I see what you mean",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712068375.505009",
+      "human_ts": "2024-04-02 09:32:55 CDT",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "We should also repost on <https://www.linkedin.com/posts/iowa-state-university-department-of-chemical-and-biological-engineering_2024-innovation-at-work-paving-the-way-to-activity-7180929039652593664-T7JX?utm_source=share&amp;utm_medium=member_android|LinkedIn>.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712068456.404929",
+      "human_ts": "2024-04-02 09:34:16 CDT",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Ok, so who is the social media guru in the group? Who could own it?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712068475.940599",
+      "human_ts": "2024-04-02 09:34:35 CDT",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "already on it",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712068501.643199",
+      "human_ts": "2024-04-02 09:35:01 CDT",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "I am working on someone to get the youtube and linken pages to Soylei",
+      "subtype": null,
+      "thread_ts": "1712068501.643199",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712071202.202969",
+      "human_ts": "2024-04-02 10:20:02 CDT",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "<https://soylei.com/blogs/>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1712071204.929229",
+      "human_ts": "2024-04-02 10:20:04 CDT",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "Done",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

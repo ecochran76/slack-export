@@ -1,0 +1,109 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-14",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1707917702.479419",
+      "human_ts": "2024-02-14 07:35:02 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Guys, couple points of note:\n\u2022 all customer development projects have to have a lead person, please define that for Polyset. \n\u2022 I assume everyone has a Soylei email, these need to be used exclusively with all customers and suppliers contacts\n\u2022 All commercial products will use a SIP number (check with Austin if you have a questions) exclusively, no old names for commercial products. \n\u2022 Business cards, get new ones with the SIP logo\nPlease let me know if you have any questions. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707926275.832169",
+      "human_ts": "2024-02-14 09:57:55 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Lots of questions that need answers from several in this email \n\nI started working on them in this shared \"Canvas\" document:\n<https://soyleiinnovations.slack.com/docs/T0128KNAQ02/F06JL9LPWMU>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06JT5B0318",
+          "name": "2024 as we prepare to go to WOA in late March\u2026",
+          "mimetype": "text/html",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06JT5B0318/2024_as_we_prepare_to_go_to_woa_in_late_march___",
+          "local_path": ".local/cache/files/F06JT5B0318/2024aswepreparetogotoWOAinlateMarch"
+        }
+      ]
+    },
+    {
+      "ts": "1707926289.152729",
+      "human_ts": "2024-02-14 09:58:09 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "<https://docs.google.com/document/d/18DkyJLveQoIsEPdmV6WCD2XgxmvoS5Mn/edit>",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06JT5CRGE6",
+          "name": "Products Strategy 2.docx",
+          "mimetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06JT5CRGE6/products_strategy_2.docx",
+          "local_path": ".local/cache/files/F06JT5CRGE6/ProductsStrategy2.docx"
+        }
+      ]
+    },
+    {
+      "ts": "1707926363.835199",
+      "human_ts": "2024-02-14 09:59:23 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "I started the PAESO/SESO section.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707926372.982769",
+      "human_ts": "2024-02-14 09:59:32 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "I will get going on the emulsion section",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707926380.134849",
+      "human_ts": "2024-02-14 09:59:40 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "Let me know if i missed anything",
+      "subtype": null,
+      "thread_ts": "1707926380.134849",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707933167.591639",
+      "human_ts": "2024-02-14 11:52:47 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "I have most of this filled out.\n\u2022  I am working on the CRM layout. getting clarification on a few items.\n\u2022 I need help from <@U012MBNJ67K> on the ACS question\n\u2022 I do not know how many other tollers we have looked at like ACS.",
+      "subtype": null,
+      "thread_ts": "1707933167.591639",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

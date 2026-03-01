@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "U06F97BPQJU",
+  "channel_id": "D06ELAJLRHR",
+  "day": "2024-02-13",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1707832775.876869",
+      "human_ts": "2024-02-13 07:59:35 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Eric, the Nacu tuition issue is resolved. Nacu will do an IOU to Soylei for 17k\u2026he can pay monthly, in total or have all or the remainder deducted upon the next owner distribution. This works to my satisfaction. All future expense is his directly. \n\nJim",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707834996.041619",
+      "human_ts": "2024-02-13 08:36:36 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Perfect, thanks for the follow up",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

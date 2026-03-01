@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "funding",
+  "channel_id": "C03P7DGQCTA",
+  "day": "2024-01-19",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1705686087.892219",
+      "human_ts": "2024-01-19 11:41:27 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "has renamed the channel from \"funding-6\" to \"funding\"",
+      "subtype": "channel_name",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705686096.451179",
+      "human_ts": "2024-01-19 11:41:36 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "<@U06F97BPQJU> has joined the channel",
+      "subtype": "channel_join",
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

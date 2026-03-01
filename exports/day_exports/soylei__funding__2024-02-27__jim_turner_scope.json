@@ -1,0 +1,201 @@
+{
+  "workspace": "soylei",
+  "channel": "funding",
+  "channel_id": "C03P7DGQCTA",
+  "day": "2024-02-27",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1709043629.980239",
+      "human_ts": "2024-02-27 08:20:29 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "In trying to schedule this polymer stage gate discussion, Jim mentioned that a clear distinction needs to be made between the business/commercial and academic grants projects. So there's a few questions to be answered here.  These are primarily questions for <@U012MBNJ67K> and <@U0127BGJ3U5>\n1. Which grants do we actively have right now? \n2. Which grants have we been told yes on, but don't have the money for \n3. Which grants have we applied for that we're waiting on answers (and do we have any indication on which direction these will go)\n4. How flexible are these grants for the body of work that we do? In other words, do we have the ability to change from something that is polymer focused to something that is SESO/SESO-Emulsion focused? \n",
+      "subtype": null,
+      "thread_ts": "1709043629.980239",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709044041.653589",
+      "human_ts": "2024-02-27 08:27:21 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "I think candidly, a cash flow for Soylei should be done with and without any grant money that includes salaries, supplies, travel, etc. This should be a retrospective analysis for 2023 through February 2024. A forecast for the remainder of 2024 and 2025. \n\nThen we can understand the value of the grants to SoyLei.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709044853.154279",
+      "human_ts": "2024-02-27 08:40:53 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Chris, Nacu will provide a monthly P&amp;L, with budget vs actual, then what\u2019s covered by grants month\u2026this shows about $150k direct cost to Soylei and 3x to the grant dollars. I have a clear understanding of this support\n\nA larger question for me is making the grant process and stage gate process congruent\u2026I\u2019m sure the goal of all grants are commercialization of materials. To that end, I\u2019ve asked Nacu about modifying these grants\u2026is it possible, what are the obligations, etc",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709045131.403149",
+      "human_ts": "2024-02-27 08:45:31 CST",
+      "user_id": "U012MBNJ67K",
+      "user_label": "Nacu Hernandez (U012MBNJ67K)",
+      "text": "Here is the document Jim is referring to.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06LV1FBK98",
+          "name": "SoyLeiInnovationsLLC_Budget2024.xlsx",
+          "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06LV1FBK98/soyleiinnovationsllc_budget2024.xlsx",
+          "local_path": ".local/cache/files/F06LV1FBK98/SoyLeiInnovationsLLC_Budget2024.xlsx"
+        }
+      ]
+    },
+    {
+      "ts": "1709046608.153019",
+      "human_ts": "2024-02-27 09:10:08 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "One opportunity that is upcoming (concept paper due Mar 19) is from Dept of Energy. Lot's of community interest in this one (Chris and I have independently been approached by others wanting to partner)",
+      "subtype": null,
+      "thread_ts": "1709046608.153019",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06LXLEJPJ8",
+          "name": "image.png",
+          "mimetype": "image/png",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06LXLEJPJ8/image.png",
+          "local_path": ".local/cache/files/F06LXLEJPJ8/image.png"
+        }
+      ]
+    },
+    {
+      "ts": "1709046716.813239",
+      "human_ts": "2024-02-27 09:11:56 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Great!  Can we get an accounting summary of all the grant accounts that are a breakdown of the invoices and grant projected expenses too?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709046793.016369",
+      "human_ts": "2024-02-27 09:13:13 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "I would guess we have separate accounting summaries for each grant.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709046893.896749",
+      "human_ts": "2024-02-27 09:14:53 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Why?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709046903.101409",
+      "human_ts": "2024-02-27 09:15:03 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Another upcoming opportunity is from national science foundation.\n\n<https://new.nsf.gov/funding/opportunities/responsible-design-development-deployment>\n\n\"Supports research, implementation and education projects involving multi-sector teams that focus on the responsible design, development or deployment of technologies.\"\n\nIt's a very broad solicitation... lots of different ways this could be pitched.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709047001.882279",
+      "human_ts": "2024-02-27 09:16:41 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "While this is all good discussion, I'd like to bring back to the above 4 questions I posted. When possible, it would be good to have an answer for that.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709047282.731469",
+      "human_ts": "2024-02-27 09:21:22 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<@U012MBNJ67K> <@U012212P2PQ> are we still in the running for the IEDA loan? If so how did the presentation go?",
+      "subtype": null,
+      "thread_ts": "1709047282.731469",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709047345.001259",
+      "human_ts": "2024-02-27 09:22:25 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "<@U06F97BPQJU> Why\u2026\u2026if we are going to consider changes mid grant, we need to know what monies are remaining in the various categories. If we keep the expenses within +/-10% of each federal expense category, a simple change in scope can be done. If we go outside the +/-10, then a complete overhaul including subcontracts is required.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709047665.286079",
+      "human_ts": "2024-02-27 09:27:45 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "We're not doing this via slack. We have a board review Thursday. We can discuss this then. I will say that in reviewing with Nacu we should be able to manage and adjust in the near term the grant and development focus coinsiding. As said, any obligation made via grants will be done. \n\n",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709049410.036839",
+      "human_ts": "2024-02-27 09:56:50 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "<https://soyleiinnovations.slack.com/canvas/C03P7DGQCTA>",
+      "subtype": "thread_broadcast",
+      "thread_ts": "1709043629.980239",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F05S7GWQECT",
+          "name": "Grant_Data",
+          "mimetype": "application/vnd.slack-docs",
+          "permalink": "https://soyleiinnovations.slack.com/docs/T0128KNAQ02/F05S7GWQECT",
+          "local_path": null
+        }
+      ]
+    }
+  ]
+}

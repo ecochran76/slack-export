@@ -1,0 +1,33 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-03-07",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1709817174.823569",
+      "human_ts": "2024-03-07 07:12:54 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Note, all slide presentation send from Soylei LLC needs to have at the bottom of each slide \u201cconfidential and proprietary information of Soylei Innovations Inc\u201d\n\nThanks",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1709817465.020479",
+      "human_ts": "2024-03-07 07:17:45 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "I have template slide deck, I will get it added to them",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

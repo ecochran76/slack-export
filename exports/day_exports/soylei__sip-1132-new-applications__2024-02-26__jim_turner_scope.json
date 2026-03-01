@@ -1,0 +1,53 @@
+{
+  "workspace": "soylei",
+  "channel": "sip-1132-new-applications",
+  "channel_id": "C06LFQ21532",
+  "day": "2024-02-26",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708969074.168249",
+      "human_ts": "2024-02-26 11:37:54 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<!channel> today's meeting is at 2:00, and I have a hard stop at 3:00 so let's make sure that we're on time and ready to go at 2:00 please. This is going to be a fairly informal discussion about different ideas for the SIP 1132, or derivative SESO-based emulsions and what sorts of applications they can be used for. Intent is to use this time, to discuss the various ideas so that we can go onto the stage gate process and see if we have a new product that we can develop. Further, I'm keeping a list of the various things that I or other folks have thought of here: <https://soyleiinnovations.slack.com/canvas/C06F7SD9Z0A>. Please feel free to add to it as desired.\n\nThese include both emulsion and non-emulsion products.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06LNV82X5Z",
+          "name": "Canvas",
+          "mimetype": "application/vnd.slack-docs",
+          "permalink": "https://soyleiinnovations.slack.com/docs/T0128KNAQ02/F06LNV82X5Z",
+          "local_path": null
+        }
+      ]
+    },
+    {
+      "ts": "1708969586.463409",
+      "human_ts": "2024-02-26 11:46:26 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Michael, man after my own heart...start on time, keep it short and sweet. :+1: ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708989227.872689",
+      "human_ts": "2024-02-26 17:13:47 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<!channel> thank you folks for taking some time today. Action items from today are mainly on myself and Austin. We're going to figure out which templates best work for us on the stage gate process, and then start applying that to our products. This is my first time doing this, so it will take a little bit of time, as I want to make sure that I've got my ducks in a row. I expect to have an update with some anticipated timelines by the end of the week if not sooner.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

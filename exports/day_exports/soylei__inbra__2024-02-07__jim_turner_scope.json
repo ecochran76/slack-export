@@ -1,0 +1,81 @@
+{
+  "workspace": "soylei",
+  "channel": "inbra",
+  "channel_id": "C06BENT635L",
+  "day": "2024-02-07",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1707331504.103119",
+      "human_ts": "2024-02-07 12:45:04 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "<@U012212P2PQ> Did the 1L SESO ever get sent out to Inbra? Had it on my list, so figured I'd check",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707331551.009609",
+      "human_ts": "2024-02-07 12:45:51 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Any every test their pellet product?",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707331663.117499",
+      "human_ts": "2024-02-07 12:47:43 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Who's pellet product? I'm not following",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707331807.939439",
+      "human_ts": "2024-02-07 12:50:07 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Inbra has only ever made SESO. We've only talked about polymer, pellet is another step downstream from that.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707336461.371919",
+      "human_ts": "2024-02-07 14:07:41 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "I think we are going to see if we get the same results on the emulsion after we produce the emulsion with the Inbra Emulsion.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1707338945.798629",
+      "human_ts": "2024-02-07 14:49:05 CST",
+      "user_id": "U011U13BEPR",
+      "user_label": "Chris Williams (U011U13BEPR)",
+      "text": "Attn: Victor Heininger, Inbra Chemical Co., 139 Gulbrandsen Road, Orangeburg, SC - 29115",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

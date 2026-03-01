@@ -1,0 +1,53 @@
+{
+  "workspace": "soylei",
+  "channel": "ingevity",
+  "channel_id": "C06DPD6K6B1",
+  "day": "2024-02-21",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708522548.774979",
+      "human_ts": "2024-02-21 07:35:48 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "I\u2019ve reviewed the info here on INGEVITY, has there been any follow up with Jason? ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708522904.188609",
+      "human_ts": "2024-02-21 07:41:44 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "I think there was supposed to be a meeting but Chris would know that",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708526230.265679",
+      "human_ts": "2024-02-21 08:37:10 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Chris would know the latest. They have all of our information and this MOU for consideration.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06KXLRSG9G",
+          "name": "2024-01-17-09-49 Ingevity-SoyLei MOU 01-16-2024.docx",
+          "mimetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06KXLRSG9G/2024-01-17-09-49_ingevity-soylei_mou_01-16-2024.docx",
+          "local_path": ".local/cache/files/F06KXLRSG9G/2024-01-17-09-49Ingevity-SoyLeiMOU01-16-2024.docx"
+        }
+      ]
+    }
+  ]
+}

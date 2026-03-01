@@ -1,0 +1,93 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-01-22",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1705959178.375259",
+      "human_ts": "2024-01-22 15:32:58 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Something that I mentioned to Eric, that I thought I'd put down in here as well for folks to think about, the use of Vitala (SESO) as a plasticizer for PVC, could be looked at. Fully epoxidized vegetable oils (i.e. soybean, linseed, corn, etc.) are some of the most, if not the most common PVC plasticizer. SESO, which is partially epoxidized, would certainly plasticize PVC as well. The question is if it can do it any better. SESO vs ESO is about the same price, so there would need to be a performance advantage. This is something that would need to be tested, but would be relatively simple to do. Surprisingly, a precursory glance does not show much in the literature of epoxy content versus plasticizing effect. If this is of interest, I could ask Andrew to take a look at it. It would take maybe 2 days to get some preliminary data (1 day to compound, and 1 day to tensile test).",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": "1705959209.000000",
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705960883.582299",
+      "human_ts": "2024-01-22 16:01:23 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "Michael, been a number of year since I've looked at the plasticizer markets and even then, PVC was a pretty tough market. If you believe there is a pretty significant performance advantage we can do more digging. ",
+      "subtype": null,
+      "thread_ts": "1705960883.582299",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705966380.350189",
+      "human_ts": "2024-01-22 17:33:00 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Another potential area we could look at is adhesives. We've talked about that in the past, and even looked at the polymer for it, but I think formulating something there would be more complicated. There's a lot of literature on ESO for pressure sensitive adhesives, I don't know if it's commercial. I'd need to do some more digging there. This would likely be a more involved development, as we have done less with formulating adhesives then we have plastics like PVC, but is something that we may want to consider.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": "1705966410.000000",
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705966517.822519",
+      "human_ts": "2024-01-22 17:35:17 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "You where reading my mind...I need to understand its performance charactoristics and things like UV and heat stability, etc...",
+      "subtype": null,
+      "thread_ts": "1705966517.822519",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705967656.240539",
+      "human_ts": "2024-01-22 17:54:16 CST",
+      "user_id": "U012ETLV6NQ",
+      "user_label": "Baker (U012ETLV6NQ)",
+      "text": "<https://poreshield.com/>\n\ncould also look at making our own Poreshield with the SESO. Poreshield from what i understand is plasticized polystyrene in biodiesel.  i dont think SESO dissolves PS but we could maybe open up some of the epoxy rings with benzoic groups or other acids to easily tweak the SESO properties",
+      "subtype": null,
+      "thread_ts": "1705967656.240539",
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705968080.163449",
+      "human_ts": "2024-01-22 18:01:20 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "The sealer/protectant/rejuvenator market is a clear opportunity. ",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1705976130.143279",
+      "human_ts": "2024-01-22 20:15:30 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "I'm not sure how much background information you have, so if I'm telling you things you already know feel free to tell me. I'm hoping that what I mention below triggers a \"oh yeah there's a need for this in X application\" kind of discussion. I know that formulating new commercial products is something you're keen on and I'll do what I can to help in that regard.\n\nESO and other epoxidized veg oils main uses commercially from what I can find are as plasticizers, reactive diluents for epoxy systems, thiol/acid/alcohol (alcohol is much more poor) scavengers, and as a dispersant for pigments. The big things to keep in mind for SESO/Vitala (if you have a preference on how we refer to it, please let me know), is that it has lower epoxy functionality and it still has some carbon-carbon double bonds remaining. For a lot of those applications, on the surface, that's a bad thing because you want as much of the epoxy content as possible. There are applications (like in hot mix asphalt) where the higher functionality can actually cause problems because of the higher degree of polarity, or causing it to become too cross-linked, too stiff, or too polar upon reaction.\n\nAre there applications where the more polar or higher functionality is actually a problem? This would most likely be the case in non-polar waxy type systems, aromatic systems like asphalt or lignin, etc. Are there applications where the residual double bond would actually be useful? An application where you can actually take advantage of some oxidative instability coupled with the epoxy chemistry. Basically you can envision an application where the first step is to react in the SESO through the epoxy and then heat the heck out of it to graft to the double bond. It's going to discolor, but that doesn't matter to every application.\n\nAnd then there's the idea that Baker had. ESO is used as an acid/mercaptan scavenger, we could take advantage of that to impart functionality, change solvating power, etc.\n\nAnyway, if at some point you want to really dive into the formulation/development side of things, Baker and I would be happy to participate",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    }
+  ]
+}

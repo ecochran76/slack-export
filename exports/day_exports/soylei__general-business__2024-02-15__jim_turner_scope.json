@@ -1,0 +1,89 @@
+{
+  "workspace": "soylei",
+  "channel": "general-business",
+  "channel_id": "C05P4HCBBMK",
+  "day": "2024-02-15",
+  "tz": "America/Chicago",
+  "messages": [
+    {
+      "ts": "1708023344.080259",
+      "human_ts": "2024-02-15 12:55:44 CST",
+      "user_id": "U06F97BPQJU",
+      "user_label": "Jim Turner (U06F97BPQJU)",
+      "text": "I\u2019m calling a general meeting, it\u2019s been a month for me with Soylei, so let\u2019s skip the Monday update and see if we can slot 2 hours with all equity owners. I\u2019d like to do 10am on next Tuesday or Wednesday 20th or 21st\u2026let me know. Thanks",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708023416.121819",
+      "human_ts": "2024-02-15 12:56:56 CST",
+      "user_id": "U0127BGJ3U5",
+      "user_label": "Eric (U0127BGJ3U5)",
+      "text": "Either is good for me",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708023427.602649",
+      "human_ts": "2024-02-15 12:57:07 CST",
+      "user_id": "U012ETLV6NQ",
+      "user_label": "Baker (U012ETLV6NQ)",
+      "text": "either works for me",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708023525.964249",
+      "human_ts": "2024-02-15 12:58:45 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "me too",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708023576.418499",
+      "human_ts": "2024-02-15 12:59:36 CST",
+      "user_id": "U012M8NDV3K",
+      "user_label": "Michael Forrester (U012M8NDV3K)",
+      "text": "Either work for me as well.",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": []
+    },
+    {
+      "ts": "1708038718.938779",
+      "human_ts": "2024-02-15 17:11:58 CST",
+      "user_id": "U012212P2PQ",
+      "user_label": "Austin Hohmann (U012212P2PQ)",
+      "text": "",
+      "subtype": null,
+      "thread_ts": null,
+      "edited_ts": null,
+      "deleted": false,
+      "attachments": [
+        {
+          "id": "F06K3DJUN02",
+          "name": "Image from iOS.gif",
+          "mimetype": "image/gif",
+          "permalink": "https://soyleiinnovations.slack.com/files/U0127BGJ3U5/F06K3DJUN02/image_from_ios.gif",
+          "local_path": ".local/cache/files/F06K3DJUN02/ImagefromiOS.gif"
+        }
+      ]
+    }
+  ]
+}
