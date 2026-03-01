@@ -25,9 +25,14 @@ Health-gate examples:
 # Print per-row status plus one HEALTHY/UNHEALTHY summary line
 slack-mirror --config config.local.yaml mirror status --healthy
 
-# CI gate: return exit code 2 if any workspace/class exceeds thresholds
+# Default health gate (recommended): fail on zero-message gaps only,
+# while still reporting stale/mirrored-inactive counts for observability.
 slack-mirror --config config.local.yaml mirror status \
-  --healthy --fail-on-gap --max-zero-msg 0 --max-stale 0 --stale-hours 24
+  --healthy --fail-on-gap --max-zero-msg 0 --stale-hours 24
+
+# Strict mode (optional): also fail on stale threshold
+slack-mirror --config config.local.yaml mirror status \
+  --healthy --fail-on-gap --max-zero-msg 0 --max-stale 0 --stale-hours 24 --enforce-stale
 ```
 
 Reports by workspace/channel class:

@@ -466,7 +466,8 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
     stale_seconds = float(args.stale_hours) * 3600.0
     now_ts = time.time()
 
-    params: list[object] = [now_ts - stale_seconds]
+    stale_cutoff_ts = now_ts - stale_seconds
+    params: list[object] = [stale_cutoff_ts, stale_cutoff_ts]
     where_ws = ""
     if args.workspace:
         where_ws = " where w.name=?"
@@ -488,6 +489,7 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
            count(*) as channels,
            sum(case when lm.max_ts is null then 1 else 0 end) as zero_msg_channels,
            sum(case when lm.max_ts is not null and lm.max_ts < ? then 1 else 0 end) as stale_channels,
+           sum(case when lm.max_ts is not null and lm.max_ts < ? then 1 else 0 end) as mirrored_inactive_channels,
            max(lm.max_ts) as class_latest_ts
     from channels c
     join workspaces w on w.id=c.workspace_id
@@ -499,11 +501,11 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
     rows = conn.execute(q, tuple(params)).fetchall()
 
     out = []
-    for ws, cls, channels, zero_msg, stale, latest in rows:
+    for ws, cls, channels, zero_msg, stale, mirrored_inactive, latest in rows:
         reasons = []
         if int(zero_msg or 0) > int(args.max_zero_msg):
             reasons.append(f"zero_msg>{int(args.max_zero_msg)}")
-        if int(stale or 0) > int(args.max_stale):
+        if bool(args.enforce_stale) and int(stale or 0) > int(args.max_stale):
             reasons.append(f"stale>{int(args.max_stale)}")
         out.append(
             {
@@ -512,6 +514,7 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
                 "channels": int(channels or 0),
                 "zero_msg_channels": int(zero_msg or 0),
                 "stale_channels": int(stale or 0),
+                "mirrored_inactive_channels": int(mirrored_inactive or 0),
                 "latest_ts": float(latest) if latest else None,
                 "health_reasons": reasons,
             }
@@ -525,6 +528,7 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         "max_zero_msg": int(args.max_zero_msg),
         "max_stale": int(args.max_stale),
         "stale_hours": float(args.stale_hours),
+        "enforce_stale": bool(args.enforce_stale),
         "unhealthy_rows": len(unhealthy_rows),
     }
 
@@ -538,18 +542,20 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         return 0
 
     if args.healthy:
-        print("workspace\tclass\tchannels\tzero_msg\tstale\tlatest_ts\treasons")
+        print("workspace\tclass\tchannels\tzero_msg\tstale\tmirrored_inactive\tlatest_ts\treasons")
     else:
-        print("workspace\tclass\tchannels\tzero_msg\tstale\tlatest_ts")
+        print("workspace\tclass\tchannels\tzero_msg\tstale\tmirrored_inactive\tlatest_ts")
     for r in out:
         row = (
-            f"{r['workspace']}\t{r['class']}\t{r['channels']}\t{r['zero_msg_channels']}\t{r['stale_channels']}\t{r['latest_ts'] or '-'}"
+            f"{r['workspace']}\t{r['class']}\t{r['channels']}\t{r['zero_msg_channels']}\t{r['stale_channels']}\t{r['mirrored_inactive_channels']}\t{r['latest_ts'] or '-'}"
         )
         if args.healthy:
             row += f"\t{', '.join(r['health_reasons']) if r['health_reasons'] else '-'}"
         print(row)
 
     if args.healthy:
+        if not args.enforce_stale:
+            print("NOTE stale counts shown for observability; health gate currently enforces zero_msg only")
         if is_healthy:
             print("HEALTHY")
         else:
@@ -1112,7 +1118,7 @@ except Exception:
           return 0
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser --refresh-embeddings --embedding-scan-limit --embedding-job-limit --reindex-keyword --stale-hours --healthy --fail-on-gap --max-zero-msg --max-stale --json --event-limit --embedding-limit --reconcile-minutes --reconcile-channel-limit" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser --refresh-embeddings --embedding-scan-limit --embedding-job-limit --reindex-keyword --stale-hours --healthy --fail-on-gap --max-zero-msg --max-stale --enforce-stale --json --event-limit --embedding-limit --reconcile-minutes --reconcile-channel-limit" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -1238,6 +1244,7 @@ _slack_mirror() {
         '--fail-on-gap[exit 2 when any class exceeds thresholds]' \
         '--max-zero-msg[max zero-message channels before unhealthy]:number:' \
         '--max-stale[max stale channels before unhealthy]:number:' \
+        '--enforce-stale[include stale threshold in health gate]' \
         '--json[json output]'
       ;;
     workspaces)
@@ -1416,6 +1423,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--fail-on-gap", action="store_true", help="exit code 2 when unhealthy")
     p_status.add_argument("--max-zero-msg", type=int, default=0, help="max zero-message channels allowed per row")
     p_status.add_argument("--max-stale", type=int, default=0, help="max stale channels allowed per row")
+    p_status.add_argument("--enforce-stale", action="store_true", help="include stale threshold in health gate (default: observe stale but do not fail)")
     p_status.add_argument("--json", action="store_true")
     p_status.set_defaults(func=cmd_mirror_status)
 
