@@ -532,11 +532,70 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         "unhealthy_rows": len(unhealthy_rows),
     }
 
+    access_classification = None
+    if args.classify_access:
+        q_cls = f"""
+        with last_msg as (
+          select workspace_id, channel_id, max(cast(ts as real)) as max_ts, count(*) as msg_count
+          from messages
+          group by workspace_id, channel_id
+        )
+        select w.name as workspace,
+               sum(case when coalesce(lm.msg_count,0)=0 then 1 else 0 end) as zero_message_channels,
+               sum(case when coalesce(lm.msg_count,0)>0 and lm.max_ts < ? then 1 else 0 end) as mirrored_inactive_channels,
+               sum(case when coalesce(lm.msg_count,0)>0 and lm.max_ts >= ? then 1 else 0 end) as active_recent_channels
+        from channels c
+        join workspaces w on w.id=c.workspace_id
+        left join last_msg lm on lm.workspace_id=c.workspace_id and lm.channel_id=c.channel_id
+        {where_ws}
+        group by w.name
+        order by w.name
+        """
+        cls_params: list[object] = [stale_cutoff_ts, stale_cutoff_ts]
+        if args.workspace:
+            cls_params.append(args.workspace)
+        cls_rows = conn.execute(q_cls, tuple(cls_params)).fetchall()
+        details = []
+        for ws, zero_cnt, inactive_cnt, active_cnt in cls_rows:
+            q_ids = f"""
+            with msg_ch as (
+              select workspace_id, channel_id, count(*) as msg_count
+              from messages
+              group by workspace_id, channel_id
+            )
+            select c.channel_id
+            from channels c
+            join workspaces w on w.id=c.workspace_id
+            left join msg_ch m on m.workspace_id=c.workspace_id and m.channel_id=c.channel_id
+            where w.name=? and coalesce(m.msg_count,0)=0
+            order by c.channel_id
+            limit ?
+            """
+            ids = [r[0] for r in conn.execute(q_ids, (ws, int(args.classify_limit))).fetchall()]
+            details.append(
+                {
+                    "workspace": ws,
+                    "A_mirrored_inactive": int(inactive_cnt or 0),
+                    "B_active_recent": int(active_cnt or 0),
+                    "C_zero_message": int(zero_cnt or 0),
+                    "C_zero_message_channel_ids": ids,
+                    "C_zero_message_ids_truncated": bool(int(zero_cnt or 0) > len(ids)),
+                }
+            )
+        access_classification = details
+
     if args.json:
+        payload: object
         if args.healthy:
-            print(json.dumps({"summary": summary, "rows": out}, indent=2))
+            payload = {"summary": summary, "rows": out}
         else:
-            print(json.dumps(out, indent=2))
+            payload = out
+        if access_classification is not None:
+            if isinstance(payload, dict):
+                payload = {**payload, "access_classification": access_classification}
+            else:
+                payload = {"rows": payload, "access_classification": access_classification}
+        print(json.dumps(payload, indent=2))
         if args.fail_on_gap and not is_healthy:
             return 2
         return 0
@@ -562,6 +621,17 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
             top = unhealthy_rows[0]
             why = ", ".join(top["health_reasons"])
             print(f"UNHEALTHY {top['workspace']}/{top['class']}: {why}")
+
+    if access_classification is not None:
+        print("\nAccess classification (A mirrored+inactive, B active_recent, C zero_message):")
+        for r in access_classification:
+            print(
+                f"- {r['workspace']}: A={r['A_mirrored_inactive']} B={r['B_active_recent']} C={r['C_zero_message']}"
+            )
+            if r["C_zero_message_channel_ids"]:
+                ids = ",".join(r["C_zero_message_channel_ids"])
+                suffix = " ..." if r["C_zero_message_ids_truncated"] else ""
+                print(f"  C_ids: {ids}{suffix}")
 
     if args.fail_on_gap and not is_healthy:
         return 2
@@ -1118,7 +1188,7 @@ except Exception:
           return 0
           ;;
       esac
-      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser --refresh-embeddings --embedding-scan-limit --embedding-job-limit --reindex-keyword --stale-hours --healthy --fail-on-gap --max-zero-msg --max-stale --enforce-stale --json --event-limit --embedding-limit --reconcile-minutes --reconcile-channel-limit" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--workspace --auth-mode --include-messages --messages-only --channels --channel-limit --oldest --latest --include-files --file-types --download-content --cache-root --model --bind --port --limit --loop --interval --max-cycles --client-id --client-secret --callback-path --redirect-uri --cert-file --key-file --scopes --user-scopes --state --timeout --open-browser --refresh-embeddings --embedding-scan-limit --embedding-job-limit --reindex-keyword --stale-hours --healthy --fail-on-gap --max-zero-msg --max-stale --enforce-stale --classify-access --classify-limit --json --event-limit --embedding-limit --reconcile-minutes --reconcile-channel-limit" -- "$cur") )
       ;;
     workspaces)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -1245,6 +1315,8 @@ _slack_mirror() {
         '--max-zero-msg[max zero-message channels before unhealthy]:number:' \
         '--max-stale[max stale channels before unhealthy]:number:' \
         '--enforce-stale[include stale threshold in health gate]' \
+        '--classify-access[include A/B/C access classification]' \
+        '--classify-limit[max zero-message channel ids per workspace]:number:' \
         '--json[json output]'
       ;;
     workspaces)
@@ -1424,6 +1496,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--max-zero-msg", type=int, default=0, help="max zero-message channels allowed per row")
     p_status.add_argument("--max-stale", type=int, default=0, help="max stale channels allowed per row")
     p_status.add_argument("--enforce-stale", action="store_true", help="include stale threshold in health gate (default: observe stale but do not fail)")
+    p_status.add_argument("--classify-access", action="store_true", help="include A/B/C access classification and C-bucket channel ids")
+    p_status.add_argument("--classify-limit", type=int, default=200, help="max zero-message channel ids to print per workspace for classification")
     p_status.add_argument("--json", action="store_true")
     p_status.set_defaults(func=cmd_mirror_status)
 

@@ -33,6 +33,10 @@ slack-mirror --config config.local.yaml mirror status \
 # Strict mode (optional): also fail on stale threshold
 slack-mirror --config config.local.yaml mirror status \
   --healthy --fail-on-gap --max-zero-msg 0 --max-stale 0 --stale-hours 24 --enforce-stale
+
+# Access classification: A (mirrored+inactive), B (active recent), C (zero-message)
+slack-mirror --config config.local.yaml mirror status \
+  --json --classify-access --classify-limit 200
 ```
 
 Reports by workspace/channel class:
