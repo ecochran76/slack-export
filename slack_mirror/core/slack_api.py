@@ -1,25 +1,62 @@
 from __future__ import annotations
 
 from time import sleep
-from typing import Any
+from typing import Any, Callable
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 
 class SlackApiClient:
-    def __init__(self, token: str, pause_seconds: float = 0.5):
+    def __init__(
+        self,
+        token: str,
+        pause_seconds: float = 0.5,
+        rate_limit_buffer_seconds: float = 1.0,
+        max_rate_limit_retries: int = 50,
+    ):
         self.client = WebClient(token=token)
         self.pause_seconds = pause_seconds
+        self.rate_limit_buffer_seconds = rate_limit_buffer_seconds
+        self.max_rate_limit_retries = max_rate_limit_retries
+
+    def _retry_after_seconds(self, exc: SlackApiError) -> float | None:
+        response = getattr(exc, "response", None)
+        if response is None:
+            return None
+        if response.get("error") != "ratelimited":
+            return None
+        headers = getattr(response, "headers", None) or {}
+        retry_after = headers.get("Retry-After") or headers.get("retry-after")
+        if retry_after is None:
+            return None
+        try:
+            return float(retry_after)
+        except (TypeError, ValueError):
+            return None
+
+    def _call_with_backoff(self, fn: Callable[..., Any], /, **kwargs: Any) -> Any:
+        attempts = 0
+        while True:
+            try:
+                return fn(**kwargs)
+            except SlackApiError as exc:
+                retry_after = self._retry_after_seconds(exc)
+                if retry_after is None:
+                    raise
+                attempts += 1
+                if attempts > self.max_rate_limit_retries:
+                    raise
+                sleep(retry_after + self.rate_limit_buffer_seconds)
 
     def auth_test(self) -> dict[str, Any]:
-        return self.client.auth_test().data
+        return self._call_with_backoff(self.client.auth_test).data
 
     def list_users(self) -> list[dict[str, Any]]:
         users: list[dict[str, Any]] = []
         cursor: str | None = None
         while True:
-            resp = self.client.users_list(limit=200, cursor=cursor)
+            resp = self._call_with_backoff(self.client.users_list, limit=200, cursor=cursor)
             users.extend(resp.get("members", []))
             cursor = (resp.get("response_metadata") or {}).get("next_cursor") or None
             if not cursor:
@@ -31,7 +68,8 @@ class SlackApiClient:
         conversations: list[dict[str, Any]] = []
         cursor: str | None = None
         while True:
-            resp = self.client.conversations_list(
+            resp = self._call_with_backoff(
+                self.client.conversations_list,
                 types="public_channel,private_channel,im,mpim",
                 limit=1000,
                 cursor=cursor,
@@ -62,7 +100,7 @@ class SlackApiClient:
             }
             if latest:
                 params["latest"] = latest
-            resp = self.client.conversations_history(**params)
+            resp = self._call_with_backoff(self.client.conversations_history, **params)
             messages.extend(resp.get("messages", []))
             cursor = (resp.get("response_metadata") or {}).get("next_cursor") or None
             if not cursor:
@@ -90,7 +128,7 @@ class SlackApiClient:
             }
             if latest:
                 params["latest"] = latest
-            resp = self.client.conversations_replies(**params)
+            resp = self._call_with_backoff(self.client.conversations_replies, **params)
             messages.extend(resp.get("messages", []))
             cursor = (resp.get("response_metadata") or {}).get("next_cursor") or None
             if not cursor:
@@ -102,7 +140,7 @@ class SlackApiClient:
         files: list[dict[str, Any]] = []
         page = 1
         while True:
-            resp = self.client.files_list(count=200, page=page, types=types)
+            resp = self._call_with_backoff(self.client.files_list, count=200, page=page, types=types)
             current = resp.get("files", [])
             files.extend(current)
             pages = (resp.get("paging") or {}).get("pages", 1)

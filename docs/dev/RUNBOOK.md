@@ -255,6 +255,20 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 - Extended CLI:
   - `workspaces verify [--workspace <name>]`
   - `mirror backfill --workspace <name>`
+  - `scripts/catchup_mirror.sh [config] [--workspace <name> ...] [--max-passes N]`
+
+### 2026-03-09 — Resumable catch-up with Slack rate-limit backoff
+
+- Added automatic 429 handling in `slack_mirror/core/slack_api.py`
+  - honors `Retry-After`
+  - retries with a small safety buffer
+- Added resumable catch-up runner:
+  - `scripts/catchup_until_complete.py`
+  - works channel-by-channel using existing checkpoints
+  - persists pass/channel attempt state in `.local/state/catchup_state.json`
+- Updated wrapper script:
+  - `scripts/catchup_mirror.sh`
+  - now forwards to the resumable runner
 
 ### 2026-02-23 — Phase B (message history backfill + checkpoints)
 
