@@ -3,7 +3,7 @@ _metadata:
   minor_version: 1
 
 display_information:
-  name: Slack Mirror (Dedicated Socket Mode)
+  name: Slack Mirror Socket
   description: Private dedicated Slack Mirror app using Socket Mode
   background_color: "#1D9BF0"
 
@@ -15,7 +15,6 @@ features:
   bot_user:
     display_name: Slack Mirror
     always_online: false
-  slash_commands: []
 
 oauth_config:
   redirect_urls: []
@@ -42,8 +41,6 @@ oauth_config:
       - im:read
       - mpim:history
       - mpim:read
-      - search:read.public
-      - search:read.mpim
       - users:read
 
 settings:

@@ -13,9 +13,8 @@ features:
     messages_tab_enabled: false
     messages_tab_read_only_enabled: true
   bot_user:
-    display_name: ${SLACK_BOT_DISPLAY_NAME:-slack-mirror}
+    display_name: ${SLACK_BOT_DISPLAY_NAME:-Slack Mirror}
     always_online: false
-  slash_commands: []
 
 oauth_config:
   redirect_urls:
@@ -43,8 +42,6 @@ oauth_config:
       - im:read
       - mpim:history
       - mpim:read
-      - search:read.public
-      - search:read.mpim
       - users:read
 
 settings:
