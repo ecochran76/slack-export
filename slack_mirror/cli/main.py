@@ -323,6 +323,40 @@ def cmd_serve_webhooks(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve_socket_mode(args: argparse.Namespace) -> int:
+    from slack_mirror.service.server import run_socket_mode
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_cfg = _workspace_config_by_name(args.config, args.workspace)
+    workspace_id = upsert_workspace(
+        conn,
+        name=ws_cfg.get("name"),
+        team_id=ws_cfg.get("team_id"),
+        domain=ws_cfg.get("domain"),
+        config=ws_cfg,
+    )
+
+    app_token = ws_cfg.get("app_token")
+    if not app_token:
+        raise ValueError(f"Workspace '{args.workspace}' has no app_token configured (required for Socket Mode)")
+    
+    bot_token = ws_cfg.get("token")
+    if not bot_token:
+        raise ValueError(f"Workspace '{args.workspace}' has no bot token configured")
+
+    def on_event(payload: dict):
+        event_id = payload.get("event_id") or f"evt_{payload.get('event_time','0')}"
+        event_ts = str(payload.get("event_time") or "")
+        event_type = (payload.get("event") or {}).get("type") or payload.get("type")
+        insert_event(conn, workspace_id, event_id, event_ts, event_type, payload, status="pending")
+
+    run_socket_mode(app_token=app_token, bot_token=bot_token, on_event=on_event)
+    return 0
+
+
 def cmd_process_events(args: argparse.Namespace) -> int:
     from slack_mirror.service.processor import process_pending_events, run_processor_loop
 
@@ -1460,6 +1494,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--bind")
     p_serve.add_argument("--port", type=int)
     p_serve.set_defaults(func=cmd_serve_webhooks)
+
+    p_serve_socket = mirror_sub.add_parser("serve-socket-mode", help="run Slack events via Socket Mode")
+    p_serve_socket.add_argument("--workspace", required=True)
+    p_serve_socket.set_defaults(func=cmd_serve_socket_mode)
 
     p_process = mirror_sub.add_parser("process-events", help="process pending webhook events from DB")
     p_process.add_argument("--workspace", required=True)

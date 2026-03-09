@@ -82,3 +82,35 @@ def run_webhook_server(
     server = HTTPServer((bind, port), Handler)
     print(f"Webhook server listening on http://{bind}:{port}/slack/events")
     server.serve_forever()
+
+
+def run_socket_mode(
+    *,
+    app_token: str,
+    bot_token: str,
+    on_event,
+) -> None:
+    from slack_sdk.web import WebClient
+    from slack_sdk.socket_mode import SocketModeClient
+    from slack_sdk.socket_mode.response import SocketModeResponse
+    from slack_sdk.socket_mode.request import SocketModeRequest
+    from threading import Event
+
+    client = SocketModeClient(
+        app_token=app_token,
+        web_client=WebClient(token=bot_token),
+    )
+
+    def process_event(client: SocketModeClient, req: SocketModeRequest):
+        if req.type == "events_api":
+            response = SocketModeResponse(envelope_id=req.envelope_id)
+            client.send_socket_mode_response(response)
+            on_event(req.payload)
+        elif req.type == "hello":
+            print("Socket Mode connected successfully!")
+
+    client.socket_mode_request_listeners.append(process_event)
+    client.connect()
+
+    Event().wait()
+
