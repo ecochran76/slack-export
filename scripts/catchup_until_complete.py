@@ -46,7 +46,12 @@ def ensure_workspace(conn: sqlite3.Connection, cfg: dict[str, Any], workspace: s
     return workspace_id, ws_cfg
 
 
-def list_candidate_channels(conn: sqlite3.Connection, workspace_id: int, stale_before_ts: float) -> list[dict[str, Any]]:
+def list_candidate_channels(
+    conn: sqlite3.Connection,
+    workspace_id: int,
+    stale_before_ts: float,
+    workspace_state: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     rows = conn.execute(
         """
         SELECT
@@ -62,13 +67,10 @@ def list_candidate_channels(conn: sqlite3.Connection, workspace_id: int, stale_b
           ON ss.workspace_id = c.workspace_id AND ss.key = ('messages.oldest.' || c.channel_id)
         WHERE c.workspace_id = ?
         GROUP BY c.channel_id, c.name
-        ORDER BY
-          CASE WHEN MAX(CAST(m.ts AS REAL)) IS NULL THEN 0 ELSE 1 END,
-          COALESCE(MAX(CAST(m.ts AS REAL)), 0) ASC,
-          c.channel_id ASC
         """,
         (workspace_id,),
     )
+    attempted = (workspace_state or {}).get("channels", {})
     items: list[dict[str, Any]] = []
     for row in rows:
         latest_ts = row["latest_ts"]
@@ -81,6 +83,7 @@ def list_candidate_channels(conn: sqlite3.Connection, workspace_id: int, stale_b
             or checkpoint_ts is None
         )
         if needs_catchup:
+            prior = attempted.get(row["channel_id"], {})
             items.append(
                 {
                     "channel_id": row["channel_id"],
@@ -88,8 +91,19 @@ def list_candidate_channels(conn: sqlite3.Connection, workspace_id: int, stale_b
                     "msg_count": msg_count,
                     "latest_ts": float(latest_ts) if latest_ts is not None else None,
                     "checkpoint_ts": float(checkpoint_ts) if checkpoint_ts is not None else None,
+                    "attempted": row["channel_id"] in attempted,
+                    "last_attempt": float(prior.get("last_attempt", 0.0) or 0.0),
                 }
             )
+    items.sort(
+        key=lambda item: (
+            1 if item["attempted"] else 0,
+            item["last_attempt"] if item["attempted"] else 0.0,
+            0 if item["latest_ts"] is None else 1,
+            item["latest_ts"] if item["latest_ts"] is not None else 0.0,
+            item["channel_id"],
+        )
+    )
     return items
 
 
@@ -111,12 +125,12 @@ def process_workspace(
     backfill_users_and_channels(token=token, workspace_id=workspace_id, conn=conn)
 
     stale_before_ts = time.time() - stale_hours * 3600
-    candidates = list_candidate_channels(conn, workspace_id, stale_before_ts)
-    if per_pass_limit:
-        candidates = candidates[:per_pass_limit]
-
     ws_state = state.setdefault("workspaces", {}).setdefault(workspace, {"channels": {}, "passes": 0})
     ws_state["passes"] = int(ws_state.get("passes", 0)) + 1
+
+    candidates = list_candidate_channels(conn, workspace_id, stale_before_ts, ws_state)
+    if per_pass_limit:
+        candidates = candidates[:per_pass_limit]
 
     processed = 0
     skipped = 0
@@ -165,7 +179,7 @@ def process_workspace(
             print(f"[catchup] workspace={workspace} channel={channel_name}({channel_id}) deferred reason=db_locked")
             time.sleep(2.0)
 
-    remaining = len(list_candidate_channels(conn, workspace_id, stale_before_ts))
+    remaining = len(list_candidate_channels(conn, workspace_id, stale_before_ts, ws_state))
     summary = {
         "workspace": workspace,
         "processed": processed,
