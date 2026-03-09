@@ -327,7 +327,7 @@ def cmd_serve_socket_mode(args: argparse.Namespace) -> int:
     from slack_mirror.service.server import run_socket_mode
 
     db_path = _db_path_from_config(args.config)
-    conn = connect(db_path)
+    conn = connect(db_path, check_same_thread=False)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
 
     ws_cfg = _workspace_config_by_name(args.config, args.workspace)
@@ -1030,6 +1030,9 @@ def _example_commands_for(cmd: str) -> list[str]:
         "slack-mirror mirror serve-webhooks": [
             "slack-mirror --config config.yaml mirror serve-webhooks --workspace default --bind 127.0.0.1 --port 8787",
         ],
+        "slack-mirror mirror serve-socket-mode": [
+            "slack-mirror --config config.yaml mirror serve-socket-mode --workspace default",
+        ],
         "slack-mirror mirror process-events": [
             "slack-mirror --config config.yaml mirror process-events --workspace default --limit 200",
             "slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10",
@@ -1184,7 +1187,7 @@ _slack_mirror_complete() {
   }
 
   local top="mirror workspaces channels search docs completion"
-  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events sync status daemon"
+  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -1298,7 +1301,7 @@ except Exception:
 _slack_mirror() {
   local -a top mirror_sub ws_sub
   top=(mirror workspaces channels search docs completion)
-  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks process-events sync status daemon)
+  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
   if (( CURRENT == 2 )); then

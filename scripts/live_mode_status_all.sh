@@ -2,10 +2,8 @@
 set -euo pipefail
 
 # One-shot status for both workspace live stacks.
-# Usage: scripts/live_mode_status_all.sh [default_port] [soylei_port]
+# Usage: scripts/live_mode_status_all.sh
 
-DEFAULT_PORT="${1:-8787}"
-SOYLEI_PORT="${2:-8788}"
 DB_PATH="./.local/state/slack_mirror_test.db"
 
 UNITS=(
@@ -18,17 +16,14 @@ UNITS=(
 )
 
 echo "== systemd user services =="
-systemctl --user --no-pager --full status "${UNITS[@]}" 2>/dev/null | sed -n '1,180p' || true
-
-echo
-echo "== webhook health =="
-echo -n "default (:${DEFAULT_PORT}): "
-curl --max-time 2 -fsS "http://127.0.0.1:${DEFAULT_PORT}/healthz" && echo || echo "DOWN"
-echo -n "soylei  (:${SOYLEI_PORT}): "
-curl --max-time 2 -fsS "http://127.0.0.1:${SOYLEI_PORT}/healthz" && echo || echo "DOWN"
+systemctl --user --no-pager --full status "${UNITS[@]}" 2>/dev/null | sed -n '1,220p' || true
 
 echo
 if [[ -f "${DB_PATH}" ]]; then
+  echo "== latest mirrored messages by workspace =="
+  sqlite3 "${DB_PATH}" "select w.name, datetime(max(CAST(m.ts as real)), 'unixepoch', 'localtime') from messages m join workspaces w on w.id=m.workspace_id group by w.name order by w.name;" || true
+
+  echo
   echo "== events by workspace/status =="
   sqlite3 "${DB_PATH}" "select w.name, e.status, count(*) from events e join workspaces w on w.id=e.workspace_id group by w.name,e.status order by w.name,e.status;" || true
 

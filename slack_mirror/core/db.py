@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any
 
 
-def connect(db_path: str) -> sqlite3.Connection:
+def connect(db_path: str, *, check_same_thread: bool = True) -> sqlite3.Connection:
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     return conn
 

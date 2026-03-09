@@ -101,13 +101,16 @@ def run_socket_mode(
         web_client=WebClient(token=bot_token),
     )
 
+    print("Socket Mode client starting", flush=True)
+
     def process_event(client: SocketModeClient, req: SocketModeRequest):
+        print(f"Received Socket Mode event: {req.type}", flush=True)
         if req.type == "events_api":
             response = SocketModeResponse(envelope_id=req.envelope_id)
             client.send_socket_mode_response(response)
             on_event(req.payload)
         elif req.type == "hello":
-            print("Socket Mode connected successfully!")
+            print("Socket Mode connected successfully", flush=True)
 
     client.socket_mode_request_listeners.append(process_event)
     client.connect()
