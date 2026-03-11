@@ -5,13 +5,21 @@ set -euo pipefail
 #
 # Usage:
 #   scripts/install_live_mode_systemd_user.sh [workspace] [config] [legacy_port_ignored]
-# Example:
-#   scripts/install_live_mode_systemd_user.sh default config.local.yaml
+# Examples:
+#   scripts/install_live_mode_systemd_user.sh default
+#   scripts/install_live_mode_systemd_user.sh default "$HOME/.config/slack-mirror/config.yaml"
 #
 # Socket Mode is used for inbound Slack events, so no local port forwarding/tunnel is required.
 
 WORKSPACE="${1:-default}"
-CONFIG="${2:-config.local.yaml}"
+USER_CONFIG_DEFAULT="${HOME}/.config/slack-mirror/config.yaml"
+if [[ -n "${2:-}" ]]; then
+  CONFIG="${2}"
+elif [[ -f "${USER_CONFIG_DEFAULT}" ]]; then
+  CONFIG="${USER_CONFIG_DEFAULT}"
+else
+  CONFIG="config.local.yaml"
+fi
 LEGACY_PORT="${3:-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -94,6 +102,7 @@ echo "Installed + started user services:"
 echo "  - ${RECEIVER_UNIT}"
 echo "  - ${EVENTS_UNIT}"
 echo "  - ${EMBEDDINGS_UNIT}"
+echo "  - config: ${CONFIG}"
 echo
 systemctl --user --no-pager --full status \
   "${RECEIVER_UNIT}" \

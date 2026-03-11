@@ -5,11 +5,19 @@ set -euo pipefail
 #
 # Usage:
 #   scripts/live_mode_tmux.sh [workspace] [config]
-# Example:
-#   scripts/live_mode_tmux.sh default config.local.yaml
+# Examples:
+#   scripts/live_mode_tmux.sh default
+#   scripts/live_mode_tmux.sh default "$HOME/.config/slack-mirror/config.yaml"
 
 WORKSPACE="${1:-default}"
-CONFIG="${2:-config.local.yaml}"
+USER_CONFIG_DEFAULT="${HOME}/.config/slack-mirror/config.yaml"
+if [[ -n "${2:-}" ]]; then
+  CONFIG="${2}"
+elif [[ -f "${USER_CONFIG_DEFAULT}" ]]; then
+  CONFIG="${USER_CONFIG_DEFAULT}"
+else
+  CONFIG="config.local.yaml"
+fi
 SESSION="slack-mirror-live-${WORKSPACE}"
 
 if ! command -v tmux >/dev/null 2>&1; then
@@ -42,5 +50,6 @@ tmux send-keys -t "${SESSION}:socket-mode.2" "cd $(pwd) && while true; do ${BASE
 tmux select-layout -t "${SESSION}:socket-mode" tiled
 
 echo "Started tmux session: ${SESSION}"
+echo "Config: ${CONFIG}"
 echo "Attach: tmux attach -t ${SESSION}"
 echo "Stop: tmux kill-session -t ${SESSION}"
