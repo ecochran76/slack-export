@@ -165,6 +165,29 @@ def list_channel_ids(conn: sqlite3.Connection, workspace_id: int) -> list[str]:
     return [r["channel_id"] for r in rows]
 
 
+def list_recent_thread_roots(
+    conn: sqlite3.Connection,
+    workspace_id: int,
+    channel_id: str,
+    *,
+    min_ts: str,
+) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT ts
+        FROM messages
+        WHERE workspace_id = ?
+          AND channel_id = ?
+          AND thread_ts = ts
+          AND deleted = 0
+          AND CAST(ts AS REAL) >= CAST(? AS REAL)
+        ORDER BY CAST(ts AS REAL) DESC
+        """,
+        (workspace_id, channel_id, min_ts),
+    )
+    return [str(r["ts"]) for r in rows]
+
+
 def enqueue_embedding_job(
     conn: sqlite3.Connection,
     *,

@@ -7,6 +7,7 @@ from slack_mirror.core.db import (
     connect,
     get_message_embedding,
     get_sync_state,
+    list_recent_thread_roots,
     list_workspaces,
     remove_channel_member,
     set_sync_state,
@@ -37,11 +38,15 @@ class DbTests(unittest.TestCase):
 
             upsert_channel(conn, ws_id, {"id": "C123", "name": "general"})
             upsert_message(conn, ws_id, "C123", {"ts": "123.45", "text": "hello", "user": "U1"})
+            upsert_message(conn, ws_id, "C123", {"ts": "200.00", "thread_ts": "200.00", "text": "root", "user": "U1"})
             count = conn.execute("SELECT COUNT(*) AS c FROM messages").fetchone()["c"]
-            self.assertEqual(count, 1)
+            self.assertEqual(count, 2)
+
+            roots = list_recent_thread_roots(conn, ws_id, "C123", min_ts="150")
+            self.assertEqual(roots, ["200.00"])
 
             pending_jobs = conn.execute("SELECT COUNT(*) AS c FROM embedding_jobs WHERE status='pending'").fetchone()["c"]
-            self.assertEqual(pending_jobs, 1)
+            self.assertEqual(pending_jobs, 2)
 
             upsert_message_embedding(
                 conn,

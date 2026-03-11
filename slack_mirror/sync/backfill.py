@@ -7,6 +7,7 @@ from pathlib import Path
 from slack_mirror.core.db import (
     get_sync_state,
     list_channel_ids,
+    list_recent_thread_roots,
     set_sync_state,
     update_file_download,
     upsert_canvas,
@@ -15,6 +16,9 @@ from slack_mirror.core.db import (
     upsert_message,
     upsert_user,
 )
+
+
+RECENT_THREAD_ROOT_LOOKBACK_SECONDS = 48 * 3600
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.sync.downloads import download_with_retries
 
@@ -68,14 +72,32 @@ def backfill_messages(
         for msg in messages:
             upsert_message(conn, workspace_id, channel_id, msg)
 
-        # Thread completeness: pull replies for roots that advertise replies.
-        reply_roots = [
+        # Thread completeness: pull replies for roots in the current history slice,
+        # plus recently known thread roots from the DB. This closes a blind spot where
+        # a quiet channel can have new replies on an older thread root that never
+        # appears in the incremental conversations.history window.
+        reply_roots = {
             str(m.get("ts"))
             for m in messages
             if m.get("ts") and int(m.get("reply_count") or 0) > 0
-        ]
+        }
+        try:
+            effective_oldest_f = float(effective_oldest or "0")
+        except ValueError:
+            effective_oldest_f = 0.0
+        if effective_oldest_f > 0:
+            recent_root_cutoff = max(0.0, effective_oldest_f - RECENT_THREAD_ROOT_LOOKBACK_SECONDS)
+            reply_roots.update(
+                list_recent_thread_roots(
+                    conn,
+                    workspace_id,
+                    channel_id,
+                    min_ts=str(recent_root_cutoff),
+                )
+            )
+
         thread_reply_count = 0
-        for thread_ts in reply_roots:
+        for thread_ts in sorted(reply_roots):
             try:
                 replies = api.conversation_replies(
                     channel_id=channel_id,
