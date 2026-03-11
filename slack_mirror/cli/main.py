@@ -5,9 +5,10 @@ import hashlib
 import json
 import time
 from pathlib import Path
+import sqlite3
 from urllib.parse import urlparse
 
-from slack_mirror.core.config import load_config
+from slack_mirror.core.config import load_config, resolve_config_path
 from slack_mirror.core.db import (
     apply_migrations,
     connect,
@@ -24,21 +25,30 @@ def cmd_mirror_init(args: argparse.Namespace) -> int:
     db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
-    print(f"Initialized DB at {db_path}")
+    print(f"Initialized DB at {db_path} (config={_resolved_config_path(args.config)})")
     return 0
 
 
-def _db_path_from_config(config_path: str) -> str:
+def _resolved_config_path(config_path: str | None) -> str:
+    return str(resolve_config_path(config_path))
+
+
+def _db_path_from_config(config_path: str | None) -> str:
     cfg = load_config(config_path)
     return cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
 
 
-def _workspace_configs(config_path: str) -> list[dict]:
+def _cache_root_from_config(config_path: str | None) -> str:
+    cfg = load_config(config_path)
+    return cfg.get("storage", {}).get("cache_root", "./cache")
+
+
+def _workspace_configs(config_path: str | None) -> list[dict]:
     cfg = load_config(config_path)
     return cfg.get("workspaces", [])
 
 
-def _workspace_config_by_name(config_path: str, name: str) -> dict:
+def _workspace_config_by_name(config_path: str | None, name: str) -> dict:
     for ws in _workspace_configs(config_path):
         if ws.get("name") == name:
             return ws
@@ -185,11 +195,12 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
 
     file_counts = {"files": 0, "canvases": 0, "files_downloaded": 0, "canvases_downloaded": 0}
     if args.include_files:
+        cache_root = args.cache_root or _cache_root_from_config(args.config)
         file_counts = backfill_files_and_canvases(
             token=token,
             workspace_id=workspace_id,
             conn=conn,
-            cache_root=args.cache_root,
+            cache_root=cache_root,
             download_content=args.download_content,
             file_types=args.file_types,
         )
@@ -399,7 +410,7 @@ def cmd_process_events(args: argparse.Namespace) -> int:
     return 0 if result["errored"] == 0 else 1
 
 
-def _workspace_names(config_path: str, workspace: str | None = None) -> list[str]:
+def _workspace_names(config_path: str | None, workspace: str | None = None) -> list[str]:
     cfg = load_config(config_path)
     names = [ws.get("name") for ws in cfg.get("workspaces", []) if ws.get("name")]
     if workspace:
@@ -460,11 +471,12 @@ def cmd_mirror_sync(args: argparse.Namespace) -> int:
         )
 
         if args.include_files:
+            cache_root = args.cache_root or _cache_root_from_config(args.config)
             backfill_files_and_canvases(
                 token=token,
                 workspace_id=workspace_id,
                 conn=conn,
-                cache_root=args.cache_root,
+                cache_root=cache_root,
                 download_content=bool(args.download_content),
                 file_types=args.file_types,
             )
@@ -734,6 +746,72 @@ def cmd_mirror_daemon(args: argparse.Namespace) -> int:
             return 0
         time.sleep(args.interval)
 
+
+def cmd_messages_list(args: argparse.Namespace) -> int:
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB")
+    workspace_id = int(ws_row["id"])
+
+    clauses = ["m.workspace_id = ?", "m.deleted = 0"]
+    params = [workspace_id]
+
+    if args.after:
+        clauses.append("CAST(m.ts AS REAL) >= CAST(? AS REAL)")
+        params.append(args.after)
+    if args.before:
+        clauses.append("CAST(m.ts AS REAL) <= CAST(? AS REAL)")
+        params.append(args.before)
+
+    if args.channels:
+        channel_names = [c.strip() for c in args.channels.split(",") if c.strip()]
+        if channel_names:
+            ch_clauses = []
+            for ch in channel_names:
+                ch_clauses.append("""
+                    (m.channel_id = ? OR m.channel_id IN (
+                        SELECT channel_id FROM channels WHERE workspace_id = m.workspace_id AND lower(name) = lower(?)
+                    ))
+                """)
+                params.extend([ch, ch])
+            clauses.append("(" + " OR ".join(ch_clauses) + ")")
+
+    where_sql = " AND ".join(clauses)
+    query = f"""
+        SELECT
+            m.channel_id,
+            COALESCE(ch.name, m.channel_id) AS channel_name,
+            m.ts,
+            m.user_id,
+            COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+            m.text,
+            m.subtype,
+            m.thread_ts,
+            m.edited_ts,
+            m.deleted
+        FROM messages m
+        LEFT JOIN channels ch ON ch.workspace_id = m.workspace_id AND ch.channel_id = m.channel_id
+        LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+        WHERE {where_sql}
+        ORDER BY CAST(m.ts AS REAL) DESC
+        LIMIT ?
+    """
+    params.append(args.limit)
+
+    conn.row_factory = sqlite3.Row
+    rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        for r in rows:
+            print(f"[{r['channel_name']}] {r['user_label']} @ {r['ts']}: {r['text'][:80]}")
+    return 0
 
 def cmd_search_keyword(args: argparse.Namespace) -> int:
     from slack_mirror.search.keyword import search_messages
@@ -1424,7 +1502,11 @@ def build_parser() -> argparse.ArgumentParser:
         prog="slack-mirror",
         description="Slack workspace mirror CLI for backfills, webhook ingest, and processing.",
     )
-    parser.add_argument("--config", default="config.yaml")
+    parser.add_argument(
+        "--config",
+        default=None,
+        help="config path; if omitted, search ./config.local.yaml, ./config.yaml, then ~/.config/slack-mirror/config.yaml",
+    )
 
     sub = parser.add_subparsers(dest="command")
 
@@ -1460,7 +1542,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="files.list types filter; use 'all' to fetch all non-canvas file types",
     )
     p_backfill.add_argument("--download-content", action="store_true")
-    p_backfill.add_argument("--cache-root", default="./cache")
+    p_backfill.add_argument("--cache-root", default=None, help="override cache root (defaults to storage.cache_root from config)")
     p_backfill.set_defaults(func=cmd_mirror_backfill)
 
     p_emb_backfill = mirror_sub.add_parser("embeddings-backfill", help="backfill message embeddings")
@@ -1516,7 +1598,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sync.add_argument("--include-files", action="store_true", help="include files/canvases metadata")
     p_sync.add_argument("--file-types", default="all", help="files.list types filter")
     p_sync.add_argument("--download-content", action="store_true", help="download file/canvas content")
-    p_sync.add_argument("--cache-root", default="./cache")
+    p_sync.add_argument("--cache-root", default=None, help="override cache root (defaults to storage.cache_root from config)")
     p_sync.add_argument("--messages-only", action="store_true", help="skip users/channels bootstrap and pull messages only")
     p_sync.add_argument("--channels", help="csv list of channel ids (messages-only mode)")
     p_sync.add_argument("--channel-limit", type=int, help="cap channels processed")
@@ -1551,7 +1633,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_daemon.add_argument("--reconcile-minutes", type=float, default=30.0, help="periodic reconcile cadence (0 disables)")
     p_daemon.add_argument("--reconcile-channel-limit", type=int, default=300)
     p_daemon.add_argument("--auth-mode", default="user", choices=["bot", "user"], help="auth mode for reconcile backfill")
-    p_daemon.add_argument("--cache-root", default="./cache")
+    p_daemon.add_argument("--cache-root", default=None, help="reserved for future file-cache reconcile support; defaults to storage.cache_root from config")
     p_daemon.add_argument("--max-cycles", type=int)
     p_daemon.set_defaults(func=cmd_mirror_daemon)
 
@@ -1571,6 +1653,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_sync = channels_sub.add_parser("sync-from-tool")
     p_sync.add_argument("--json", action="store_true")
     p_sync.set_defaults(func=cmd_channels_sync_from_tool)
+
+    messages = sub.add_parser("messages", help="raw message retrieval commands")
+    messages_sub = messages.add_subparsers(dest="messages_cmd")
+    p_messages_list = messages_sub.add_parser("list", help="list messages in a time window")
+    p_messages_list.add_argument("--workspace", required=True, help="workspace name")
+    p_messages_list.add_argument("--after", help="minimum timestamp (inclusive)")
+    p_messages_list.add_argument("--before", help="maximum timestamp (inclusive)")
+    p_messages_list.add_argument("--channels", help="comma-separated list of channel IDs or names")
+    p_messages_list.add_argument("--limit", type=int, default=1000, help="maximum results")
+    p_messages_list.add_argument("--json", action="store_true")
+    p_messages_list.set_defaults(func=cmd_messages_list)
 
     search = sub.add_parser("search", help="local keyword/semantic search commands")
     search_sub = search.add_subparsers(dest="search_cmd")

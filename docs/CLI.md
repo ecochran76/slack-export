@@ -10,7 +10,7 @@ usage: slack-mirror [-h] [--config CONFIG]
 
 **Options**
 
-- `--config` — default: `config.yaml`
+- `--config` — config path; if omitted, search ./config.local.yaml, ./config.yaml, then ~/.config/slack-mirror/config.yaml
 
 **Arguments**
 
@@ -176,7 +176,7 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 - `--include-files` — include files and canvases metadata
 - `--file-types` — files.list types filter; use 'all' to fetch all non-canvas file types; default: `images,snippets,gdocs,zips,pdfs`
 - `--download-content`
-- `--cache-root` — default: `./cache`
+- `--cache-root` — override cache root (defaults to storage.cache_root from config)
 
 **Examples**
 
@@ -212,7 +212,7 @@ usage: slack-mirror mirror daemon [-h] [--workspace WORKSPACE]
 - `--reconcile-minutes` — periodic reconcile cadence (0 disables); default: `30.0`
 - `--reconcile-channel-limit` — default: `300`
 - `--auth-mode` — auth mode for reconcile backfill; default: `user`
-- `--cache-root` — default: `./cache`
+- `--cache-root` — reserved for future file-cache reconcile support; defaults to storage.cache_root from config
 - `--max-cycles`
 
 
@@ -412,7 +412,7 @@ usage: slack-mirror mirror sync [-h] [--workspace WORKSPACE]
 - `--include-files` — include files/canvases metadata
 - `--file-types` — files.list types filter; default: `all`
 - `--download-content` — download file/canvas content
-- `--cache-root` — default: `./cache`
+- `--cache-root` — override cache root (defaults to storage.cache_root from config)
 - `--messages-only` — skip users/channels bootstrap and pull messages only
 - `--channels` — csv list of channel ids (messages-only mode)
 - `--channel-limit` — cap channels processed

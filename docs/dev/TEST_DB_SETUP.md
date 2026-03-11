@@ -1,8 +1,10 @@
 # Semi-Permanent Test Database Setup
 
-Goal: keep a reusable, hydrated local database for semantic testing without committing runtime state to git.
+Goal: keep a reusable, hydrated **repo-local test database** for semantic testing without committing runtime state to git.
 
-## Canonical local paths (gitignored)
+This is intentionally for local dev/test. It is **not** the recommended long-term runtime location for user installs or daily briefing automation.
+
+## Canonical repo-local test paths (gitignored)
 
 - Config: `config.local.yaml`
 - DB: `.local/state/slack_mirror_test.db`

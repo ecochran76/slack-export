@@ -6,9 +6,9 @@ This installs `slack-mirror` into an isolated user-owned runtime that is indepen
 
 - App snapshot: `~/.local/share/slack-mirror/app`
 - Virtualenv: `~/.local/share/slack-mirror/venv`
-- Runtime data: `~/.local/share/slack-mirror/var`
-  - DB: `~/.local/share/slack-mirror/var/slack_mirror.db`
-  - Cache: `~/.local/share/slack-mirror/var/cache`
+- Runtime state: `~/.local/state/slack-mirror`
+  - DB: `~/.local/state/slack-mirror/slack_mirror.db`
+- Runtime cache: `~/.local/cache/slack-mirror`
 - Config: `~/.config/slack-mirror/config.yaml`
 - Wrapper CLI: `~/.local/bin/slack-mirror-user`
 
@@ -25,7 +25,8 @@ This will:
 2. create/update a dedicated venv
 3. install the package into that venv
 4. create config from template if missing
-5. run `mirror init` (migrations) and `workspaces sync-config`
+5. migrate legacy state from `~/.local/share/slack-mirror/var` if present
+6. run `mirror init` (migrations) and `workspaces sync-config`
 
 ## Update
 
@@ -35,8 +36,8 @@ scripts/user_env.sh update
 
 Update preserves:
 - `~/.config/slack-mirror/config.yaml`
-- `~/.local/share/slack-mirror/var/slack_mirror.db`
-- `~/.local/share/slack-mirror/var/cache`
+- `~/.local/state/slack-mirror/slack_mirror.db`
+- `~/.local/cache/slack-mirror`
 
 It also saves the latest template to:
 - `~/.config/slack-mirror/config.example.latest.yaml`

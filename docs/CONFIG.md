@@ -4,13 +4,13 @@
 
 ## Example
 
-Copy `config.example.yaml` to `config.yaml` and set environment vars.
+Copy `config.example.yaml` to `~/.config/slack-mirror/config.yaml` for a stable user-scope install, or to `config.local.yaml` in the repo for local dev/test.
 
 ```yaml
 version: 1
 storage:
-  db_path: ${SLACK_MIRROR_DB:-./data/slack_mirror.db}
-  cache_root: ${SLACK_MIRROR_CACHE:-./cache}
+  db_path: ${SLACK_MIRROR_DB:-~/.local/state/slack-mirror/slack_mirror.db}
+  cache_root: ${SLACK_MIRROR_CACHE:-~/.local/cache/slack-mirror}
 
 workspaces:
   - name: default
@@ -24,6 +24,17 @@ workspaces:
 
 - `${VAR}` → required env var (empty if not set)
 - `${VAR:-fallback}` → env var with default fallback
+
+## Path resolution rules
+
+- `dotenv`, `storage.db_path`, and `storage.cache_root` are resolved relative to the **config file directory**, not the process cwd.
+- `~` is expanded for user-scope paths.
+- If `--config` is omitted, the CLI searches in this order:
+  1. `./config.local.yaml`
+  2. `./config.yaml`
+  3. `~/.config/slack-mirror/config.yaml`
+
+For automation, prefer passing an explicit `--config` path anyway.
 
 ## Commands (scaffold)
 

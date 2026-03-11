@@ -1,8 +1,8 @@
 version: 1
 dotenv: ${SLACK_MIRROR_DOTENV:-~/credentials/API-keys.env}
 storage:
-  db_path: ${SLACK_MIRROR_DB:-./data/slack_mirror.db}
-  cache_root: ${SLACK_MIRROR_CACHE:-./cache}
+  db_path: ${SLACK_MIRROR_DB:-~/.local/state/slack-mirror/slack_mirror.db}
+  cache_root: ${SLACK_MIRROR_CACHE:-~/.local/cache/slack-mirror}
 
 service:
   bind: ${SLACK_MIRROR_BIND:-127.0.0.1}

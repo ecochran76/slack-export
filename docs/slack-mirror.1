@@ -10,7 +10,7 @@ usage: slack-mirror [-h] [--config CONFIG]
 
 **Options**
 .IP \[bu] 2
-`--config` — default: `config.yaml`
+`--config` — config path; if omitted, search ./config.local.yaml, ./config.yaml, then ~/.config/slack-mirror/config.yaml
 **Arguments**
 **Examples**
 
@@ -158,7 +158,7 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 .IP \[bu] 2
 `--download-content`
 .IP \[bu] 2
-`--cache-root` — default: `./cache`
+`--cache-root` — override cache root (defaults to storage.cache_root from config)
 **Examples**
 
 slack-mirror --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 10
@@ -196,7 +196,7 @@ usage: slack-mirror mirror daemon [-h] [--workspace WORKSPACE]
 .IP \[bu] 2
 `--auth-mode` — auth mode for reconcile backfill; default: `user`
 .IP \[bu] 2
-`--cache-root` — default: `./cache`
+`--cache-root` — reserved for future file-cache reconcile support; defaults to storage.cache_root from config
 .IP \[bu] 2
 `--max-cycles`
 .SH SLACK-MIRROR MIRROR EMBEDDINGS-BACKFILL
@@ -391,7 +391,7 @@ usage: slack-mirror mirror sync [-h] [--workspace WORKSPACE]
 .IP \[bu] 2
 `--download-content` — download file/canvas content
 .IP \[bu] 2
-`--cache-root` — default: `./cache`
+`--cache-root` — override cache root (defaults to storage.cache_root from config)
 .IP \[bu] 2
 `--messages-only` — skip users/channels bootstrap and pull messages only
 .IP \[bu] 2

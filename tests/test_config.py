@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from slack_mirror.core.config import load_config
+from slack_mirror.core.config import load_config, resolve_config_path
 
 
 class ConfigTests(unittest.TestCase):
@@ -36,6 +36,48 @@ class ConfigTests(unittest.TestCase):
             )
             cfg = load_config(p)
             self.assertEqual(cfg.get("workspaces")[0]["token"], "xoxb-test")
+
+    def test_storage_paths_resolve_relative_to_config_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            cfg_dir = td_path / "configs"
+            cfg_dir.mkdir(parents=True)
+            p = cfg_dir / "config.yaml"
+            p.write_text(
+                "storage:\n  db_path: ./state/test.db\n  cache_root: ./cache\n",
+                encoding="utf-8",
+            )
+
+            old_cwd = Path.cwd()
+            os.chdir("/")
+            try:
+                cfg = load_config(p)
+            finally:
+                os.chdir(old_cwd)
+
+            self.assertEqual(cfg.get("storage")["db_path"], str((cfg_dir / "state" / "test.db").resolve()))
+            self.assertEqual(cfg.get("storage")["cache_root"], str((cfg_dir / "cache").resolve()))
+
+    def test_config_discovery_prefers_repo_local_then_user_scope(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            repo_cfg = td_path / "config.local.yaml"
+            repo_cfg.write_text("version: 1\n", encoding="utf-8")
+
+            old_cwd = Path.cwd()
+            env_backup = os.environ.get("SLACK_MIRROR_CONFIG")
+            os.environ.pop("SLACK_MIRROR_CONFIG", None)
+            os.chdir(td_path)
+            try:
+                resolved = resolve_config_path(None)
+            finally:
+                os.chdir(old_cwd)
+                if env_backup is None:
+                    os.environ.pop("SLACK_MIRROR_CONFIG", None)
+                else:
+                    os.environ["SLACK_MIRROR_CONFIG"] = env_backup
+
+            self.assertEqual(resolved, repo_cfg.resolve())
 
 
 if __name__ == "__main__":
