@@ -8,6 +8,7 @@ from pathlib import Path
 import sqlite3
 from urllib.parse import urlparse
 
+from slack_mirror import __version__
 from slack_mirror.core.config import load_config, resolve_config_path
 from slack_mirror.core.db import (
     apply_migrations,
@@ -96,9 +97,20 @@ def cmd_workspaces_verify(args: argparse.Namespace) -> int:
     workspaces = _workspace_configs(args.config)
     if args.workspace:
         workspaces = [w for w in workspaces if w.get("name") == args.workspace]
+        if not workspaces:
+            raise ValueError(f"Workspace '{args.workspace}' not found in config")
     failures = 0
     for ws in workspaces:
         name = ws.get("name") or "<unnamed>"
+        if bool(getattr(args, "require_explicit_outbound", False)):
+            outbound_token = ws.get("outbound_token") or ws.get("write_token")
+            outbound_user_token = ws.get("outbound_user_token") or ws.get("write_user_token")
+            if not outbound_token:
+                failures += 1
+                print(f"{name}\tmissing_outbound_token")
+            if ws.get("user_token") and not outbound_user_token:
+                failures += 1
+                print(f"{name}\tmissing_outbound_user_token")
         token = ws.get("token")
         if not token:
             failures += 1
@@ -369,24 +381,12 @@ def cmd_serve_socket_mode(args: argparse.Namespace) -> int:
 
 
 def cmd_process_events(args: argparse.Namespace) -> int:
-    from slack_mirror.service.processor import process_pending_events, run_processor_loop
+    from slack_mirror.service.app import get_app_service
+    from slack_mirror.service.processor import run_processor_loop
 
-    db_path = _db_path_from_config(args.config)
-    conn = connect(db_path)
-    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
-
-    ws_cfg = _workspace_config_by_name(args.config, args.workspace)
-    ws_row = get_workspace_by_name(conn, ws_cfg.get("name"))
-    if not ws_row:
-        workspace_id = upsert_workspace(
-            conn,
-            name=ws_cfg.get("name"),
-            team_id=ws_cfg.get("team_id"),
-            domain=ws_cfg.get("domain"),
-            config=ws_cfg,
-        )
-    else:
-        workspace_id = int(ws_row["id"])
+    service = get_app_service(args.config)
+    conn = service.connect()
+    workspace_id = service.workspace_id(conn, args.workspace)
 
     if args.loop:
         result = run_processor_loop(
@@ -397,14 +397,14 @@ def cmd_process_events(args: argparse.Namespace) -> int:
             max_cycles=args.max_cycles,
         )
         print(
-            f"Processor loop workspace={ws_cfg.get('name')} cycles={result['cycles']} "
+            f"Processor loop workspace={args.workspace} cycles={result['cycles']} "
             f"processed={result['processed']} errored={result['errored']}"
         )
         return 0 if result["errored"] == 0 else 1
 
-    result = process_pending_events(conn, workspace_id, limit=args.limit)
+    result = service.process_pending_events(conn, workspace=args.workspace, limit=args.limit)
     print(
-        f"Processed events workspace={ws_cfg.get('name')} scanned={result['scanned']} "
+        f"Processed events workspace={args.workspace} scanned={result['scanned']} "
         f"processed={result['processed']} errored={result['errored']}"
     )
     return 0 if result["errored"] == 0 else 1
@@ -506,80 +506,31 @@ def cmd_mirror_sync(args: argparse.Namespace) -> int:
 
 
 def cmd_mirror_status(args: argparse.Namespace) -> int:
-    db_path = _db_path_from_config(args.config)
-    conn = connect(db_path)
-    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
-    stale_seconds = float(args.stale_hours) * 3600.0
-    now_ts = time.time()
+    from slack_mirror.service.app import get_app_service
 
-    stale_cutoff_ts = now_ts - stale_seconds
-    params: list[object] = [stale_cutoff_ts, stale_cutoff_ts]
-    where_ws = ""
+    service = get_app_service(args.config)
+    conn = service.connect()
     if args.workspace:
-        where_ws = " where w.name=?"
-        params.append(args.workspace)
-
-    q = f"""
-    with last_msg as (
-      select workspace_id, channel_id, max(cast(ts as real)) as max_ts
-      from messages
-      group by workspace_id, channel_id
+        ws_row = get_workspace_by_name(conn, args.workspace)
+        if not ws_row:
+            raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+    summary, out = service.get_workspace_status(
+        conn,
+        workspace=args.workspace,
+        stale_hours=float(args.stale_hours),
+        max_zero_msg=int(args.max_zero_msg),
+        max_stale=int(args.max_stale),
+        enforce_stale=bool(args.enforce_stale),
     )
-    select w.name as workspace,
-           case
-             when c.is_im=1 then 'im'
-             when c.is_mpim=1 then 'mpim'
-             when c.is_private=1 then 'private'
-             else 'public'
-           end as channel_class,
-           count(*) as channels,
-           sum(case when lm.max_ts is null then 1 else 0 end) as zero_msg_channels,
-           sum(case when lm.max_ts is not null and lm.max_ts < ? then 1 else 0 end) as stale_channels,
-           sum(case when lm.max_ts is not null and lm.max_ts < ? then 1 else 0 end) as mirrored_inactive_channels,
-           max(lm.max_ts) as class_latest_ts
-    from channels c
-    join workspaces w on w.id=c.workspace_id
-    left join last_msg lm on lm.workspace_id=c.workspace_id and lm.channel_id=c.channel_id
-    {where_ws}
-    group by w.name, channel_class
-    order by w.name, channel_class
-    """
-    rows = conn.execute(q, tuple(params)).fetchall()
 
-    out = []
-    for ws, cls, channels, zero_msg, stale, mirrored_inactive, latest in rows:
-        reasons = []
-        if int(zero_msg or 0) > int(args.max_zero_msg):
-            reasons.append(f"zero_msg>{int(args.max_zero_msg)}")
-        if bool(args.enforce_stale) and int(stale or 0) > int(args.max_stale):
-            reasons.append(f"stale>{int(args.max_stale)}")
-        out.append(
-            {
-                "workspace": ws,
-                "class": cls,
-                "channels": int(channels or 0),
-                "zero_msg_channels": int(zero_msg or 0),
-                "stale_channels": int(stale or 0),
-                "mirrored_inactive_channels": int(mirrored_inactive or 0),
-                "latest_ts": float(latest) if latest else None,
-                "health_reasons": reasons,
-            }
-        )
-
-    unhealthy_rows = [r for r in out if r["health_reasons"]]
-    is_healthy = len(unhealthy_rows) == 0
-    summary = {
-        "status": "HEALTHY" if is_healthy else "UNHEALTHY",
-        "healthy": is_healthy,
-        "max_zero_msg": int(args.max_zero_msg),
-        "max_stale": int(args.max_stale),
-        "stale_hours": float(args.stale_hours),
-        "enforce_stale": bool(args.enforce_stale),
-        "unhealthy_rows": len(unhealthy_rows),
-    }
+    unhealthy_rows = [r for r in out if r.health_reasons]
 
     access_classification = None
     if args.classify_access:
+        stale_cutoff_ts = time.time() - (float(args.stale_hours) * 3600.0)
+        where_ws = ""
+        if args.workspace:
+            where_ws = " and w.name=?"
         q_cls = f"""
         with last_msg as (
           select workspace_id, channel_id, max(cast(ts as real)) as max_ts, count(*) as msg_count
@@ -633,16 +584,19 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
     if args.json:
         payload: object
         if args.healthy:
-            payload = {"summary": summary, "rows": out}
+            payload = {
+                "summary": summary.__dict__,
+                "rows": [r.__dict__ for r in out],
+            }
         else:
-            payload = out
+            payload = [r.__dict__ for r in out]
         if access_classification is not None:
             if isinstance(payload, dict):
                 payload = {**payload, "access_classification": access_classification}
             else:
                 payload = {"rows": payload, "access_classification": access_classification}
         print(json.dumps(payload, indent=2))
-        if args.fail_on_gap and not is_healthy:
+        if args.fail_on_gap and not summary.healthy:
             return 2
         return 0
 
@@ -652,21 +606,21 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         print("workspace\tclass\tchannels\tzero_msg\tstale\tmirrored_inactive\tlatest_ts")
     for r in out:
         row = (
-            f"{r['workspace']}\t{r['class']}\t{r['channels']}\t{r['zero_msg_channels']}\t{r['stale_channels']}\t{r['mirrored_inactive_channels']}\t{r['latest_ts'] or '-'}"
+            f"{r.workspace}\t{r.channel_class}\t{r.channels}\t{r.zero_msg_channels}\t{r.stale_channels}\t{r.mirrored_inactive_channels}\t{r.latest_ts or '-'}"
         )
         if args.healthy:
-            row += f"\t{', '.join(r['health_reasons']) if r['health_reasons'] else '-'}"
+            row += f"\t{', '.join(r.health_reasons) if r.health_reasons else '-'}"
         print(row)
 
     if args.healthy:
         if not args.enforce_stale:
             print("NOTE stale counts shown for observability; health gate currently enforces zero_msg only")
-        if is_healthy:
+        if summary.healthy:
             print("HEALTHY")
         else:
             top = unhealthy_rows[0]
-            why = ", ".join(top["health_reasons"])
-            print(f"UNHEALTHY {top['workspace']}/{top['class']}: {why}")
+            why = ", ".join(top.health_reasons)
+            print(f"UNHEALTHY {top.workspace}/{top.channel_class}: {why}")
 
     if access_classification is not None:
         print("\nAccess classification (A mirrored+inactive, B active_recent, C zero_message):")
@@ -679,9 +633,9 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
                 suffix = " ..." if r["C_zero_message_ids_truncated"] else ""
                 print(f"  C_ids: {ids}{suffix}")
 
-    if args.fail_on_gap and not is_healthy:
+    if args.fail_on_gap and not summary.healthy:
         return 2
-    return 0
+    return 0 if summary.healthy else 1
 
 
 def cmd_mirror_daemon(args: argparse.Namespace) -> int:
@@ -1264,7 +1218,9 @@ _slack_mirror_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
   }
 
-  local top="mirror workspaces channels search docs completion"
+  local top="mirror workspaces channels search docs completion api mcp"
+  local api_sub="serve"
+  local mcp_sub="serve"
   local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1355,6 +1311,20 @@ except Exception:
         COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") )
       fi
       ;;
+    api)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$api_sub" -- "$cur") )
+        return 0
+      fi
+      COMPREPLY=( $(compgen -W "--bind --port" -- "$cur") )
+      ;;
+    mcp)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$mcp_sub" -- "$cur") )
+        return 0
+      fi
+      COMPREPLY=()
+      ;;
   esac
   return 0
 }
@@ -1377,8 +1347,10 @@ except Exception:
 }
 
 _slack_mirror() {
-  local -a top mirror_sub ws_sub
-  top=(mirror workspaces channels search docs completion)
+  local -a top mirror_sub ws_sub api_sub mcp_sub
+  top=(mirror workspaces channels search docs completion api mcp)
+  api_sub=(serve)
+  mcp_sub=(serve)
   mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -1481,6 +1453,20 @@ _slack_mirror() {
         _describe 'shell' '(bash zsh)'
       fi
       ;;
+    api)
+      if (( CURRENT == 3 )); then
+        _describe 'api command' api_sub
+        return
+      fi
+      _arguments '--bind[bind address]:address:' '--port[port]:port:'
+      ;;
+    mcp)
+      if (( CURRENT == 3 )); then
+        _describe 'mcp command' mcp_sub
+        return
+      fi
+      _arguments
+      ;;
   esac
 }
 
@@ -1497,11 +1483,55 @@ def cmd_completion(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_version(args: argparse.Namespace) -> int:
+    print(__version__)
+    return 0
+
+
+def cmd_user_env_install(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import install_user_env
+
+    return install_user_env()
+
+
+def cmd_user_env_update(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import update_user_env
+
+    return update_user_env()
+
+
+def cmd_user_env_uninstall(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import uninstall_user_env
+
+    return uninstall_user_env(purge_data=bool(args.purge_data))
+
+
+def cmd_user_env_status(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import status_user_env
+
+    return status_user_env()
+
+
+def cmd_serve_api(args: argparse.Namespace) -> int:
+    from slack_mirror.service.api import run_api_server
+
+    run_api_server(bind=args.bind, port=args.port, config_path=args.config)
+    return 0
+
+
+def cmd_serve_mcp(args: argparse.Namespace) -> int:
+    from slack_mirror.service.mcp import run_mcp_stdio
+
+    run_mcp_stdio(config_path=args.config)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="slack-mirror",
         description="Slack workspace mirror CLI for backfills, webhook ingest, and processing.",
     )
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
         "--config",
         default=None,
@@ -1646,6 +1676,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ws_sync.set_defaults(func=cmd_workspaces_sync)
     p_ws_verify = ws_sub.add_parser("verify")
     p_ws_verify.add_argument("--workspace")
+    p_ws_verify.add_argument(
+        "--require-explicit-outbound",
+        action="store_true",
+        help="fail when outbound_token/outbound_user_token are not explicitly configured",
+    )
     p_ws_verify.set_defaults(func=cmd_workspaces_verify)
 
     channels = sub.add_parser("channels", help="channel mapping integration helpers")
@@ -1744,6 +1779,33 @@ def build_parser() -> argparse.ArgumentParser:
     p_comp = p_completion.add_parser("print")
     p_comp.add_argument("shell", choices=["bash", "zsh"])
     p_comp.set_defaults(func=cmd_completion)
+
+    api = sub.add_parser("api", help="local HTTP API commands")
+    api_sub = api.add_subparsers(dest="api_cmd")
+    p_api_serve = api_sub.add_parser("serve", help="run the local HTTP API server")
+    p_api_serve.add_argument("--bind", default="127.0.0.1", help="bind address")
+    p_api_serve.add_argument("--port", type=int, default=8788, help="listen port")
+    p_api_serve.set_defaults(func=cmd_serve_api)
+
+    mcp = sub.add_parser("mcp", help="local MCP server commands")
+    mcp_sub = mcp.add_subparsers(dest="mcp_cmd")
+    p_mcp_serve = mcp_sub.add_parser("serve", help="run the local MCP stdio server")
+    p_mcp_serve.set_defaults(func=cmd_serve_mcp)
+
+    user_env = sub.add_parser("user-env", help="supported user-scope install/update commands")
+    user_env_sub = user_env.add_subparsers(dest="user_env_cmd")
+    p_user_install = user_env_sub.add_parser("install", help="install isolated user runtime from the current repo")
+    p_user_install.set_defaults(func=cmd_user_env_install)
+    p_user_update = user_env_sub.add_parser("update", help="update isolated user runtime from the current repo")
+    p_user_update.set_defaults(func=cmd_user_env_update)
+    p_user_uninstall = user_env_sub.add_parser("uninstall", help="remove isolated user runtime")
+    p_user_uninstall.add_argument("--purge-data", action="store_true", help="also remove config, DB, and cache")
+    p_user_uninstall.set_defaults(func=cmd_user_env_uninstall)
+    p_user_status = user_env_sub.add_parser("status", help="show user-scope install status")
+    p_user_status.set_defaults(func=cmd_user_env_status)
+
+    version_parser = sub.add_parser("version", help="print the package version")
+    version_parser.set_defaults(func=cmd_version)
 
     return parser
 

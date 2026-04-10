@@ -1,6 +1,15 @@
 import unittest
+from unittest.mock import patch
 
-from slack_mirror.cli.main import build_parser
+from slack_mirror import __version__
+from slack_mirror.cli.main import (
+    build_parser,
+    cmd_serve_mcp,
+    cmd_user_env_install,
+    cmd_user_env_status,
+    cmd_user_env_uninstall,
+    cmd_user_env_update,
+)
 
 
 class CliTests(unittest.TestCase):
@@ -266,6 +275,81 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.glob, "**/*.md")
         self.assertEqual(args.limit, 5)
         self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_user_env_install(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "install"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "install")
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_user_env_uninstall(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "uninstall", "--purge-data"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "uninstall")
+        self.assertTrue(args.purge_data)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_version_command(self):
+        parser = build_parser()
+        args = parser.parse_args(["version"])
+        self.assertEqual(args.command, "version")
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_api_serve(self):
+        parser = build_parser()
+        args = parser.parse_args(["api", "serve", "--bind", "0.0.0.0", "--port", "8788"])
+        self.assertEqual(args.command, "api")
+        self.assertEqual(args.api_cmd, "serve")
+        self.assertEqual(args.bind, "0.0.0.0")
+        self.assertEqual(args.port, 8788)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_mcp_serve(self):
+        parser = build_parser()
+        args = parser.parse_args(["mcp", "serve"])
+        self.assertEqual(args.command, "mcp")
+        self.assertEqual(args.mcp_cmd, "serve")
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_runtime_version_matches_pyproject_source(self):
+        self.assertEqual(__version__, "0.2.0-dev")
+
+    @patch("slack_mirror.service.user_env.install_user_env", return_value=0)
+    def test_user_env_install_dispatches_to_service(self, mock_install):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "install"])
+        self.assertEqual(cmd_user_env_install(args), 0)
+        mock_install.assert_called_once_with()
+
+    @patch("slack_mirror.service.user_env.update_user_env", return_value=0)
+    def test_user_env_update_dispatches_to_service(self, mock_update):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "update"])
+        self.assertEqual(cmd_user_env_update(args), 0)
+        mock_update.assert_called_once_with()
+
+    @patch("slack_mirror.service.user_env.uninstall_user_env", return_value=0)
+    def test_user_env_uninstall_dispatches_to_service(self, mock_uninstall):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "uninstall", "--purge-data"])
+        self.assertEqual(cmd_user_env_uninstall(args), 0)
+        mock_uninstall.assert_called_once_with(purge_data=True)
+
+    @patch("slack_mirror.service.user_env.status_user_env", return_value=0)
+    def test_user_env_status_dispatches_to_service(self, mock_status):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "status"])
+        self.assertEqual(cmd_user_env_status(args), 0)
+        mock_status.assert_called_once_with()
+
+    @patch("slack_mirror.service.mcp.run_mcp_stdio", return_value=None)
+    def test_mcp_serve_dispatches_to_service(self, mock_run):
+        parser = build_parser()
+        args = parser.parse_args(["mcp", "serve"])
+        self.assertEqual(cmd_serve_mcp(args), 0)
+        mock_run.assert_called_once_with(config_path=None)
 
     def test_parse_search_reindex_keyword(self):
         parser = build_parser()

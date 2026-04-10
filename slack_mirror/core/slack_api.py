@@ -150,6 +150,21 @@ class SlackApiClient:
             sleep(self.pause_seconds)
         return files
 
+    def open_direct_message(self, *, user_id: str) -> dict[str, Any]:
+        return self._call_with_backoff(self.client.conversations_open, users=user_id).data
+
+    def send_message(self, *, channel: str, text: str, **kwargs: Any) -> dict[str, Any]:
+        return self._call_with_backoff(self.client.chat_postMessage, channel=channel, text=text, **kwargs).data
+
+    def send_thread_reply(self, *, channel: str, thread_ts: str, text: str, **kwargs: Any) -> dict[str, Any]:
+        return self._call_with_backoff(
+            self.client.chat_postMessage,
+            channel=channel,
+            thread_ts=thread_ts,
+            text=text,
+            **kwargs,
+        ).data
+
 
 def safe_auth_test(token: str) -> tuple[bool, str]:
     try:
