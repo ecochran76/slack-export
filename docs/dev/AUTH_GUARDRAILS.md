@@ -13,6 +13,8 @@ This doc captures the expected behavior of auth guardrails in `slack-mirror` and
 - `config.local.yaml` includes `dotenv: ~/credentials/API-keys.env`
 - `default` workspace token resolves from `SLACK_BOT_TOKEN`
 - `SLACK_USER_TOKEN` is present for explicit user-mode tests
+- `default.outbound_token` resolves from `SLACK_BOT_TOKEN`
+- `default.outbound_user_token` resolves from `SLACK_USER_TOKEN`
 
 ## Test Matrix
 
@@ -20,10 +22,12 @@ This doc captures the expected behavior of auth guardrails in `slack-mirror` and
 
 ```bash
 .venv/bin/python -m slack_mirror.cli.main --config config.local.yaml workspaces verify --workspace default
+.venv/bin/python -m slack_mirror.cli.main --config config.local.yaml workspaces verify --workspace default --require-explicit-outbound
 ```
 
 Expected:
 - `default ok ok team=<team> user=<bot-user>`
+- explicit outbound validation also passes
 
 ### 2) Negative guardrail: mismatched mode (bot token + user mode)
 

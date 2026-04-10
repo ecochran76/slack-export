@@ -11,14 +11,30 @@ This installs `slack-mirror` into an isolated user-owned runtime that is indepen
 - Runtime cache: `~/.local/cache/slack-mirror`
 - Config: `~/.config/slack-mirror/config.yaml`
 - Wrapper CLI: `~/.local/bin/slack-mirror-user`
+- API launcher: `~/.local/bin/slack-mirror-api`
+- MCP launcher: `~/.local/bin/slack-mirror-mcp`
+- API service: `~/.config/systemd/user/slack-mirror-api.service`
 
 The wrapper injects env vars for DB/cache and always points to the user config path.
+The API launcher runs `slack-mirror api serve` with the managed config.
+The MCP launcher runs `slack-mirror mcp serve` with the managed config.
+The API service runs the API launcher under `systemd --user`.
 
 ## Install
+
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env install
+```
+
+Script entrypoint:
 
 ```bash
 scripts/user_env.sh install
 ```
+
+The script is a compatibility shim that delegates to `slack-mirror user-env`.
 
 This will:
 1. copy current repo contents into the app snapshot
@@ -27,17 +43,31 @@ This will:
 4. create config from template if missing
 5. migrate legacy state from `~/.local/share/slack-mirror/var` if present
 6. run `mirror init` (migrations) and `workspaces sync-config`
+7. create managed launchers for CLI, API, and MCP entrypoints
+8. create and start the managed API service unit
 
 ## Update
+
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env update
+```
+
+Script entrypoint:
 
 ```bash
 scripts/user_env.sh update
 ```
 
+The script is a compatibility shim that delegates to `slack-mirror user-env`.
+
 Update preserves:
 - `~/.config/slack-mirror/config.yaml`
 - `~/.local/state/slack-mirror/slack_mirror.db`
 - `~/.local/cache/slack-mirror`
+- managed launchers are refreshed in place
+- `slack-mirror-api.service` is restarted in place
 
 It also saves the latest template to:
 - `~/.config/slack-mirror/config.example.latest.yaml`
@@ -46,22 +76,49 @@ Use that file to manually merge any newly introduced config keys.
 
 ## Uninstall
 
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env uninstall
+```
+
+Script entrypoint:
+
 ```bash
 scripts/user_env.sh uninstall
 ```
 
-Default uninstall removes app/venv/wrapper and keeps config/data.
+Default uninstall removes app/venv/wrappers/service and keeps config/data.
 
 To purge everything:
+
+```bash
+slack-mirror user-env uninstall --purge-data
+```
+
+Equivalent script form:
 
 ```bash
 scripts/user_env.sh uninstall --purge-data
 ```
 
+The script is a compatibility shim that delegates to `slack-mirror user-env`.
+It also removes the API and MCP launchers plus the API service unit.
+
 ## Status
+
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env status
+```
+
+Script entrypoint:
 
 ```bash
 scripts/user_env.sh status
 ```
 
-Shows wrapper/config/db presence and current live-mode service status.
+The script is a compatibility shim that delegates to `slack-mirror user-env`.
+
+Shows wrapper/API/MCP/API service/config/db presence and current live-mode service status.

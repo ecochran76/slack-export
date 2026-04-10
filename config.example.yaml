@@ -43,6 +43,8 @@ workspaces:
     client_id: ${SLACK_CLIENT_ID:-}
     client_secret: ${SLACK_CLIENT_SECRET:-}
     token: ${SLACK_BOT_TOKEN:-}
+    outbound_token: ${SLACK_WRITE_BOT_TOKEN:-}
     user_token: ${SLACK_USER_TOKEN:-}
+    outbound_user_token: ${SLACK_WRITE_USER_TOKEN:-}
     signing_secret: ${SLACK_SIGNING_SECRET:-}
     enabled: true

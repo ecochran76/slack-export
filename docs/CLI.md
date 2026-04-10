@@ -4,12 +4,14 @@ Slack workspace mirror CLI for backfills, webhook ingest, and processing.
 **Usage**
 
 ```
-usage: slack-mirror [-h] [--config CONFIG]
-                    {mirror,workspaces,channels,search,docs,completion} ...
+usage: slack-mirror [-h] [--version] [--config CONFIG]
+                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,user-env,version}
+                    ...
 ```
 
 **Options**
 
+- `--version` — show program's version number and exit
 - `--config` — config path; if omitted, search ./config.local.yaml, ./config.yaml, then ~/.config/slack-mirror/config.yaml
 
 **Arguments**
@@ -24,12 +26,45 @@ slack-mirror --config config.yaml workspaces list --json
 
 **Subcommands**
 
+- `api`
 - `channels`
 - `completion`
 - `docs`
+- `mcp`
+- `messages`
 - `mirror`
 - `search`
+- `user-env`
+- `version`
 - `workspaces`
+
+## `slack-mirror api`
+**Usage**
+
+```
+usage: slack-mirror api [-h] {serve} ...
+```
+
+**Arguments**
+
+
+**Subcommands**
+
+- `serve`
+
+### `slack-mirror api serve`
+**Usage**
+
+```
+usage: slack-mirror api serve [-h] [--bind BIND] [--port PORT]
+```
+
+**Options**
+
+- `--bind` — bind address; default: `127.0.0.1`
+- `--port` — listen port; default: `8788`
+
+
 
 ## `slack-mirror channels`
 **Usage**
@@ -118,6 +153,63 @@ usage: slack-mirror docs generate [-h] [--format {markdown,man}]
 slack-mirror --config config.yaml docs generate --format markdown --output docs/CLI.md
 slack-mirror --config config.yaml docs generate --format man --output docs/slack-mirror.1
 ```
+
+
+
+## `slack-mirror mcp`
+**Usage**
+
+```
+usage: slack-mirror mcp [-h] {serve} ...
+```
+
+**Arguments**
+
+
+**Subcommands**
+
+- `serve`
+
+### `slack-mirror mcp serve`
+**Usage**
+
+```
+usage: slack-mirror mcp serve [-h]
+```
+
+
+
+## `slack-mirror messages`
+**Usage**
+
+```
+usage: slack-mirror messages [-h] {list} ...
+```
+
+**Arguments**
+
+
+**Subcommands**
+
+- `list`
+
+### `slack-mirror messages list`
+**Usage**
+
+```
+usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
+                                  [--before BEFORE] [--channels CHANNELS]
+                                  [--limit LIMIT] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--after` — minimum timestamp (inclusive)
+- `--before` — maximum timestamp (inclusive)
+- `--channels` — comma-separated list of channel IDs or names
+- `--limit` — maximum results; default: `1000`
+- `--json`
 
 
 
@@ -561,6 +653,68 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 
 
 
+## `slack-mirror user-env`
+**Usage**
+
+```
+usage: slack-mirror user-env [-h] {install,update,uninstall,status} ...
+```
+
+**Arguments**
+
+
+**Subcommands**
+
+- `install`
+- `status`
+- `uninstall`
+- `update`
+
+### `slack-mirror user-env install`
+**Usage**
+
+```
+usage: slack-mirror user-env install [-h]
+```
+
+
+### `slack-mirror user-env status`
+**Usage**
+
+```
+usage: slack-mirror user-env status [-h]
+```
+
+
+### `slack-mirror user-env uninstall`
+**Usage**
+
+```
+usage: slack-mirror user-env uninstall [-h] [--purge-data]
+```
+
+**Options**
+
+- `--purge-data` — also remove config, DB, and cache
+
+
+### `slack-mirror user-env update`
+**Usage**
+
+```
+usage: slack-mirror user-env update [-h]
+```
+
+
+
+## `slack-mirror version`
+**Usage**
+
+```
+usage: slack-mirror version [-h]
+```
+
+
 ## `slack-mirror workspaces`
 **Usage**
 
@@ -602,8 +756,10 @@ usage: slack-mirror workspaces sync-config [-h]
 
 ```
 usage: slack-mirror workspaces verify [-h] [--workspace WORKSPACE]
+                                      [--require-explicit-outbound]
 ```
 
 **Options**
 
 - `--workspace`
+- `--require-explicit-outbound` — fail when outbound_token/outbound_user_token are not explicitly configured

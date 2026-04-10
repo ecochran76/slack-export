@@ -14,17 +14,16 @@ Repo-local `config.local.yaml` is still useful for dev/test, but it should not b
 
 ## What "live" means here
 
-Three long-running workers:
+Two long-running services per workspace:
 
 1. **Socket Mode receiver**
    - `mirror serve-socket-mode`
    - Receives Slack events and stores pending events in the configured DB.
-2. **Event processor**
-   - `mirror process-events --loop`
-   - Applies new/edit/delete/channel membership events to DB.
-3. **Embedding processor loop**
-   - `mirror process-embedding-jobs` in a short sleep loop
-   - Keeps semantic search near-real-time.
+2. **Unified daemon**
+   - `mirror daemon`
+   - Processes pending events, processes embedding jobs, and runs periodic reconcile.
+
+Do not run the older split `process-events --loop` and `process-embedding-jobs` services alongside the unified daemon for the same workspace. That creates duplicate writers and can produce `sqlite3.OperationalError: database is locked`.
 
 ## Quick start (tmux)
 
@@ -57,14 +56,7 @@ slack-mirror --config ~/.config/slack-mirror/config.yaml mirror serve-socket-mod
 ```
 
 ```bash
-slack-mirror --config ~/.config/slack-mirror/config.yaml mirror process-events --workspace default --loop --interval 2
-```
-
-```bash
-while true; do
-  slack-mirror --config ~/.config/slack-mirror/config.yaml mirror process-embedding-jobs --workspace default --limit 500
-  sleep 5
-done
+slack-mirror --config ~/.config/slack-mirror/config.yaml mirror daemon --workspace default --interval 2 --event-limit 1000 --embedding-limit 500 --model local-hash-128 --reconcile-minutes 2 --reconcile-channel-limit 1000 --auth-mode user
 ```
 
 ## Health checks
@@ -85,7 +77,7 @@ sqlite3 ~/.local/state/slack-mirror/slack_mirror.db "select status, count(*) fro
 
 ## Auto-start via systemd (user services)
 
-Install and start all three services:
+Install and start the supported two-service topology:
 
 ```bash
 scripts/install_live_mode_systemd_user.sh default
@@ -101,19 +93,19 @@ scripts/install_live_mode_systemd_user.sh default "$HOME/.config/slack-mirror/co
 Check status:
 
 ```bash
-systemctl --user status slack-mirror-webhooks-default.service slack-mirror-events-default.service slack-mirror-embeddings-default.service
+systemctl --user status slack-mirror-webhooks-default.service slack-mirror-daemon-default.service
 ```
 
 Follow logs:
 
 ```bash
-journalctl --user -u slack-mirror-webhooks-default.service -u slack-mirror-events-default.service -u slack-mirror-embeddings-default.service -f
+journalctl --user -u slack-mirror-webhooks-default.service -u slack-mirror-daemon-default.service -f
 ```
 
 Enable auto-start after reboot/login:
 
 ```bash
-systemctl --user enable slack-mirror-webhooks-default.service slack-mirror-events-default.service slack-mirror-embeddings-default.service
+systemctl --user enable slack-mirror-webhooks-default.service slack-mirror-daemon-default.service
 ```
 
 (Optional) keep user services running without active login session:
@@ -124,7 +116,8 @@ loginctl enable-linger "$USER"
 
 ## Notes
 
-- Keep event processor interval low (1-3s) for responsive updates.
-- Embedding loop frequency trades off freshness vs compute; 5-15s is a good default.
+- Keep daemon interval low (1-3s) for responsive updates.
+- The daemon owns embedding job draining and periodic reconcile.
 - For local dev, tmux is easiest to inspect interactively; systemd is better for unattended operation.
 - If the mirror DB ever seems stale, first confirm the live services are pointed at the same config/DB you expect.
+- Use `scripts/live_mode_status.sh <workspace>` or `scripts/live_mode_status_all.sh` to spot duplicate topology, queue backlog, and recent freshness.

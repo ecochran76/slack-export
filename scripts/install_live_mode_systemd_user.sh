@@ -10,6 +10,10 @@ set -euo pipefail
 #   scripts/install_live_mode_systemd_user.sh default "$HOME/.config/slack-mirror/config.yaml"
 #
 # Socket Mode is used for inbound Slack events, so no local port forwarding/tunnel is required.
+# Supported steady-state topology per workspace:
+#   - one Socket Mode receiver
+#   - one unified daemon
+# Do not run the older split events/embeddings units alongside the daemon.
 
 WORKSPACE="${1:-default}"
 USER_CONFIG_DEFAULT="${HOME}/.config/slack-mirror/config.yaml"
@@ -40,8 +44,9 @@ fi
 mkdir -p "${UNIT_DIR}"
 
 RECEIVER_UNIT="slack-mirror-webhooks-${WORKSPACE}.service"
-EVENTS_UNIT="slack-mirror-events-${WORKSPACE}.service"
-EMBEDDINGS_UNIT="slack-mirror-embeddings-${WORKSPACE}.service"
+DAEMON_UNIT="slack-mirror-daemon-${WORKSPACE}.service"
+LEGACY_EVENTS_UNIT="slack-mirror-events-${WORKSPACE}.service"
+LEGACY_EMBEDDINGS_UNIT="slack-mirror-embeddings-${WORKSPACE}.service"
 
 cat > "${UNIT_DIR}/${RECEIVER_UNIT}" <<EOF
 [Unit]
@@ -60,33 +65,16 @@ RestartSec=2
 WantedBy=default.target
 EOF
 
-cat > "${UNIT_DIR}/${EVENTS_UNIT}" <<EOF
+cat > "${UNIT_DIR}/${DAEMON_UNIT}" <<EOF
 [Unit]
-Description=Slack Mirror event processor (${WORKSPACE})
+Description=Slack Mirror unified daemon (${WORKSPACE})
 After=network-online.target ${RECEIVER_UNIT}
 Wants=network-online.target ${RECEIVER_UNIT}
 
 [Service]
 Type=simple
 WorkingDirectory=${REPO_ROOT}
-ExecStart=${SLACK_MIRROR_BIN} --config ${CONFIG} mirror process-events --workspace ${WORKSPACE} --loop --interval 2
-Restart=always
-RestartSec=2
-
-[Install]
-WantedBy=default.target
-EOF
-
-cat > "${UNIT_DIR}/${EMBEDDINGS_UNIT}" <<EOF
-[Unit]
-Description=Slack Mirror embedding jobs processor (${WORKSPACE})
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-WorkingDirectory=${REPO_ROOT}
-ExecStart=/usr/bin/env bash -lc 'while true; do "${SLACK_MIRROR_BIN}" --config ${CONFIG} mirror process-embedding-jobs --workspace ${WORKSPACE} --limit 500; sleep 5; done'
+ExecStart=${SLACK_MIRROR_BIN} --config ${CONFIG} mirror daemon --workspace ${WORKSPACE} --interval 2 --event-limit 1000 --embedding-limit 500 --model local-hash-128 --reconcile-minutes 2 --reconcile-channel-limit 1000 --auth-mode user
 Restart=always
 RestartSec=2
 
@@ -95,22 +83,24 @@ WantedBy=default.target
 EOF
 
 systemctl --user daemon-reload
-systemctl --user enable "${RECEIVER_UNIT}" "${EVENTS_UNIT}" "${EMBEDDINGS_UNIT}" >/dev/null
-systemctl --user restart "${RECEIVER_UNIT}" "${EVENTS_UNIT}" "${EMBEDDINGS_UNIT}"
+systemctl --user disable --now "${LEGACY_EVENTS_UNIT}" "${LEGACY_EMBEDDINGS_UNIT}" >/dev/null 2>&1 || true
+systemctl --user enable "${RECEIVER_UNIT}" "${DAEMON_UNIT}" >/dev/null
+systemctl --user restart "${RECEIVER_UNIT}" "${DAEMON_UNIT}"
 
 echo "Installed + started user services:"
 echo "  - ${RECEIVER_UNIT}"
-echo "  - ${EVENTS_UNIT}"
-echo "  - ${EMBEDDINGS_UNIT}"
+echo "  - ${DAEMON_UNIT}"
 echo "  - config: ${CONFIG}"
+echo "Disabled legacy units if present:"
+echo "  - ${LEGACY_EVENTS_UNIT}"
+echo "  - ${LEGACY_EMBEDDINGS_UNIT}"
 echo
 systemctl --user --no-pager --full status \
   "${RECEIVER_UNIT}" \
-  "${EVENTS_UNIT}" \
-  "${EMBEDDINGS_UNIT}" | sed -n '1,120p'
+  "${DAEMON_UNIT}" | sed -n '1,120p'
 
 echo
 echo "Useful commands:"
-echo "  systemctl --user restart ${RECEIVER_UNIT} ${EVENTS_UNIT} ${EMBEDDINGS_UNIT}"
-echo "  systemctl --user stop ${RECEIVER_UNIT} ${EVENTS_UNIT} ${EMBEDDINGS_UNIT}"
-echo "  journalctl --user -u ${RECEIVER_UNIT} -u ${EVENTS_UNIT} -u ${EMBEDDINGS_UNIT} -f"
+echo "  systemctl --user restart ${RECEIVER_UNIT} ${DAEMON_UNIT}"
+echo "  systemctl --user stop ${RECEIVER_UNIT} ${DAEMON_UNIT}"
+echo "  journalctl --user -u ${RECEIVER_UNIT} -u ${DAEMON_UNIT} -f"

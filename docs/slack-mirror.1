@@ -5,10 +5,13 @@ slack-mirror - CLI documentation
 Slack workspace mirror CLI for backfills, webhook ingest, and processing.
 **Usage**
 
-usage: slack-mirror [-h] [--config CONFIG]
-                    {mirror,workspaces,channels,search,docs,completion} ...
+usage: slack-mirror [-h] [--version] [--config CONFIG]
+                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,user-env,version}
+                    ...
 
 **Options**
+.IP \[bu] 2
+`--version` — show program's version number and exit
 .IP \[bu] 2
 `--config` — config path; if omitted, search ./config.local.yaml, ./config.yaml, then ~/.config/slack-mirror/config.yaml
 **Arguments**
@@ -19,17 +22,46 @@ slack-mirror --config config.yaml workspaces list --json
 
 **Subcommands**
 .IP \[bu] 2
+`api`
+.IP \[bu] 2
 `channels`
 .IP \[bu] 2
 `completion`
 .IP \[bu] 2
 `docs`
 .IP \[bu] 2
+`mcp`
+.IP \[bu] 2
+`messages`
+.IP \[bu] 2
 `mirror`
 .IP \[bu] 2
 `search`
 .IP \[bu] 2
+`user-env`
+.IP \[bu] 2
+`version`
+.IP \[bu] 2
 `workspaces`
+.SH SLACK-MIRROR API
+**Usage**
+
+usage: slack-mirror api [-h] {serve} ...
+
+**Arguments**
+**Subcommands**
+.IP \[bu] 2
+`serve`
+.SH SLACK-MIRROR API SERVE
+**Usage**
+
+usage: slack-mirror api serve [-h] [--bind BIND] [--port PORT]
+
+**Options**
+.IP \[bu] 2
+`--bind` — bind address; default: `127.0.0.1`
+.IP \[bu] 2
+`--port` — listen port; default: `8788`
 .SH SLACK-MIRROR CHANNELS
 **Usage**
 
@@ -89,6 +121,49 @@ usage: slack-mirror docs generate [-h] [--format {markdown,man}]
 slack-mirror --config config.yaml docs generate --format markdown --output docs/CLI.md
 slack-mirror --config config.yaml docs generate --format man --output docs/slack-mirror.1
 
+.SH SLACK-MIRROR MCP
+**Usage**
+
+usage: slack-mirror mcp [-h] {serve} ...
+
+**Arguments**
+**Subcommands**
+.IP \[bu] 2
+`serve`
+.SH SLACK-MIRROR MCP SERVE
+**Usage**
+
+usage: slack-mirror mcp serve [-h]
+
+.SH SLACK-MIRROR MESSAGES
+**Usage**
+
+usage: slack-mirror messages [-h] {list} ...
+
+**Arguments**
+**Subcommands**
+.IP \[bu] 2
+`list`
+.SH SLACK-MIRROR MESSAGES LIST
+**Usage**
+
+usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
+                                  [--before BEFORE] [--channels CHANNELS]
+                                  [--limit LIMIT] [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--after` — minimum timestamp (inclusive)
+.IP \[bu] 2
+`--before` — maximum timestamp (inclusive)
+.IP \[bu] 2
+`--channels` — comma-separated list of channel IDs or names
+.IP \[bu] 2
+`--limit` — maximum results; default: `1000`
+.IP \[bu] 2
+`--json`
 .SH SLACK-MIRROR MIRROR
 **Usage**
 
@@ -562,6 +637,49 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 `--rerank-top-n` — top N rows to rerank when --rerank is enabled; default: `50`
 .IP \[bu] 2
 `--json` — json output
+.SH SLACK-MIRROR USER-ENV
+**Usage**
+
+usage: slack-mirror user-env [-h] {install,update,uninstall,status} ...
+
+**Arguments**
+**Subcommands**
+.IP \[bu] 2
+`install`
+.IP \[bu] 2
+`status`
+.IP \[bu] 2
+`uninstall`
+.IP \[bu] 2
+`update`
+.SH SLACK-MIRROR USER-ENV INSTALL
+**Usage**
+
+usage: slack-mirror user-env install [-h]
+
+.SH SLACK-MIRROR USER-ENV STATUS
+**Usage**
+
+usage: slack-mirror user-env status [-h]
+
+.SH SLACK-MIRROR USER-ENV UNINSTALL
+**Usage**
+
+usage: slack-mirror user-env uninstall [-h] [--purge-data]
+
+**Options**
+.IP \[bu] 2
+`--purge-data` — also remove config, DB, and cache
+.SH SLACK-MIRROR USER-ENV UPDATE
+**Usage**
+
+usage: slack-mirror user-env update [-h]
+
+.SH SLACK-MIRROR VERSION
+**Usage**
+
+usage: slack-mirror version [-h]
+
 .SH SLACK-MIRROR WORKSPACES
 **Usage**
 
@@ -592,7 +710,10 @@ usage: slack-mirror workspaces sync-config [-h]
 **Usage**
 
 usage: slack-mirror workspaces verify [-h] [--workspace WORKSPACE]
+                                      [--require-explicit-outbound]
 
 **Options**
 .IP \[bu] 2
 `--workspace`
+.IP \[bu] 2
+`--require-explicit-outbound` — fail when outbound_token/outbound_user_token are not explicitly configured

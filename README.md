@@ -2,6 +2,26 @@
 
 A Python script to export Slack conversations, canvases, and files.
 
+This repo also contains the newer `slack_mirror` package for multi-workspace ingest, local search, and always-on live sync. For current live-ops setup, use the runbooks in [docs/dev/LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md) and [docs/CLI.md](/home/ecochran76/workspace.local/slack-export/docs/CLI.md).
+
+## Current Live Topology
+
+For unattended live operation, the supported systemd user-service topology is:
+
+- one `serve-socket-mode` unit per workspace
+- one unified `daemon` unit per workspace
+
+Do not run the older split `process-events` and `process-embedding-jobs` units alongside the unified daemon for the same workspace. That creates duplicate writers against the same SQLite DB and can lead to lock contention.
+
+Useful commands:
+
+```bash
+scripts/install_live_mode_systemd_user.sh default
+scripts/install_live_mode_systemd_user.sh soylei
+scripts/live_mode_status_all.sh
+./.venv/bin/python -m unittest discover -s tests -v
+```
+
 ## Description
 
 The `slack_export.py` script uses a Slack user token to export:

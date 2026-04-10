@@ -16,6 +16,9 @@ workspaces:
   - name: default
     team_id: ${SLACK_TEAM_ID:-}
     token: ${SLACK_TOKEN:-}
+    outbound_token: ${SLACK_WRITE_BOT_TOKEN:-}
+    user_token: ${SLACK_USER_TOKEN:-}
+    outbound_user_token: ${SLACK_WRITE_USER_TOKEN:-}
     signing_secret: ${SLACK_SIGNING_SECRET:-}
     enabled: true
 ```
@@ -24,6 +27,15 @@ workspaces:
 
 - `${VAR}` → required env var (empty if not set)
 - `${VAR:-fallback}` → env var with default fallback
+
+## Token selection by action
+
+- `token` / `user_token` are the default read-path credentials.
+- `outbound_token` / `outbound_user_token` are used for write actions such as sending messages or thread replies.
+- If outbound token fields are not set, the service falls back to workspace-aware env aliases for writes.
+- For the `default` workspace, generic env names like `SLACK_BOT_TOKEN` and `SLACK_USER_TOKEN` are considered write-capable fallbacks.
+- For production installs, prefer explicit outbound fields rather than fallback heuristics.
+- `workspaces verify --require-explicit-outbound` enforces that policy during validation.
 
 ## Path resolution rules
 
@@ -42,6 +54,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 python -m slack_mirror.cli.main --config config.yaml mirror init
 python -m slack_mirror.cli.main --config config.yaml workspaces sync-config
 python -m slack_mirror.cli.main --config config.yaml workspaces verify
+python -m slack_mirror.cli.main --config config.yaml workspaces verify --require-explicit-outbound
 python -m slack_mirror.cli.main --config config.yaml workspaces list
 python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default
 python -m slack_mirror.cli.main --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 5
