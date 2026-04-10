@@ -19,7 +19,8 @@ Harden the supported live-service operating model into a stable operator contrac
 - the supported two-service topology per workspace is documented
 - live-mode install and status scripts exist
 - `slack-mirror user-env validate-live` now checks the managed live contract for config, DB, workspace sync, explicit outbound write tokens, expected active units, and duplicate legacy topology
-- remaining work is to tighten restart/recovery guidance, richer failure classification, and broader operator smoke coverage
+- validator output now includes stable failure classes and recovery hints
+- remaining work is broader operator smoke coverage and any deeper queue-freshness heuristics that should become part of the supported contract
 
 ## Parallel Tracks
 

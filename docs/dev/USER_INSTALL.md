@@ -140,3 +140,16 @@ This checks the supported unattended runtime contract and fails when it finds:
 - duplicate legacy `events` or `embeddings` units active alongside the unified daemon
 
 Queue error counts are reported as warnings so the command can distinguish broken topology from recoverable backlog or historical failures.
+
+The command emits stable issue classes such as:
+
+- `CONFIG_MISSING`
+- `DB_MISSING`
+- `WORKSPACE_DB_MISSING`
+- `OUTBOUND_TOKEN_MISSING`
+- `LIVE_UNIT_INACTIVE`
+- `DUPLICATE_TOPOLOGY`
+- `EVENT_ERRORS`
+- `EMBEDDING_ERRORS`
+
+See [LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md) for the recovery flow tied to those classes.

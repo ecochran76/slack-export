@@ -105,3 +105,19 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 6 | 2026-04-10
+
+- Tightened `slack-mirror user-env validate-live` so it now emits stable failure and warning classes instead of flat strings.
+- Added recovery hints directly to validator output for:
+  - config failures
+  - DB and workspace-sync failures
+  - missing explicit outbound token failures
+  - inactive or missing managed units
+  - duplicate-topology failures
+- Documented the failure classes and first-response recovery flow in the live-ops docs.
+- Updated the `P04` plan current-state note to reflect that failure classification and restart/recovery guidance are now part of the supported runtime contract.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

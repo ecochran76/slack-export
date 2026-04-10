@@ -423,64 +423,86 @@ def validate_live_user_env(
     out: PrintFn = print,
 ) -> int:
     target = paths or default_user_env_paths()
-    failures: list[str] = []
-    warnings: list[str] = []
+    failures: list[tuple[str, str, str | None]] = []
+    warnings: list[tuple[str, str, str | None]] = []
 
     def ok(message: str) -> None:
         out(f"OK    {message}")
 
-    def warn(message: str) -> None:
-        warnings.append(message)
-        out(f"WARN  {message}")
+    def warn(code: str, message: str, action: str | None = None) -> None:
+        warnings.append((code, message, action))
+        out(f"WARN  [{code}] {message}")
 
-    def fail(message: str) -> None:
-        failures.append(message)
-        out(f"FAIL  {message}")
+    def fail(code: str, message: str, action: str | None = None) -> None:
+        failures.append((code, message, action))
+        out(f"FAIL  [{code}] {message}")
+
+    def emit_actions(items: list[tuple[str, str, str | None]], *, label: str) -> None:
+        actions: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for code, _message, action in items:
+            if not action:
+                continue
+            key = (code, action)
+            if key in seen:
+                continue
+            seen.add(key)
+            actions.append(key)
+        if not actions:
+            return
+        out(label)
+        for code, action in actions:
+            out(f"  [{code}] {action}")
 
     out(f"Config: {target.config_path}")
     if not target.config_path.exists():
-        fail("managed config is missing")
+        fail("CONFIG_MISSING", "managed config is missing", "run `slack-mirror user-env install` or restore ~/.config/slack-mirror/config.yaml")
         out(f"Summary: FAIL ({len(failures)} failure)")
+        emit_actions(failures, label="Recovery:")
         return 1
     ok("managed config present")
 
     try:
         cfg = load_config(target.config_path)
     except Exception as exc:
-        fail(f"managed config could not be loaded: {exc}")
+        fail("CONFIG_INVALID", f"managed config could not be loaded: {exc}", "fix the config or dotenv path, then rerun `slack-mirror user-env validate-live`")
         out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        emit_actions(failures, label="Recovery:")
         return 1
 
     db_path = Path(str(cfg.get("storage", {}).get("db_path", target.state_dir / "slack_mirror.db"))).expanduser()
     out(f"DB:     {db_path}")
     if not db_path.exists():
-        fail("managed DB is missing")
+        fail("DB_MISSING", "managed DB is missing", "run `slack-mirror user-env install` or `slack-mirror-user mirror init && slack-mirror-user workspaces sync-config`")
         out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        emit_actions(failures, label="Recovery:")
         return 1
     ok("managed DB present")
 
     workspace_configs = [ws for ws in cfg.get("workspaces", []) if ws.get("name") and ws.get("enabled", True)]
     if not workspace_configs:
-        fail("no enabled workspaces found in managed config")
+        fail("WORKSPACE_CONFIG", "no enabled workspaces found in managed config", "add at least one enabled workspace to config.yaml and rerun workspace sync")
         out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        emit_actions(failures, label="Recovery:")
         return 1
 
     api_unit = "slack-mirror-api.service"
     if target.api_service_path.exists():
         ok(f"{api_unit} unit file present")
     else:
-        fail(f"{api_unit} unit file missing")
+        fail("API_UNIT_MISSING", f"{api_unit} unit file missing", "run `slack-mirror user-env update` to recreate the managed API service")
     api_state = _systemctl_state(runner, api_unit)
     if api_state == "active":
         ok(f"{api_unit} active")
     else:
-        fail(f"{api_unit} state={api_state}")
+        fail("API_UNIT_INACTIVE", f"{api_unit} state={api_state}", f"run `systemctl --user restart {api_unit}` and inspect `journalctl --user -u {api_unit} -n 50`")
 
     try:
         db_workspaces = _db_workspace_names(db_path)
     except sqlite3.DatabaseError as exc:
-        fail(f"managed DB unreadable: {exc}")
+        fail("DB_UNREADABLE", f"managed DB unreadable: {exc}", "inspect the DB path in config, then rerun `slack-mirror-user mirror init` if schema repair is needed")
         out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        emit_actions(failures, label="Recovery:")
         return 1
 
     for ws in workspace_configs:
@@ -488,19 +510,19 @@ def validate_live_user_env(
         if name in db_workspaces:
             ok(f"workspace {name} synced into DB")
         else:
-            fail(f"workspace {name} missing from DB")
+            fail("WORKSPACE_DB_MISSING", f"workspace {name} missing from DB", f"run `slack-mirror-user workspaces sync-config` for workspace `{name}`")
 
         outbound_token = ws.get("outbound_token") or ws.get("write_token")
         outbound_user_token = ws.get("outbound_user_token") or ws.get("write_user_token")
         if outbound_token:
             ok(f"workspace {name} explicit outbound bot token configured")
         else:
-            fail(f"workspace {name} missing explicit outbound bot token")
+            fail("OUTBOUND_TOKEN_MISSING", f"workspace {name} missing explicit outbound bot token", f"set `outbound_token` or `write_token` for workspace `{name}`")
         if ws.get("user_token"):
             if outbound_user_token:
                 ok(f"workspace {name} explicit outbound user token configured")
             else:
-                fail(f"workspace {name} missing explicit outbound user token")
+                fail("OUTBOUND_USER_TOKEN_MISSING", f"workspace {name} missing explicit outbound user token", f"set `outbound_user_token` or `write_user_token` for workspace `{name}`")
 
         receiver_unit = f"slack-mirror-webhooks-{name}.service"
         daemon_unit = f"slack-mirror-daemon-{name}.service"
@@ -509,37 +531,40 @@ def validate_live_user_env(
             if unit_path.exists():
                 ok(f"{unit_name} unit file present")
             else:
-                fail(f"{unit_name} unit file missing")
+                fail("LIVE_UNIT_MISSING", f"{unit_name} unit file missing", f"run `scripts/install_live_mode_systemd_user.sh {name}` or reinstall the managed live stack")
             unit_state = _systemctl_state(runner, unit_name)
             if unit_state == "active":
                 ok(f"{unit_name} active")
             else:
-                fail(f"{unit_name} state={unit_state}")
+                fail("LIVE_UNIT_INACTIVE", f"{unit_name} state={unit_state}", f"run `systemctl --user restart {receiver_unit} {daemon_unit}` and inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50`")
 
         for unit_name in (
             f"slack-mirror-events-{name}.service",
             f"slack-mirror-embeddings-{name}.service",
         ):
             if _systemctl_state(runner, unit_name) == "active":
-                fail(f"duplicate topology active: {unit_name}")
+                fail("DUPLICATE_TOPOLOGY", f"duplicate topology active: {unit_name}", f"run `systemctl --user disable --now {unit_name}` to keep only the unified daemon topology for `{name}`")
 
         try:
             event_counts = _db_status_counts(db_path, name, "events")
             embedding_counts = _db_status_counts(db_path, name, "embedding_jobs")
         except sqlite3.DatabaseError as exc:
-            fail(f"workspace {name} queue inspection failed: {exc}")
+            fail("QUEUE_INSPECTION_FAILED", f"workspace {name} queue inspection failed: {exc}", f"inspect `{db_path}` and rerun `slack-mirror user-env validate-live` after DB health is restored")
             continue
 
         if event_counts.get("error", 0):
-            warn(f"workspace {name} has event errors: {event_counts.get('error', 0)}")
+            warn("EVENT_ERRORS", f"workspace {name} has event errors: {event_counts.get('error', 0)}", f"inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50` and replay or clear failed event rows if needed")
         if embedding_counts.get("error", 0):
-            warn(f"workspace {name} has embedding job errors: {embedding_counts.get('error', 0)}")
+            warn("EMBEDDING_ERRORS", f"workspace {name} has embedding job errors: {embedding_counts.get('error', 0)}", f"inspect daemon logs and replay or clear failed embedding jobs for workspace `{name}`")
 
     if failures:
         out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        emit_actions(failures, label="Recovery:")
+        emit_actions(warnings, label="Warnings:")
         return 1
     if warnings:
         out(f"Summary: PASS with warnings ({len(warnings)})")
+        emit_actions(warnings, label="Warnings:")
         return 0
     out("Summary: PASS")
     return 0

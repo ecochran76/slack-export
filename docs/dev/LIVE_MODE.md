@@ -127,3 +127,33 @@ loginctl enable-linger "$USER"
 - For local dev, tmux is easiest to inspect interactively; systemd is better for unattended operation.
 - If the mirror DB ever seems stale, first confirm the live services are pointed at the same config/DB you expect.
 - Use `scripts/live_mode_status.sh <workspace>` or `scripts/live_mode_status_all.sh` to spot duplicate topology, queue backlog, and recent freshness.
+
+## Failure Classes And Recovery
+
+`slack-mirror user-env validate-live` now emits stable issue classes so the first recovery step is obvious.
+
+Common hard failures:
+
+- `CONFIG_MISSING` or `CONFIG_INVALID`
+  - restore or fix `~/.config/slack-mirror/config.yaml`, then rerun validation
+- `DB_MISSING`, `DB_UNREADABLE`, or `WORKSPACE_DB_MISSING`
+  - run `slack-mirror-user mirror init`
+  - run `slack-mirror-user workspaces sync-config`
+  - confirm the configured DB path is the one the live services use
+- `OUTBOUND_TOKEN_MISSING` or `OUTBOUND_USER_TOKEN_MISSING`
+  - set explicit write-capable outbound tokens in config for the affected workspace
+- `API_UNIT_MISSING`, `API_UNIT_INACTIVE`, `LIVE_UNIT_MISSING`, or `LIVE_UNIT_INACTIVE`
+  - run `slack-mirror user-env update` if the managed API unit is missing
+  - run `scripts/install_live_mode_systemd_user.sh <workspace>` if the workspace live units are missing
+  - restart the affected units with `systemctl --user restart ...`
+  - inspect logs with `journalctl --user -u <unit> -n 50`
+- `DUPLICATE_TOPOLOGY`
+  - disable the split legacy workers:
+    `systemctl --user disable --now slack-mirror-events-<workspace>.service slack-mirror-embeddings-<workspace>.service`
+
+Warnings:
+
+- `EVENT_ERRORS`
+- `EMBEDDING_ERRORS`
+
+Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.
