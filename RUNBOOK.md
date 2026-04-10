@@ -244,3 +244,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P05` plan current-state note so the remaining scope is now narrow and explicit.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_cli -v`
+
+## Turn 16 | 2026-04-10
+
+- Closed `P05 | Outbound Messaging And Listeners`.
+- Closure basis:
+  - outbound write-token routing, DM resolution, idempotency, and replay semantics are implemented and tested
+  - listener registration, filtering, delivery, and acknowledgement semantics are implemented and documented
+  - missing-ID failure behavior is now explicit through service, API, and MCP
+  - the local queue-delivery listener model is now treated as the intended shipped baseline, not a temporary placeholder
+- Deferred from `P05` closure:
+  - richer retry/requeue policy for listeners
+  - broader automation features beyond the current local consumer model
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

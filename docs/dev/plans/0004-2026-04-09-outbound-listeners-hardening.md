@@ -1,6 +1,6 @@
 # Outbound Listeners Hardening
 
-State: OPEN
+State: CLOSED
 Roadmap: P05
 Opened: 2026-04-09
 
@@ -21,7 +21,8 @@ Harden the already-implemented outbound messaging and listener capabilities into
 - listener registration, delivery listing, and acknowledgement exist through service, API, and MCP
 - the shipped transport contract now documents outbound-write semantics plus listener registration, delivery, and acknowledgement behavior in `docs/API_MCP_CONTRACT.md`
 - missing listener/delivery IDs now fail explicitly instead of silently succeeding through unregister/ack paths
-- remaining work is now narrow: decide whether current listener replay/failure behavior is sufficient for closure or whether a richer retry policy is still required
+- the current local queue-delivery model is now treated as the intentional shipped listener contract
+- richer retry/requeue policy is deferred unless a concrete subscribed-process requirement appears
 
 ## Parallel Tracks
 

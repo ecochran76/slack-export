@@ -91,7 +91,7 @@ Legacy context:
 
 ## P05 | Outbound Messaging And Listeners
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - make outbound messaging and listener/hook workflows first-class platform capabilities
@@ -102,4 +102,5 @@ Actionable plans:
 Current state:
 - outbound send and thread-reply flows exist through the shared service
 - listener registration, delivery inspection, and delivery acknowledgement exist
-- remaining work is hardening the contract, delivery model, and operator-facing policy
+- the outbound/listener contract is now documented and enforced across service, API, and MCP surfaces
+- the current local queue-delivery model is the supported baseline unless future requirements justify richer retry policy
