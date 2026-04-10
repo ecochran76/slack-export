@@ -86,8 +86,19 @@ class ApiServerTests(unittest.TestCase):
             )
             self.assertEqual(msg.status_code, 200)
             self.assertEqual(msg.json()["action"]["status"], "sent")
+            self.assertFalse(msg.json()["action"]["idempotent_replay"])
+            self.assertFalse(msg.json()["action"]["retryable"])
             client.open_direct_message.assert_called_once_with(user_id="UEGM25PMG")
             self.assertEqual(client.send_message.call_count, 1)
+
+            replay = requests.post(
+                f"{self.base_url}/v1/workspaces/default/messages",
+                json={"channel_ref": "@Eric", "text": "hello", "idempotency_key": "msg-1"},
+                timeout=5,
+            )
+            self.assertEqual(replay.status_code, 200)
+            self.assertTrue(replay.json()["action"]["idempotent_replay"])
+            self.assertFalse(replay.json()["action"]["retryable"])
 
         service.ingest_event(
             conn,

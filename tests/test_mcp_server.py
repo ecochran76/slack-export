@@ -104,13 +104,38 @@ class McpServerTests(unittest.TestCase):
                     "method": "tools/call",
                     "params": {
                         "name": "messages.send",
-                        "arguments": {"workspace": "default", "channel_ref": "C123", "text": "hello"},
+                        "arguments": {
+                            "workspace": "default",
+                            "channel_ref": "C123",
+                            "text": "hello",
+                            "options": {"idempotency_key": "msg-1"},
+                        },
                     },
                 }
             )
         send_text = send["result"]["content"][0]["text"]
         self.assertIn('"status": "sent"', send_text)
+        self.assertIn('"idempotent_replay": false', send_text)
+        self.assertIn('"retryable": false', send_text)
         self.assertEqual(client.send_message.call_count, 1)
+
+        replay = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 31,
+                "method": "tools/call",
+                "params": {
+                    "name": "messages.send",
+                    "arguments": {
+                        "workspace": "default",
+                        "channel_ref": "C123",
+                        "text": "hello",
+                        "options": {"idempotency_key": "msg-1"},
+                    },
+                },
+            }
+        )
+        self.assertIn('"idempotent_replay": true', replay["result"]["content"][0]["text"])
 
         register = self.server.handle_request(
             {

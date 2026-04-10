@@ -188,3 +188,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P02` plan current-state note so the API/MCP boundary reflects the shared error-envelope baseline.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server tests.test_mcp_server tests.test_cli -v`
+
+## Turn 12 | 2026-04-10
+
+- Tightened the outbound write contract at the shared service boundary so API and MCP callers do not need to infer semantics from raw `outbound_actions` rows.
+- Outbound send/reply results now expose explicit machine-readable fields for:
+  - parsed `options`
+  - parsed upstream `response`
+  - `idempotent_replay`
+  - `retryable`
+- Kept the existing audit rows and DB schema, but normalized the returned shape so repeated idempotent calls are visible to transport consumers.
+- Verified that idempotent DM sends still avoid a second `conversations.open` call while now also reporting replay semantics directly.
+- Updated the `P02` plan current-state note so the API/MCP boundary reflects the explicit outbound-write contract baseline.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_cli -v`

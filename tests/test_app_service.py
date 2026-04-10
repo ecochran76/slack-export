@@ -119,6 +119,11 @@ class AppServiceTests(unittest.TestCase):
 
         self.assertEqual(message_action["status"], "sent")
         self.assertEqual(reply_action["status"], "sent")
+        self.assertFalse(message_action["idempotent_replay"])
+        self.assertFalse(reply_action["idempotent_replay"])
+        self.assertFalse(message_action["retryable"])
+        self.assertEqual(message_action["response"]["channel"], "C123")
+        self.assertEqual(message_action["options"]["idempotency_key"], "msg-1")
         self.assertEqual(client.send_message.call_count, 1)
         self.assertEqual(client.send_thread_reply.call_count, 1)
 
@@ -160,6 +165,10 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(first["status"], "sent")
         self.assertEqual(second["status"], "sent")
         self.assertEqual(first["id"], second["id"])
+        self.assertFalse(first["idempotent_replay"])
+        self.assertTrue(second["idempotent_replay"])
+        self.assertFalse(second["retryable"])
+        self.assertEqual(second["response"]["ts"], "2000.0001")
 
     def test_workspace_token_uses_outbound_config_for_write_actions(self):
         self.config_path.write_text(
@@ -310,6 +319,8 @@ class AppServiceTests(unittest.TestCase):
             )
 
         self.assertEqual(first["id"], second["id"])
+        self.assertFalse(first["idempotent_replay"])
+        self.assertTrue(second["idempotent_replay"])
         client.open_direct_message.assert_called_once_with(user_id="UEGM25PMG")
         client.send_message.assert_called_once()
 

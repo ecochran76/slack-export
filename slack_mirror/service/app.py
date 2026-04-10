@@ -632,6 +632,16 @@ class SlackMirrorAppService:
         ).fetchone()
         return dict(row)
 
+    def _normalize_outbound_action(self, action: dict[str, Any], *, idempotent_replay: bool) -> dict[str, Any]:
+        normalized = dict(action)
+        options_json = normalized.get("options_json")
+        response_json = normalized.get("response_json")
+        normalized["options"] = json.loads(options_json) if options_json else {}
+        normalized["response"] = json.loads(response_json) if response_json else None
+        normalized["idempotent_replay"] = bool(idempotent_replay)
+        normalized["retryable"] = normalized.get("status") in {"pending", "failed"}
+        return normalized
+
     def _existing_outbound_action(
         self,
         conn,
@@ -692,7 +702,7 @@ class SlackMirrorAppService:
             idempotency_key=options.get("idempotency_key"),
         )
         if existing:
-            return existing
+            return self._normalize_outbound_action(existing, idempotent_replay=True)
         token = self.workspace_token(workspace, auth_mode=auth_mode, purpose="write")
         client = SlackApiClient(token)
         channel_id = self.resolve_outbound_channel(conn, workspace_id=workspace_id, channel_ref=channel_ref, client=client)
@@ -706,7 +716,7 @@ class SlackMirrorAppService:
             options=options,
         )
         if action.get("status") != "pending":
-            return action
+            return self._normalize_outbound_action(action, idempotent_replay=True)
         try:
             response = client.send_message(channel=channel_id, text=text, **options)
             self._finish_outbound_action(
@@ -726,7 +736,7 @@ class SlackMirrorAppService:
             )
             action["status"] = "sent"
             action["response_json"] = json.dumps(response, sort_keys=True)
-            return action
+            return self._normalize_outbound_action(action, idempotent_replay=False)
         except Exception as exc:  # noqa: BLE001
             self._finish_outbound_action(
                 conn,
@@ -757,7 +767,7 @@ class SlackMirrorAppService:
             idempotency_key=options.get("idempotency_key"),
         )
         if existing:
-            return existing
+            return self._normalize_outbound_action(existing, idempotent_replay=True)
         token = self.workspace_token(workspace, auth_mode=auth_mode, purpose="write")
         client = SlackApiClient(token)
         channel_id = self.resolve_outbound_channel(conn, workspace_id=workspace_id, channel_ref=channel_ref, client=client)
@@ -771,7 +781,7 @@ class SlackMirrorAppService:
             options=options,
         )
         if action.get("status") != "pending":
-            return action
+            return self._normalize_outbound_action(action, idempotent_replay=True)
         try:
             response = client.send_thread_reply(channel=channel_id, thread_ts=thread_ref, text=text, **options)
             self._finish_outbound_action(
@@ -797,7 +807,7 @@ class SlackMirrorAppService:
             )
             action["status"] = "sent"
             action["response_json"] = json.dumps(response, sort_keys=True)
-            return action
+            return self._normalize_outbound_action(action, idempotent_replay=False)
         except Exception as exc:  # noqa: BLE001
             self._finish_outbound_action(
                 conn,
