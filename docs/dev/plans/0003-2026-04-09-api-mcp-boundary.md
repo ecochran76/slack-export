@@ -21,6 +21,7 @@ Define and harden the shared application-service boundary for CLI, API, MCP, and
 - MCP transport exists
 - live runtime validation is now exposed through both API and MCP on top of the shared service boundary
 - live runtime validation now returns compact machine-readable status, code, and per-workspace queue fields in addition to human-readable summary lines
+- API and MCP write/read failures now map through a shared machine-readable error envelope with stable codes, retryability, and operation context
 - remaining work is to tighten the documented contract, error model, and operator expectations around the shipped baseline
 
 ## Parallel Tracks

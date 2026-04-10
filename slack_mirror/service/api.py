@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from slack_mirror.service.errors import map_service_error
 from slack_mirror.service.app import get_app_service
 
 
@@ -20,6 +21,11 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -
 
 def _error_response(handler: BaseHTTPRequestHandler, status: int, code: str, message: str) -> None:
     _json_response(handler, status, {"ok": False, "error": {"code": code, "message": message}})
+
+
+def _service_error_response(handler: BaseHTTPRequestHandler, exc: Exception, **details: Any) -> None:
+    error = map_service_error(exc, **details)
+    _json_response(handler, error.http_status, {"ok": False, "error": error.envelope()})
 
 
 def _parse_json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
@@ -87,8 +93,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 conn = service.connect()
                 try:
                     payload = service.list_listeners(conn, workspace=m.group(1))
-                except ValueError as exc:
-                    _error_response(self, 404, "NOT_FOUND", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="listeners.list")
                     return
                 _json_response(self, 200, {"ok": True, "listeners": payload})
                 return
@@ -98,8 +104,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 conn = service.connect()
                 try:
                     payload = service.get_listener_status(conn, workspace=m.group(1), listener_id=int(m.group(2)))
-                except ValueError as exc:
-                    _error_response(self, 404, "NOT_FOUND", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(
+                        self,
+                        exc,
+                        path=path,
+                        workspace=m.group(1),
+                        listener_id=int(m.group(2)),
+                        operation="listeners.status",
+                    )
                     return
                 _json_response(self, 200, {"ok": True, "listener": payload})
                 return
@@ -107,15 +120,19 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             m = re.fullmatch(r"/v1/workspaces/([^/]+)/deliveries", path)
             if m:
                 conn = service.connect()
-                listener_id = query.get("listener_id", [None])[0]
-                status = query.get("status", ["pending"])[0]
-                payload = service.list_listener_deliveries(
-                    conn,
-                    workspace=m.group(1),
-                    status=status,
-                    listener_id=int(listener_id) if listener_id else None,
-                    limit=int(query.get("limit", [100])[0]),
-                )
+                try:
+                    listener_id = query.get("listener_id", [None])[0]
+                    status = query.get("status", ["pending"])[0]
+                    payload = service.list_listener_deliveries(
+                        conn,
+                        workspace=m.group(1),
+                        status=status,
+                        listener_id=int(listener_id) if listener_id else None,
+                        limit=int(query.get("limit", [100])[0]),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="deliveries.list")
+                    return
                 _json_response(self, 200, {"ok": True, "deliveries": payload})
                 return
 
@@ -141,8 +158,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         text=str(body.get("text") or ""),
                         options={k: v for k, v in body.items() if k not in {"channel_ref", "channel", "text"}},
                     )
-                except ValueError as exc:
-                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="messages.send")
                     return
                 _json_response(self, 200, {"ok": True, "action": payload})
                 return
@@ -159,8 +176,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         text=str(body.get("text") or ""),
                         options={k: v for k, v in body.items() if k not in {"channel_ref", "channel", "text"}},
                     )
-                except ValueError as exc:
-                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), thread_ref=m.group(2), operation="threads.reply")
                     return
                 _json_response(self, 200, {"ok": True, "action": payload})
                 return
@@ -170,8 +187,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 conn = service.connect()
                 try:
                     payload = service.register_listener(conn, workspace=m.group(1), spec=body)
-                except ValueError as exc:
-                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="listeners.register")
                     return
                 _json_response(self, 201, {"ok": True, "listener": payload})
                 return
@@ -187,8 +204,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         status=str(body.get("status") or "delivered"),
                         error=body.get("error"),
                     )
-                except ValueError as exc:
-                    _error_response(self, 404, "NOT_FOUND", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(
+                        self,
+                        exc,
+                        path=path,
+                        workspace=m.group(1),
+                        delivery_id=int(m.group(2)),
+                        operation="deliveries.ack",
+                    )
                     return
                 _json_response(self, 200, {"ok": True})
                 return
@@ -206,8 +230,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 conn = service.connect()
                 try:
                     service.unregister_listener(conn, workspace=m.group(1), listener_id=int(m.group(2)))
-                except ValueError as exc:
-                    _error_response(self, 404, "NOT_FOUND", str(exc))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(
+                        self,
+                        exc,
+                        path=path,
+                        workspace=m.group(1),
+                        listener_id=int(m.group(2)),
+                        operation="listeners.unregister",
+                    )
                     return
                 _json_response(self, 200, {"ok": True})
                 return

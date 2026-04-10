@@ -174,3 +174,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P02` plan current-state note to reflect the machine-readable health summary baseline.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_api_server tests.test_mcp_server tests.test_cli -v`
+
+## Turn 11 | 2026-04-10
+
+- Standardized the API and MCP failure contract for service operations instead of letting each transport invent its own ad hoc error shape.
+- Added a shared transport-layer error mapper with stable machine-readable fields:
+  - `code`
+  - `message`
+  - `retryable`
+  - `details`
+- API failures now return that envelope with operation and workspace context.
+- MCP failures now return the same envelope in JSON-RPC `error.data`, with a mapped MCP error status instead of collapsing everything into one generic server error.
+- Updated the `P02` plan current-state note so the API/MCP boundary reflects the shared error-envelope baseline.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_mcp_server tests.test_cli -v`

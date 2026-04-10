@@ -6,6 +6,7 @@ from dataclasses import asdict, is_dataclass
 from typing import Any, TextIO
 
 from slack_mirror.service.app import get_app_service
+from slack_mirror.service.errors import map_service_error
 
 
 def _tool(name: str, description: str, schema: dict[str, Any]) -> dict[str, Any]:
@@ -295,10 +296,15 @@ class SlackMirrorMcpServer:
                 result = self.handle_call(str(params.get("name") or ""), dict(params.get("arguments") or {}))
                 return {"jsonrpc": "2.0", "id": request_id, "result": result}
             except Exception as exc:  # noqa: BLE001
+                error = map_service_error(
+                    exc,
+                    tool=str(params.get("name") or ""),
+                    arguments=dict(params.get("arguments") or {}),
+                )
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "error": {"code": -32000, "message": str(exc)},
+                    "error": {"code": error.mcp_status, "message": error.message, "data": error.envelope()},
                 }
 
         if request_id is not None:

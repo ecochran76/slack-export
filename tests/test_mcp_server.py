@@ -195,6 +195,40 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"workspaces"', text)
         mock_validate.assert_called_once_with(require_live_units=False)
 
+    def test_message_send_error_uses_structured_mcp_error(self):
+        result = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {
+                    "name": "messages.send",
+                    "arguments": {"workspace": "default", "text": "hello"},
+                },
+            }
+        )
+
+        self.assertEqual(result["error"]["code"], -32602)
+        self.assertEqual(result["error"]["message"], "channel_ref is required")
+        self.assertEqual(result["error"]["data"]["code"], "INVALID_ARGUMENT")
+        self.assertEqual(result["error"]["data"]["details"]["tool"], "messages.send")
+
+    def test_unknown_tool_uses_method_not_found_error(self):
+        result = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 8,
+                "method": "tools/call",
+                "params": {
+                    "name": "nope.tool",
+                    "arguments": {},
+                },
+            }
+        )
+
+        self.assertEqual(result["error"]["code"], -32601)
+        self.assertEqual(result["error"]["data"]["code"], "METHOD_NOT_FOUND")
+
 
 if __name__ == "__main__":
     unittest.main()

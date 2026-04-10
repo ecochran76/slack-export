@@ -161,6 +161,34 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(resp.json()["validation"]["workspaces"][0]["name"], "default")
             service.validate_live_runtime.assert_called_once_with(require_live_units=True)
 
+    def test_message_send_uses_structured_error_envelope(self):
+        resp = requests.post(
+            f"{self.base_url}/v1/workspaces/default/messages",
+            json={"text": "hello"},
+            timeout=5,
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        payload = resp.json()
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["error"]["code"], "INVALID_ARGUMENT")
+        self.assertEqual(payload["error"]["message"], "channel_ref is required")
+        self.assertFalse(payload["error"]["retryable"])
+        self.assertEqual(payload["error"]["details"]["operation"], "messages.send")
+        self.assertEqual(payload["error"]["details"]["workspace"], "default")
+
+    def test_message_send_reports_not_found_workspace(self):
+        resp = requests.post(
+            f"{self.base_url}/v1/workspaces/missing/messages",
+            json={"channel_ref": "C123", "text": "hello"},
+            timeout=5,
+        )
+
+        self.assertEqual(resp.status_code, 404)
+        payload = resp.json()
+        self.assertEqual(payload["error"]["code"], "NOT_FOUND")
+        self.assertEqual(payload["error"]["details"]["workspace"], "missing")
+
 
 if __name__ == "__main__":
     unittest.main()
