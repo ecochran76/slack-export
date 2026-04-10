@@ -17,6 +17,7 @@ This file is the dated turn log for planning and execution continuity.
 - Preserved older files under `docs/` and `docs/dev/` as legacy context instead of deleting them.
 - Active roadmap lane: `P01 | Platform Foundation`
 - Active plan: `docs/dev/plans/0001-2026-04-09-platform-foundation.md`
+- Handoff note for the next agent:
+  - `docs/dev/planning-contract-handoff-2026-04-09.md`
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
-
