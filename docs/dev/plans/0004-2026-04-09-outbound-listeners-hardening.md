@@ -19,6 +19,7 @@ Harden the already-implemented outbound messaging and listener capabilities into
 - outbound send and thread reply exist through the shared app service
 - DM user-ref resolution and idempotency protections exist
 - listener registration, delivery listing, and acknowledgement exist through service, API, and MCP
+- the shipped transport contract now documents outbound-write semantics plus listener registration, delivery, and acknowledgement behavior in `docs/API_MCP_CONTRACT.md`
 - remaining work is to make the delivery semantics, filtering rules, and operator contract explicit and durable
 
 ## Parallel Tracks

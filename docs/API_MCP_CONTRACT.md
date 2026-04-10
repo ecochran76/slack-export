@@ -11,6 +11,9 @@ Current shared contract coverage:
 - live runtime validation
 - outbound message sends
 - outbound thread replies
+- listener registration
+- listener delivery listing
+- listener delivery acknowledgement
 - shared error envelope
 
 The local HTTP API and MCP server are both thin wrappers over `slack_mirror.service.app`. When these contracts change, they should change together.
@@ -92,6 +95,99 @@ Semantics:
 - repeated requests with the same workspace, action kind, and idempotency key return the existing action instead of sending a second Slack write
 - idempotent replay is visible in the returned payload through `idempotent_replay`
 - the result shape is the same whether the caller uses API or MCP
+
+## Listener Registration
+
+API:
+
+- `POST /v1/workspaces/{workspace}/listeners`
+- `GET /v1/workspaces/{workspace}/listeners`
+- `GET /v1/workspaces/{workspace}/listeners/{listener_id}`
+- `DELETE /v1/workspaces/{workspace}/listeners/{listener_id}`
+
+MCP:
+
+- `listeners.register`
+- `listeners.list`
+- `listeners.status`
+- `listeners.unregister`
+
+Listener registration is name-keyed within a workspace. Re-registering the same listener name updates the existing registration instead of creating a duplicate row.
+
+Important listener fields:
+
+- `id`
+- `workspace_id`
+- `name`
+- `event_types_json`
+- `channel_ids_json`
+- `target`
+- `delivery_mode`
+- `enabled`
+- `created_at`
+- `updated_at`
+
+Registration/filtering semantics:
+
+- `name` is required
+- `event_types` is optional
+  - empty means all event types in the local listener model
+- `channel_ids` is optional
+  - empty means all channels
+- both filters are conjunctive when present
+  - event type must match if `event_types` is set
+  - channel must match if `channel_ids` is set and the payload has a channel
+- current default `delivery_mode` is `queue`
+
+## Listener Deliveries
+
+API:
+
+- `GET /v1/workspaces/{workspace}/deliveries`
+- `POST /v1/workspaces/{workspace}/deliveries/{delivery_id}/ack`
+
+MCP:
+
+- `deliveries.list`
+- `deliveries.ack`
+
+Delivery rows currently return these important fields:
+
+- `id`
+- `workspace_id`
+- `listener_id`
+- `event_type`
+- `source_kind`
+- `source_ref`
+- `payload_json`
+- `status`
+- `attempts`
+- `error`
+- `delivered_at`
+- `created_at`
+- `updated_at`
+
+Current delivery status model:
+
+- `pending`
+- `delivered`
+- `failed`
+
+Acknowledgement semantics:
+
+- `deliveries.ack` / `POST .../ack` updates exactly one existing delivery row in the addressed workspace
+- default ack status is `delivered`
+- callers may also set `status` explicitly, including `failed`
+- `attempts` increments on every acknowledgement write
+- `delivered_at` is set on acknowledgement, including failed acknowledgements
+- `error` may be attached to record consumer failure detail
+
+Consumer guidance:
+
+- use `status=pending` polling for queue-like consumption
+- ack with `delivered` only after the subscribed process has accepted the delivery
+- ack with `failed` plus `error` when the consumer handled the delivery attempt but could not complete downstream work
+- treat `payload_json` as the canonical event payload body for the delivery row
 
 ## Error Envelope
 

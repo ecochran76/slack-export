@@ -71,6 +71,8 @@ The canonical system should look like this:
 - listener dispatch on selected service events
 - delivery logging and replay-aware semantics
 
+The shipped listener registration, delivery, and acknowledgement semantics are part of the shared transport contract. See [API_MCP_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/API_MCP_CONTRACT.md).
+
 ### 6. API and MCP
 
 - local API for programmatic use

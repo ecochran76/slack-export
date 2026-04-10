@@ -216,3 +216,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P02` plan current-state note to reflect that the shipped transport contract is now documented, not just implemented.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 14 | 2026-04-10
+
+- Extended `docs/API_MCP_CONTRACT.md` so `P05` listener behavior is documented at the same level as outbound write behavior.
+- Added explicit transport-contract coverage for:
+  - listener registration/update semantics
+  - event-type and channel filtering behavior
+  - delivery row fields
+  - delivery status values
+  - acknowledgement and failure-recording semantics
+- Linked the listener contract back from `README.md` and `docs/ARCHITECTURE.md` so local consumers have one canonical reference for outbound and listener behavior together.
+- Updated the `P05` plan current-state note so the outbound/listener lane reflects that the shipped listener transport semantics are now documented, not just implemented.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
