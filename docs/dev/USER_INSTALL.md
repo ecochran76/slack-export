@@ -155,5 +155,7 @@ The command emits stable issue classes such as:
 - `DUPLICATE_TOPOLOGY`
 - `EVENT_ERRORS`
 - `EMBEDDING_ERRORS`
+- `EVENT_BACKLOG`
+- `EMBEDDING_BACKLOG`
 
 See [LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md) for the recovery flow tied to those classes.

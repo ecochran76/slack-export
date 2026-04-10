@@ -157,5 +157,17 @@ Warnings:
 
 - `EVENT_ERRORS`
 - `EMBEDDING_ERRORS`
+- `EVENT_PENDING`
+- `EMBEDDING_PENDING`
+
+Live-mode hard failures also include:
+
+- `EVENT_BACKLOG`
+- `EMBEDDING_BACKLOG`
+
+In full live validation, queue error rows fail immediately, and sustained pending backlog beyond the built-in thresholds also fails:
+
+- pending events over `100`
+- pending embedding jobs over `1000`
 
 Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.

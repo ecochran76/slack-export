@@ -136,3 +136,16 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the user-install and live-mode docs so the distinction between managed-runtime validation and full live validation is explicit.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+
+## Turn 8 | 2026-04-10
+
+- Tightened full `slack-mirror user-env validate-live` so it now treats live-mirror failure as more than topology drift.
+- Full live validation now fails on:
+  - event queue error rows
+  - embedding queue error rows
+  - pending event backlog above the built-in threshold
+  - pending embedding backlog above the built-in threshold
+- Kept the narrower install/update validation gate less strict so fresh managed-runtime setup still validates before workspace live units are installed.
+- Updated the live-ops docs and `P04` plan to describe the new live-failure policy and queue thresholds.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`

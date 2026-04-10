@@ -16,6 +16,9 @@ from slack_mirror.core.config import load_config
 RunFn = Callable[..., subprocess.CompletedProcess]
 PrintFn = Callable[[str], None]
 
+LIVE_EVENT_PENDING_FAIL_THRESHOLD = 100
+LIVE_EMBEDDING_PENDING_FAIL_THRESHOLD = 1000
+
 
 @dataclass(frozen=True)
 class UserEnvPaths:
@@ -562,10 +565,51 @@ def validate_live_user_env(
             fail("QUEUE_INSPECTION_FAILED", f"workspace {name} queue inspection failed: {exc}", f"inspect `{db_path}` and rerun `slack-mirror user-env validate-live` after DB health is restored")
             continue
 
-        if event_counts.get("error", 0):
-            warn("EVENT_ERRORS", f"workspace {name} has event errors: {event_counts.get('error', 0)}", f"inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50` and replay or clear failed event rows if needed")
-        if embedding_counts.get("error", 0):
-            warn("EMBEDDING_ERRORS", f"workspace {name} has embedding job errors: {embedding_counts.get('error', 0)}", f"inspect daemon logs and replay or clear failed embedding jobs for workspace `{name}`")
+        event_errors = event_counts.get("error", 0)
+        embedding_errors = embedding_counts.get("error", 0)
+        event_pending = event_counts.get("pending", 0)
+        embedding_pending = embedding_counts.get("pending", 0)
+
+        if event_errors:
+            handler = fail if require_live_units else warn
+            handler(
+                "EVENT_ERRORS",
+                f"workspace {name} has event errors: {event_errors}",
+                f"inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50` and replay or clear failed event rows if needed",
+            )
+        if embedding_errors:
+            handler = fail if require_live_units else warn
+            handler(
+                "EMBEDDING_ERRORS",
+                f"workspace {name} has embedding job errors: {embedding_errors}",
+                f"inspect daemon logs and replay or clear failed embedding jobs for workspace `{name}`",
+            )
+
+        if require_live_units and event_pending > LIVE_EVENT_PENDING_FAIL_THRESHOLD:
+            fail(
+                "EVENT_BACKLOG",
+                f"workspace {name} pending event backlog is {event_pending} (threshold {LIVE_EVENT_PENDING_FAIL_THRESHOLD})",
+                f"inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50` and confirm the daemon is draining events for `{name}`",
+            )
+        elif event_pending:
+            warn(
+                "EVENT_PENDING",
+                f"workspace {name} has pending events: {event_pending}",
+                f"watch the queue and rerun `slack-mirror user-env validate-live` if it does not drain for `{name}`",
+            )
+
+        if require_live_units and embedding_pending > LIVE_EMBEDDING_PENDING_FAIL_THRESHOLD:
+            fail(
+                "EMBEDDING_BACKLOG",
+                f"workspace {name} pending embedding backlog is {embedding_pending} (threshold {LIVE_EMBEDDING_PENDING_FAIL_THRESHOLD})",
+                f"inspect daemon logs and embedding throughput for workspace `{name}`",
+            )
+        elif embedding_pending:
+            warn(
+                "EMBEDDING_PENDING",
+                f"workspace {name} has pending embedding jobs: {embedding_pending}",
+                f"watch embedding queue drain and rerun validation if backlog persists for `{name}`",
+            )
 
     if failures:
         out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")

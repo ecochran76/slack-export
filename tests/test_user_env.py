@@ -379,6 +379,64 @@ class UserEnvTests(unittest.TestCase):
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
         )
+        conn.commit()
+        conn.close()
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            unit = args[-1]
+            stdout = "active\n" if unit in {
+                "slack-mirror-api.service",
+                "slack-mirror-webhooks-default.service",
+                "slack-mirror-daemon-default.service",
+            } else "inactive\n"
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+        rc = user_env.validate_live_user_env(
+            paths=self.paths,
+            runner=runner,
+            out=output.append,
+            require_live_units=False,
+        )
+
+        self.assertEqual(rc, 0)
+        rendered = "\n".join(output)
+        self.assertIn("Summary: PASS with warnings", rendered)
+        self.assertIn("WARN  [EVENT_ERRORS]", rendered)
+        self.assertIn("Warnings:", rendered)
+
+    def test_validate_live_fails_on_queue_errors_for_full_live_gate(self):
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'error');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.commit()
         conn.close()
         output = []
 
@@ -393,11 +451,63 @@ class UserEnvTests(unittest.TestCase):
 
         rc = user_env.validate_live_user_env(paths=self.paths, runner=runner, out=output.append)
 
-        self.assertEqual(rc, 0)
+        self.assertEqual(rc, 1)
         rendered = "\n".join(output)
-        self.assertIn("Summary: PASS with warnings", rendered)
-        self.assertIn("WARN  [EVENT_ERRORS]", rendered)
-        self.assertIn("Warnings:", rendered)
+        self.assertIn("FAIL  [EVENT_ERRORS]", rendered)
+        self.assertIn("Summary: FAIL", rendered)
+
+    def test_validate_live_fails_on_large_pending_backlog_for_full_live_gate(self):
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            """
+        )
+        conn.executemany(
+            "INSERT INTO events(workspace_id, status) VALUES (1, 'pending')",
+            [() for _ in range(user_env.LIVE_EVENT_PENDING_FAIL_THRESHOLD + 1)],
+        )
+        conn.commit()
+        conn.close()
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            unit = args[-1]
+            stdout = "active\n" if unit in {
+                "slack-mirror-api.service",
+                "slack-mirror-webhooks-default.service",
+                "slack-mirror-daemon-default.service",
+            } else "inactive\n"
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+        rc = user_env.validate_live_user_env(paths=self.paths, runner=runner, out=output.append)
+
+        self.assertEqual(rc, 1)
+        rendered = "\n".join(output)
+        self.assertIn("FAIL  [EVENT_BACKLOG]", rendered)
+        self.assertIn("Summary: FAIL", rendered)
 
 
 if __name__ == "__main__":
