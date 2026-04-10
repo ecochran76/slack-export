@@ -20,7 +20,16 @@ class UserEnvTests(unittest.TestCase):
         self.home_dir.mkdir()
         self.state_home.mkdir()
         self.cache_home.mkdir()
-        (self.repo_root / "config.example.yaml").write_text("version: 1\nworkspaces: []\n", encoding="utf-8")
+        (self.repo_root / "config.example.yaml").write_text(
+            "version: 1\n"
+            "storage:\n"
+            "  db_path: ${SLACK_MIRROR_DB:-~/.local/state/slack-mirror/slack_mirror.db}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
         (self.repo_root / "README.md").write_text("repo snapshot\n", encoding="utf-8")
         (self.repo_root / ".git").mkdir()
         (self.repo_root / ".git" / "config").write_text("ignored\n", encoding="utf-8")
@@ -46,6 +55,30 @@ class UserEnvTests(unittest.TestCase):
                     path = bin_dir / name
                     path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
                     path.chmod(0o755)
+            if args[-2:] == ["mirror", "init"] and env:
+                db_path = Path(env["SLACK_MIRROR_DB"])
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                if db_path.exists():
+                    db_path.unlink()
+                conn = sqlite3.connect(db_path)
+                conn.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS workspaces (id INTEGER PRIMARY KEY, name TEXT);
+                    CREATE TABLE IF NOT EXISTS events (workspace_id INTEGER, status TEXT);
+                    CREATE TABLE IF NOT EXISTS embedding_jobs (workspace_id INTEGER, status TEXT);
+                    """
+                )
+                conn.close()
+            if args[-2:] == ["workspaces", "sync-config"] and env:
+                db_path = Path(env["SLACK_MIRROR_DB"])
+                conn = sqlite3.connect(db_path)
+                conn.execute("INSERT OR REPLACE INTO workspaces(id, name) VALUES (1, 'default')")
+                conn.commit()
+                conn.close()
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                unit = args[-1]
+                stdout = "active\n" if unit == "slack-mirror-api.service" else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="services ok", stderr="")
 
         return calls, fake_runner
@@ -91,15 +124,28 @@ class UserEnvTests(unittest.TestCase):
         self.paths.cache_dir.mkdir(parents=True, exist_ok=True)
         (self.paths.cache_dir / "cache.bin").write_text("cache\n", encoding="utf-8")
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
-        self.paths.config_path.write_text("existing: true\n", encoding="utf-8")
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {db_path}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
         _, runner = self._runner()
 
         rc = user_env.update_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
 
         self.assertEqual(rc, 0)
-        self.assertEqual(db_path.read_text(encoding="utf-8"), "db\n")
+        self.assertTrue(db_path.exists())
+        conn = sqlite3.connect(db_path)
+        rows = list(conn.execute("SELECT name FROM workspaces"))
+        conn.close()
+        self.assertEqual(rows[0][0], "default")
         self.assertEqual((self.paths.cache_dir / "cache.bin").read_text(encoding="utf-8"), "cache\n")
-        self.assertEqual(self.paths.config_path.read_text(encoding="utf-8"), "existing: true\n")
+        self.assertIn("outbound_token: xoxb-write", self.paths.config_path.read_text(encoding="utf-8"))
 
     def test_migrate_legacy_state_only_when_target_missing(self):
         self.paths.legacy_state_dir.mkdir(parents=True, exist_ok=True)

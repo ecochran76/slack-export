@@ -121,3 +121,18 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 7 | 2026-04-10
+
+- Reviewed the install/update gate idea against the actual product contract and found that `user-env install/update` do not provision workspace live units, only the managed runtime and API service.
+- Reused the same validator logic for a narrower managed-runtime gate during `user-env install` and `user-env update`.
+- The automatic post-install/update validation now checks:
+  - config loadability
+  - configured DB presence
+  - workspace sync into the DB
+  - explicit outbound token requirements
+  - managed API unit presence and activity
+- Kept full `slack-mirror user-env validate-live` as the explicit gate for the workspace `webhooks` and `daemon` units after live-mode installation.
+- Updated the user-install and live-mode docs so the distinction between managed-runtime validation and full live validation is explicit.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`

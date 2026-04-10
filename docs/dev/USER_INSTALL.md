@@ -45,6 +45,9 @@ This will:
 6. run `mirror init` (migrations) and `workspaces sync-config`
 7. create managed launchers for CLI, API, and MCP entrypoints
 8. create and start the managed API service unit
+9. run managed-runtime validation for config, DB, workspace sync, and the API service
+
+This does not install the per-workspace live `webhooks` and `daemon` units. After you install those, use `slack-mirror user-env validate-live` for the full live-service gate.
 
 ## Update
 
@@ -68,6 +71,7 @@ Update preserves:
 - `~/.local/cache/slack-mirror`
 - managed launchers are refreshed in place
 - `slack-mirror-api.service` is restarted in place
+- managed-runtime validation is rerun automatically after the update
 
 It also saves the latest template to:
 - `~/.config/slack-mirror/config.example.latest.yaml`

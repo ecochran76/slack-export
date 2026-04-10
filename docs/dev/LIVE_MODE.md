@@ -90,6 +90,8 @@ If `~/.config/slack-mirror/config.yaml` exists, the installer will prefer it aut
 scripts/install_live_mode_systemd_user.sh default "$HOME/.config/slack-mirror/config.yaml"
 ```
 
+The user-scope installer and updater validate the managed config, DB, workspace sync, and API service automatically, but they do not install these live workspace units for you. Treat `slack-mirror user-env validate-live` as the full gate only after the workspace live units are installed.
+
 Check status:
 
 ```bash

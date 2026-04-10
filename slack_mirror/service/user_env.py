@@ -295,6 +295,10 @@ def install_user_env(
     _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-api.service"], check=False, text=True)
+    _log(out, "running managed-runtime validation")
+    validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
+    if validation_rc != 0:
+        return validation_rc
     _log(out, "install complete")
     out("")
     out(f"CLI wrapper: {target.wrapper_path}")
@@ -332,6 +336,10 @@ def update_user_env(
     _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
+    _log(out, "running managed-runtime validation")
+    validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
+    if validation_rc != 0:
+        return validation_rc
     _log(out, "update complete (config + DB preserved)")
     out(f"Latest config template saved at: {target.config_dir / 'config.example.latest.yaml'}")
     return 0
@@ -421,6 +429,7 @@ def validate_live_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     out: PrintFn = print,
+    require_live_units: bool = True,
 ) -> int:
     target = paths or default_user_env_paths()
     failures: list[tuple[str, str, str | None]] = []
@@ -526,24 +535,25 @@ def validate_live_user_env(
 
         receiver_unit = f"slack-mirror-webhooks-{name}.service"
         daemon_unit = f"slack-mirror-daemon-{name}.service"
-        for unit_name in (receiver_unit, daemon_unit):
-            unit_path = _user_unit_path(target, unit_name)
-            if unit_path.exists():
-                ok(f"{unit_name} unit file present")
-            else:
-                fail("LIVE_UNIT_MISSING", f"{unit_name} unit file missing", f"run `scripts/install_live_mode_systemd_user.sh {name}` or reinstall the managed live stack")
-            unit_state = _systemctl_state(runner, unit_name)
-            if unit_state == "active":
-                ok(f"{unit_name} active")
-            else:
-                fail("LIVE_UNIT_INACTIVE", f"{unit_name} state={unit_state}", f"run `systemctl --user restart {receiver_unit} {daemon_unit}` and inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50`")
+        if require_live_units:
+            for unit_name in (receiver_unit, daemon_unit):
+                unit_path = _user_unit_path(target, unit_name)
+                if unit_path.exists():
+                    ok(f"{unit_name} unit file present")
+                else:
+                    fail("LIVE_UNIT_MISSING", f"{unit_name} unit file missing", f"run `scripts/install_live_mode_systemd_user.sh {name}` or reinstall the managed live stack")
+                unit_state = _systemctl_state(runner, unit_name)
+                if unit_state == "active":
+                    ok(f"{unit_name} active")
+                else:
+                    fail("LIVE_UNIT_INACTIVE", f"{unit_name} state={unit_state}", f"run `systemctl --user restart {receiver_unit} {daemon_unit}` and inspect `journalctl --user -u {receiver_unit} -u {daemon_unit} -n 50`")
 
-        for unit_name in (
-            f"slack-mirror-events-{name}.service",
-            f"slack-mirror-embeddings-{name}.service",
-        ):
-            if _systemctl_state(runner, unit_name) == "active":
-                fail("DUPLICATE_TOPOLOGY", f"duplicate topology active: {unit_name}", f"run `systemctl --user disable --now {unit_name}` to keep only the unified daemon topology for `{name}`")
+            for unit_name in (
+                f"slack-mirror-events-{name}.service",
+                f"slack-mirror-embeddings-{name}.service",
+            ):
+                if _systemctl_state(runner, unit_name) == "active":
+                    fail("DUPLICATE_TOPOLOGY", f"duplicate topology active: {unit_name}", f"run `systemctl --user disable --now {unit_name}` to keep only the unified daemon topology for `{name}`")
 
         try:
             event_counts = _db_status_counts(db_path, name, "events")
