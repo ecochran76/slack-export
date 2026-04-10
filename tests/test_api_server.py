@@ -124,10 +124,26 @@ class ApiServerTests(unittest.TestCase):
             service = mock_get_service.return_value
             service.validate_live_runtime.return_value = LiveValidationResult(
                 ok=False,
+                status="fail",
                 require_live_units=True,
                 summary="Summary: FAIL (1 failure)",
                 lines=["FAIL [EVENT_ERRORS] workspace default has event errors: 1"],
                 exit_code=1,
+                failure_count=1,
+                warning_count=0,
+                failure_codes=["EVENT_ERRORS"],
+                warning_codes=[],
+                workspaces=[
+                    {
+                        "name": "default",
+                        "event_errors": 1,
+                        "embedding_errors": 0,
+                        "event_pending": 0,
+                        "embedding_pending": 0,
+                        "failure_codes": ["EVENT_ERRORS"],
+                        "warning_codes": [],
+                    }
+                ],
             )
             server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -140,6 +156,9 @@ class ApiServerTests(unittest.TestCase):
             resp = requests.get(f"{base_url}/v1/runtime/live-validation", timeout=5)
             self.assertEqual(resp.status_code, 503)
             self.assertFalse(resp.json()["ok"])
+            self.assertEqual(resp.json()["validation"]["status"], "fail")
+            self.assertEqual(resp.json()["validation"]["failure_codes"], ["EVENT_ERRORS"])
+            self.assertEqual(resp.json()["validation"]["workspaces"][0]["name"], "default")
             service.validate_live_runtime.assert_called_once_with(require_live_units=True)
 
 

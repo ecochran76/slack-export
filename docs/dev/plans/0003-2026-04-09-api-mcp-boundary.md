@@ -20,6 +20,7 @@ Define and harden the shared application-service boundary for CLI, API, MCP, and
 - local API transport exists
 - MCP transport exists
 - live runtime validation is now exposed through both API and MCP on top of the shared service boundary
+- live runtime validation now returns compact machine-readable status, code, and per-workspace queue fields in addition to human-readable summary lines
 - remaining work is to tighten the documented contract, error model, and operator expectations around the shipped baseline
 
 ## Parallel Tracks

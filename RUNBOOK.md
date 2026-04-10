@@ -160,3 +160,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P02` plan current-state note so the API/MCP boundary reflects that live health is now queryable through the shared service surface.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_api_server tests.test_mcp_server tests.test_cli -v`
+
+## Turn 10 | 2026-04-10
+
+- Tightened the live-validation transport contract so automation does not need to parse human-readable lines.
+- Added a structured live-validation report in the managed-runtime layer with:
+  - overall status
+  - failure and warning counts
+  - unique failure and warning codes
+  - per-workspace queue/error counts and issue codes
+- Kept the existing human-readable summary lines so operator CLI output stays familiar.
+- Reused that same richer shape through the shared app service, API, and MCP surfaces.
+- Updated the `P02` plan current-state note to reflect the machine-readable health summary baseline.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_api_server tests.test_mcp_server tests.test_cli -v`

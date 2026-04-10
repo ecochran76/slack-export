@@ -155,10 +155,26 @@ class McpServerTests(unittest.TestCase):
             "validate_live_runtime",
             return_value=LiveValidationResult(
                 ok=True,
+                status="pass",
                 require_live_units=False,
                 summary="Summary: PASS",
                 lines=["OK managed config present", "Summary: PASS"],
                 exit_code=0,
+                failure_count=0,
+                warning_count=0,
+                failure_codes=[],
+                warning_codes=[],
+                workspaces=[
+                    {
+                        "name": "default",
+                        "event_errors": 0,
+                        "embedding_errors": 0,
+                        "event_pending": 0,
+                        "embedding_pending": 0,
+                        "failure_codes": [],
+                        "warning_codes": [],
+                    }
+                ],
             ),
         ) as mock_validate:
             result = self.server.handle_request(
@@ -174,7 +190,9 @@ class McpServerTests(unittest.TestCase):
             )
         text = result["result"]["content"][0]["text"]
         self.assertIn('"ok": true', text)
+        self.assertIn('"status": "pass"', text)
         self.assertIn('"summary": "Summary: PASS"', text)
+        self.assertIn('"workspaces"', text)
         mock_validate.assert_called_once_with(require_live_units=False)
 
 

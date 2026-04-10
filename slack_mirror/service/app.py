@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +12,7 @@ from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.service.processor import process_pending_events
-from slack_mirror.service.user_env import default_user_env_paths, validate_live_user_env
+from slack_mirror.service.user_env import _build_live_validation_report, default_user_env_paths
 
 
 @dataclass(frozen=True)
@@ -41,10 +41,16 @@ class HealthSummary:
 @dataclass(frozen=True)
 class LiveValidationResult:
     ok: bool
-    require_live_units: bool
-    summary: str
-    lines: list[str]
-    exit_code: int
+    status: str = "unknown"
+    require_live_units: bool = True
+    summary: str = "Summary: UNKNOWN"
+    lines: list[str] = field(default_factory=list)
+    exit_code: int = 1
+    failure_count: int = 0
+    warning_count: int = 0
+    failure_codes: list[str] = field(default_factory=list)
+    warning_codes: list[str] = field(default_factory=list)
+    workspaces: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SlackMirrorAppService:
@@ -59,21 +65,62 @@ class SlackMirrorAppService:
         return conn
 
     def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
-        lines: list[str] = []
         default_paths = default_user_env_paths()
         paths = replace(default_paths, config_path=self.config.path)
-        rc = validate_live_user_env(
+        report = _build_live_validation_report(
             paths=paths,
-            out=lines.append,
             require_live_units=require_live_units,
         )
-        summary = next((line for line in reversed(lines) if line.startswith("Summary:")), "Summary: UNKNOWN")
+
+        lines: list[str] = []
+
+        if Path(paths.config_path).exists():
+            lines.append(f"Config: {paths.config_path}")
+            lines.append("OK    managed config present")
+            try:
+                db_path = Path(str(self.config.get("storage", {}).get("db_path", paths.state_dir / "slack_mirror.db"))).expanduser()
+                lines.append(f"DB:     {db_path}")
+                if db_path.exists():
+                    lines.append("OK    managed DB present")
+            except Exception:
+                pass
+
+        if Path(paths.api_service_path).exists():
+            lines.append("OK    slack-mirror-api.service unit file present")
+        for workspace in report.workspaces:
+            if "WORKSPACE_DB_MISSING" not in workspace.failure_codes:
+                lines.append(f"OK    workspace {workspace.name} synced into DB")
+            if "OUTBOUND_TOKEN_MISSING" not in workspace.failure_codes:
+                lines.append(f"OK    workspace {workspace.name} explicit outbound bot token configured")
+        for issue in report.failures:
+            lines.append(f"FAIL  [{issue.code}] {issue.message}")
+        for issue in report.warnings:
+            lines.append(f"WARN  [{issue.code}] {issue.message}")
+        lines.append(report.summary)
+
         return LiveValidationResult(
-            ok=(rc == 0),
+            ok=report.ok,
+            status=report.status,
             require_live_units=require_live_units,
-            summary=summary,
+            summary=report.summary,
             lines=lines,
-            exit_code=rc,
+            exit_code=report.exit_code,
+            failure_count=report.failure_count,
+            warning_count=report.warning_count,
+            failure_codes=report.failure_codes,
+            warning_codes=report.warning_codes,
+            workspaces=[
+                {
+                    "name": workspace.name,
+                    "event_errors": workspace.event_errors,
+                    "embedding_errors": workspace.embedding_errors,
+                    "event_pending": workspace.event_pending,
+                    "embedding_pending": workspace.embedding_pending,
+                    "failure_codes": workspace.failure_codes,
+                    "warning_codes": workspace.warning_codes,
+                }
+                for workspace in report.workspaces
+            ],
         )
 
     def workspace_configs(self) -> list[dict[str, Any]]:

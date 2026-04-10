@@ -295,6 +295,14 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("workspace default synced into DB", rendered)
         self.assertNotIn("Recovery:", rendered)
 
+        report = user_env._build_live_validation_report(paths=self.paths, runner=runner, require_live_units=True)
+        self.assertTrue(report.ok)
+        self.assertEqual(report.status, "pass")
+        self.assertEqual(report.failure_codes, [])
+        self.assertEqual(report.warning_codes, [])
+        self.assertEqual(report.workspaces[0].name, "default")
+        self.assertEqual(report.workspaces[0].event_pending, 0)
+
     def test_validate_live_fails_for_duplicate_topology_and_missing_outbound_tokens(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
@@ -508,6 +516,11 @@ class UserEnvTests(unittest.TestCase):
         rendered = "\n".join(output)
         self.assertIn("FAIL  [EVENT_BACKLOG]", rendered)
         self.assertIn("Summary: FAIL", rendered)
+
+        report = user_env._build_live_validation_report(paths=self.paths, runner=runner, require_live_units=True)
+        self.assertEqual(report.status, "fail")
+        self.assertIn("EVENT_BACKLOG", report.failure_codes)
+        self.assertEqual(report.workspaces[0].event_pending, user_env.LIVE_EVENT_PENDING_FAIL_THRESHOLD + 1)
 
 
 if __name__ == "__main__":
