@@ -7,7 +7,7 @@ from unittest.mock import patch
 import requests
 
 from slack_mirror.service.api import create_api_server
-from slack_mirror.service.app import get_app_service
+from slack_mirror.service.app import LiveValidationResult, get_app_service
 
 
 class ApiServerTests(unittest.TestCase):
@@ -116,6 +116,31 @@ class ApiServerTests(unittest.TestCase):
         status = requests.get(f"{self.base_url}/v1/workspaces/default/status", timeout=5)
         self.assertEqual(status.status_code, 200)
         self.assertIn("summary", status.json())
+
+    def test_runtime_live_validation_endpoint(self):
+        with patch(
+            "slack_mirror.service.api.get_app_service"
+        ) as mock_get_service:
+            service = mock_get_service.return_value
+            service.validate_live_runtime.return_value = LiveValidationResult(
+                ok=False,
+                require_live_units=True,
+                summary="Summary: FAIL (1 failure)",
+                lines=["FAIL [EVENT_ERRORS] workspace default has event errors: 1"],
+                exit_code=1,
+            )
+            server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self.addCleanup(server.shutdown)
+            self.addCleanup(server.server_close)
+            self.addCleanup(thread.join, 2)
+            base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+            resp = requests.get(f"{base_url}/v1/runtime/live-validation", timeout=5)
+            self.assertEqual(resp.status_code, 503)
+            self.assertFalse(resp.json()["ok"])
+            service.validate_live_runtime.assert_called_once_with(require_live_units=True)
 
 
 if __name__ == "__main__":

@@ -31,6 +31,17 @@ class SlackMirrorMcpServer:
     def tools(self) -> list[dict[str, Any]]:
         return [
             _tool("health", "Show service health summary", {"type": "object", "properties": {}, "additionalProperties": False}),
+            _tool(
+                "runtime.live_validation",
+                "Validate managed runtime or full live-service health",
+                {
+                    "type": "object",
+                    "properties": {
+                        "require_live_units": {"type": "boolean", "default": True},
+                    },
+                    "additionalProperties": False,
+                },
+            ),
             _tool("workspaces.list", "List configured workspaces", {"type": "object", "properties": {}, "additionalProperties": False}),
             _tool(
                 "workspace.status",
@@ -166,6 +177,12 @@ class SlackMirrorMcpServer:
 
         if name == "health":
             return self._mcp_result({"ok": True})
+        if name == "runtime.live_validation":
+            return self._mcp_result(
+                self.service.validate_live_runtime(
+                    require_live_units=bool(args.get("require_live_units", True)),
+                )
+            )
         if name == "workspaces.list":
             return self._mcp_result({"workspaces": self.service.list_workspaces(conn)})
         if name == "workspace.status":

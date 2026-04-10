@@ -71,6 +71,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 200, {"ok": True, "workspaces": service.list_workspaces(conn)})
                 return
 
+            if path == "/v1/runtime/live-validation":
+                require_live_units = query.get("require_live_units", ["1"])[0] in {"1", "true", "yes"}
+                payload = service.validate_live_runtime(require_live_units=require_live_units)
+                _json_response(self, 200 if payload.ok else 503, {"ok": payload.ok, "validation": payload.__dict__})
+                return
+
             m = re.fullmatch(r"/v1/workspaces/([^/]+)/status", path)
             if m:
                 self._workspace_status(m.group(1), query)

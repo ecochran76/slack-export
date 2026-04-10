@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,7 @@ from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.service.processor import process_pending_events
+from slack_mirror.service.user_env import default_user_env_paths, validate_live_user_env
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,15 @@ class HealthSummary:
     unhealthy_rows: int
 
 
+@dataclass(frozen=True)
+class LiveValidationResult:
+    ok: bool
+    require_live_units: bool
+    summary: str
+    lines: list[str]
+    exit_code: int
+
+
 class SlackMirrorAppService:
     def __init__(self, config_path: str | None = None):
         self.config = load_config(config_path)
@@ -47,6 +57,24 @@ class SlackMirrorAppService:
         conn = connect(self.db_path)
         apply_migrations(conn, self.migrations_dir)
         return conn
+
+    def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
+        lines: list[str] = []
+        default_paths = default_user_env_paths()
+        paths = replace(default_paths, config_path=self.config.path)
+        rc = validate_live_user_env(
+            paths=paths,
+            out=lines.append,
+            require_live_units=require_live_units,
+        )
+        summary = next((line for line in reversed(lines) if line.startswith("Summary:")), "Summary: UNKNOWN")
+        return LiveValidationResult(
+            ok=(rc == 0),
+            require_live_units=require_live_units,
+            summary=summary,
+            lines=lines,
+            exit_code=rc,
+        )
 
     def workspace_configs(self) -> list[dict[str, Any]]:
         return self.config.get("workspaces", [])

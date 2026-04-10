@@ -149,3 +149,14 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the live-ops docs and `P04` plan to describe the new live-failure policy and queue thresholds.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+
+## Turn 9 | 2026-04-10
+
+- Exposed live runtime validation through the shared service boundary instead of forcing operators and agents to shell out.
+- Added a shared `validate_live_runtime()` method in `slack_mirror.service.app`.
+- Added API access at `/v1/runtime/live-validation`.
+- Added MCP access through the `runtime.live_validation` tool.
+- Kept the transport layers thin by reusing the same underlying validation logic and response shape.
+- Updated the `P02` plan current-state note so the API/MCP boundary reflects that live health is now queryable through the shared service surface.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_api_server tests.test_mcp_server tests.test_cli -v`

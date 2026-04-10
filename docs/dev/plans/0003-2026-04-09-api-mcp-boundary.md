@@ -19,6 +19,7 @@ Define and harden the shared application-service boundary for CLI, API, MCP, and
 - shared application-service methods exist in `slack_mirror.service.app`
 - local API transport exists
 - MCP transport exists
+- live runtime validation is now exposed through both API and MCP on top of the shared service boundary
 - remaining work is to tighten the documented contract, error model, and operator expectations around the shipped baseline
 
 ## Parallel Tracks

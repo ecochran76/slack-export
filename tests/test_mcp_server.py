@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from slack_mirror.service.app import LiveValidationResult
 from slack_mirror.service.mcp import SlackMirrorMcpServer, run_mcp_stdio
 
 
@@ -74,6 +75,7 @@ class McpServerTests(unittest.TestCase):
         tools = self.server.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
         names = [tool["name"] for tool in tools["result"]["tools"]]
         self.assertIn("health", names)
+        self.assertIn("runtime.live_validation", names)
         self.assertIn("messages.send", names)
         self.assertIn("listeners.register", names)
 
@@ -146,6 +148,34 @@ class McpServerTests(unittest.TestCase):
             }
         )
         self.assertIn('"status": "pending"', deliveries["result"]["content"][0]["text"])
+
+    def test_runtime_live_validation_tool(self):
+        with patch.object(
+            self.server.service,
+            "validate_live_runtime",
+            return_value=LiveValidationResult(
+                ok=True,
+                require_live_units=False,
+                summary="Summary: PASS",
+                lines=["OK managed config present", "Summary: PASS"],
+                exit_code=0,
+            ),
+        ) as mock_validate:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 6,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "runtime.live_validation",
+                        "arguments": {"require_live_units": False},
+                    },
+                }
+            )
+        text = result["result"]["content"][0]["text"]
+        self.assertIn('"ok": true', text)
+        self.assertIn('"summary": "Summary: PASS"', text)
+        mock_validate.assert_called_once_with(require_live_units=False)
 
 
 if __name__ == "__main__":
