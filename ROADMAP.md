@@ -23,9 +23,7 @@ Actionable plans:
 - `docs/dev/plans/0002-2026-04-09-installer-upgrade-path.md`
 
 Legacy context:
-- `docs/dev/PHASE_1_PLATFORM_FOUNDATION.md`
-- `docs/dev/INSTALLER_UPGRADE_PLAN.md`
-- `docs/dev/RELEASE_POLICY.md`
+- retained through the dated runbook and prior local planning notes when needed for archaeology
 
 ## P02 | Service Surfaces
 
@@ -44,7 +42,7 @@ Current state:
 - remaining work is contract hardening, surface expansion, and operator discipline
 
 Legacy context:
-- `docs/dev/API_MCP_BOUNDARY.md`
+- retained through the dated runbook and prior local planning notes when needed for archaeology
 
 ## P03 | Search And Evaluation
 
