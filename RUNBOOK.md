@@ -20,7 +20,7 @@ This file is the dated turn log for planning and execution continuity.
 - Handoff note for the next agent:
   - `docs/dev/planning-contract-handoff-2026-04-09.md`
 - Validation:
-  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
 ## Turn 2 | 2026-04-09
 
@@ -42,7 +42,7 @@ This file is the dated turn log for planning and execution continuity.
   - `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
   - `docs/dev/plans/0004-2026-04-09-outbound-listeners-hardening.md`
 - Validation:
-  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
 ## Turn 3 | 2026-04-10
 
@@ -71,7 +71,7 @@ This file is the dated turn log for planning and execution continuity.
   - `docs/dev/plans/0004-2026-04-09-outbound-listeners-hardening.md`
   - `docs/dev/plans/0005-2026-04-10-live-ops-runtime-hardening.md`
 - Validation:
-  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
 ## Turn 4 | 2026-04-10
 
@@ -87,4 +87,21 @@ This file is the dated turn log for planning and execution continuity.
 - Kept repo-specific details local instead of copying generic module prose wholesale.
 - Confirmed that personal workspace conventions such as `SOUL.md`, `USER.md`, and `MEMORY.md` remain explicitly out of scope for this repo.
 - Validation:
-  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 5 | 2026-04-10
+
+- Took `P04 | Live Ops And Runtime Hardening` as the active implementation slice.
+- Added `slack-mirror user-env validate-live` as the supported operator validation command for the managed user environment.
+- The validator now checks:
+  - managed config loadability
+  - configured DB presence
+  - enabled workspace presence in the DB
+  - explicit outbound write-token configuration
+  - expected active API/webhooks/daemon units
+  - duplicate legacy `events` / `embeddings` topology
+- Queue error rows are surfaced as warnings rather than hard failures so the command distinguishes broken topology from recoverable backlog/history.
+- Updated the live-ops docs and the `P04` plan to treat the validation command as part of the supported runtime contract.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

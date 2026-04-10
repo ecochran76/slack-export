@@ -1218,9 +1218,10 @@ _slack_mirror_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
   }
 
-  local top="mirror workspaces channels search docs completion api mcp"
+  local top="mirror workspaces channels search docs completion api mcp user-env version"
   local api_sub="serve"
   local mcp_sub="serve"
+  local user_env_sub="install update uninstall status validate-live"
   local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1325,6 +1326,20 @@ except Exception:
       fi
       COMPREPLY=()
       ;;
+    user-env)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$user_env_sub" -- "$cur") )
+        return 0
+      fi
+      if [[ "${COMP_WORDS[2]}" == "uninstall" ]]; then
+        COMPREPLY=( $(compgen -W "--purge-data" -- "$cur") )
+      else
+        COMPREPLY=()
+      fi
+      ;;
+    version)
+      COMPREPLY=()
+      ;;
   esac
   return 0
 }
@@ -1347,10 +1362,11 @@ except Exception:
 }
 
 _slack_mirror() {
-  local -a top mirror_sub ws_sub api_sub mcp_sub
-  top=(mirror workspaces channels search docs completion api mcp)
+  local -a top mirror_sub ws_sub api_sub mcp_sub user_env_sub
+  top=(mirror workspaces channels search docs completion api mcp user-env version)
   api_sub=(serve)
   mcp_sub=(serve)
+  user_env_sub=(install update uninstall status validate-live)
   mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -1467,6 +1483,20 @@ _slack_mirror() {
       fi
       _arguments
       ;;
+    user-env)
+      if (( CURRENT == 3 )); then
+        _describe 'user-env command' user_env_sub
+        return
+      fi
+      if [[ "$words[3]" == "uninstall" ]]; then
+        _arguments '--purge-data[also remove config, DB, and cache]'
+      else
+        _arguments
+      fi
+      ;;
+    version)
+      return
+      ;;
   esac
 }
 
@@ -1510,6 +1540,12 @@ def cmd_user_env_status(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import status_user_env
 
     return status_user_env()
+
+
+def cmd_user_env_validate_live(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import validate_live_user_env
+
+    return validate_live_user_env()
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
@@ -1803,6 +1839,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_user_uninstall.set_defaults(func=cmd_user_env_uninstall)
     p_user_status = user_env_sub.add_parser("status", help="show user-scope install status")
     p_user_status.set_defaults(func=cmd_user_env_status)
+    p_user_validate_live = user_env_sub.add_parser(
+        "validate-live",
+        help="validate the supported live-service contract for the managed user environment",
+    )
+    p_user_validate_live.set_defaults(func=cmd_user_env_validate_live)
 
     version_parser = sub.add_parser("version", help="print the package version")
     version_parser.set_defaults(func=cmd_version)

@@ -657,7 +657,9 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 **Usage**
 
 ```
-usage: slack-mirror user-env [-h] {install,update,uninstall,status} ...
+usage: slack-mirror user-env [-h]
+                             {install,update,uninstall,status,validate-live}
+                             ...
 ```
 
 **Arguments**
@@ -669,6 +671,7 @@ usage: slack-mirror user-env [-h] {install,update,uninstall,status} ...
 - `status`
 - `uninstall`
 - `update`
+- `validate-live`
 
 ### `slack-mirror user-env install`
 **Usage**
@@ -703,6 +706,14 @@ usage: slack-mirror user-env uninstall [-h] [--purge-data]
 
 ```
 usage: slack-mirror user-env update [-h]
+```
+
+
+### `slack-mirror user-env validate-live`
+**Usage**
+
+```
+usage: slack-mirror user-env validate-live [-h]
 ```
 
 

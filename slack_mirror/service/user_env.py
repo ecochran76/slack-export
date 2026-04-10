@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
+
+from slack_mirror.core.config import load_config
 
 
 RunFn = Callable[..., subprocess.CompletedProcess]
@@ -214,6 +217,53 @@ def _write_api_service(paths: UserEnvPaths) -> None:
     paths.api_service_path.write_text(content, encoding="utf-8")
 
 
+def _user_unit_path(paths: UserEnvPaths, unit_name: str) -> Path:
+    return paths.home_dir / ".config" / "systemd" / "user" / unit_name
+
+
+def _systemctl_state(runner: RunFn, unit_name: str) -> str:
+    completed = runner(
+        ["systemctl", "--user", "is-active", unit_name],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    state = (completed.stdout or "").strip()
+    if state:
+        return state
+    if completed.returncode != 0:
+        return "inactive"
+    return "unknown"
+
+
+def _db_status_counts(db_path: Path, workspace: str, table: str) -> dict[str, int]:
+    conn = sqlite3.connect(db_path, timeout=10)
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT t.status, COUNT(*)
+            FROM {table} t
+            JOIN workspaces w ON w.id = t.workspace_id
+            WHERE w.name = ?
+            GROUP BY t.status
+            ORDER BY t.status
+            """,
+            (workspace,),
+        )
+        return {str(status): int(count) for status, count in rows}
+    finally:
+        conn.close()
+
+
+def _db_workspace_names(db_path: Path) -> set[str]:
+    conn = sqlite3.connect(db_path, timeout=10)
+    try:
+        rows = conn.execute("SELECT name FROM workspaces ORDER BY name")
+        return {str(name) for (name,) in rows}
+    finally:
+        conn.close()
+
+
 def _run_migrations(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn) -> None:
     _log(out, "running schema migrations (mirror init)")
     env = _runtime_env(paths)
@@ -363,4 +413,133 @@ def status_user_env(
     )
     stdout = (completed.stdout or "").strip()
     out(stdout if stdout else "  status: unavailable")
+    return 0
+
+
+def validate_live_user_env(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+    out: PrintFn = print,
+) -> int:
+    target = paths or default_user_env_paths()
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    def ok(message: str) -> None:
+        out(f"OK    {message}")
+
+    def warn(message: str) -> None:
+        warnings.append(message)
+        out(f"WARN  {message}")
+
+    def fail(message: str) -> None:
+        failures.append(message)
+        out(f"FAIL  {message}")
+
+    out(f"Config: {target.config_path}")
+    if not target.config_path.exists():
+        fail("managed config is missing")
+        out(f"Summary: FAIL ({len(failures)} failure)")
+        return 1
+    ok("managed config present")
+
+    try:
+        cfg = load_config(target.config_path)
+    except Exception as exc:
+        fail(f"managed config could not be loaded: {exc}")
+        out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        return 1
+
+    db_path = Path(str(cfg.get("storage", {}).get("db_path", target.state_dir / "slack_mirror.db"))).expanduser()
+    out(f"DB:     {db_path}")
+    if not db_path.exists():
+        fail("managed DB is missing")
+        out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        return 1
+    ok("managed DB present")
+
+    workspace_configs = [ws for ws in cfg.get("workspaces", []) if ws.get("name") and ws.get("enabled", True)]
+    if not workspace_configs:
+        fail("no enabled workspaces found in managed config")
+        out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        return 1
+
+    api_unit = "slack-mirror-api.service"
+    if target.api_service_path.exists():
+        ok(f"{api_unit} unit file present")
+    else:
+        fail(f"{api_unit} unit file missing")
+    api_state = _systemctl_state(runner, api_unit)
+    if api_state == "active":
+        ok(f"{api_unit} active")
+    else:
+        fail(f"{api_unit} state={api_state}")
+
+    try:
+        db_workspaces = _db_workspace_names(db_path)
+    except sqlite3.DatabaseError as exc:
+        fail(f"managed DB unreadable: {exc}")
+        out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        return 1
+
+    for ws in workspace_configs:
+        name = str(ws.get("name"))
+        if name in db_workspaces:
+            ok(f"workspace {name} synced into DB")
+        else:
+            fail(f"workspace {name} missing from DB")
+
+        outbound_token = ws.get("outbound_token") or ws.get("write_token")
+        outbound_user_token = ws.get("outbound_user_token") or ws.get("write_user_token")
+        if outbound_token:
+            ok(f"workspace {name} explicit outbound bot token configured")
+        else:
+            fail(f"workspace {name} missing explicit outbound bot token")
+        if ws.get("user_token"):
+            if outbound_user_token:
+                ok(f"workspace {name} explicit outbound user token configured")
+            else:
+                fail(f"workspace {name} missing explicit outbound user token")
+
+        receiver_unit = f"slack-mirror-webhooks-{name}.service"
+        daemon_unit = f"slack-mirror-daemon-{name}.service"
+        for unit_name in (receiver_unit, daemon_unit):
+            unit_path = _user_unit_path(target, unit_name)
+            if unit_path.exists():
+                ok(f"{unit_name} unit file present")
+            else:
+                fail(f"{unit_name} unit file missing")
+            unit_state = _systemctl_state(runner, unit_name)
+            if unit_state == "active":
+                ok(f"{unit_name} active")
+            else:
+                fail(f"{unit_name} state={unit_state}")
+
+        for unit_name in (
+            f"slack-mirror-events-{name}.service",
+            f"slack-mirror-embeddings-{name}.service",
+        ):
+            if _systemctl_state(runner, unit_name) == "active":
+                fail(f"duplicate topology active: {unit_name}")
+
+        try:
+            event_counts = _db_status_counts(db_path, name, "events")
+            embedding_counts = _db_status_counts(db_path, name, "embedding_jobs")
+        except sqlite3.DatabaseError as exc:
+            fail(f"workspace {name} queue inspection failed: {exc}")
+            continue
+
+        if event_counts.get("error", 0):
+            warn(f"workspace {name} has event errors: {event_counts.get('error', 0)}")
+        if embedding_counts.get("error", 0):
+            warn(f"workspace {name} has embedding job errors: {embedding_counts.get('error', 0)}")
+
+    if failures:
+        out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+        return 1
+    if warnings:
+        out(f"Summary: PASS with warnings ({len(warnings)})")
+        return 0
+    out("Summary: PASS")
     return 0

@@ -14,6 +14,13 @@ Harden the supported live-service operating model into a stable operator contrac
 - auth guardrail enforcement in live mode
 - installer/status/runbook alignment for unattended operation
 
+## Current State
+
+- the supported two-service topology per workspace is documented
+- live-mode install and status scripts exist
+- `slack-mirror user-env validate-live` now checks the managed live contract for config, DB, workspace sync, explicit outbound write tokens, expected active units, and duplicate legacy topology
+- remaining work is to tighten restart/recovery guidance, richer failure classification, and broader operator smoke coverage
+
 ## Parallel Tracks
 
 ### Track A | Runtime Topology And Supervision

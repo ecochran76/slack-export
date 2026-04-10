@@ -48,7 +48,7 @@ Rules:
 - Keep completed plans and migration notes visible; mark them complete or superseded instead of deleting them.
 - For this repo, each `OPEN` plan should say what baseline is already shipped and what work remains. Prefer an explicit `Current State` section over vague status prose.
 - Planning wiring should remain auditable with:
-  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
 ## Architecture Guardrails
 

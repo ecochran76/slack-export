@@ -96,6 +96,12 @@ Check status:
 systemctl --user status slack-mirror-webhooks-default.service slack-mirror-daemon-default.service
 ```
 
+Validate the supported managed contract:
+
+```bash
+slack-mirror user-env validate-live
+```
+
 Follow logs:
 
 ```bash

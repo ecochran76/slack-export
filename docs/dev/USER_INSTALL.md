@@ -122,3 +122,21 @@ scripts/user_env.sh status
 The script is a compatibility shim that delegates to `slack-mirror user-env`.
 
 Shows wrapper/API/MCP/API service/config/db presence and current live-mode service status.
+
+## Live Validation
+
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env validate-live
+```
+
+This checks the supported unattended runtime contract and fails when it finds:
+
+- missing managed config or DB
+- enabled workspaces missing from the DB
+- missing explicit outbound write tokens
+- missing or inactive managed API/webhooks/daemon units
+- duplicate legacy `events` or `embeddings` units active alongside the unified daemon
+
+Queue error counts are reported as warnings so the command can distinguish broken topology from recoverable backlog or historical failures.

@@ -24,7 +24,7 @@ The new canonical actionable plan files are:
 This now passes:
 
 ```bash
-python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json
+python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json
 ```
 
 Expected current result:

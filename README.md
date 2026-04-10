@@ -19,6 +19,7 @@ Useful commands:
 scripts/install_live_mode_systemd_user.sh default
 scripts/install_live_mode_systemd_user.sh soylei
 scripts/live_mode_status_all.sh
+slack-mirror user-env validate-live
 ./.venv/bin/python -m unittest discover -s tests -v
 ```
 

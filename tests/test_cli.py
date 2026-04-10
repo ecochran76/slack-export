@@ -9,6 +9,7 @@ from slack_mirror.cli.main import (
     cmd_user_env_status,
     cmd_user_env_uninstall,
     cmd_user_env_update,
+    cmd_user_env_validate_live,
 )
 
 
@@ -291,6 +292,13 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.purge_data)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_user_env_validate_live(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "validate-live"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "validate-live")
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_version_command(self):
         parser = build_parser()
         args = parser.parse_args(["version"])
@@ -343,6 +351,13 @@ class CliTests(unittest.TestCase):
         args = parser.parse_args(["user-env", "status"])
         self.assertEqual(cmd_user_env_status(args), 0)
         mock_status.assert_called_once_with()
+
+    @patch("slack_mirror.service.user_env.validate_live_user_env", return_value=0)
+    def test_user_env_validate_live_dispatches_to_service(self, mock_validate):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "validate-live"])
+        self.assertEqual(cmd_user_env_validate_live(args), 0)
+        mock_validate.assert_called_once_with()
 
     @patch("slack_mirror.service.mcp.run_mcp_stdio", return_value=None)
     def test_mcp_serve_dispatches_to_service(self, mock_run):
