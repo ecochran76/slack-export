@@ -258,3 +258,13 @@ This file is the dated turn log for planning and execution continuity.
   - broader automation features beyond the current local consumer model
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 17 | 2026-04-10
+
+- Added machine-readable local operator output for the live-runtime checks:
+  - `slack-mirror user-env status --json`
+  - `slack-mirror user-env validate-live --json`
+- Kept the existing human-readable CLI output for operators, but exposed the same status/validation data in JSON for shell automation and unattended checks.
+- Updated the live-ops docs and `P04` current-state note to reflect the new CLI-native machine-output path.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`

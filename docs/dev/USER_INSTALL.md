@@ -117,6 +117,12 @@ Supported product entrypoint:
 slack-mirror user-env status
 ```
 
+Machine-readable form:
+
+```bash
+slack-mirror user-env status --json
+```
+
 Script entrypoint:
 
 ```bash
@@ -133,6 +139,12 @@ Supported product entrypoint:
 
 ```bash
 slack-mirror user-env validate-live
+```
+
+Machine-readable form:
+
+```bash
+slack-mirror user-env validate-live --json
 ```
 
 This checks the supported unattended runtime contract and fails when it finds:

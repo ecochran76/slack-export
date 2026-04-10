@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sqlite3
+import json
 
 from slack_mirror.service import user_env
 
@@ -242,6 +243,35 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("status: present", rendered)
         self.assertIn("svc-a", rendered)
 
+    def test_status_json_reports_machine_readable_presence(self):
+        self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text("cfg\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        (self.paths.state_dir / "slack_mirror.db").write_text("db\n", encoding="utf-8")
+        self.paths.cache_dir.mkdir(parents=True, exist_ok=True)
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="active\n", stderr="")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        rc = user_env.status_user_env(paths=self.paths, runner=runner, out=output.append, json_output=True)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(output[0])
+        self.assertTrue(payload["wrapper_present"])
+        self.assertTrue(payload["api_wrapper_present"])
+        self.assertTrue(payload["mcp_wrapper_present"])
+        self.assertTrue(payload["api_service_present"])
+        self.assertEqual(payload["services"]["slack-mirror-api.service"], "active")
+
     def test_validate_live_passes_for_supported_runtime_contract(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
@@ -302,6 +332,54 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(report.warning_codes, [])
         self.assertEqual(report.workspaces[0].name, "default")
         self.assertEqual(report.workspaces[0].event_pending, 0)
+
+    def test_validate_live_json_reports_machine_readable_failures(self):
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            """
+        )
+        conn.close()
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            unit = args[-1]
+            stdout = "active\n" if unit in {
+                "slack-mirror-api.service",
+                "slack-mirror-webhooks-default.service",
+                "slack-mirror-daemon-default.service",
+            } else "inactive\n"
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+        rc = user_env.validate_live_user_env(paths=self.paths, runner=runner, out=output.append, json_output=True)
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(output[0])
+        self.assertEqual(payload["status"], "fail")
+        self.assertIn("OUTBOUND_TOKEN_MISSING", payload["failure_codes"])
+        self.assertEqual(payload["workspaces"][0]["name"], "default")
 
     def test_validate_live_fails_for_duplicate_topology_and_missing_outbound_tokens(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)

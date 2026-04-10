@@ -297,6 +297,21 @@ class CliTests(unittest.TestCase):
         args = parser.parse_args(["user-env", "validate-live"])
         self.assertEqual(args.command, "user-env")
         self.assertEqual(args.user_env_cmd, "validate-live")
+        self.assertFalse(args.json)
+
+    def test_parse_user_env_status_json(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "status", "--json"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "status")
+        self.assertTrue(args.json)
+
+    def test_parse_user_env_validate_live_json(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "validate-live", "--json"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "validate-live")
+        self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_version_command(self):
@@ -350,14 +365,28 @@ class CliTests(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["user-env", "status"])
         self.assertEqual(cmd_user_env_status(args), 0)
-        mock_status.assert_called_once_with()
+        mock_status.assert_called_once_with(json_output=False)
 
     @patch("slack_mirror.service.user_env.validate_live_user_env", return_value=0)
     def test_user_env_validate_live_dispatches_to_service(self, mock_validate):
         parser = build_parser()
         args = parser.parse_args(["user-env", "validate-live"])
         self.assertEqual(cmd_user_env_validate_live(args), 0)
-        mock_validate.assert_called_once_with()
+        mock_validate.assert_called_once_with(json_output=False)
+
+    @patch("slack_mirror.service.user_env.status_user_env", return_value=0)
+    def test_user_env_status_json_dispatches_to_service(self, mock_status):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "status", "--json"])
+        self.assertEqual(cmd_user_env_status(args), 0)
+        mock_status.assert_called_once_with(json_output=True)
+
+    @patch("slack_mirror.service.user_env.validate_live_user_env", return_value=0)
+    def test_user_env_validate_live_json_dispatches_to_service(self, mock_validate):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "validate-live", "--json"])
+        self.assertEqual(cmd_user_env_validate_live(args), 0)
+        mock_validate.assert_called_once_with(json_output=True)
 
     @patch("slack_mirror.service.mcp.run_mcp_stdio", return_value=None)
     def test_mcp_serve_dispatches_to_service(self, mock_run):

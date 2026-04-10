@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import sqlite3
@@ -74,6 +75,18 @@ class LiveValidationReport:
     failures: list[LiveValidationIssue]
     warnings: list[LiveValidationIssue]
     workspaces: list[LiveValidationWorkspace]
+
+
+@dataclass(frozen=True)
+class UserEnvStatusReport:
+    wrapper_present: bool
+    api_wrapper_present: bool
+    mcp_wrapper_present: bool
+    api_service_present: bool
+    config_present: bool
+    db_present: bool
+    cache_present: bool
+    services: dict[str, str]
 
 
 def default_user_env_paths(
@@ -599,6 +612,31 @@ def _finalize_live_validation_report(
     )
 
 
+def _build_status_report(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+) -> UserEnvStatusReport:
+    target = paths or default_user_env_paths()
+    service_units = [
+        "slack-mirror-api.service",
+        *sorted(path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.service")),
+    ]
+    states: dict[str, str] = {}
+    for unit_name in dict.fromkeys(service_units):
+        states[unit_name] = _systemctl_state(runner, unit_name)
+    return UserEnvStatusReport(
+        wrapper_present=target.wrapper_path.exists(),
+        api_wrapper_present=target.api_wrapper_path.exists(),
+        mcp_wrapper_present=target.mcp_wrapper_path.exists(),
+        api_service_present=target.api_service_path.exists(),
+        config_present=target.config_path.exists(),
+        db_present=(target.state_dir / "slack_mirror.db").exists(),
+        cache_present=target.cache_dir.exists(),
+        services=states,
+    )
+
+
 def _run_migrations(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn) -> None:
     _log(out, "running schema migrations (mirror init)")
     env = _runtime_env(paths)
@@ -730,8 +768,28 @@ def status_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     out: PrintFn = print,
+    json_output: bool = False,
 ) -> int:
     target = paths or default_user_env_paths()
+    report = _build_status_report(paths=target, runner=runner)
+    if json_output:
+        out(
+            json.dumps(
+                {
+                    "wrapper_present": report.wrapper_present,
+                    "api_wrapper_present": report.api_wrapper_present,
+                    "mcp_wrapper_present": report.mcp_wrapper_present,
+                    "api_service_present": report.api_service_present,
+                    "config_present": report.config_present,
+                    "db_present": report.db_present,
+                    "cache_present": report.cache_present,
+                    "services": report.services,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
     db_path = target.state_dir / "slack_mirror.db"
     out(f"Wrapper:  {target.wrapper_path}")
     out("  status: present" if target.wrapper_path.exists() else "  status: missing")
@@ -765,6 +823,7 @@ def validate_live_user_env(
     runner: RunFn = subprocess.run,
     out: PrintFn = print,
     require_live_units: bool = True,
+    json_output: bool = False,
 ) -> int:
     target = paths or default_user_env_paths()
     report = _build_live_validation_report(
@@ -772,6 +831,57 @@ def validate_live_user_env(
         runner=runner,
         require_live_units=require_live_units,
     )
+    if json_output:
+        out(
+            json.dumps(
+                {
+                    "ok": report.ok,
+                    "status": report.status,
+                    "require_live_units": report.require_live_units,
+                    "exit_code": report.exit_code,
+                    "summary": report.summary,
+                    "failure_count": report.failure_count,
+                    "warning_count": report.warning_count,
+                    "failure_codes": report.failure_codes,
+                    "warning_codes": report.warning_codes,
+                    "failures": [
+                        {
+                            "severity": item.severity,
+                            "code": item.code,
+                            "message": item.message,
+                            "action": item.action,
+                            "workspace": item.workspace,
+                        }
+                        for item in report.failures
+                    ],
+                    "warnings": [
+                        {
+                            "severity": item.severity,
+                            "code": item.code,
+                            "message": item.message,
+                            "action": item.action,
+                            "workspace": item.workspace,
+                        }
+                        for item in report.warnings
+                    ],
+                    "workspaces": [
+                        {
+                            "name": workspace.name,
+                            "event_errors": workspace.event_errors,
+                            "embedding_errors": workspace.embedding_errors,
+                            "event_pending": workspace.event_pending,
+                            "embedding_pending": workspace.embedding_pending,
+                            "failure_codes": workspace.failure_codes,
+                            "warning_codes": workspace.warning_codes,
+                        }
+                        for workspace in report.workspaces
+                    ],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return report.exit_code
 
     def emit_actions(items: list[LiveValidationIssue], *, label: str) -> None:
         actions: list[tuple[str, str]] = []

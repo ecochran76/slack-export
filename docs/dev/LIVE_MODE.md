@@ -104,6 +104,12 @@ Validate the supported managed contract:
 slack-mirror user-env validate-live
 ```
 
+Machine-readable validation for shell automation:
+
+```bash
+slack-mirror user-env validate-live --json
+```
+
 Follow logs:
 
 ```bash
@@ -171,3 +177,8 @@ In full live validation, queue error rows fail immediately, and sustained pendin
 - pending embedding jobs over `1000`
 
 Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.
+
+For shell automation, prefer:
+
+- `slack-mirror user-env status --json`
+- `slack-mirror user-env validate-live --json`

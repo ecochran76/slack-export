@@ -1333,6 +1333,8 @@ except Exception:
       fi
       if [[ "${COMP_WORDS[2]}" == "uninstall" ]]; then
         COMPREPLY=( $(compgen -W "--purge-data" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "status" || "${COMP_WORDS[2]}" == "validate-live" ]]; then
+        COMPREPLY=( $(compgen -W "--json" -- "$cur") )
       else
         COMPREPLY=()
       fi
@@ -1490,6 +1492,8 @@ _slack_mirror() {
       fi
       if [[ "$words[3]" == "uninstall" ]]; then
         _arguments '--purge-data[also remove config, DB, and cache]'
+      elif [[ "$words[3]" == "status" || "$words[3]" == "validate-live" ]]; then
+        _arguments '--json[json output]'
       else
         _arguments
       fi
@@ -1539,13 +1543,13 @@ def cmd_user_env_uninstall(args: argparse.Namespace) -> int:
 def cmd_user_env_status(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import status_user_env
 
-    return status_user_env()
+    return status_user_env(json_output=bool(args.json))
 
 
 def cmd_user_env_validate_live(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import validate_live_user_env
 
-    return validate_live_user_env()
+    return validate_live_user_env(json_output=bool(args.json))
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
@@ -1838,11 +1842,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_user_uninstall.add_argument("--purge-data", action="store_true", help="also remove config, DB, and cache")
     p_user_uninstall.set_defaults(func=cmd_user_env_uninstall)
     p_user_status = user_env_sub.add_parser("status", help="show user-scope install status")
+    p_user_status.add_argument("--json", action="store_true", help="json output")
     p_user_status.set_defaults(func=cmd_user_env_status)
     p_user_validate_live = user_env_sub.add_parser(
         "validate-live",
         help="validate the supported live-service contract for the managed user environment",
     )
+    p_user_validate_live.add_argument("--json", action="store_true", help="json output")
     p_user_validate_live.set_defaults(func=cmd_user_env_validate_live)
 
     version_parser = sub.add_parser("version", help="print the package version")

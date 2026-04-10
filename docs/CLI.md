@@ -685,8 +685,12 @@ usage: slack-mirror user-env install [-h]
 **Usage**
 
 ```
-usage: slack-mirror user-env status [-h]
+usage: slack-mirror user-env status [-h] [--json]
 ```
+
+**Options**
+
+- `--json` — json output
 
 
 ### `slack-mirror user-env uninstall`
@@ -713,8 +717,12 @@ usage: slack-mirror user-env update [-h]
 **Usage**
 
 ```
-usage: slack-mirror user-env validate-live [-h]
+usage: slack-mirror user-env validate-live [-h] [--json]
 ```
+
+**Options**
+
+- `--json` — json output
 
 
 
