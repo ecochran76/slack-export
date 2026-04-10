@@ -97,6 +97,12 @@ def backfill_messages(
             )
 
         thread_reply_count = 0
+        newest_seen_ts: float | None = None
+        for msg in messages:
+            try:
+                newest_seen_ts = max(newest_seen_ts or 0.0, float(str(msg.get("ts") or "0")))
+            except ValueError:
+                continue
         for thread_ts in sorted(reply_roots):
             try:
                 replies = api.conversation_replies(
@@ -111,13 +117,16 @@ def backfill_messages(
                 raise
             for r in replies:
                 upsert_message(conn, workspace_id, channel_id, r)
+                try:
+                    newest_seen_ts = max(newest_seen_ts or 0.0, float(str(r.get("ts") or "0")))
+                except ValueError:
+                    continue
             thread_reply_count += len(replies)
 
         total_messages += len(messages) + thread_reply_count
         processed_channels += 1
-        if messages and oldest is None and latest is None:
-            newest_ts = max(str(m.get("ts", "0")) for m in messages)
-            set_sync_state(conn, workspace_id, checkpoint_key, newest_ts)
+        if newest_seen_ts is not None and oldest is None and latest is None:
+            set_sync_state(conn, workspace_id, checkpoint_key, str(newest_seen_ts))
 
     return {"channels": processed_channels, "messages": total_messages, "skipped": skipped_channels}
 

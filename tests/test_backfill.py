@@ -3,7 +3,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_workspace
+from slack_mirror.core.db import (
+    apply_migrations,
+    connect,
+    get_sync_state,
+    set_sync_state,
+    upsert_channel,
+    upsert_message,
+    upsert_workspace,
+)
 
 try:
     from slack_mirror.sync.backfill import backfill_messages
@@ -64,6 +72,31 @@ class BackfillTests(unittest.TestCase):
             ).fetchone()
             self.assertIsNotNone(row)
             self.assertEqual(row[0], "new reply")
+
+    def test_incremental_backfill_advances_checkpoint_from_reply_only_updates(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            upsert_channel(conn, ws_id, {"id": "C123", "name": "general"})
+            upsert_message(conn, ws_id, "C123", {"ts": "1000.0", "thread_ts": "1000.0", "text": "root", "user": "U1"})
+            set_sync_state(conn, ws_id, "messages.oldest.C123", "1500.0")
+
+            fake_api = _FakeApi("xoxp-test")
+            with patch("slack_mirror.sync.backfill.SlackApiClient", return_value=fake_api):
+                result = backfill_messages(
+                    token="xoxp-test",
+                    workspace_id=ws_id,
+                    conn=conn,
+                    channel_ids_override=["C123"],
+                )
+
+            self.assertEqual(result["channels"], 1)
+            self.assertGreaterEqual(result["messages"], 2)
+            self.assertEqual(get_sync_state(conn, ws_id, "messages.oldest.C123"), "2000.0")
 
 
 if __name__ == "__main__":

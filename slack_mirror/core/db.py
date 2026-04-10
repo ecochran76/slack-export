@@ -5,11 +5,20 @@ from pathlib import Path
 from typing import Any
 
 
-def connect(db_path: str, *, check_same_thread: bool = True) -> sqlite3.Connection:
+def connect(
+    db_path: str,
+    *,
+    check_same_thread: bool = True,
+    timeout_seconds: float = 10.0,
+) -> sqlite3.Connection:
     path = Path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, check_same_thread=check_same_thread)
+    conn = sqlite3.connect(path, check_same_thread=check_same_thread, timeout=timeout_seconds)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute(f"PRAGMA busy_timeout={int(timeout_seconds * 1000)}")
     return conn
 
 
@@ -252,6 +261,24 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
     text = message.get("text") or ""
     edited_ts = ((message.get("edited") or {}).get("ts"))
     deleted = 1 if message.get("subtype") == "message_deleted" else 0
+    raw_json = json.dumps(message, sort_keys=True)
+    existing = conn.execute(
+        """
+        SELECT user_id, text, subtype, thread_ts, edited_ts, deleted
+        FROM messages
+        WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+        """,
+        (workspace_id, channel_id, ts),
+    ).fetchone()
+    unchanged = bool(
+        existing
+        and (existing["user_id"] or "") == user_id
+        and (existing["text"] or "") == text
+        and existing["subtype"] == message.get("subtype")
+        and existing["thread_ts"] == message.get("thread_ts")
+        and existing["edited_ts"] == edited_ts
+        and int(existing["deleted"] or 0) == deleted
+    )
 
     with conn:
         conn.execute(
@@ -278,9 +305,12 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
                 message.get("thread_ts"),
                 edited_ts,
                 deleted,
-                json.dumps(message, sort_keys=True),
+                raw_json,
             ),
         )
+
+        if unchanged:
+            return
 
         # Incremental FTS maintenance for keyword search speed.
         conn.execute(
