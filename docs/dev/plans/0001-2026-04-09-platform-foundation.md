@@ -14,6 +14,13 @@ Make the repo operable under one coherent planning and platform-foundation contr
 - one canonical release-planning path
 - one documented service-boundary planning path
 
+## Current State
+
+- the deterministic planning contract is in place and wired through `ROADMAP.md`, `RUNBOOK.md`, and `docs/dev/plans/`
+- the supported runtime topology, installer path, and service-boundary work now have active child plans under `P01`, `P02`, and `P04`
+- the repo has moved off the older `PHASE_*` planning files as active sources of truth
+- remaining work is to close the child plans cleanly and decide when the platform-foundation lane itself can move from coordination to closure
+
 ## Parallel Tracks
 
 ### Track A | Runtime And Installer

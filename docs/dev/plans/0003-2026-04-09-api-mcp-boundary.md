@@ -23,6 +23,7 @@ Define and harden the shared application-service boundary for CLI, API, MCP, and
 - live runtime validation now returns compact machine-readable status, code, and per-workspace queue fields in addition to human-readable summary lines
 - API and MCP write/read failures now map through a shared machine-readable error envelope with stable codes, retryability, and operation context
 - outbound write actions now return explicit idempotency and retry semantics through the shared service boundary instead of exposing only raw DB rows
+- the shipped transport success/error semantics are now documented in `docs/API_MCP_CONTRACT.md`
 - remaining work is to tighten the documented contract, error model, and operator expectations around the shipped baseline
 
 ## Parallel Tracks

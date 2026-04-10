@@ -202,3 +202,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P02` plan current-state note so the API/MCP boundary reflects the explicit outbound-write contract baseline.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_cli -v`
+
+## Turn 13 | 2026-04-10
+
+- Added a stable repo doc for the shipped API/MCP transport contract:
+  - `docs/API_MCP_CONTRACT.md`
+- Documented the current shared success/error semantics for:
+  - live runtime validation
+  - outbound message sends
+  - outbound thread replies
+  - the shared machine-readable error envelope
+- Linked the contract from `README.md` and `docs/ARCHITECTURE.md` so callers have one canonical reference instead of relying on tests or code inspection.
+- Updated the `P02` plan current-state note to reflect that the shipped transport contract is now documented, not just implemented.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

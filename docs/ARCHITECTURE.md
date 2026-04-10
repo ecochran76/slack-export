@@ -76,6 +76,9 @@ The canonical system should look like this:
 - local API for programmatic use
 - MCP server backed by the same application service layer
 - shared contracts rather than duplicate logic
+- shared machine-readable success and error envelopes for transport callers
+
+See [API_MCP_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/API_MCP_CONTRACT.md) for the current shipped transport contract.
 
 ## Runtime Model
 

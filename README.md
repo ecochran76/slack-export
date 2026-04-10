@@ -3,6 +3,7 @@
 A Python script to export Slack conversations, canvases, and files.
 
 This repo also contains the newer `slack_mirror` package for multi-workspace ingest, local search, and always-on live sync. For current live-ops setup, use the runbooks in [docs/dev/LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md) and [docs/CLI.md](/home/ecochran76/workspace.local/slack-export/docs/CLI.md).
+For the shipped local API and MCP response semantics, see [docs/API_MCP_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/API_MCP_CONTRACT.md).
 
 ## Current Live Topology
 
