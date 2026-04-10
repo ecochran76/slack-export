@@ -1,44 +1,94 @@
-# Slack Mirror Architecture (User-Facing)
+# Slack Mirror Architecture
 
-This project is evolving from a one-time Slack export script into a continuous, local-first workspace mirror.
+This project is evolving from a one-time Slack export script into a local Slack service platform.
+
+The target is not "more scripts." The target is one application core with multiple thin surfaces.
 
 ## Goals
 
-- Mirror one or more Slack workspaces locally
-- Keep data fresh via Events API (webhooks) + scheduled reconciliation
-- Cache messages, files, and canvases with stable local paths
-- Provide both keyword and semantic search
-- Run as a CLI and long-running service
+- mirror one or more Slack workspaces locally
+- keep data fresh through live ingest plus reconciliation
+- provide keyword and semantic search over one canonical corpus
+- expose the platform through CLI, API, and MCP
+- support outbound messaging, replies, and triggerable listener workflows
+- run as one supported long-lived service topology per install
+
+## Architectural Direction
+
+The canonical system should look like this:
+
+1. **Application Core**
+   - owns workspace routing, sync state, event processing, search, embeddings, outbound messaging, and hook dispatch
+
+2. **Canonical Data Layer**
+   - one SQLite database
+   - one cache root
+   - one message/event/job model
+
+3. **Service Runtime**
+   - one supported supervisor-managed runtime topology
+   - one live ingress path
+   - one worker/control loop
+
+4. **Thin Surfaces**
+   - CLI
+   - local API
+   - MCP server
+   - agent skills
 
 ## Core Components
 
-1. **CLI**
-   - Backup/export commands
-   - Mirror initialization and sync commands
-   - Search commands
+### 1. Sync and Reconcile
 
-2. **Sync Engine**
-   - Initial backfill from Slack Web API
-   - Incremental sync from webhook events
-   - Reconciliation jobs for missed events/rate-limit gaps
+- Slack Web API backfill
+- live ingest from Socket Mode or webhook-compatible ingress
+- replay-safe event processing
+- reconcile path for missed or delayed updates
 
-3. **Local Data Layer**
-   - SQLite primary database (multi-workspace)
-   - FTS5 indexes for keyword search
-   - Embedding storage/index for semantic search
+### 2. Canonical Persistence
 
-4. **Content Cache**
-   - Files and canvases downloaded to deterministic cache paths
-   - Metadata and checksums tracked in DB
+- multi-workspace SQLite schema
+- queue tables for events and derived work
+- FTS and embedding storage
+- deterministic local cache paths
 
-5. **Service Runtime**
-   - Webhook listener
-   - Worker queues / processors
-   - Health checks and structured logs
+### 3. Search and Retrieval
+
+- FTS keyword search
+- semantic retrieval
+- shared ranking and query interpretation
+- freshness and backlog observability
+
+### 4. Outbound Messaging
+
+- send message
+- send thread reply
+- shared audit logging, retry, and idempotency behavior
+
+### 5. Hooks and Listeners
+
+- subscription model for local consumers
+- listener dispatch on selected service events
+- delivery logging and replay-aware semantics
+
+### 6. API and MCP
+
+- local API for programmatic use
+- MCP server backed by the same application service layer
+- shared contracts rather than duplicate logic
+
+## Runtime Model
+
+The supported runtime topology is:
+
+- one ingress service per workspace
+- one unified daemon per workspace
+
+Do not run split event and embedding workers alongside the unified daemon for the same workspace. Duplicate writers against the same SQLite database are not a supported architecture.
 
 ## Multi-Workspace Model
 
-All primary entities are keyed by `workspace_id` in addition to Slack IDs:
+All primary entities are keyed by `workspace_id` in addition to Slack identifiers:
 
 - users
 - channels
@@ -47,22 +97,32 @@ All primary entities are keyed by `workspace_id` in addition to Slack IDs:
 - canvases
 - events
 - sync checkpoints
+- derived jobs
 
-This enables one local mirror instance to track many workspaces cleanly.
+One install should be able to manage multiple workspaces without creating parallel shadow databases.
+
+## Ownership Rules
+
+- `slack_mirror.core` owns schema, persistence, and canonical data behavior.
+- `slack_mirror.sync` owns Slack ingest and reconcile mechanics.
+- `slack_mirror.service` owns runtime behavior, queue execution, and listener dispatch.
+- `slack_mirror.cli` is an operator surface, not the business-logic owner.
+- future API and MCP layers must call shared application logic rather than re-implement behavior.
 
 ## Security and Secrets
 
-Configuration supports environment-variable interpolation (for tokens and signing secrets), with optional file-based or command-based secret providers.
+- config-driven workspace scoping
+- environment-variable interpolation for secrets
+- clear separation between durable mirror data and auth/session secrets
+- outbound actions must use the same workspace/auth routing discipline as inbound sync
 
-## Integrations
+## Near-Term Architectural Priorities
 
-- Existing channel tool: `~/.openclaw/workspace/scripts/slack_channels`
-- MCP-compatible API surface planned
-- OpenClaw-skill and Codex-friendly non-interactive CLI modes (`--json`)
+1. consolidate on one supported runtime/install model
+2. define installer and release discipline
+3. define the application service boundary for API and MCP
+4. add first-class outbound messaging
+5. add listener and hook contracts
+6. move agent skills onto stable service contracts
 
-## Planned UX
-
-- Generated CLI docs and shell completions (bash/zsh)
-- Dynamic completion for DB-backed items (workspace names, channel names, users)
-
-For implementation details and active planning status, see `docs/dev/`.
+For sequencing and execution detail, see [ROADMAP.md](/home/ecochran76/workspace.local/slack-export/ROADMAP.md), [RUNBOOK.md](/home/ecochran76/workspace.local/slack-export/RUNBOOK.md), and the active plans under [docs/dev/plans](/home/ecochran76/workspace.local/slack-export/docs/dev/plans).

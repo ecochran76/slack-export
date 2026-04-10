@@ -1,5 +1,11 @@
 # Development Plan (Engineering)
 
+> Legacy planning context only.
+> Canonical master plan: [`/home/ecochran76/workspace.local/slack-export/ROADMAP.md`](/home/ecochran76/workspace.local/slack-export/ROADMAP.md)
+> Canonical dated turn log: [`/home/ecochran76/workspace.local/slack-export/RUNBOOK.md`](/home/ecochran76/workspace.local/slack-export/RUNBOOK.md)
+> Canonical actionable plans: [`/home/ecochran76/workspace.local/slack-export/docs/dev/plans`](/home/ecochran76/workspace.local/slack-export/docs/dev/plans)
+> Do not use this file for new active planning.
+
 ## Scope Summary
 
 Re-architect `slack_export` into a modular, multi-workspace mirror system with realtime updates, local indexing/search, service operation, and ecosystem integrations.

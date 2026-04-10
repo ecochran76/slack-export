@@ -29,13 +29,19 @@ Legacy context:
 
 ## P02 | Service Surfaces
 
-Status: PLANNED
+Status: OPEN
 
 Purpose:
 - define and harden the shared application boundary for CLI, API, MCP, and skills
 
 Actionable plans:
 - `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
+
+Current state:
+- shared application-service layer exists
+- local API server exists
+- MCP server exists
+- remaining work is contract hardening, surface expansion, and operator discipline
 
 Legacy context:
 - `docs/dev/API_MCP_BOUNDARY.md`
@@ -67,9 +73,15 @@ Legacy context:
 
 ## P05 | Outbound Messaging And Listeners
 
-Status: PLANNED
+Status: OPEN
 
 Purpose:
 - make outbound messaging and listener/hook workflows first-class platform capabilities
 
-No actionable plan is open yet. Open one under `docs/dev/plans/` before implementation work starts on this lane.
+Actionable plans:
+- `docs/dev/plans/0004-2026-04-09-outbound-listeners-hardening.md`
+
+Current state:
+- outbound send and thread-reply flows exist through the shared service
+- listener registration, delivery inspection, and delivery acknowledgement exist
+- remaining work is hardening the contract, delivery model, and operator-facing policy

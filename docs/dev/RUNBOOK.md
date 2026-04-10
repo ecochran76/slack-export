@@ -1,5 +1,10 @@
 # Runbook (Handoff + Operations)
 
+> Legacy continuity log only.
+> Canonical dated turn log: [`/home/ecochran76/workspace.local/slack-export/RUNBOOK.md`](/home/ecochran76/workspace.local/slack-export/RUNBOOK.md)
+> Use the root runbook for new turn-by-turn execution records going forward.
+> Do not use this file as the session-start planning source of truth anymore.
+
 This file is the continuity guide for future agents and contributors.
 
 ## Current Mission
@@ -18,9 +23,9 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
 1. Read:
    - `README.md`
    - `docs/ARCHITECTURE.md`
-   - `docs/ROADMAP.md`
-   - `docs/dev/PLAN.md`
-   - `docs/dev/RUNBOOK.md`
+   - `/home/ecochran76/workspace.local/slack-export/ROADMAP.md`
+   - `/home/ecochran76/workspace.local/slack-export/RUNBOOK.md`
+   - `docs/dev/plans/`
 2. Check repo status:
    - `git status --short --branch`
 3. Confirm branch and open tasks before coding
@@ -253,7 +258,7 @@ Evolve this repo from one-time exporter to multi-workspace, continuously updated
   - `upsert_channel`
   - `get_workspace_by_name`
 - Extended CLI:
-  - `workspaces verify [--workspace <name>]`
+  - `workspaces verify [--workspace <name>] [--require-explicit-outbound]`
   - `mirror backfill --workspace <name>`
   - `scripts/catchup_mirror.sh [config] [--workspace <name> ...] [--max-passes N]`
 

@@ -39,10 +39,8 @@ Make the repo operable under one coherent planning and platform-foundation contr
 
 ## Non-Goals
 
-- full API implementation
-- full MCP implementation
-- broad outbound messaging implementation
-- listener/hook runtime implementation
+- major expansion of API, MCP, outbound, or listener capability beyond the baseline already present in the repo
+- unrelated search-platform or export-specific roadmap work
 
 ## Acceptance Criteria
 
@@ -54,4 +52,3 @@ Make the repo operable under one coherent planning and platform-foundation contr
 ## Definition Of Done
 
 This plan is done when the platform-foundation lane has clearly bounded child plans, those plans are wired into `ROADMAP.md` and `RUNBOOK.md`, and future work can proceed without relying on the older `PHASE_*` planning files as the active source of truth.
-

@@ -1,51 +1,15 @@
 # Roadmap
 
-## Current State
+> Legacy planning context only.
+> Canonical master plan: [`/home/ecochran76/workspace.local/slack-export/ROADMAP.md`](/home/ecochran76/workspace.local/slack-export/ROADMAP.md)
+> Use the root roadmap plus `docs/dev/plans/` for active planning going forward.
 
-- Single-script exporter (`slack_export.py`)
-- Point-in-time export of conversations, files, and canvases
+This file is retained only so older links do not break.
 
-## Target State
+Use these active planning surfaces instead:
 
-A multi-workspace Slack mirror platform with:
+- root roadmap: [`/home/ecochran76/workspace.local/slack-export/ROADMAP.md`](/home/ecochran76/workspace.local/slack-export/ROADMAP.md)
+- root runbook: [`/home/ecochran76/workspace.local/slack-export/RUNBOOK.md`](/home/ecochran76/workspace.local/slack-export/RUNBOOK.md)
+- actionable plans: [`/home/ecochran76/workspace.local/slack-export/docs/dev/plans`](/home/ecochran76/workspace.local/slack-export/docs/dev/plans)
 
-- Continuous sync (webhooks + reconciliation)
-- Local structured database and cache
-- Keyword + semantic search
-- Service runtime
-- MCP/OpenClaw skill readiness
-
-## Delivery Phases
-
-### Phase A — Foundations
-- Modular project structure
-- Config system (env interpolation + workspace scoping)
-- SQLite schema/migrations with `workspace_id`
-- CLI subcommand framework
-
-### Phase B — Backfill + Cache
-- Full backfill (users/channels/messages/files/canvases)
-- Stable local cache layout
-- Username↔ID map persistence/query APIs
-
-### Phase C — Realtime
-- Slack Events API ingestion
-- Signature verification
-- Event idempotency and replay-safe processing
-
-### Phase D — Search & DX
-- FTS5 keyword search
-- Semantic indexing/retrieval pipeline
-- Auto-generated CLI docs and shell completion
-
-### Phase E — Platform Hardening
-- Service packaging (systemd/docker)
-- MCP endpoint/tool contracts
-- OpenClaw skill packaging + runbook maturity
-- Observability, retries, health checks
-
-## Non-Goals (for initial rollout)
-
-- Cross-platform GUI
-- Full Slack administrative automation
-- Perfect historical parity on restricted Slack plans
+If you need the older mixed-content roadmap text, recover it from git history instead of treating this file as an active specification.

@@ -1,13 +1,13 @@
 # API MCP Boundary
 
-State: PLANNED
+State: OPEN
 Roadmap: P02
 Opened: 2026-04-09
 Supersedes: `docs/dev/API_MCP_BOUNDARY.md`
 
 ## Scope
 
-Define the shared application-service boundary for CLI, API, MCP, and agent skills:
+Define and harden the shared application-service boundary for CLI, API, MCP, and agent skills:
 
 - ownership boundaries
 - canonical service methods
@@ -35,17 +35,15 @@ Define the shared application-service boundary for CLI, API, MCP, and agent skil
 
 ## Non-Goals
 
-- implementing the full API server
-- implementing the full MCP server
-- adding new surface capabilities beyond the documented boundary
+- rebuilding the already-implemented baseline API or MCP transports from scratch
+- adding unrelated new surface capabilities before the existing contract is tightened
 
 ## Acceptance Criteria
 
 - one shared ownership model exists for CLI, API, MCP, and skills
-- the minimum API and MCP contracts are documented against the same service boundary
+- the shipped API and MCP baseline are documented against the same service boundary
 - write semantics, routing, and audit expectations are explicit
 
 ## Definition Of Done
 
-This plan is done when future API/MCP implementation can proceed against one explicit shared contract instead of inventing ownership boundaries per slice.
-
+This plan is done when future API/MCP work can proceed against one explicit shared contract instead of inventing ownership boundaries per slice, and the canonical planning docs match the implemented baseline already in the repo.
