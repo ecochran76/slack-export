@@ -22,6 +22,12 @@ Actionable plans:
 - `docs/dev/plans/0001-2026-04-09-platform-foundation.md`
 - `docs/dev/plans/0002-2026-04-09-installer-upgrade-path.md`
 
+Current state:
+- supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
+- user-scope install and update flows exist
+- release/version discipline is partially documented and partially implemented
+- remaining work is making installer validation, rollback, and release policy fully explicit and auditable
+
 Legacy context:
 - retained through the dated runbook and prior local planning notes when needed for archaeology
 
@@ -51,6 +57,11 @@ Status: PLANNED
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
 
+Current state:
+- keyword and semantic search exist
+- embedding backlog discipline and SQLite contention hardening have landed
+- remaining work is evaluation, search freshness policy, and search-platform reuse boundaries
+
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`
 - `docs/dev/PHASE_F_SEARCH_PLATFORM.md`
@@ -59,10 +70,19 @@ Legacy context:
 
 ## P04 | Live Ops And Runtime Hardening
 
-Status: PLANNED
+Status: OPEN
 
 Purpose:
 - keep live-mode operations, auth guardrails, user install, and daemon drift checks coherent
+
+Actionable plans:
+- `docs/dev/plans/0005-2026-04-10-live-ops-runtime-hardening.md`
+
+Current state:
+- supported live topology is documented
+- install/status scripts exist
+- auth guardrails and explicit outbound validation exist
+- remaining work is hardening operational checks, service supervision, and drift detection into a clearly bounded operator contract
 
 Legacy context:
 - `docs/dev/LIVE_MODE.md`

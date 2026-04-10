@@ -14,6 +14,13 @@ Define and harden the shared application-service boundary for CLI, API, MCP, and
 - transport-surface responsibilities
 - minimal read/write/operational contract
 
+## Current State
+
+- shared application-service methods exist in `slack_mirror.service.app`
+- local API transport exists
+- MCP transport exists
+- remaining work is to tighten the documented contract, error model, and operator expectations around the shipped baseline
+
 ## Parallel Tracks
 
 ### Track A | Core Ownership

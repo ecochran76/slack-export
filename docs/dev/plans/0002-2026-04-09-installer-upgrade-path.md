@@ -15,6 +15,13 @@ Define the supported installer and upgrade path as a bounded product surface:
 - rollback
 - legacy unit migration
 
+## Current State
+
+- `slack-mirror user-env install|update|uninstall|status` exists
+- compatibility script wrappers exist
+- managed API launcher and API service unit exist
+- remaining work is to tighten validation, rollback expectations, and operator-facing upgrade discipline
+
 ## Parallel Tracks
 
 ### Track A | Install And Upgrade Semantics
@@ -49,4 +56,3 @@ Define the supported installer and upgrade path as a bounded product surface:
 ## Definition Of Done
 
 This plan is done when install and upgrade behavior can be implemented or audited without consulting ad hoc notes, and the installer path is no longer spread across multiple conflicting docs.
-

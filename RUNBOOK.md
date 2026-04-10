@@ -43,3 +43,48 @@ This file is the dated turn log for planning and execution continuity.
   - `docs/dev/plans/0004-2026-04-09-outbound-listeners-hardening.md`
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 3 | 2026-04-10
+
+- Reviewed code and git history to reconcile the canonical planning docs with what has actually landed on `master`.
+- Confirmed shipped platform baseline since the planning-contract migration:
+  - shared application-service layer
+  - local API server
+  - MCP server
+  - managed `user-env` install/update/uninstall/status flow
+  - managed API launcher and API systemd user service
+  - outbound send/reply support with audit rows and idempotency
+  - listener registration, delivery inspection, and acknowledgement paths
+  - incremental backfill checkpoint and SQLite backlog fixes
+- Updated roadmap lane status and current-state notes so active lanes reflect implemented baseline instead of aspirational future-only work.
+- Opened `docs/dev/plans/0005-2026-04-10-live-ops-runtime-hardening.md` for `P04 | Live Ops And Runtime Hardening`.
+- Updated active plan files with current-state notes so `OPEN` plans say what is shipped and what remains.
+- Active roadmap lanes:
+  - `P01 | Platform Foundation`
+  - `P02 | Service Surfaces`
+  - `P04 | Live Ops And Runtime Hardening`
+  - `P05 | Outbound Messaging And Listeners`
+- Active plans:
+  - `docs/dev/plans/0001-2026-04-09-platform-foundation.md`
+  - `docs/dev/plans/0002-2026-04-09-installer-upgrade-path.md`
+  - `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
+  - `docs/dev/plans/0004-2026-04-09-outbound-listeners-hardening.md`
+  - `docs/dev/plans/0005-2026-04-10-live-ops-runtime-hardening.md`
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 4 | 2026-04-10
+
+- Reviewed the shared product-engineering policy modules in `/home/ecochran76/workspace.local/agent-policies` against this repo's local `AGENTS.md`.
+- Tightened the repo-local policy so it now carries the missing shared governance pieces explicitly:
+  - roadmap vs runbook role separation
+  - plan activation wiring rules
+  - `Current State` expectations for `OPEN` plans
+  - git dirty-state and reconciliation discipline
+  - validation and handoff rules
+  - turn-closeout behavior
+  - controlled policy-evolution rules
+- Kept repo-specific details local instead of copying generic module prose wholesale.
+- Confirmed that personal workspace conventions such as `SOUL.md`, `USER.md`, and `MEMORY.md` remain explicitly out of scope for this repo.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-skills/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
