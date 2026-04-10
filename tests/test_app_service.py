@@ -360,6 +360,56 @@ class AppServiceTests(unittest.TestCase):
         acked = self.service.list_listener_deliveries(self.conn, workspace="default", status="delivered")
         self.assertEqual(len(acked), 1)
 
+    def test_listener_register_upserts_and_failed_ack_is_recorded(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        first = self.service.register_listener(
+            self.conn,
+            workspace="default",
+            spec={"name": "hook", "event_types": ["message"], "channel_ids": ["C123"], "target": "worker-a"},
+        )
+        second = self.service.register_listener(
+            self.conn,
+            workspace="default",
+            spec={"name": "hook", "event_types": ["reaction_added"], "channel_ids": [], "target": "worker-b"},
+        )
+        self.assertEqual(first["id"], second["id"])
+        listeners = self.service.list_listeners(self.conn, workspace="default")
+        self.assertEqual(len(listeners), 1)
+        self.assertIn("reaction_added", listeners[0]["event_types_json"])
+        self.assertEqual(listeners[0]["target"], "worker-b")
+
+        self.service.ingest_event(
+            self.conn,
+            workspace="default",
+            event_id="evt-2",
+            event_ts="2000.0003",
+            event_type="reaction_added",
+            payload={"event": {"type": "reaction_added", "channel": "C123", "ts": "2000.0003"}},
+        )
+        deliveries = self.service.list_listener_deliveries(self.conn, workspace="default")
+        self.assertEqual(len(deliveries), 1)
+        delivery_id = int(deliveries[0]["id"])
+
+        self.service.ack_listener_delivery(
+            self.conn,
+            workspace="default",
+            delivery_id=delivery_id,
+            status="failed",
+            error="consumer exploded",
+        )
+        failed = self.service.list_listener_deliveries(self.conn, workspace="default", status="failed")
+        self.assertEqual(len(failed), 1)
+        self.assertEqual(failed[0]["attempts"], 1)
+        self.assertEqual(failed[0]["error"], "consumer exploded")
+
+    def test_listener_ack_and_unregister_fail_for_missing_ids(self):
+        self.service.workspace_id(self.conn, "default")
+        with self.assertRaisesRegex(ValueError, "Delivery '999' not found"):
+            self.service.ack_listener_delivery(self.conn, workspace="default", delivery_id=999)
+        with self.assertRaisesRegex(ValueError, "Listener '999' not found"):
+            self.service.unregister_listener(self.conn, workspace="default", listener_id=999)
+
 
 if __name__ == "__main__":
     unittest.main()

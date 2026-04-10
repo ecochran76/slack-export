@@ -230,3 +230,17 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the `P05` plan current-state note so the outbound/listener lane reflects that the shipped listener transport semantics are now documented, not just implemented.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 15 | 2026-04-10
+
+- Reviewed `P05` for closure readiness by checking the actual listener failure and replay paths instead of only the docs.
+- Fixed a correctness gap in the shared service layer:
+  - listener unregister no longer silently succeeds on a missing listener ID
+  - delivery ack no longer silently succeeds on a missing delivery ID
+- Added regression coverage for:
+  - listener name upsert behavior
+  - failed delivery acknowledgements with error capture and attempt increments
+  - missing-ID behavior through service, API, and MCP surfaces
+- Updated the `P05` plan current-state note so the remaining scope is now narrow and explicit.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_cli -v`

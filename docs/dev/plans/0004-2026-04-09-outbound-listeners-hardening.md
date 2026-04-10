@@ -20,7 +20,8 @@ Harden the already-implemented outbound messaging and listener capabilities into
 - DM user-ref resolution and idempotency protections exist
 - listener registration, delivery listing, and acknowledgement exist through service, API, and MCP
 - the shipped transport contract now documents outbound-write semantics plus listener registration, delivery, and acknowledgement behavior in `docs/API_MCP_CONTRACT.md`
-- remaining work is to make the delivery semantics, filtering rules, and operator contract explicit and durable
+- missing listener/delivery IDs now fail explicitly instead of silently succeeding through unregister/ack paths
+- remaining work is now narrow: decide whether current listener replay/failure behavior is sufficient for closure or whether a richer retry policy is still required
 
 ## Parallel Tracks
 

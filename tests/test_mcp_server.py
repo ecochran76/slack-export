@@ -254,6 +254,33 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result["error"]["code"], -32601)
         self.assertEqual(result["error"]["data"]["code"], "METHOD_NOT_FOUND")
 
+    def test_listener_ack_and_unregister_report_missing_ids(self):
+        ack = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "tools/call",
+                "params": {
+                    "name": "deliveries.ack",
+                    "arguments": {"workspace": "default", "delivery_id": 999},
+                },
+            }
+        )
+        self.assertEqual(ack["error"]["data"]["code"], "NOT_FOUND")
+
+        unregister = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 10,
+                "method": "tools/call",
+                "params": {
+                    "name": "listeners.unregister",
+                    "arguments": {"workspace": "default", "listener_id": 999},
+                },
+            }
+        )
+        self.assertEqual(unregister["error"]["data"]["code"], "NOT_FOUND")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -507,10 +507,12 @@ class SlackMirrorAppService:
     def unregister_listener(self, conn, *, workspace: str, listener_id: int) -> None:
         workspace_id = self.workspace_id(conn, workspace)
         with conn:
-            conn.execute(
+            result = conn.execute(
                 "DELETE FROM listeners WHERE workspace_id = ? AND id = ?",
                 (workspace_id, listener_id),
             )
+        if int(result.rowcount or 0) == 0:
+            raise ValueError(f"Listener '{listener_id}' not found in workspace '{workspace}'")
 
     def get_listener_status(self, conn, *, workspace: str, listener_id: int) -> dict[str, Any]:
         workspace_id = self.workspace_id(conn, workspace)
@@ -566,7 +568,7 @@ class SlackMirrorAppService:
     def ack_listener_delivery(self, conn, *, workspace: str, delivery_id: int, status: str = "delivered", error: str | None = None) -> None:
         workspace_id = self.workspace_id(conn, workspace)
         with conn:
-            conn.execute(
+            result = conn.execute(
                 """
                 UPDATE listener_deliveries
                 SET status = ?, error = ?, attempts = attempts + 1, delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -574,6 +576,8 @@ class SlackMirrorAppService:
                 """,
                 (status, error, workspace_id, delivery_id),
             )
+        if int(result.rowcount or 0) == 0:
+            raise ValueError(f"Delivery '{delivery_id}' not found in workspace '{workspace}'")
 
     def _record_outbound_action(
         self,

@@ -200,6 +200,22 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(payload["error"]["code"], "NOT_FOUND")
         self.assertEqual(payload["error"]["details"]["workspace"], "missing")
 
+    def test_listener_ack_and_unregister_report_missing_ids(self):
+        ack = requests.post(
+            f"{self.base_url}/v1/workspaces/default/deliveries/999/ack",
+            json={"status": "delivered"},
+            timeout=5,
+        )
+        self.assertEqual(ack.status_code, 404)
+        self.assertEqual(ack.json()["error"]["code"], "NOT_FOUND")
+
+        delete = requests.delete(
+            f"{self.base_url}/v1/workspaces/default/listeners/999",
+            timeout=5,
+        )
+        self.assertEqual(delete.status_code, 404)
+        self.assertEqual(delete.json()["error"]["code"], "NOT_FOUND")
+
 
 if __name__ == "__main__":
     unittest.main()
