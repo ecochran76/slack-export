@@ -22,6 +22,7 @@ Define the supported installer and upgrade path as a bounded product surface:
 - compatibility script wrappers exist
 - managed API launcher and API service unit exist
 - repo-level `slack-mirror release check` exists for version/docs/planning validation
+- CI now runs the supported release gate instead of checking only tests plus docs in isolation
 - remaining work is to tighten the remaining operator-facing upgrade and release discipline around the now-supported install/update/rollback surface
 
 ## Parallel Tracks

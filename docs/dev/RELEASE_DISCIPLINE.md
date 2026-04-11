@@ -12,6 +12,12 @@ This checks:
 - generated CLI docs freshness
 - planning-contract audit wiring
 
+By default the planning audit helper is discovered from:
+
+- `SLACK_MIRROR_PLANNING_AUDIT` if set
+- a repo-local `scripts/audit_planning_contract.py` if one is later vendored
+- a sibling `agent-policies/repo-policy-selector/scripts/audit_planning_contract.py`
+
 For an actual cut candidate, use the stricter form:
 
 ```bash
@@ -31,3 +37,11 @@ Release policy boundaries:
 - planning wiring must remain valid under the canonical roadmap/runbook/plan contract
 
 This command is the supported release-readiness checklist entrypoint. If release discipline changes, update this file and the command in the same slice.
+
+Normal CI runs this command directly:
+
+```bash
+python -m slack_mirror.cli.main release check
+```
+
+That keeps docs freshness and planning-audit drift under the same supported gate instead of duplicating partial checks in workflow-only logic.

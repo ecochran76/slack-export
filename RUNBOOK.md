@@ -364,3 +364,18 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_release tests.test_mcp_server tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 24 | 2026-04-11
+
+- Fixed the first portability gap in the new release gate:
+  - `slack-mirror release check` no longer hardcodes the planning-audit helper to one workstation path
+  - it now resolves the helper from `SLACK_MIRROR_PLANNING_AUDIT`, a future vendored repo-local script, or a sibling `agent-policies` checkout
+- Fixed the enforcement gap:
+  - GitHub Actions now runs `python -m slack_mirror.cli.main release check` directly
+  - the workflow no longer relies on tests plus a separate docs check while ignoring the supported release gate
+- Hardened release-gate tests so the planning-audit resolution path is exercised explicitly.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_release tests.test_mcp_server tests.test_cli -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

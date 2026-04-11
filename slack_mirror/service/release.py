@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -39,6 +40,32 @@ class ReleaseCheckReport:
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _resolve_planning_audit_script(repo_root: Path) -> Path:
+    override = os.environ.get("SLACK_MIRROR_PLANNING_AUDIT", "").strip()
+    candidates: list[Path] = []
+    if override:
+        candidates.append(Path(override).expanduser())
+
+    candidates.append(repo_root / "scripts" / "audit_planning_contract.py")
+    for base in repo_root.parents:
+        candidates.append(base / "agent-policies" / "repo-policy-selector" / "scripts" / "audit_planning_contract.py")
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if resolved.exists():
+            return resolved
+
+    searched = ", ".join(str(path) for path in seen)
+    raise FileNotFoundError(
+        "planning audit helper not found; set SLACK_MIRROR_PLANNING_AUDIT or place agent-policies beside the repo. "
+        f"Searched: {searched}"
+    )
 
 
 def _pyproject_version(repo_root: Path) -> str:
@@ -133,16 +160,18 @@ def release_check(
     except Exception as exc:  # noqa: BLE001
         fail("DOCS_OUT_OF_DATE", f"generated CLI docs check failed: {exc}", docs_cmd)
 
-    audit_cmd = [
-        sys.executable,
-        "/home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py",
-        "--repo-root",
-        str(root),
-        "--json",
-    ]
     try:
+        audit_script = _resolve_planning_audit_script(root)
+        audit_cmd = [
+            sys.executable,
+            str(audit_script),
+            "--repo-root",
+            str(root),
+            "--json",
+        ]
         _run_checked(runner, audit_cmd, cwd=root)
     except Exception as exc:  # noqa: BLE001
+        audit_cmd = locals().get("audit_cmd")
         fail("PLANNING_AUDIT_FAILED", f"planning contract audit failed: {exc}", audit_cmd)
 
     if require_clean:

@@ -22,5 +22,5 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -v
 
-      - name: Verify generated docs are current
-        run: python scripts/check_generated_docs.py
+      - name: Run release gate
+        run: python -m slack_mirror.cli.main release check

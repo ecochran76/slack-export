@@ -1,3 +1,4 @@
+import os
 import json
 import subprocess
 import tempfile
@@ -17,6 +18,17 @@ class ReleaseCheckTests(unittest.TestCase):
             encoding="utf-8",
         )
         (self.root / "scripts").mkdir(parents=True, exist_ok=True)
+        self.audit_script = self.root.parent / "agent-policies" / "repo-policy-selector" / "scripts" / "audit_planning_contract.py"
+        self.audit_script.parent.mkdir(parents=True, exist_ok=True)
+        self.audit_script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        self.original_planning_audit = os.environ.get("SLACK_MIRROR_PLANNING_AUDIT")
+        self.addCleanup(self._restore_env)
+
+    def _restore_env(self):
+        if self.original_planning_audit is None:
+            os.environ.pop("SLACK_MIRROR_PLANNING_AUDIT", None)
+        else:
+            os.environ["SLACK_MIRROR_PLANNING_AUDIT"] = self.original_planning_audit
 
     def test_release_check_passes_with_dev_warning(self):
         output = []
@@ -36,6 +48,29 @@ class ReleaseCheckTests(unittest.TestCase):
         rendered = "\n".join(output)
         self.assertIn("WARN  [DEV_VERSION]", rendered)
         self.assertIn("Summary: PASS with warnings", rendered)
+
+    def test_release_check_uses_env_override_for_planning_audit(self):
+        output = []
+        override_script = self.root / "custom-audit.py"
+        override_script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        os.environ["SLACK_MIRROR_PLANNING_AUDIT"] = str(override_script)
+        seen_audit_paths: list[list[str]] = []
+
+        def runner(args, check=False, text=False, cwd=None, capture_output=False):
+            if "check_generated_docs.py" in " ".join(args):
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok\n", stderr="")
+            if args and args[0].endswith("python") and len(args) > 1 and args[1] == str(override_script):
+                seen_audit_paths.append(list(args))
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout='{"ok": true}\n', stderr="")
+            if args[:3] == ["git", "status", "--short"]:
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+            raise AssertionError(f"unexpected command: {args}")
+
+        rc = release_check(repo_root=self.root, runner=runner, out=output.append)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(seen_audit_paths), 1)
+        self.assertEqual(seen_audit_paths[0][1], str(override_script))
 
     def test_release_check_fails_when_release_version_required(self):
         output = []
