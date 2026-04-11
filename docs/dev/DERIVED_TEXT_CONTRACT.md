@@ -47,10 +47,16 @@ Implemented:
   - extracts text from safe UTF-8 text-like files such as `.txt`, `.md`, `.csv`, `.json`, and `.html`
 - `pdftotext`
   - extracts machine-readable PDF text when the `pdftotext` CLI is available
+- `tesseract_image`
+  - extracts OCR text from image-like files when `tesseract` is available
+- `tesseract_pdf`
+  - extracts OCR text from scanned/image-heavy PDFs by rendering pages with `pdftoppm` and OCRing them with `tesseract`
 
-Reserved but not yet implemented:
+Current OCR boundary:
 
-- OCR extractors for image blobs and scanned/image-heavy PDFs
+- `ocr_text` is currently supported for files, not canvases
+- PDFs with a machine-readable text layer stay `attachment_text` only; their `ocr_text` jobs are skipped as `pdf_has_text_layer`
+- OCR depends on local host tools rather than a remote provider in this slice
 
 ## Ownership Rules
 
@@ -67,6 +73,7 @@ Reserved but not yet implemented:
 Current behavior:
 
 - file and canvas ingestion enqueue `attachment_text` jobs when local content is present
+- OCR-eligible files also enqueue `ocr_text` jobs when local content is present
 - `slack-mirror mirror process-derived-text-jobs` processes queued extraction work for one derivation kind
 - unsupported or not-yet-implemented derivation kinds are skipped explicitly rather than silently ignored
 
@@ -87,8 +94,8 @@ This is intentionally separate from message search while the broader hybrid retr
 
 ## Remaining Work
 
-- OCR extraction for image blobs and scanned/image-heavy PDFs
 - chunking for long attachment and canvas text
 - hybrid retrieval over messages plus derived-text rows
-- API and MCP exposure for derived-text search
+- API and MCP exposure for derived-text search and extraction status
 - richer backlog and outcome reporting for extraction coverage
+- OCR coverage reporting and fallback/provider routing beyond local host tools

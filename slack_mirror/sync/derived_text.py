@@ -4,6 +4,7 @@ import html
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from slack_mirror.core.db import (
@@ -42,6 +43,16 @@ _SAFE_TEXT_MEDIA_TYPES = {
     "text/tab-separated-values",
     "text/xml",
 }
+_OCR_IMAGE_SUFFIXES = {
+    ".bmp",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
 
 
 def _normalize_text(value: str) -> str:
@@ -75,6 +86,61 @@ def _extract_pdf_text(path: Path) -> str | None:
         return None
     text = _normalize_text(result.stdout)
     return text or None
+
+
+def _run_text_command(args: list[str]) -> str | None:
+    result = subprocess.run(
+        args,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    text = _normalize_text(result.stdout)
+    return text or None
+
+
+def _extract_image_ocr_text(path: Path) -> str | None:
+    tesseract = shutil.which("tesseract")
+    if not tesseract:
+        return None
+    return _run_text_command([tesseract, str(path), "stdout"])
+
+
+def _extract_pdf_ocr_text(path: Path) -> tuple[str | None, dict]:
+    if _extract_pdf_text(path):
+        return None, {"error": "pdf_has_text_layer"}
+
+    pdftoppm = shutil.which("pdftoppm")
+    tesseract = shutil.which("tesseract")
+    if not pdftoppm or not tesseract:
+        return None, {"error": "ocr_tools_unavailable"}
+
+    with tempfile.TemporaryDirectory(prefix="slack-mirror-ocr-") as td:
+        prefix = str(Path(td) / "page")
+        render = subprocess.run(
+            [pdftoppm, "-png", str(path), prefix],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if render.returncode != 0:
+            return None, {"error": "pdf_render_failed"}
+
+        page_images = sorted(Path(td).glob("page-*.png"))
+        if not page_images:
+            return None, {"error": "pdf_render_no_pages"}
+
+        parts: list[str] = []
+        for page_image in page_images:
+            text = _extract_image_ocr_text(page_image)
+            if text:
+                parts.append(text)
+        merged = _normalize_text(" ".join(parts))
+        if not merged:
+            return None, {"error": "ocr_no_text_detected"}
+        return merged, {"pages": len(page_images)}
 
 
 def _resolve_source_row(conn, *, workspace_id: int, source_kind: str, source_id: str):
@@ -157,6 +223,54 @@ def _extract_attachment_text(conn, *, workspace_id: int, source_kind: str, sourc
     }
 
 
+def _extract_ocr_text(conn, *, workspace_id: int, source_kind: str, source_id: str) -> tuple[str | None, dict]:
+    row = _resolve_source_row(conn, workspace_id=workspace_id, source_kind=source_kind, source_id=source_id)
+    if not row:
+        return None, {"error": "source_missing"}
+    if source_kind != "file":
+        return None, {"error": "unsupported_source_kind"}
+
+    local_path = row["local_path"]
+    if not local_path:
+        return None, {"error": "local_path_missing"}
+
+    path = Path(str(local_path)).expanduser()
+    if not path.exists():
+        return None, {"error": "local_path_missing"}
+
+    media_type = str(row["mimetype"] or "")
+    suffix = path.suffix.lower()
+    if media_type == "application/pdf" or suffix == ".pdf":
+        text, details = _extract_pdf_ocr_text(path)
+        return text, {
+            "extractor": "tesseract_pdf",
+            "local_path": str(path),
+            "media_type": media_type or "application/pdf",
+            **details,
+        }
+
+    if media_type.startswith("image/") or suffix in _OCR_IMAGE_SUFFIXES:
+        text = _extract_image_ocr_text(path)
+        if text:
+            return text, {
+                "extractor": "tesseract_image",
+                "local_path": str(path),
+                "media_type": media_type or None,
+            }
+        missing_tools = not shutil.which("tesseract")
+        return None, {
+            "error": "ocr_tools_unavailable" if missing_tools else "ocr_no_text_detected",
+            "local_path": str(path),
+            "media_type": media_type or None,
+        }
+
+    return None, {
+        "error": "unsupported_media_type",
+        "local_path": str(path),
+        "media_type": media_type or None,
+    }
+
+
 def process_derived_text_jobs(
     conn,
     *,
@@ -177,7 +291,21 @@ def process_derived_text_jobs(
 
     for job in jobs:
         try:
-            if derivation_kind != "attachment_text":
+            if derivation_kind == "attachment_text":
+                text, details = _extract_attachment_text(
+                    conn,
+                    workspace_id=workspace_id,
+                    source_kind=str(job["source_kind"]),
+                    source_id=str(job["source_id"]),
+                )
+            elif derivation_kind == "ocr_text":
+                text, details = _extract_ocr_text(
+                    conn,
+                    workspace_id=workspace_id,
+                    source_kind=str(job["source_kind"]),
+                    source_id=str(job["source_id"]),
+                )
+            else:
                 mark_derived_text_job_status(
                     conn,
                     job_id=int(job["id"]),
@@ -187,12 +315,6 @@ def process_derived_text_jobs(
                 skipped += 1
                 continue
 
-            text, details = _extract_attachment_text(
-                conn,
-                workspace_id=workspace_id,
-                source_kind=str(job["source_kind"]),
-                source_id=str(job["source_id"]),
-            )
             if not text:
                 mark_derived_text_job_status(
                     conn,
@@ -226,7 +348,10 @@ def process_derived_text_jobs(
                 text=text,
                 media_type=details.get("media_type"),
                 local_path=details.get("local_path"),
-                metadata={"job_reason": job["reason"]},
+                metadata={
+                    "job_reason": job["reason"],
+                    **{k: v for k, v in details.items() if k not in {"extractor", "media_type", "local_path"}},
+                },
             )
             mark_derived_text_job_status(conn, job_id=int(job["id"]), status="done")
             processed += 1

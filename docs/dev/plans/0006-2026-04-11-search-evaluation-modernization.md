@@ -35,8 +35,12 @@ to a world-class search stack with:
   - downloaded canvas HTML
   - safe UTF-8 text-like files
   - machine-readable PDFs when `pdftotext` is available
+- OCR extraction is now landed for:
+  - image-like files through `tesseract`
+  - scanned/image-heavy PDFs through `pdftoppm` plus `tesseract`
+  - PDFs with a real text layer are kept as `attachment_text` and explicitly skipped for `ocr_text`
 - `search derived-text` and `mirror process-derived-text-jobs` now expose that first shared-core non-message text surface
-- OCR, chunking, cross-workspace retrieval semantics, and evaluation hardening still remain open
+- chunking, cross-workspace retrieval semantics, transport exposure, and evaluation hardening still remain open
 - the current roadmap text is directionally right, but the active repo needs one explicit modernization plan instead of relying on older Phase E/F notes
 
 ## Cross-Repo Comparison

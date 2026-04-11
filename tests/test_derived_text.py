@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, upsert_canvas, upsert_file, upsert_workspace
 from slack_mirror.search.derived_text import search_derived_text
@@ -46,6 +47,147 @@ class DerivedTextTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["extractor"], "utf8_text")
 
+    def test_process_ocr_jobs_extracts_image_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            image_path = root / "cache" / "files" / "IMG1" / "scan.png"
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            image_path.write_bytes(b"fake-png")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "IMG1", "name": "scan.png", "title": "Scan", "mimetype": "image/png"},
+                local_path=str(image_path),
+            )
+
+            def fake_which(name: str) -> str | None:
+                if name == "tesseract":
+                    return f"/usr/bin/{name}"
+                return None
+
+            def fake_run(args, check, capture_output, text):
+                self.assertEqual(args[0], "/usr/bin/tesseract")
+                self.assertEqual(args[2], "stdout")
+
+                class Result:
+                    returncode = 0
+                    stdout = "diagram heading and labels"
+
+                return Result()
+
+            with patch("slack_mirror.sync.derived_text.shutil.which", side_effect=fake_which), patch(
+                "slack_mirror.sync.derived_text.subprocess.run", side_effect=fake_run
+            ):
+                result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="ocr_text", limit=10)
+
+            self.assertEqual(result["processed"], 1)
+            rows = search_derived_text(conn, workspace_id=ws_id, query="heading", limit=10, derivation_kind="ocr_text")
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["extractor"], "tesseract_image")
+
+    def test_process_ocr_jobs_extracts_scanned_pdf_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            pdf_path = root / "cache" / "files" / "PDF1" / "scan.pdf"
+            pdf_path.parent.mkdir(parents=True, exist_ok=True)
+            pdf_path.write_bytes(b"%PDF-1.4 fake")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "PDF1", "name": "scan.pdf", "title": "Scan PDF", "mimetype": "application/pdf"},
+                local_path=str(pdf_path),
+            )
+
+            def fake_which(name: str) -> str | None:
+                if name in {"pdftotext", "pdftoppm", "tesseract"}:
+                    return f"/usr/bin/{name}"
+                return None
+
+            def fake_run(args, check, capture_output, text):
+                class Result:
+                    def __init__(self, returncode, stdout=""):
+                        self.returncode = returncode
+                        self.stdout = stdout
+
+                if args[0] == "/usr/bin/pdftotext":
+                    return Result(0, "")
+                if args[0] == "/usr/bin/pdftoppm":
+                    Path(f"{args[-1]}-1.png").write_bytes(b"png")
+                    return Result(0, "")
+                if args[0] == "/usr/bin/tesseract":
+                    return Result(0, "scanned invoice total")
+                raise AssertionError(args)
+
+            with patch("slack_mirror.sync.derived_text.shutil.which", side_effect=fake_which), patch(
+                "slack_mirror.sync.derived_text.subprocess.run", side_effect=fake_run
+            ):
+                result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="ocr_text", limit=10)
+
+            self.assertEqual(result["processed"], 1)
+            rows = search_derived_text(conn, workspace_id=ws_id, query="invoice", limit=10, derivation_kind="ocr_text")
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["extractor"], "tesseract_pdf")
+
+    def test_pdf_with_text_layer_skips_ocr(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            pdf_path = root / "cache" / "files" / "PDF2" / "text.pdf"
+            pdf_path.parent.mkdir(parents=True, exist_ok=True)
+            pdf_path.write_bytes(b"%PDF-1.4 fake")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "PDF2", "name": "text.pdf", "title": "Text PDF", "mimetype": "application/pdf"},
+                local_path=str(pdf_path),
+            )
+
+            def fake_which(name: str) -> str | None:
+                if name == "pdftotext":
+                    return f"/usr/bin/{name}"
+                return None
+
+            def fake_run(args, check, capture_output, text):
+                class Result:
+                    returncode = 0
+                    stdout = "already searchable"
+
+                self.assertEqual(args[0], "/usr/bin/pdftotext")
+                return Result()
+
+            with patch("slack_mirror.sync.derived_text.shutil.which", side_effect=fake_which), patch(
+                "slack_mirror.sync.derived_text.subprocess.run", side_effect=fake_run
+            ):
+                result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="ocr_text", limit=10)
+
+            self.assertEqual(result["processed"], 0)
+            self.assertEqual(result["skipped"], 1)
+            row = conn.execute(
+                "SELECT status, error FROM derived_text_jobs WHERE source_id = 'PDF2' AND derivation_kind = 'ocr_text'"
+            ).fetchone()
+            self.assertEqual(row["status"], "skipped")
+            self.assertEqual(row["error"], "pdf_has_text_layer")
+
     def test_unsupported_derivation_kind_is_skipped(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"
@@ -59,10 +201,10 @@ class DerivedTextTests(unittest.TestCase):
                 workspace_id=ws_id,
                 source_kind="file",
                 source_id="F1",
-                derivation_kind="ocr_text",
+                derivation_kind="thumbnail_text",
                 reason="test",
             )
-            result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="ocr_text", limit=10)
+            result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="thumbnail_text", limit=10)
             self.assertEqual(result["processed"], 0)
             self.assertEqual(result["skipped"], 1)
             row = conn.execute("SELECT status, error FROM derived_text_jobs").fetchone()

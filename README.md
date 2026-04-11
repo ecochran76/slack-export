@@ -29,7 +29,9 @@ slack-mirror user-env recover-live
 slack-mirror user-env recover-live --apply
 slack-mirror user-env rollback
 slack-mirror mirror process-derived-text-jobs --workspace default
+slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_text
 slack-mirror search derived-text --workspace default --query "incident review"
+slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror release check
 slack-mirror release check --require-clean --require-release-version
 ./.venv/bin/python -m unittest discover -s tests -v
@@ -42,6 +44,7 @@ The current repo has:
 - keyword, semantic, and hybrid message search
 - first-class derived-text storage for files and canvases
 - a queued attachment-text extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
+- an OCR-derived text path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
 
 The active search modernization lane is [0006-2026-04-11-search-evaluation-modernization.md](/home/ecochran76/workspace.local/slack-export/docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md). The derived-text ownership contract for this first slice is in [DERIVED_TEXT_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/dev/DERIVED_TEXT_CONTRACT.md).
 

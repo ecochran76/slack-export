@@ -130,6 +130,21 @@ class DbTests(unittest.TestCase):
             derived_job_count = conn.execute("SELECT COUNT(*) AS c FROM derived_text_jobs WHERE status='pending'").fetchone()["c"]
             self.assertEqual(derived_job_count, 2)
 
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F2", "name": "scan.png", "title": "Scan", "mimetype": "image/png"},
+                local_path="cache/files/F2/scan.png",
+            )
+            ocr_job_count = conn.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM derived_text_jobs
+                WHERE source_kind = 'file' AND source_id = 'F2' AND derivation_kind = 'ocr_text' AND status = 'pending'
+                """
+            ).fetchone()["c"]
+            self.assertEqual(ocr_job_count, 1)
+
             upsert_derived_text(
                 conn,
                 workspace_id=ws_id,

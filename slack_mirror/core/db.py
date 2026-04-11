@@ -5,6 +5,23 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+_OCR_IMAGE_SUFFIXES = {
+    ".bmp",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
+
+
+def _should_enqueue_file_ocr(*, mimetype: str | None, local_path: str | None) -> bool:
+    media_type = str(mimetype or "").strip().lower()
+    suffix = Path(str(local_path or "")).suffix.lower()
+    return media_type.startswith("image/") or media_type == "application/pdf" or suffix in _OCR_IMAGE_SUFFIXES or suffix == ".pdf"
+
 
 def connect(
     db_path: str,
@@ -636,6 +653,15 @@ def upsert_file(conn: sqlite3.Connection, workspace_id: int, file_obj: dict[str,
             derivation_kind="attachment_text",
             reason="file_upsert",
         )
+        if _should_enqueue_file_ocr(mimetype=str(file_obj.get("mimetype") or ""), local_path=local_path):
+            enqueue_derived_text_job(
+                conn,
+                workspace_id=workspace_id,
+                source_kind="file",
+                source_id=str(file_obj.get("id") or ""),
+                derivation_kind="ocr_text",
+                reason="file_upsert",
+            )
 
 
 def upsert_canvas(
@@ -683,6 +709,10 @@ def update_file_download(
             """,
             (local_path, checksum, workspace_id, file_id),
         )
+        row = conn.execute(
+            "SELECT mimetype FROM files WHERE workspace_id = ? AND file_id = ?",
+            (workspace_id, file_id),
+        ).fetchone()
     enqueue_derived_text_job(
         conn,
         workspace_id=workspace_id,
@@ -691,6 +721,15 @@ def update_file_download(
         derivation_kind="attachment_text",
         reason="file_download",
     )
+    if _should_enqueue_file_ocr(mimetype=str(row["mimetype"] or "") if row else None, local_path=local_path):
+        enqueue_derived_text_job(
+            conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id=file_id,
+            derivation_kind="ocr_text",
+            reason="file_download",
+        )
 
 
 def insert_event(

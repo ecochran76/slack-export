@@ -448,3 +448,20 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_db tests.test_search tests.test_derived_text tests.test_cli -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 29 | 2026-04-11
+
+- Landed the second `P03` extraction slice so `ocr_text` is no longer only a modeled placeholder.
+- Added OCR job enqueueing for OCR-eligible files:
+  - image-like files
+  - PDFs
+- Added real `ocr_text` extraction through the shared worker:
+  - `tesseract_image` for image-like files
+  - `tesseract_pdf` for scanned/image-heavy PDFs via `pdftoppm` plus `tesseract`
+- Kept the distinction between `attachment_text` and `ocr_text` explicit:
+  - PDFs with a text layer remain `attachment_text`
+  - their `ocr_text` jobs are skipped as `pdf_has_text_layer`
+- Updated the derived-text contract and `P03` plan so OCR is now a shipped partial capability rather than future-only scope.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_db tests.test_derived_text tests.test_search tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
