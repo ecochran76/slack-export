@@ -369,7 +369,8 @@ This file is the dated turn log for planning and execution continuity.
 
 - Fixed the first portability gap in the new release gate:
   - `slack-mirror release check` no longer hardcodes the planning-audit helper to one workstation path
-  - it now resolves the helper from `SLACK_MIRROR_PLANNING_AUDIT`, a future vendored repo-local script, or a sibling `agent-policies` checkout
+  - the repo now vendors `scripts/audit_planning_contract.py`
+  - the gate still allows `SLACK_MIRROR_PLANNING_AUDIT` or a sibling `agent-policies` checkout as overrides
 - Fixed the enforcement gap:
   - GitHub Actions now runs `python -m slack_mirror.cli.main release check` directly
   - the workflow no longer relies on tests plus a separate docs check while ignoring the supported release gate

@@ -15,7 +15,7 @@ This checks:
 By default the planning audit helper is discovered from:
 
 - `SLACK_MIRROR_PLANNING_AUDIT` if set
-- a repo-local `scripts/audit_planning_contract.py` if one is later vendored
+- the repo-local `scripts/audit_planning_contract.py`
 - a sibling `agent-policies/repo-policy-selector/scripts/audit_planning_contract.py`
 
 For an actual cut candidate, use the stricter form:
