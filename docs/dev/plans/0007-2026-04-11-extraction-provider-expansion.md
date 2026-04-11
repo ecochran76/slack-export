@@ -78,6 +78,7 @@ Current status:
 Current status:
 
 - `.docx` extraction is now story-aware across body, headers, footers, footnotes, and endnotes, using visible-text handling instead of a document-body-only XML flattening path
+- `.pptx` and `.xlsx` extraction now use visible-text-aware slide parsing and shared-string-aware worksheet parsing instead of a generic XML flattening path
 
 
 - review the next highest-value attachment formats after the current UTF-8, PDF, and OOXML baseline

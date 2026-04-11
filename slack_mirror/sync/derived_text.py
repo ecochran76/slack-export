@@ -81,6 +81,10 @@ _DOCX_STORY_PARTS = (
     "word/footnotes.xml",
     "word/endnotes.xml",
 )
+_A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_A_TAG_PREFIX = f"{{{_A_NS}}}"
+_SS_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_SS_TAG_PREFIX = f"{{{_SS_NS}}}"
 
 
 ExtractResult = tuple[str | None, dict]
@@ -169,6 +173,115 @@ def _extract_wordprocessingml_visible_text(raw_xml: bytes) -> str:
     return _normalize_text("".join(parts))
 
 
+def _drawingml_tag(local_name: str) -> str:
+    return f"{_A_TAG_PREFIX}{local_name}"
+
+
+def _spreadsheet_tag(local_name: str) -> str:
+    return f"{_SS_TAG_PREFIX}{local_name}"
+
+
+def _extract_pptx_slide_text(raw_xml: bytes) -> str:
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return ""
+    parts: list[str] = []
+    for child in root.iter():
+        if child.tag == _drawingml_tag("t") and child.text:
+            parts.append(child.text)
+        elif child.tag == _drawingml_tag("tab"):
+            parts.append("\t")
+        elif child.tag == _drawingml_tag("br"):
+            parts.append("\n")
+    return _normalize_text("".join(parts))
+
+
+def _extract_pptx_text(path: Path) -> tuple[str | None, str | None]:
+    extractor = "ooxml_pptx"
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            parts: list[str] = []
+            for member in sorted(name for name in names if name.startswith("ppt/slides/slide") and name.endswith(".xml")):
+                extracted = _extract_pptx_slide_text(zf.read(member))
+                if extracted:
+                    parts.append(extracted)
+            merged = _normalize_text(" ".join(parts))
+            return (merged or None), extractor
+    except (OSError, zipfile.BadZipFile):
+        return None, extractor
+
+
+def _extract_xlsx_shared_strings(raw_xml: bytes) -> list[str]:
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return []
+    values: list[str] = []
+    for si in root.findall(f".//{_spreadsheet_tag('si')}"):
+        parts: list[str] = []
+        for node in si.iter():
+            if node.tag == _spreadsheet_tag("t") and node.text:
+                parts.append(node.text)
+        values.append(_normalize_text("".join(parts)))
+    return values
+
+
+def _extract_xlsx_sheet_text(raw_xml: bytes, shared_strings: list[str]) -> str:
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return ""
+    parts: list[str] = []
+    for cell in root.findall(f".//{_spreadsheet_tag('c')}"):
+        cell_type = cell.get("t") or cell.get(_spreadsheet_tag("t")) or ""
+        if cell_type == "s":
+            value_node = cell.find(_spreadsheet_tag("v"))
+            if value_node is None or not value_node.text:
+                continue
+            try:
+                idx = int(value_node.text.strip())
+            except ValueError:
+                continue
+            if 0 <= idx < len(shared_strings):
+                value = shared_strings[idx]
+                if value:
+                    parts.append(value)
+        elif cell_type == "inlineStr":
+            inline = cell.find(f".//{_spreadsheet_tag('is')}")
+            if inline is None:
+                continue
+            inline_parts = [node.text for node in inline.iter() if node.tag == _spreadsheet_tag("t") and node.text]
+            value = _normalize_text("".join(inline_parts))
+            if value:
+                parts.append(value)
+        else:
+            value_node = cell.find(_spreadsheet_tag("v"))
+            if value_node is not None and value_node.text:
+                value = _normalize_text(value_node.text)
+                if value:
+                    parts.append(value)
+    return _normalize_text(" ".join(parts))
+
+
+def _extract_xlsx_text(path: Path) -> tuple[str | None, str | None]:
+    extractor = "ooxml_xlsx"
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            shared_strings = _extract_xlsx_shared_strings(zf.read("xl/sharedStrings.xml")) if "xl/sharedStrings.xml" in names else []
+            parts: list[str] = []
+            for member in sorted(name for name in names if name.startswith("xl/worksheets/sheet") and name.endswith(".xml")):
+                extracted = _extract_xlsx_sheet_text(zf.read(member), shared_strings)
+                if extracted:
+                    parts.append(extracted)
+            merged = _normalize_text(" ".join(parts))
+            return (merged or None), extractor
+    except (OSError, zipfile.BadZipFile):
+        return None, extractor
+
+
 def _extract_docx_text(path: Path) -> tuple[str | None, str | None]:
     extractor = "ooxml_docx"
     try:
@@ -199,28 +312,10 @@ def _extract_ooxml_text(path: Path) -> tuple[str | None, str | None]:
     if suffix == ".docx":
         return _extract_docx_text(path)
     if suffix == ".pptx":
-        extractor = "ooxml_pptx"
-        members = tuple(f"ppt/slides/slide{i}.xml" for i in range(1, 512))
-    elif suffix == ".xlsx":
-        extractor = "ooxml_xlsx"
-        members = ("xl/sharedStrings.xml",) + tuple(f"xl/worksheets/sheet{i}.xml" for i in range(1, 512))
-    else:
-        return None, None
-
-    try:
-        with zipfile.ZipFile(path) as zf:
-            names = set(zf.namelist())
-            parts: list[str] = []
-            for member in members:
-                if member not in names:
-                    continue
-                extracted = _extract_xml_text(zf.read(member))
-                if extracted:
-                    parts.append(extracted)
-            merged = _normalize_text(" ".join(parts))
-            return (merged or None), extractor
-    except (OSError, zipfile.BadZipFile):
-        return None, extractor
+        return _extract_pptx_text(path)
+    if suffix == ".xlsx":
+        return _extract_xlsx_text(path)
+    return None, None
 
 
 def _extract_opendocument_text(path: Path) -> tuple[str | None, str | None]:

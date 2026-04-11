@@ -711,3 +711,13 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_derived_text -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 47 | 2026-04-11
+
+- Improved `.pptx` and `.xlsx` searchability by replacing generic OOXML XML flattening with visible-text-aware slide parsing and shared-string-aware worksheet parsing.
+- `.pptx` now captures slide text runs plus explicit break/tab separators before normalization.
+- `.xlsx` now resolves shared strings, inline strings, and direct cell values across worksheet parts.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_derived_text -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

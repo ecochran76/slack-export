@@ -71,7 +71,7 @@ Current state:
 - the shipped baseline now includes:
   - first-class `derived_text`, `derived_text_fts`, and `derived_text_jobs` tables
   - first-class `derived_text_chunks` and `derived_text_chunks_fts` tables for retrieval depth on long non-message documents
-  - document-native extraction for canvases, UTF-8 text-like files, OOXML and OpenDocument office files, with `.docx` story-aware visible-text extraction across body/header/footer/notes, and machine-readable PDFs when `pdftotext` is available
+  - document-native extraction for canvases, UTF-8 text-like files, OOXML and OpenDocument office files, with story-aware `.docx` extraction, visible-text-aware `.pptx` extraction, shared-string-aware `.xlsx` extraction, and machine-readable PDFs when `pdftotext` is available
   - OCR extraction for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
   - explicit cross-workspace corpus search through shared service, CLI, API, and MCP
