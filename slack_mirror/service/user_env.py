@@ -30,6 +30,7 @@ class UserEnvPaths:
     home_dir: Path
     app_root: Path
     app_dir: Path
+    backup_app_dir: Path
     venv_dir: Path
     legacy_state_dir: Path
     state_dir: Path
@@ -87,6 +88,7 @@ class UserEnvStatusReport:
     api_wrapper_present: bool
     mcp_wrapper_present: bool
     api_service_present: bool
+    rollback_snapshot_present: bool
     config_present: bool
     db_present: bool
     cache_present: bool
@@ -155,6 +157,7 @@ def default_user_env_paths(
         home_dir=user_home,
         app_root=app_root,
         app_dir=app_root / "app",
+        backup_app_dir=app_root / "app.previous",
         venv_dir=app_root / "venv",
         legacy_state_dir=app_root / "var",
         state_dir=state_dir,
@@ -218,6 +221,34 @@ def _copy_repo_snapshot(paths: UserEnvPaths) -> None:
     if paths.app_dir.exists():
         shutil.rmtree(paths.app_dir)
     shutil.copytree(paths.repo_root, paths.app_dir, ignore=_ignore_repo_snapshot)
+
+
+def _rotate_app_snapshot_backup(paths: UserEnvPaths, *, out: PrintFn) -> None:
+    if paths.backup_app_dir.exists():
+        shutil.rmtree(paths.backup_app_dir)
+    if paths.app_dir.exists():
+        _log(out, f"saving previous app snapshot: {paths.backup_app_dir}")
+        shutil.move(str(paths.app_dir), str(paths.backup_app_dir))
+
+
+def _swap_app_snapshot_with_backup(paths: UserEnvPaths, *, out: PrintFn) -> None:
+    if not paths.backup_app_dir.exists():
+        raise FileNotFoundError(f"rollback snapshot missing: {paths.backup_app_dir}")
+
+    swap_dir = paths.app_root / "app.swap"
+    if swap_dir.exists():
+        shutil.rmtree(swap_dir)
+
+    current_exists = paths.app_dir.exists()
+    if current_exists:
+        _log(out, f"parking current app snapshot: {swap_dir}")
+        shutil.move(str(paths.app_dir), str(swap_dir))
+
+    _log(out, f"restoring rollback snapshot: {paths.backup_app_dir}")
+    shutil.move(str(paths.backup_app_dir), str(paths.app_dir))
+
+    if current_exists:
+        shutil.move(str(swap_dir), str(paths.backup_app_dir))
 
 
 def _ensure_venv(
@@ -723,6 +754,7 @@ def _build_status_report(
         api_wrapper_present=target.api_wrapper_path.exists(),
         mcp_wrapper_present=target.mcp_wrapper_path.exists(),
         api_service_present=target.api_service_path.exists(),
+        rollback_snapshot_present=target.backup_app_dir.exists(),
         config_present=target.config_path.exists(),
         db_present=(target.state_dir / "slack_mirror.db").exists(),
         cache_present=target.cache_dir.exists(),
@@ -736,6 +768,7 @@ def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
         "api_wrapper_present": report.api_wrapper_present,
         "mcp_wrapper_present": report.mcp_wrapper_present,
         "api_service_present": report.api_service_present,
+        "rollback_snapshot_present": report.rollback_snapshot_present,
         "config_present": report.config_present,
         "db_present": report.db_present,
         "cache_present": report.cache_present,
@@ -1043,6 +1076,7 @@ def update_user_env(
     _ensure_dirs(target)
     if not target.env_path.exists():
         _write_env_file(target)
+    _rotate_app_snapshot_backup(target, out=out)
     _copy_repo_snapshot(target)
     _ensure_venv(target, runner=runner, python_executable=python_executable, out=out)
     _install_python_package(target, runner=runner, out=out)
@@ -1059,6 +1093,44 @@ def update_user_env(
         return validation_rc
     _log(out, "update complete (config + DB preserved)")
     out(f"Latest config template saved at: {target.config_dir / 'config.example.latest.yaml'}")
+    out(f"Rollback snapshot: {target.backup_app_dir}")
+    out("If this update is bad, run `slack-mirror user-env rollback` to restore the previous app snapshot.")
+    return 0
+
+
+def rollback_user_env(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+    python_executable: str | None = None,
+    out: PrintFn = print,
+) -> int:
+    target = paths or default_user_env_paths()
+    _log(out, "rolling back isolated user environment to previous app snapshot")
+    _ensure_dirs(target)
+    if not target.env_path.exists():
+        _write_env_file(target)
+    if not target.backup_app_dir.exists():
+        out(f"No rollback snapshot found at: {target.backup_app_dir}")
+        out("Run `slack-mirror user-env update` at least once before using rollback.")
+        return 1
+
+    _swap_app_snapshot_with_backup(target, out=out)
+    _ensure_venv(target, runner=runner, python_executable=python_executable, out=out)
+    _install_python_package(target, runner=runner, out=out)
+    _ensure_config(target, out=out)
+    _migrate_legacy_state(target, out=out)
+    _write_wrappers(target)
+    _write_api_service(target)
+    runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
+    runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
+    _log(out, "running managed-runtime validation")
+    validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
+    if validation_rc != 0:
+        return validation_rc
+    _log(out, "rollback complete (config + DB preserved)")
+    out("Rollback restored the previous app snapshot and refreshed the managed venv/wrappers.")
+    out("Rollback does not reverse DB schema, queue contents, or other runtime state changes.")
     return 0
 
 
@@ -1092,6 +1164,8 @@ def uninstall_user_env(
         target.api_service_path.unlink()
     if target.app_dir.exists():
         shutil.rmtree(target.app_dir)
+    if target.backup_app_dir.exists():
+        shutil.rmtree(target.backup_app_dir)
     if target.venv_dir.exists():
         shutil.rmtree(target.venv_dir)
 
@@ -1128,6 +1202,8 @@ def status_user_env(
     out("  status: present" if target.mcp_wrapper_path.exists() else "  status: missing")
     out(f"API svc:  {target.api_service_path}")
     out("  status: present" if target.api_service_path.exists() else "  status: missing")
+    out(f"Rollback: {target.backup_app_dir}")
+    out("  status: present" if target.backup_app_dir.exists() else "  status: missing")
     out(f"Config:   {target.config_path}")
     out("  status: present" if target.config_path.exists() else "  status: missing")
     out(f"DB:       {db_path}")

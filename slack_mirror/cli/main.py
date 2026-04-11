@@ -1221,7 +1221,7 @@ _slack_mirror_complete() {
   local top="mirror workspaces channels search docs completion api mcp user-env version"
   local api_sub="serve"
   local mcp_sub="serve"
-  local user_env_sub="install update uninstall status validate-live check-live recover-live"
+  local user_env_sub="install update rollback uninstall status validate-live check-live recover-live"
   local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1370,7 +1370,7 @@ _slack_mirror() {
   top=(mirror workspaces channels search docs completion api mcp user-env version)
   api_sub=(serve)
   mcp_sub=(serve)
-  user_env_sub=(install update uninstall status validate-live check-live recover-live)
+  user_env_sub=(install update rollback uninstall status validate-live check-live recover-live)
   mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -1536,6 +1536,12 @@ def cmd_user_env_update(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import update_user_env
 
     return update_user_env()
+
+
+def cmd_user_env_rollback(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import rollback_user_env
+
+    return rollback_user_env()
 
 
 def cmd_user_env_uninstall(args: argparse.Namespace) -> int:
@@ -1854,6 +1860,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_user_install.set_defaults(func=cmd_user_env_install)
     p_user_update = user_env_sub.add_parser("update", help="update isolated user runtime from the current repo")
     p_user_update.set_defaults(func=cmd_user_env_update)
+    p_user_rollback = user_env_sub.add_parser(
+        "rollback",
+        help="restore the previous managed app snapshot without rolling back DB schema",
+    )
+    p_user_rollback.set_defaults(func=cmd_user_env_rollback)
     p_user_uninstall = user_env_sub.add_parser("uninstall", help="remove isolated user runtime")
     p_user_uninstall.add_argument("--purge-data", action="store_true", help="also remove config, DB, and cache")
     p_user_uninstall.set_defaults(func=cmd_user_env_uninstall)

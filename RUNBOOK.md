@@ -330,3 +330,20 @@ This file is the dated turn log for planning and execution continuity.
   - any broader orchestration beyond the documented single-host user-service model
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 22 | 2026-04-10
+
+- Advanced `P01 | Platform Foundation` by turning rollback from a plan-only expectation into a supported installer command.
+- Added bounded `slack-mirror user-env rollback` behavior:
+  - update now saves the previous managed app snapshot at `~/.local/share/slack-mirror/app.previous`
+  - rollback swaps that snapshot back into place
+  - rollback refreshes the managed venv, launchers, and API service
+  - rollback explicitly preserves config, DB, cache, and other runtime state
+- Made the rollback boundary explicit:
+  - it is for bad managed code/runtime updates
+  - it does not reverse DB schema, queue contents, or other state mutations made by a newer build
+- Updated installer docs and the `P01` installer/upgrade plan so the shipped install/update/rollback behavior is aligned with the repo surface.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

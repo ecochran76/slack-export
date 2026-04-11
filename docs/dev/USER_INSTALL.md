@@ -5,6 +5,7 @@ This installs `slack-mirror` into an isolated user-owned runtime that is indepen
 ## What it sets up
 
 - App snapshot: `~/.local/share/slack-mirror/app`
+- Previous app snapshot for rollback: `~/.local/share/slack-mirror/app.previous`
 - Virtualenv: `~/.local/share/slack-mirror/venv`
 - Runtime state: `~/.local/state/slack-mirror`
   - DB: `~/.local/state/slack-mirror/slack_mirror.db`
@@ -70,6 +71,7 @@ Update preserves:
 - `~/.config/slack-mirror/config.yaml`
 - `~/.local/state/slack-mirror/slack_mirror.db`
 - `~/.local/cache/slack-mirror`
+- previous managed app snapshot at `~/.local/share/slack-mirror/app.previous`
 - managed launchers are refreshed in place
 - `slack-mirror-api.service` is restarted in place
 - managed-runtime validation is rerun automatically after the update
@@ -78,6 +80,17 @@ It also saves the latest template to:
 - `~/.config/slack-mirror/config.example.latest.yaml`
 
 Use that file to manually merge any newly introduced config keys.
+
+If the updated app snapshot is bad, you can restore the previous one with:
+
+```bash
+slack-mirror user-env rollback
+```
+
+Rollback restores the previous managed app snapshot and refreshes the venv, wrappers, and API service.
+Rollback does not reverse DB schema, queue contents, or other runtime state changes.
+
+Use rollback for bad code/runtime updates, not as a substitute for DB backup and restore.
 
 ## Uninstall
 
@@ -133,6 +146,7 @@ scripts/user_env.sh status
 The script is a compatibility shim that delegates to `slack-mirror user-env`.
 
 Shows wrapper/API/MCP/API service/config/db presence and current live-mode service status.
+It also shows whether a rollback snapshot is currently available.
 
 ## Combined Live Check
 

@@ -18,9 +18,10 @@ Define the supported installer and upgrade path as a bounded product surface:
 ## Current State
 
 - `slack-mirror user-env install|update|uninstall|status` exists
+- bounded `slack-mirror user-env rollback` exists for managed app snapshot restore
 - compatibility script wrappers exist
 - managed API launcher and API service unit exist
-- remaining work is to tighten validation, rollback expectations, and operator-facing upgrade discipline
+- remaining work is to tighten operator-facing upgrade and release discipline around the now-supported install/update/rollback surface
 
 ## Parallel Tracks
 

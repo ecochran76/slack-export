@@ -123,6 +123,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(self.paths.config_path.read_text(encoding="utf-8"), "keep: true\n")
 
     def test_update_runs_without_recreating_state(self):
+        self.paths.app_dir.mkdir(parents=True, exist_ok=True)
+        (self.paths.app_dir / "README.md").write_text("old snapshot\n", encoding="utf-8")
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)
         db_path = self.paths.state_dir / "slack_mirror.db"
         db_path.write_text("db\n", encoding="utf-8")
@@ -151,6 +153,65 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(rows[0][0], "default")
         self.assertEqual((self.paths.cache_dir / "cache.bin").read_text(encoding="utf-8"), "cache\n")
         self.assertIn("outbound_token: xoxb-write", self.paths.config_path.read_text(encoding="utf-8"))
+        self.assertTrue(self.paths.backup_app_dir.exists())
+        self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "old snapshot\n")
+        self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "repo snapshot\n")
+
+    def test_rollback_restores_previous_snapshot_and_preserves_state(self):
+        current_ts = str(time.time())
+        self.paths.app_dir.mkdir(parents=True, exist_ok=True)
+        (self.paths.app_dir / "README.md").write_text("current snapshot\n", encoding="utf-8")
+        (self.paths.app_dir / "config.example.yaml").write_text("version: 1\n", encoding="utf-8")
+        self.paths.backup_app_dir.mkdir(parents=True, exist_ok=True)
+        (self.paths.backup_app_dir / "README.md").write_text("previous snapshot\n", encoding="utf-8")
+        (self.paths.backup_app_dir / "config.example.yaml").write_text("version: 1\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            """
+        )
+        conn.close()
+        calls, runner = self._runner()
+
+        rc = user_env.rollback_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "previous snapshot\n")
+        self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "current snapshot\n")
+        self.assertTrue(db_path.exists())
+        self.assertTrue(any(call["args"][:3] == ["systemctl", "--user", "restart"] for call in calls))
+
+    def test_rollback_requires_previous_snapshot(self):
+        _, runner = self._runner()
+        output = []
+
+        rc = user_env.rollback_user_env(paths=self.paths, runner=runner, python_executable="python3", out=output.append)
+
+        self.assertEqual(rc, 1)
+        self.assertIn("No rollback snapshot found", "\n".join(output))
 
     def test_migrate_legacy_state_only_when_target_missing(self):
         self.paths.legacy_state_dir.mkdir(parents=True, exist_ok=True)
@@ -280,6 +341,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(payload["api_wrapper_present"])
         self.assertTrue(payload["mcp_wrapper_present"])
         self.assertTrue(payload["api_service_present"])
+        self.assertFalse(payload["rollback_snapshot_present"])
         self.assertEqual(payload["services"]["slack-mirror-api.service"], "active")
 
     def test_validate_live_passes_for_supported_runtime_contract(self):

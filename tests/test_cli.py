@@ -7,6 +7,7 @@ from slack_mirror.cli.main import (
     cmd_serve_mcp,
     cmd_user_env_check_live,
     cmd_user_env_install,
+    cmd_user_env_rollback,
     cmd_user_env_recover_live,
     cmd_user_env_status,
     cmd_user_env_uninstall,
@@ -294,6 +295,13 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.purge_data)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_user_env_rollback(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "rollback"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "rollback")
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_user_env_validate_live(self):
         parser = build_parser()
         args = parser.parse_args(["user-env", "validate-live"])
@@ -371,6 +379,13 @@ class CliTests(unittest.TestCase):
         args = parser.parse_args(["user-env", "update"])
         self.assertEqual(cmd_user_env_update(args), 0)
         mock_update.assert_called_once_with()
+
+    @patch("slack_mirror.service.user_env.rollback_user_env", return_value=0)
+    def test_user_env_rollback_dispatches_to_service(self, mock_rollback):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "rollback"])
+        self.assertEqual(cmd_user_env_rollback(args), 0)
+        mock_rollback.assert_called_once_with()
 
     @patch("slack_mirror.service.user_env.uninstall_user_env", return_value=0)
     def test_user_env_uninstall_dispatches_to_service(self, mock_uninstall):
