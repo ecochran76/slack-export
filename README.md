@@ -48,7 +48,7 @@ The current repo has:
 
 - keyword, semantic, and hybrid message search
 - first-class derived-text storage for files and canvases
-- a queued attachment-text extraction path for canvases, UTF-8 text-like files, OOXML office files (`.docx`, `.pptx`, `.xlsx`), and machine-readable PDFs when `pdftotext` is available
+- a queued attachment-text extraction path for canvases, UTF-8 text-like files, OOXML and OpenDocument office files (`.docx`, `.pptx`, `.xlsx`, `.odt`, `.odp`, `.ods`), and machine-readable PDFs when `pdftotext` is available
 - an OCR-derived text path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
 - a shared extraction-provider boundary that keeps the current host-local toolchain as the default path and now supports an optional command-backed provider selected from config
 - a corpus-wide hybrid search path over messages plus derived text through `search corpus`

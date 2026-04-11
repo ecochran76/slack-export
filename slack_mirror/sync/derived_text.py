@@ -54,6 +54,11 @@ _OOXML_SUFFIXES = {
     ".pptx": ("application/vnd.openxmlformats-officedocument.presentationml.presentation", "ooxml_pptx"),
     ".xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ooxml_xlsx"),
 }
+_OPENDOCUMENT_SUFFIXES = {
+    ".odt": ("application/vnd.oasis.opendocument.text", "odf_odt"),
+    ".odp": ("application/vnd.oasis.opendocument.presentation", "odf_odp"),
+    ".ods": ("application/vnd.oasis.opendocument.spreadsheet", "odf_ods"),
+}
 _OCR_IMAGE_SUFFIXES = {
     ".bmp",
     ".gif",
@@ -135,6 +140,23 @@ def _extract_ooxml_text(path: Path) -> tuple[str | None, str | None]:
                     parts.append(extracted)
             merged = _normalize_text(" ".join(parts))
             return (merged or None), extractor
+    except (OSError, zipfile.BadZipFile):
+        return None, extractor
+
+
+def _extract_opendocument_text(path: Path) -> tuple[str | None, str | None]:
+    suffix = path.suffix.lower()
+    meta = _OPENDOCUMENT_SUFFIXES.get(suffix)
+    if not meta:
+        return None, None
+    _, extractor = meta
+
+    try:
+        with zipfile.ZipFile(path) as zf:
+            if "content.xml" not in set(zf.namelist()):
+                return None, extractor
+            extracted = _extract_xml_text(zf.read("content.xml"))
+            return (extracted or None), extractor
     except (OSError, zipfile.BadZipFile):
         return None, extractor
 
@@ -281,6 +303,20 @@ def _extract_attachment_text_local(conn, *, workspace_id: int, source_kind: str,
             "error": "ooxml_text_unavailable",
             "local_path": str(path),
             "media_type": media_type or _OOXML_SUFFIXES.get(suffix, (None,))[0],
+        }
+
+    if suffix in _OPENDOCUMENT_SUFFIXES or media_type in {meta[0] for meta in _OPENDOCUMENT_SUFFIXES.values()}:
+        text, extractor = _extract_opendocument_text(path)
+        if text and extractor:
+            return text, {
+                "extractor": extractor,
+                "local_path": str(path),
+                "media_type": media_type or _OPENDOCUMENT_SUFFIXES.get(suffix, (None,))[0],
+            }
+        return None, {
+            "error": "opendocument_text_unavailable",
+            "local_path": str(path),
+            "media_type": media_type or _OPENDOCUMENT_SUFFIXES.get(suffix, (None,))[0],
         }
 
     if suffix in _SAFE_TEXT_SUFFIXES or media_type in _SAFE_TEXT_MEDIA_TYPES or media_type.startswith("text/"):

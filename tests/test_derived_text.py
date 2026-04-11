@@ -11,6 +11,43 @@ from slack_mirror.sync.derived_text import CommandDerivedTextProvider, build_der
 
 
 class DerivedTextTests(unittest.TestCase):
+    def test_process_jobs_extracts_opendocument_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            cache = root / "cache"
+            odt_path = cache / "files" / "ODT1" / "brief.odt"
+            odp_path = cache / "files" / "ODP1" / "slides.odp"
+            ods_path = cache / "files" / "ODS1" / "sheet.ods"
+            for p in (odt_path, odp_path, ods_path):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(p, "w") as zf:
+                    zf.writestr('content.xml', '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><office:text><text:p>%s</text:p></office:text></office:body></office:document-content>' % ({
+                        odt_path: 'OpenDocument board brief',
+                        odp_path: 'OpenDocument launch deck',
+                        ods_path: 'OpenDocument revenue sheet',
+                    }[p]))
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(conn, ws_id, {"id": "ODT1", "name": "brief.odt", "title": "Brief", "mimetype": "application/vnd.oasis.opendocument.text"}, local_path=str(odt_path))
+            upsert_file(conn, ws_id, {"id": "ODP1", "name": "slides.odp", "title": "Slides", "mimetype": "application/vnd.oasis.opendocument.presentation"}, local_path=str(odp_path))
+            upsert_file(conn, ws_id, {"id": "ODS1", "name": "sheet.ods", "title": "Sheet", "mimetype": "application/vnd.oasis.opendocument.spreadsheet"}, local_path=str(ods_path))
+
+            result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="attachment_text", limit=10)
+            self.assertEqual(result["errored"], 0)
+            self.assertEqual(result["processed"], 3)
+
+            rows = search_derived_text(conn, workspace_id=ws_id, query="board brief", limit=10)
+            self.assertEqual(rows[0]["extractor"], "odf_odt")
+            rows = search_derived_text(conn, workspace_id=ws_id, query="launch deck", limit=10)
+            self.assertEqual(rows[0]["extractor"], "odf_odp")
+            rows = search_derived_text(conn, workspace_id=ws_id, query="revenue sheet", limit=10)
+            self.assertEqual(rows[0]["extractor"], "odf_ods")
+
     def test_process_jobs_extracts_ooxml_files(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

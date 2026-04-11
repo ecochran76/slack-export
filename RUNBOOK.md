@@ -674,3 +674,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_derived_text tests.test_app_service -v`
   - `python -m py_compile slack_mirror/sync/derived_text.py slack_mirror/cli/main.py tests/test_derived_text.py`
+
+## Turn 43 | 2026-04-11
+
+- Expanded local attachment extraction coverage to OpenDocument office files under the existing `attachment_text` contract.
+- Added `.odt`, `.odp`, and `.ods` extraction through `content.xml` parsing with `odf_odt`, `odf_odp`, and `odf_ods` extractors.
+- Kept the provider and shared-core ownership model unchanged; this is format expansion, not a new storage path.
+- Validation:
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

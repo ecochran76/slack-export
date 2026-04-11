@@ -25,6 +25,9 @@ This plan is not a generic reopening of broad search modernization.
   - `ooxml_docx`
   - `ooxml_pptx`
   - `ooxml_xlsx`
+  - `odf_odt`
+  - `odf_odp`
+  - `odf_ods`
   - `pdftotext`
   - `tesseract_image`
   - `tesseract_pdf`
