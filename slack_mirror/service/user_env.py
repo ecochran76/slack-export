@@ -197,6 +197,25 @@ def _runtime_env(paths: UserEnvPaths) -> dict[str, str]:
     return env
 
 
+def _load_managed_config(paths: UserEnvPaths) -> Any:
+    original_db = os.environ.get("SLACK_MIRROR_DB")
+    original_cache = os.environ.get("SLACK_MIRROR_CACHE")
+    runtime_env = _runtime_env(paths)
+    try:
+        os.environ["SLACK_MIRROR_DB"] = runtime_env["SLACK_MIRROR_DB"]
+        os.environ["SLACK_MIRROR_CACHE"] = runtime_env["SLACK_MIRROR_CACHE"]
+        return load_config(paths.config_path)
+    finally:
+        if original_db is None:
+            os.environ.pop("SLACK_MIRROR_DB", None)
+        else:
+            os.environ["SLACK_MIRROR_DB"] = original_db
+        if original_cache is None:
+            os.environ.pop("SLACK_MIRROR_CACHE", None)
+        else:
+            os.environ["SLACK_MIRROR_CACHE"] = original_cache
+
+
 def _ensure_dirs(paths: UserEnvPaths) -> None:
     for path in (paths.bin_dir, paths.config_dir, paths.state_dir, paths.cache_dir):
         path.mkdir(parents=True, exist_ok=True)
@@ -447,7 +466,7 @@ def _build_live_validation_report(
         )
 
     try:
-        cfg = load_config(target.config_path)
+        cfg = _load_managed_config(target)
     except Exception as exc:
         fail(
             "CONFIG_INVALID",
@@ -1263,7 +1282,7 @@ def validate_live_user_env(
     if target.config_path.exists():
         out("OK    managed config present")
         try:
-            cfg = load_config(target.config_path)
+            cfg = _load_managed_config(target)
             db_path = Path(str(cfg.get("storage", {}).get("db_path", target.state_dir / "slack_mirror.db"))).expanduser()
             out(f"DB:     {db_path}")
             if db_path.exists():

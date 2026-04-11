@@ -26,7 +26,8 @@ class UserEnvTests(unittest.TestCase):
         (self.repo_root / "config.example.yaml").write_text(
             "version: 1\n"
             "storage:\n"
-            "  db_path: ${SLACK_MIRROR_DB:-~/.local/state/slack-mirror/slack_mirror.db}\n"
+            "  db_path: ${SLACK_MIRROR_DB:-/__invalid__/slack_mirror.db}\n"
+            "  cache_root: ${SLACK_MIRROR_CACHE:-/__invalid__/cache}\n"
             "workspaces:\n"
             "  - name: default\n"
             "    token: xoxb-read\n"
