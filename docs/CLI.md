@@ -572,7 +572,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,query-dir}
                            ...
 ```
 
@@ -581,11 +581,45 @@ usage: slack-mirror search [-h]
 
 **Subcommands**
 
+- `corpus`
 - `derived-text`
 - `keyword`
 - `query-dir`
 - `reindex-keyword`
 - `semantic`
+
+### `slack-mirror search corpus`
+**Usage**
+
+```
+usage: slack-mirror search corpus [-h] --workspace WORKSPACE --query QUERY
+                                  [--limit LIMIT]
+                                  [--mode {lexical,semantic,hybrid}]
+                                  [--model MODEL]
+                                  [--lexical-weight LEXICAL_WEIGHT]
+                                  [--semantic-weight SEMANTIC_WEIGHT]
+                                  [--semantic-scale SEMANTIC_SCALE] [--no-fts]
+                                  [--kind {attachment_text,ocr_text}]
+                                  [--source-kind {file,canvas}] [--explain]
+                                  [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--query` — query text
+- `--limit` — maximum result rows; default: `20`
+- `--mode` — corpus retrieval mode
+- `--model` — embedding model id
+- `--lexical-weight` — hybrid lexical score weight
+- `--semantic-weight` — hybrid semantic score weight
+- `--semantic-scale` — semantic score scaling factor
+- `--no-fts` — disable FTS prefilter for message lexical search
+- `--kind` — optional derived-text kind filter
+- `--source-kind` — optional derived-text source kind filter
+- `--explain` — include score breakdown
+- `--json` — json output
+
 
 ### `slack-mirror search derived-text`
 **Usage**

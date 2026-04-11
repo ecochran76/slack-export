@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
+from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
 from slack_mirror.sync.embeddings import process_embedding_jobs
@@ -131,6 +132,44 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["source_kind"], "file")
             self.assertEqual(rows[0]["source_label"], "Notes")
+
+    def test_search_corpus_combines_messages_and_derived_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "incident review follow-up", "user": "U1"})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F1', 'scan.pdf', 'Incident PDF', 'application/pdf', '/tmp/scan.pdf', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="ocr_text",
+                extractor="tesseract_pdf",
+                text="incident review appendix and findings",
+                media_type="application/pdf",
+                local_path="/tmp/scan.pdf",
+                metadata={"origin": "test"},
+            )
+
+            rows = search_corpus(conn, workspace_id=ws_id, query="incident review", limit=10, mode="hybrid")
+            self.assertGreaterEqual(len(rows), 2)
+            kinds = {row["result_kind"] for row in rows}
+            self.assertIn("message", kinds)
+            self.assertIn("derived_text", kinds)
+            self.assertTrue(any("_hybrid_score" in row for row in rows))
 
 
 if __name__ == "__main__":

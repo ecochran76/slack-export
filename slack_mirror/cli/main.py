@@ -981,6 +981,64 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_search_corpus(args: argparse.Namespace) -> int:
+    from slack_mirror.search.corpus import search_corpus
+
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    search_cfg = cfg.get("search", {})
+    semantic_cfg = search_cfg.get("semantic", {})
+    mode = args.mode or semantic_cfg.get("mode_default", "hybrid")
+    model = args.model or semantic_cfg.get("model", "local-hash-128")
+    lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else semantic_cfg.get("weights", {}).get("lexical", 0.6))
+    semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
+    semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
+
+    rows = search_corpus(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        query=args.query,
+        limit=args.limit,
+        mode=mode,
+        model_id=model,
+        lexical_weight=lexical_weight,
+        semantic_weight=semantic_weight,
+        semantic_scale=semantic_scale,
+        use_fts=not args.no_fts,
+        derived_kind=args.kind,
+        derived_source_kind=args.source_kind,
+    )
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        for row in rows:
+            label = row.get("source_label") or row.get("channel_name") or row.get("channel_id") or row.get("source_id")
+            snippet = str(row.get("text") or "").replace("\n", " ").strip()
+            if len(snippet) > 160:
+                snippet = snippet[:159] + "…"
+            line = f"[{row.get('result_kind')}:{label}] {snippet}"
+            if args.explain:
+                line += (
+                    f" | src={row.get('_source')}"
+                    f" lex={row.get('_lexical_score', row.get('_score', 0))}"
+                    f" sem={row.get('_semantic_score', 0)}"
+                    f" hyb={row.get('_hybrid_score', 0)}"
+                )
+            print(line)
+    print(
+        f"Corpus search workspace={args.workspace} mode={mode} query={args.query!r} results={len(rows)} "
+        f"kind={args.kind or 'any'} source_kind={args.source_kind or 'any'}"
+    )
+    return 0
+
+
 def cmd_search_query_dir(args: argparse.Namespace) -> int:
     from slack_mirror.search.dir_adapter import query_directory
 
@@ -1341,7 +1399,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -1509,7 +1567,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -1939,6 +1997,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search_derived.add_argument("--json", action="store_true", help="json output")
     p_search_derived.set_defaults(func=cmd_search_derived_text)
+
+    p_search_corpus = search_sub.add_parser("corpus", help="search messages plus derived attachment and OCR text")
+    p_search_corpus.add_argument("--workspace", required=True, help="workspace name")
+    p_search_corpus.add_argument("--query", required=True, help="query text")
+    p_search_corpus.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_corpus.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="corpus retrieval mode")
+    p_search_corpus.add_argument("--model", default=None, help="embedding model id")
+    p_search_corpus.add_argument("--lexical-weight", type=float, default=None, help="hybrid lexical score weight")
+    p_search_corpus.add_argument("--semantic-weight", type=float, default=None, help="hybrid semantic score weight")
+    p_search_corpus.add_argument("--semantic-scale", type=float, default=None, help="semantic score scaling factor")
+    p_search_corpus.add_argument("--no-fts", action="store_true", help="disable FTS prefilter for message lexical search")
+    p_search_corpus.add_argument(
+        "--kind",
+        choices=["attachment_text", "ocr_text"],
+        default=None,
+        help="optional derived-text kind filter",
+    )
+    p_search_corpus.add_argument(
+        "--source-kind",
+        choices=["file", "canvas"],
+        default=None,
+        help="optional derived-text source kind filter",
+    )
+    p_search_corpus.add_argument("--explain", action="store_true", help="include score breakdown")
+    p_search_corpus.add_argument("--json", action="store_true", help="json output")
+    p_search_corpus.set_defaults(func=cmd_search_corpus)
 
     p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
     p_search_dir.add_argument("--path", required=True, help="root directory")

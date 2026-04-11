@@ -465,3 +465,23 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_db tests.test_derived_text tests.test_search tests.test_cli -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 30 | 2026-04-11
+
+- Landed the next `P03` retrieval slice so search no longer stops at parallel message-only and derived-text-only surfaces.
+- Added `slack_mirror.search.corpus` as the shared-core combined retrieval path over:
+  - messages
+  - derived attachment text
+  - OCR-derived text
+- Added `slack-mirror search corpus` as the operator surface for corpus-wide lexical, semantic, and hybrid retrieval.
+- Kept the current corpus design lexical-first:
+  - message retrieval still reuses the existing message search path
+  - derived-text lexical search reuses `derived_text_fts`
+  - derived-text semantic scoring currently uses the local embedding baseline on shared-core rows
+- Deferred from this slice:
+  - chunking for long documents
+  - API and MCP transport exposure for corpus search
+  - stronger evaluation and search-health checks
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

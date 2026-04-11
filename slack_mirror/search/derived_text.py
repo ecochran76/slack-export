@@ -88,4 +88,16 @@ def search_derived_text(
         LIMIT ?
     """
     rows = conn.execute(sql, (*params, *fts_params, limit)).fetchall()
-    return [dict(row) for row in rows]
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        text = str(item.get("text") or "").lower()
+        term_hits = 0
+        for term in positive_terms:
+            tt = (term or "").lower().strip()
+            if tt:
+                term_hits += text.count(tt)
+        item["_score"] = float(term_hits or (1 if positive_terms else 0))
+        item["_source"] = "lexical"
+        out.append(item)
+    return out

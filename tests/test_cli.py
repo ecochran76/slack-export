@@ -320,6 +320,39 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_corpus(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "corpus",
+                "--workspace",
+                "default",
+                "--query",
+                "incident review",
+                "--mode",
+                "hybrid",
+                "--kind",
+                "ocr_text",
+                "--source-kind",
+                "file",
+                "--limit",
+                "8",
+                "--explain",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.query, "incident review")
+        self.assertEqual(args.mode, "hybrid")
+        self.assertEqual(args.kind, "ocr_text")
+        self.assertEqual(args.source_kind, "file")
+        self.assertEqual(args.limit, 8)
+        self.assertTrue(args.explain)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_user_env_install(self):
         parser = build_parser()
         args = parser.parse_args(["user-env", "install"])

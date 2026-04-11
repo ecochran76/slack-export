@@ -71,9 +71,8 @@ Current state:
   - first-class `derived_text`, `derived_text_fts`, and `derived_text_jobs` tables
   - document-native extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
   - OCR extraction path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
-  - `search derived-text` and `mirror process-derived-text-jobs` operator surfaces
+  - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
 - remaining work is still substantial:
-  - lexical-first hybrid retrieval over messages plus derived text
   - stronger evaluation, search-health, and readiness discipline
   - richer extraction coverage, transport exposure, and search diagnostics
 
