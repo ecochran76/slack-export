@@ -25,8 +25,8 @@ Actionable plans:
 Current state:
 - supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
 - user-scope install and update flows exist
-- release/version discipline is partially documented and partially implemented
-- remaining work is making installer validation, rollback, and release policy fully explicit and auditable
+- bounded user-scope rollback exists
+- release/version discipline now has a supported `slack-mirror release check` gate, but the lane is still open until the remaining installer/release child work is closed cleanly
 
 Legacy context:
 - retained through the dated runbook and prior local planning notes when needed for archaeology

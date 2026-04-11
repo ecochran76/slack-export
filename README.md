@@ -28,6 +28,8 @@ slack-mirror user-env check-live --json
 slack-mirror user-env recover-live
 slack-mirror user-env recover-live --apply
 slack-mirror user-env rollback
+slack-mirror release check
+slack-mirror release check --require-clean --require-release-version
 ./.venv/bin/python -m unittest discover -s tests -v
 ```
 

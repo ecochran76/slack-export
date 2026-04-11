@@ -4,6 +4,7 @@ from unittest.mock import patch
 from slack_mirror import __version__
 from slack_mirror.cli.main import (
     build_parser,
+    cmd_release_check,
     cmd_serve_mcp,
     cmd_user_env_check_live,
     cmd_user_env_install,
@@ -330,6 +331,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.command, "version")
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_release_check(self):
+        parser = build_parser()
+        args = parser.parse_args(["release", "check", "--json", "--require-clean", "--require-release-version"])
+        self.assertEqual(args.command, "release")
+        self.assertEqual(args.release_cmd, "check")
+        self.assertTrue(args.json)
+        self.assertTrue(args.require_clean)
+        self.assertTrue(args.require_release_version)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_api_serve(self):
         parser = build_parser()
         args = parser.parse_args(["api", "serve", "--bind", "0.0.0.0", "--port", "8788"])
@@ -435,6 +446,17 @@ class CliTests(unittest.TestCase):
         args = parser.parse_args(["user-env", "recover-live", "--apply", "--json"])
         self.assertEqual(cmd_user_env_recover_live(args), 0)
         mock_recover.assert_called_once_with(apply=True, json_output=True)
+
+    @patch("slack_mirror.service.release.release_check", return_value=0)
+    def test_release_check_dispatches_to_service(self, mock_release_check):
+        parser = build_parser()
+        args = parser.parse_args(["release", "check", "--json", "--require-clean", "--require-release-version"])
+        self.assertEqual(cmd_release_check(args), 0)
+        mock_release_check.assert_called_once_with(
+            json_output=True,
+            require_clean=True,
+            require_release_version=True,
+        )
 
     @patch("slack_mirror.service.mcp.run_mcp_stdio", return_value=None)
     def test_mcp_serve_dispatches_to_service(self, mock_run):

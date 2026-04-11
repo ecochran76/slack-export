@@ -1218,9 +1218,10 @@ _slack_mirror_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
   }
 
-  local top="mirror workspaces channels search docs completion api mcp user-env version"
+  local top="mirror workspaces channels search docs completion api mcp release user-env version"
   local api_sub="serve"
   local mcp_sub="serve"
+  local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live"
   local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
@@ -1326,6 +1327,13 @@ except Exception:
       fi
       COMPREPLY=()
       ;;
+    release)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$release_sub" -- "$cur") )
+        return 0
+      fi
+      COMPREPLY=( $(compgen -W "--json --require-clean --require-release-version" -- "$cur") )
+      ;;
     user-env)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
         COMPREPLY=( $(compgen -W "$user_env_sub" -- "$cur") )
@@ -1366,10 +1374,11 @@ except Exception:
 }
 
 _slack_mirror() {
-  local -a top mirror_sub ws_sub api_sub mcp_sub user_env_sub
-  top=(mirror workspaces channels search docs completion api mcp user-env version)
+  local -a top mirror_sub ws_sub api_sub mcp_sub release_sub user_env_sub
+  top=(mirror workspaces channels search docs completion api mcp release user-env version)
   api_sub=(serve)
   mcp_sub=(serve)
+  release_sub=(check)
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live)
   mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
@@ -1487,6 +1496,13 @@ _slack_mirror() {
       fi
       _arguments
       ;;
+    release)
+      if (( CURRENT == 3 )); then
+        _describe 'release command' release_sub
+        return
+      fi
+      _arguments '--json[json output]' '--require-clean[fail when git worktree is dirty]' '--require-release-version[fail when version is still a development version]'
+      ;;
     user-env)
       if (( CURRENT == 3 )); then
         _describe 'user-env command' user_env_sub
@@ -1524,6 +1540,16 @@ def cmd_completion(args: argparse.Namespace) -> int:
 def cmd_version(args: argparse.Namespace) -> int:
     print(__version__)
     return 0
+
+
+def cmd_release_check(args: argparse.Namespace) -> int:
+    from slack_mirror.service.release import release_check
+
+    return release_check(
+        json_output=bool(args.json),
+        require_clean=bool(args.require_clean),
+        require_release_version=bool(args.require_release_version),
+    )
 
 
 def cmd_user_env_install(args: argparse.Namespace) -> int:
@@ -1853,6 +1879,18 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_sub = mcp.add_subparsers(dest="mcp_cmd")
     p_mcp_serve = mcp_sub.add_parser("serve", help="run the local MCP stdio server")
     p_mcp_serve.set_defaults(func=cmd_serve_mcp)
+
+    release = sub.add_parser("release", help="release-discipline validation commands")
+    release_sub = release.add_subparsers(dest="release_cmd")
+    p_release_check = release_sub.add_parser("check", help="run the supported release-readiness checks")
+    p_release_check.add_argument("--json", action="store_true", help="json output")
+    p_release_check.add_argument("--require-clean", action="store_true", help="fail when git worktree is dirty")
+    p_release_check.add_argument(
+        "--require-release-version",
+        action="store_true",
+        help="fail when pyproject version is still a development version",
+    )
+    p_release_check.set_defaults(func=cmd_release_check)
 
     user_env = sub.add_parser("user-env", help="supported user-scope install/update commands")
     user_env_sub = user_env.add_subparsers(dest="user_env_cmd")

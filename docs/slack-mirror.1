@@ -6,7 +6,7 @@ Slack workspace mirror CLI for backfills, webhook ingest, and processing.
 **Usage**
 
 usage: slack-mirror [-h] [--version] [--config CONFIG]
-                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,user-env,version}
+                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,release,user-env,version}
                     ...
 
 **Options**
@@ -35,6 +35,8 @@ slack-mirror --config config.yaml workspaces list --json
 `messages`
 .IP \[bu] 2
 `mirror`
+.IP \[bu] 2
+`release`
 .IP \[bu] 2
 `search`
 .IP \[bu] 2
@@ -487,6 +489,28 @@ usage: slack-mirror mirror sync [-h] [--workspace WORKSPACE]
 `--embedding-job-limit` — default: `5000`
 .IP \[bu] 2
 `--reindex-keyword` — rebuild FTS index after sync
+.SH SLACK-MIRROR RELEASE
+**Usage**
+
+usage: slack-mirror release [-h] {check} ...
+
+**Arguments**
+**Subcommands**
+.IP \[bu] 2
+`check`
+.SH SLACK-MIRROR RELEASE CHECK
+**Usage**
+
+usage: slack-mirror release check [-h] [--json] [--require-clean]
+                                  [--require-release-version]
+
+**Options**
+.IP \[bu] 2
+`--json` — json output
+.IP \[bu] 2
+`--require-clean` — fail when git worktree is dirty
+.IP \[bu] 2
+`--require-release-version` — fail when pyproject version is still a development version
 .SH SLACK-MIRROR SEARCH
 **Usage**
 

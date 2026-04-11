@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from slack_mirror import __version__
 from slack_mirror.service.app import LiveValidationResult
 from slack_mirror.service.mcp import SlackMirrorMcpServer, run_mcp_stdio
 
@@ -70,6 +71,7 @@ class McpServerTests(unittest.TestCase):
     def test_initialize_and_tools_list(self):
         init = self.server.handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         self.assertEqual(init["result"]["serverInfo"]["name"], "slack-mirror")
+        self.assertEqual(init["result"]["serverInfo"]["version"], __version__)
         self.assertIn("tools", init["result"]["capabilities"])
 
         tools = self.server.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})

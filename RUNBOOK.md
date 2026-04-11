@@ -347,3 +347,20 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 23 | 2026-04-10
+
+- Advanced `P01 | Platform Foundation` again by turning release discipline into a supported product command.
+- Added `slack-mirror release check` as the canonical repo-level release gate for:
+  - version consistency between `pyproject.toml` and runtime package metadata
+  - generated CLI docs freshness
+  - planning-contract audit health
+- Added stricter release-cut flags:
+  - `--require-clean`
+  - `--require-release-version`
+- Fixed MCP initialization metadata so the server now advertises the canonical runtime package version instead of a hardcoded string.
+- Added release-discipline docs and updated roadmap/plan current-state notes so the repo’s release path is now executable, not just described.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_release tests.test_mcp_server tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

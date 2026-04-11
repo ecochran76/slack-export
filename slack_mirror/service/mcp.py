@@ -5,6 +5,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from typing import Any, TextIO
 
+from slack_mirror import __version__
 from slack_mirror.service.app import get_app_service
 from slack_mirror.service.errors import map_service_error
 
@@ -275,7 +276,7 @@ class SlackMirrorMcpServer:
                 "id": request_id,
                 "result": {
                     "protocolVersion": "2024-11-05",
-                    "serverInfo": {"name": "slack-mirror", "version": "0.2.0-dev"},
+                    "serverInfo": {"name": "slack-mirror", "version": __version__},
                     "capabilities": {"tools": {}},
                 },
             }
