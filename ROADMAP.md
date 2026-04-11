@@ -82,6 +82,7 @@ Current state:
   - initial command-backed and HTTP-backed providers are landed, with local fallback retained by default; richer provider-routed OCR and extraction paths beyond current host-local tools remain to be added
   - extraction outcome thresholding is now landed on top of readiness reporting; richer coverage policy beyond the current health codes remains open
   - broader document-format coverage only where it fits the shared `derived_text` contract cleanly
+- `docx-skill` is a likely source of reusable OOXML primitives for both richer `.docx` extraction and future DOCX-quality export rendering, but that reuse remains deferred to a bounded follow-up slice
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

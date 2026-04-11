@@ -79,6 +79,10 @@ Current status:
 - only add formats that can map cleanly to `attachment_text` or `ocr_text`
 - avoid extractor-specific side tables or format-specific search semantics
 
+Current note:
+
+- `docx-skill` appears to contain reusable OOXML story/text primitives that could improve both `.docx` extraction quality and future chat-export DOCX rendering, but that reuse is intentionally deferred until it can be scoped as a bounded export/extraction slice rather than folded into this plan ad hoc
+
 ## Non-Goals
 
 - replacing the SQLite-first search baseline
