@@ -4,7 +4,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, upsert_canvas, upsert_file, upsert_workspace
+from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, get_derived_text, upsert_canvas, upsert_file, upsert_workspace
 from slack_mirror.search.derived_text import search_derived_text
 from slack_mirror.sync.derived_text import process_derived_text_jobs
 
@@ -250,3 +250,95 @@ class DerivedTextTests(unittest.TestCase):
             row = conn.execute("SELECT status, error FROM derived_text_jobs").fetchone()
             self.assertEqual(row["status"], "skipped")
             self.assertEqual(row["error"], "unsupported_derivation_kind")
+
+    def test_process_jobs_accepts_custom_provider(self):
+        class FakeProvider:
+            name = "fake_remote"
+
+            def extract_attachment_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str):
+                return "remote extracted brief", {
+                    "extractor": "remote_attachment",
+                    "media_type": "text/plain",
+                    "local_path": "/virtual/remote.txt",
+                    "route": "remote",
+                }
+
+            def extract_ocr_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str):
+                raise AssertionError("unexpected ocr path")
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            file_path = root / "cache" / "files" / "F1" / "notes.txt"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text("ignored local text", encoding="utf-8")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F1", "name": "notes.txt", "title": "Notes", "mimetype": "text/plain"},
+                local_path=str(file_path),
+            )
+
+            result = process_derived_text_jobs(
+                conn,
+                workspace_id=ws_id,
+                derivation_kind="attachment_text",
+                limit=10,
+                provider=FakeProvider(),
+            )
+
+            self.assertEqual(result["processed"], 1)
+            row = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="remote_attachment",
+            )
+            self.assertIsNotNone(row)
+            self.assertEqual(row["text"], "remote extracted brief")
+            self.assertEqual(row["metadata"]["provider"], "fake_remote")
+            self.assertEqual(row["metadata"]["route"], "remote")
+
+    def test_local_provider_metadata_is_recorded(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            cache = root / "cache"
+            file_path = cache / "files" / "F1" / "notes.txt"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text("deployment notes and timeline", encoding="utf-8")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F1", "name": "notes.txt", "title": "Notes", "mimetype": "text/plain"},
+                local_path=str(file_path),
+            )
+
+            result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="attachment_text", limit=10)
+
+            self.assertEqual(result["processed"], 1)
+            row = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+            )
+            self.assertIsNotNone(row)
+            self.assertEqual(row["metadata"]["provider"], "local_host_tools")
+

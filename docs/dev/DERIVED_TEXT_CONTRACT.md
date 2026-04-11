@@ -69,6 +69,13 @@ Current OCR boundary:
 - PDFs with a machine-readable text layer stay `attachment_text` only; their `ocr_text` jobs are skipped as `pdf_has_text_layer`
 - OCR depends on local host tools rather than a remote provider in this slice
 
+## Provider Boundary
+
+- derived-text job execution now runs through a shared extraction-provider seam
+- `LocalCliDerivedTextProvider` is the current default implementation
+- provider identity is recorded in derived-text metadata as `provider`
+- new provider-backed extraction or OCR paths must preserve the existing `attachment_text` and `ocr_text` contract instead of inventing new derivation kinds
+
 ## Ownership Rules
 
 1. Derived text is shared searchable state, not cache-only extraction output.

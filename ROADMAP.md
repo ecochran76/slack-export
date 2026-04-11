@@ -55,13 +55,14 @@ Legacy context:
 
 ## P03 | Search And Evaluation
 
-Status: CLOSED
+Status: OPEN
 
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
 
 Actionable plans:
 - `docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md`
+- `docs/dev/plans/0007-2026-04-11-extraction-provider-expansion.md`
 
 Current state:
 - keyword and semantic search exist
@@ -76,7 +77,11 @@ Current state:
   - explicit cross-workspace corpus search through shared service, CLI, API, and MCP
   - API and MCP exposure for corpus search, readiness, and search health
   - shared search-health gates over readiness plus optional corpus smoke and depth benchmarks, with per-query diagnostics and bounded ranking-quality thresholds
-- the modernization lane is closed on this SQLite-first shipped baseline; future search work should open narrower follow-up plans for additional extraction providers, ranking changes, or backend expansion rather than leaving `P03` generically open
+- active follow-up scope is now narrower:
+  - an initial extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation
+  - provider-routed OCR and extraction paths beyond current host-local tools remain to be added behind that boundary
+  - richer extraction outcome reporting and coverage visibility
+  - broader document-format coverage only where it fits the shared `derived_text` contract cleanly
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

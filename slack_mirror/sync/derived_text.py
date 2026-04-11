@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Protocol
 from xml.etree import ElementTree as ET
 
 from slack_mirror.core.db import (
@@ -60,6 +61,19 @@ _OCR_IMAGE_SUFFIXES = {
     ".tiff",
     ".webp",
 }
+
+
+ExtractResult = tuple[str | None, dict]
+
+
+class DerivedTextProvider(Protocol):
+    name: str
+
+    def extract_attachment_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        ...
+
+    def extract_ocr_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        ...
 
 
 def _normalize_text(value: str) -> str:
@@ -215,7 +229,7 @@ def _resolve_source_row(conn, *, workspace_id: int, source_kind: str, source_id:
     raise ValueError(f"Unsupported source kind: {source_kind}")
 
 
-def _extract_attachment_text(conn, *, workspace_id: int, source_kind: str, source_id: str) -> tuple[str | None, dict]:
+def _extract_attachment_text_local(conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
     row = _resolve_source_row(conn, workspace_id=workspace_id, source_kind=source_kind, source_id=source_id)
     if not row:
         return None, {"error": "source_missing"}
@@ -287,7 +301,7 @@ def _extract_attachment_text(conn, *, workspace_id: int, source_kind: str, sourc
     }
 
 
-def _extract_ocr_text(conn, *, workspace_id: int, source_kind: str, source_id: str) -> tuple[str | None, dict]:
+def _extract_ocr_text_local(conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
     row = _resolve_source_row(conn, workspace_id=workspace_id, source_kind=source_kind, source_id=source_id)
     if not row:
         return None, {"error": "source_missing"}
@@ -335,13 +349,43 @@ def _extract_ocr_text(conn, *, workspace_id: int, source_kind: str, source_id: s
     }
 
 
+class LocalCliDerivedTextProvider:
+    name = "local_host_tools"
+
+    def extract_attachment_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return _extract_attachment_text_local(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+    def extract_ocr_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return _extract_ocr_text_local(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+
+_DEFAULT_PROVIDER = LocalCliDerivedTextProvider()
+
+
+def get_default_derived_text_provider() -> DerivedTextProvider:
+    return _DEFAULT_PROVIDER
+
+
 def process_derived_text_jobs(
     conn,
     *,
     workspace_id: int,
     derivation_kind: str = "attachment_text",
     limit: int = 100,
+    provider: DerivedTextProvider | None = None,
 ) -> dict[str, int]:
+    provider = provider or get_default_derived_text_provider()
+
     jobs = list_pending_derived_text_jobs(
         conn,
         workspace_id,
@@ -356,14 +400,14 @@ def process_derived_text_jobs(
     for job in jobs:
         try:
             if derivation_kind == "attachment_text":
-                text, details = _extract_attachment_text(
+                text, details = provider.extract_attachment_text(
                     conn,
                     workspace_id=workspace_id,
                     source_kind=str(job["source_kind"]),
                     source_id=str(job["source_id"]),
                 )
             elif derivation_kind == "ocr_text":
-                text, details = _extract_ocr_text(
+                text, details = provider.extract_ocr_text(
                     conn,
                     workspace_id=workspace_id,
                     source_kind=str(job["source_kind"]),
@@ -402,6 +446,12 @@ def process_derived_text_jobs(
                 skipped += 1
                 continue
 
+            metadata = {
+                "job_reason": job["reason"],
+                "provider": getattr(provider, "name", provider.__class__.__name__),
+                **{k: v for k, v in details.items() if k not in {"extractor", "media_type", "local_path"}},
+            }
+
             upsert_derived_text(
                 conn,
                 workspace_id=workspace_id,
@@ -412,10 +462,7 @@ def process_derived_text_jobs(
                 text=text,
                 media_type=details.get("media_type"),
                 local_path=details.get("local_path"),
-                metadata={
-                    "job_reason": job["reason"],
-                    **{k: v for k, v in details.items() if k not in {"extractor", "media_type", "local_path"}},
-                },
+                metadata=metadata,
             )
             mark_derived_text_job_status(conn, job_id=int(job["id"]), status="done")
             processed += 1

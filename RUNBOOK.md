@@ -610,3 +610,30 @@ This file is the dated turn log for planning and execution continuity.
 - Future search work should open narrower follow-up plans instead of keeping `P03` generically open.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 38 | 2026-04-11
+
+- Reopened `P03 | Search And Evaluation` only as a narrow follow-up lane after closing the broader modernization baseline.
+- Opened `docs/dev/plans/0007-2026-04-11-extraction-provider-expansion.md`.
+- Chose provider-routed extraction and OCR as the next bounded slice because the main remaining search gap is extraction depth and coverage visibility, not corpus shape or transport surface.
+- Kept the reopened scope narrow and explicit:
+  - provider boundary for extraction and OCR
+  - richer extraction outcome reporting
+  - bounded format expansion under the shared `derived_text` contract
+- Kept the previously shipped SQLite-first search baseline closed through `0006` rather than turning `P03` back into a generic catch-all.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 39 | 2026-04-11
+
+- Landed the first `0007` implementation slice for post-baseline extraction follow-up work.
+- Added a shared extraction-provider seam in `slack_mirror.sync.derived_text` instead of keeping job execution hardwired to one local implementation path.
+- Kept `LocalCliDerivedTextProvider` as the default implementation so the current host-local OCR and extraction toolchain remains the baseline behavior.
+- Started recording provider identity in derived-text metadata so future coverage and outcome reporting can distinguish host-local extraction from later provider-routed paths.
+- Added regression coverage proving:
+  - `process_derived_text_jobs()` accepts a custom provider
+  - provider identity is persisted in derived-text metadata
+  - the default local provider path still works
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_derived_text -v`
+  - `python -m py_compile slack_mirror/sync/derived_text.py tests/test_derived_text.py`
