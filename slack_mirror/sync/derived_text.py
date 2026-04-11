@@ -78,6 +78,27 @@ _OCR_IMAGE_SUFFIXES = {
 ExtractResult = tuple[str | None, dict]
 
 
+def _provider_name(provider: object) -> str:
+    return str(getattr(provider, "name", provider.__class__.__name__))
+
+
+def _config_bool(value: Any, *, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"", "default"}:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 class DerivedTextProvider(Protocol):
     name: str
 
@@ -603,6 +624,72 @@ class HttpDerivedTextProvider:
         )
 
 
+class FallbackDerivedTextProvider:
+    def __init__(self, primary: DerivedTextProvider, fallback: DerivedTextProvider):
+        self.primary = primary
+        self.fallback = fallback
+        self.name = f"fallback:{_provider_name(primary)}->{_provider_name(fallback)}"
+
+    def _with_provider(self, details: dict[str, Any] | None, provider: DerivedTextProvider, **extra: Any) -> dict[str, Any]:
+        merged = dict(details or {})
+        merged.setdefault("provider_name", _provider_name(provider))
+        for key, value in extra.items():
+            if value is not None:
+                merged.setdefault(key, value)
+        return merged
+
+    def _invoke(self, method_name: str, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        method = getattr(self.primary, method_name)
+        text, details = method(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+        if text:
+            return text, self._with_provider(details, self.primary)
+
+        fallback_method = getattr(self.fallback, method_name)
+        fallback_text, fallback_details = fallback_method(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+        if fallback_text:
+            return fallback_text, self._with_provider(
+                fallback_details,
+                self.fallback,
+                fallback_from=_provider_name(self.primary),
+                fallback_error=str((details or {}).get("error") or "provider_no_text"),
+            )
+
+        primary_details = self._with_provider(details, self.primary)
+        fallback_details = self._with_provider(fallback_details, self.fallback)
+        primary_details.setdefault("fallback_attempted", True)
+        primary_details.setdefault("fallback_provider", fallback_details.get("provider_name"))
+        primary_details.setdefault("fallback_error", str(fallback_details.get("error") or "fallback_no_text"))
+        return None, primary_details
+
+    def extract_attachment_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return self._invoke(
+            "extract_attachment_text",
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+    def extract_ocr_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return self._invoke(
+            "extract_ocr_text",
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+
 _DEFAULT_PROVIDER = LocalCliDerivedTextProvider()
 
 
@@ -621,16 +708,22 @@ def build_derived_text_provider(config: dict[str, Any] | None = None) -> Derived
             command = [str(part) for part in command_value]
         else:
             command = []
-        return CommandDerivedTextProvider(command)
+        provider: DerivedTextProvider = CommandDerivedTextProvider(command)
+        if _config_bool(provider_cfg.get("fallback_to_local"), default=True):
+            provider = FallbackDerivedTextProvider(provider, _DEFAULT_PROVIDER)
+        return provider
     if provider_type == "http":
         headers_value = provider_cfg.get("headers")
         headers = headers_value if isinstance(headers_value, dict) else {}
-        return HttpDerivedTextProvider(
+        provider = HttpDerivedTextProvider(
             str(provider_cfg.get("url") or ""),
             headers=headers,
             bearer_token_env=provider_cfg.get("bearer_token_env"),
             timeout_s=float(provider_cfg.get("timeout_s") or 120.0),
         )
+        if _config_bool(provider_cfg.get("fallback_to_local"), default=True):
+            provider = FallbackDerivedTextProvider(provider, _DEFAULT_PROVIDER)
+        return provider
     raise ValueError(f"Unsupported derived-text provider type: {provider_type}")
 
 
@@ -708,10 +801,11 @@ def process_derived_text_jobs(
                 skipped += 1
                 continue
 
+            provider_name = str(details.get("provider_name") or _provider_name(provider))
             metadata = {
                 "job_reason": job["reason"],
-                "provider": getattr(provider, "name", provider.__class__.__name__),
-                **{k: v for k, v in details.items() if k not in {"extractor", "media_type", "local_path"}},
+                "provider": provider_name,
+                **{k: v for k, v in details.items() if k not in {"extractor", "media_type", "local_path", "provider_name"}},
             }
 
             upsert_derived_text(

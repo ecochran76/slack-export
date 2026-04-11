@@ -30,6 +30,7 @@ search:
       url: ${SLACK_MIRROR_DERIVED_TEXT_URL:-}
       bearer_token_env: ${SLACK_MIRROR_DERIVED_TEXT_BEARER_ENV:-}
       timeout_s: ${SLACK_MIRROR_DERIVED_TEXT_TIMEOUT_S:-120}
+      fallback_to_local: ${SLACK_MIRROR_DERIVED_TEXT_FALLBACK_TO_LOCAL:-true}
   query_profiles:
     nylon-research:
       mode: hybrid

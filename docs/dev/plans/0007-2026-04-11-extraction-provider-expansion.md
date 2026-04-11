@@ -58,7 +58,7 @@ Current status:
 
 - the shared provider seam is landed
 - the local host-tools implementation remains the default
-- initial command-backed and HTTP-backed providers are now landed behind config selection
+- initial command-backed and HTTP-backed providers are now landed behind config selection, with local fallback enabled by default
 - richer remote/provider-backed implementations are still deferred
 
 ### Track B | Outcome Reporting

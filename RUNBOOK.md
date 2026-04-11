@@ -692,3 +692,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 45 | 2026-04-11
+
+- Added default local fallback wrapping for remote derived-text providers so command and HTTP extraction degrade to host-local tooling when remote extraction fails.
+- Preserved the actual provider used in metadata and now record `fallback_from` and `fallback_error` when local fallback wins.
+- Added config control through `fallback_to_local` so operators can disable fallback when they want strict remote-only behavior.
+- Validation:
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

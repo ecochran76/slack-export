@@ -75,6 +75,7 @@ Current OCR boundary:
 - `LocalCliDerivedTextProvider` is the current default implementation
 - `CommandDerivedTextProvider` is now supported as an optional configured provider
 - `HttpDerivedTextProvider` is now supported as an optional configured provider
+- remote providers are wrapped with local fallback by default unless `fallback_to_local: false` is set
 - provider identity is recorded in derived-text metadata as `provider`
 - new provider-backed extraction or OCR paths must preserve the existing `attachment_text` and `ocr_text` contract instead of inventing new derivation kinds
 
@@ -103,6 +104,7 @@ Command-provider contract:
     - `ok: false`
     - `error`
 - provider `details` are merged into derived-text metadata and must stay compatible with shared-core ownership
+- when local fallback is used, metadata records the actual provider as `local_host_tools` plus `fallback_from` and `fallback_error`
 
 HTTP-provider contract:
 
@@ -111,6 +113,7 @@ HTTP-provider contract:
 - optional `headers` are sent with each request
 - optional `bearer_token_env` injects `Authorization: Bearer ...` from the named environment variable
 - optional `timeout_s` controls request timeout
+- optional `fallback_to_local` controls whether failed remote extraction falls back to the built-in local provider; default is enabled
 - Slack mirror sends the same JSON request body used by the command provider
 - the HTTP endpoint must return the same JSON response contract used by the command provider
 
