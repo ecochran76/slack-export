@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 import zipfile
@@ -6,7 +7,7 @@ from unittest.mock import patch
 
 from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, get_derived_text, upsert_canvas, upsert_file, upsert_workspace
 from slack_mirror.search.derived_text import search_derived_text
-from slack_mirror.sync.derived_text import process_derived_text_jobs
+from slack_mirror.sync.derived_text import CommandDerivedTextProvider, build_derived_text_provider, process_derived_text_jobs
 
 
 class DerivedTextTests(unittest.TestCase):
@@ -341,4 +342,87 @@ class DerivedTextTests(unittest.TestCase):
             )
             self.assertIsNotNone(row)
             self.assertEqual(row["metadata"]["provider"], "local_host_tools")
+
+    def test_command_provider_invokes_json_protocol(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            file_path = root / "cache" / "files" / "F1" / "notes.txt"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text("ignored local text", encoding="utf-8")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F1", "name": "notes.txt", "title": "Notes", "mimetype": "text/plain"},
+                local_path=str(file_path),
+            )
+
+            provider = CommandDerivedTextProvider(["/usr/local/bin/extractor", "--json"])
+
+            def fake_run(args, check, capture_output, text, input):
+                self.assertEqual(args, ["/usr/local/bin/extractor", "--json"])
+                payload = json.loads(input)
+                self.assertEqual(payload["action"], "attachment_text")
+                self.assertEqual(payload["workspace_id"], ws_id)
+                self.assertEqual(payload["source_kind"], "file")
+                self.assertEqual(payload["source_id"], "F1")
+                self.assertEqual(payload["local_path"], str(file_path))
+
+                class Result:
+                    returncode = 0
+                    stdout = json.dumps(
+                        {
+                            "ok": True,
+                            "text": "remote attachment text",
+                            "extractor": "remote_command",
+                            "details": {"route": "command"},
+                        }
+                    )
+                    stderr = ""
+
+                return Result()
+
+            with patch("slack_mirror.sync.derived_text.subprocess.run", side_effect=fake_run):
+                result = process_derived_text_jobs(
+                    conn,
+                    workspace_id=ws_id,
+                    derivation_kind="attachment_text",
+                    limit=10,
+                    provider=provider,
+                )
+
+            self.assertEqual(result["processed"], 1)
+            row = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="remote_command",
+            )
+            self.assertEqual(row["metadata"]["provider"], "command:extractor")
+            self.assertEqual(row["metadata"]["route"], "command")
+
+    def test_build_provider_from_config_returns_command_provider(self):
+        provider = build_derived_text_provider(
+            {
+                "search": {
+                    "derived_text": {
+                        "provider": {
+                            "type": "command",
+                            "command": "/usr/local/bin/extractor --json",
+                        }
+                    }
+                }
+            }
+        )
+        self.assertIsInstance(provider, CommandDerivedTextProvider)
+        self.assertEqual(provider.command, ["/usr/local/bin/extractor", "--json"])
+        self.assertEqual(provider.name, "command:extractor")
 

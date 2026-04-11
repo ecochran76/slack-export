@@ -664,3 +664,13 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_app_service -v`
   - `python -m py_compile slack_mirror/service/app.py tests/test_app_service.py`
+
+## Turn 42 | 2026-04-11
+
+- Landed the first non-default extraction provider behind the shared provider seam.
+- Added `CommandDerivedTextProvider` and config-based provider selection through `search.derived_text.provider`.
+- Kept `LocalCliDerivedTextProvider` as the default baseline and made the command-backed path explicitly opt-in.
+- Defined the command-provider protocol as JSON-in over stdin and JSON-out over stdout so wrapper processes can integrate without changing shared DB ownership.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_derived_text tests.test_app_service -v`
+  - `python -m py_compile slack_mirror/sync/derived_text.py slack_mirror/cli/main.py tests/test_derived_text.py`

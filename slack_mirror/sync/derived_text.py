@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import html
+import json
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Any
 from typing import Protocol
 from xml.etree import ElementTree as ET
 
@@ -369,7 +372,109 @@ class LocalCliDerivedTextProvider:
         )
 
 
+class CommandDerivedTextProvider:
+    def __init__(self, command: list[str]):
+        if not command:
+            raise ValueError("command provider requires a non-empty command")
+        self.command = [str(part) for part in command]
+        self.name = f"command:{Path(self.command[0]).name}"
+
+    def _source_request(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> dict[str, Any]:
+        row = _resolve_source_row(conn, workspace_id=workspace_id, source_kind=source_kind, source_id=source_id)
+        if not row:
+            return {"error": "source_missing"}
+        local_path = row["local_path"]
+        if not local_path:
+            return {"error": "local_path_missing"}
+        path = Path(str(local_path)).expanduser()
+        if not path.exists():
+            return {"error": "local_path_missing"}
+        return {
+            "source_kind": source_kind,
+            "source_id": source_id,
+            "local_path": str(path),
+            "media_type": str(row["mimetype"] or "") if "mimetype" in row.keys() else None,
+            "title": str(row["title"] or "") if "title" in row.keys() else None,
+            "name": str(row["name"] or "") if "name" in row.keys() else None,
+        }
+
+    def _invoke(self, *, action: str, conn, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        request = self._source_request(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+        if request.get("error"):
+            return None, {"error": str(request["error"])}
+        payload = {
+            "action": action,
+            "workspace_id": int(workspace_id),
+            **request,
+        }
+        result = subprocess.run(
+            self.command,
+            check=False,
+            capture_output=True,
+            text=True,
+            input=json.dumps(payload),
+        )
+        if result.returncode != 0:
+            return None, {"error": "provider_command_failed", "stderr": _normalize_text(result.stderr)}
+        try:
+            response = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError:
+            return None, {"error": "provider_invalid_json"}
+        if not response.get("ok", True):
+            return None, {"error": str(response.get("error") or "provider_error")}
+        response_text = _normalize_text(str(response.get("text") or ""))
+        if not response_text:
+            return None, {"error": str(response.get("error") or "no_text_detected")}
+        details = dict(response.get("details") or {})
+        details.setdefault("extractor", str(response.get("extractor") or self.name))
+        details.setdefault("media_type", request.get("media_type"))
+        details.setdefault("local_path", request.get("local_path"))
+        return response_text, details
+
+    def extract_attachment_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return self._invoke(
+            action="attachment_text",
+            conn=conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+    def extract_ocr_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return self._invoke(
+            action="ocr_text",
+            conn=conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+
 _DEFAULT_PROVIDER = LocalCliDerivedTextProvider()
+
+
+def build_derived_text_provider(config: dict[str, Any] | None = None) -> DerivedTextProvider:
+    search = dict((config or {}).get("search") or {})
+    derived_cfg = dict(search.get("derived_text") or {})
+    provider_cfg = dict(derived_cfg.get("provider") or {})
+    provider_type = str(provider_cfg.get("type") or "local_host_tools").strip().lower()
+    if provider_type in {"", "local", "local_host_tools"}:
+        return _DEFAULT_PROVIDER
+    if provider_type == "command":
+        command_value = provider_cfg.get("command")
+        if isinstance(command_value, str):
+            command = shlex.split(command_value)
+        elif isinstance(command_value, list):
+            command = [str(part) for part in command_value]
+        else:
+            command = []
+        return CommandDerivedTextProvider(command)
+    raise ValueError(f"Unsupported derived-text provider type: {provider_type}")
 
 
 def get_default_derived_text_provider() -> DerivedTextProvider:

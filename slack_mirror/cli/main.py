@@ -1187,9 +1187,10 @@ def cmd_embeddings_process(args: argparse.Namespace) -> int:
 
 
 def cmd_process_derived_text_jobs(args: argparse.Namespace) -> int:
-    from slack_mirror.sync.derived_text import process_derived_text_jobs
+    from slack_mirror.sync.derived_text import build_derived_text_provider, process_derived_text_jobs
 
-    db_path = _db_path_from_config(args.config)
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
 
@@ -1197,14 +1198,16 @@ def cmd_process_derived_text_jobs(args: argparse.Namespace) -> int:
     if not ws_row:
         raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
 
+    provider = build_derived_text_provider(cfg.data)
     result = process_derived_text_jobs(
         conn,
         workspace_id=int(ws_row["id"]),
         derivation_kind=args.kind,
         limit=args.limit,
+        provider=provider,
     )
     print(
-        f"Derived-text jobs workspace={args.workspace} kind={args.kind} jobs={result['jobs']} "
+        f"Derived-text jobs workspace={args.workspace} kind={args.kind} provider={getattr(provider, 'name', provider.__class__.__name__)} jobs={result['jobs']} "
         f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']}"
     )
     return 0 if result["errored"] == 0 else 1
