@@ -578,3 +578,17 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 36 | 2026-04-11
+
+- Landed the next `P03` extraction-coverage slice.
+- Added document-native extraction for common OOXML office attachments without adding a heavyweight dependency path:
+  - `.docx` via `ooxml_docx`
+  - `.pptx` via `ooxml_pptx`
+  - `.xlsx` via `ooxml_xlsx`
+- Kept those outputs in the existing shared `attachment_text` contract instead of creating file-type-specific side tables.
+- This closes one of the biggest remaining non-message corpus gaps for normal Slack attachments while keeping the extractor path host-local and SQLite-first.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_derived_text tests.test_search -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

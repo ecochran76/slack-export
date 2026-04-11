@@ -34,6 +34,7 @@ to a world-class search stack with:
 - the first document-native extraction slice is landed for:
   - downloaded canvas HTML
   - safe UTF-8 text-like files
+  - OOXML office files (`.docx`, `.pptx`, `.xlsx`)
   - machine-readable PDFs when `pdftotext` is available
 - OCR extraction is now landed for:
   - image-like files through `tesseract`

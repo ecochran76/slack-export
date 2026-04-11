@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +10,45 @@ from slack_mirror.sync.derived_text import process_derived_text_jobs
 
 
 class DerivedTextTests(unittest.TestCase):
+    def test_process_jobs_extracts_ooxml_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            cache = root / "cache"
+            docx_path = cache / "files" / "DOC1" / "brief.docx"
+            pptx_path = cache / "files" / "PPT1" / "slides.pptx"
+            xlsx_path = cache / "files" / "XLS1" / "sheet.xlsx"
+            for p in (docx_path, pptx_path, xlsx_path):
+                p.parent.mkdir(parents=True, exist_ok=True)
+
+            with zipfile.ZipFile(docx_path, "w") as zf:
+                zf.writestr('word/document.xml', '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Quarterly board brief</w:t></w:r></w:p></w:body></w:document>')
+            with zipfile.ZipFile(pptx_path, "w") as zf:
+                zf.writestr('ppt/slides/slide1.xml', '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><a:t xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">Launch roadmap</a:t></p:spTree></p:cSld></p:sld>')
+            with zipfile.ZipFile(xlsx_path, "w") as zf:
+                zf.writestr('xl/sharedStrings.xml', '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Revenue plan</t></si></sst>')
+                zf.writestr('xl/worksheets/sheet1.xml', '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c t="s"><v>0</v></c></row></sheetData></worksheet>')
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(conn, ws_id, {"id": "DOC1", "name": "brief.docx", "title": "Brief", "mimetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}, local_path=str(docx_path))
+            upsert_file(conn, ws_id, {"id": "PPT1", "name": "slides.pptx", "title": "Slides", "mimetype": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}, local_path=str(pptx_path))
+            upsert_file(conn, ws_id, {"id": "XLS1", "name": "sheet.xlsx", "title": "Sheet", "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}, local_path=str(xlsx_path))
+
+            result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="attachment_text", limit=10)
+            self.assertEqual(result["errored"], 0)
+            self.assertEqual(result["processed"], 3)
+
+            rows = search_derived_text(conn, workspace_id=ws_id, query="quarterly board", limit=10)
+            self.assertEqual(rows[0]["extractor"], "ooxml_docx")
+            rows = search_derived_text(conn, workspace_id=ws_id, query="launch roadmap", limit=10)
+            self.assertEqual(rows[0]["extractor"], "ooxml_pptx")
+            rows = search_derived_text(conn, workspace_id=ws_id, query="revenue plan", limit=10)
+            self.assertEqual(rows[0]["extractor"], "ooxml_xlsx")
+
     def test_process_jobs_extracts_canvas_and_text_file(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

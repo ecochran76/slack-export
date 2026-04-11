@@ -50,6 +50,12 @@ Implemented:
   - strips and normalizes text from downloaded Slack canvas HTML
 - `utf8_text`
   - extracts text from safe UTF-8 text-like files such as `.txt`, `.md`, `.csv`, `.json`, and `.html`
+- `ooxml_docx`
+  - extracts text from `.docx` attachments through OOXML XML parts
+- `ooxml_pptx`
+  - extracts text from `.pptx` slide XML parts
+- `ooxml_xlsx`
+  - extracts text from `.xlsx` shared strings and worksheet XML parts
 - `pdftotext`
   - extracts machine-readable PDF text when the `pdftotext` CLI is available
 - `tesseract_image`

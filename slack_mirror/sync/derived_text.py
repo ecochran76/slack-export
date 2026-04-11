@@ -5,7 +5,9 @@ import re
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from slack_mirror.core.db import (
     get_derived_text,
@@ -43,6 +45,11 @@ _SAFE_TEXT_MEDIA_TYPES = {
     "text/tab-separated-values",
     "text/xml",
 }
+_OOXML_SUFFIXES = {
+    ".docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "ooxml_docx"),
+    ".pptx": ("application/vnd.openxmlformats-officedocument.presentationml.presentation", "ooxml_pptx"),
+    ".xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ooxml_xlsx"),
+}
 _OCR_IMAGE_SUFFIXES = {
     ".bmp",
     ".gif",
@@ -70,6 +77,49 @@ def _extract_utf8_text(path: Path) -> str:
     if path.suffix.lower() in {".htm", ".html"}:
         return _html_to_text(raw)
     return _normalize_text(raw)
+
+
+def _extract_xml_text(raw_xml: bytes) -> str:
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return ""
+    parts: list[str] = []
+    for value in root.itertext():
+        normalized = _normalize_text(value)
+        if normalized:
+            parts.append(normalized)
+    return _normalize_text(" ".join(parts))
+
+
+def _extract_ooxml_text(path: Path) -> tuple[str | None, str | None]:
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        extractor = "ooxml_docx"
+        members = ("word/document.xml",)
+    elif suffix == ".pptx":
+        extractor = "ooxml_pptx"
+        members = tuple(f"ppt/slides/slide{i}.xml" for i in range(1, 512))
+    elif suffix == ".xlsx":
+        extractor = "ooxml_xlsx"
+        members = ("xl/sharedStrings.xml",) + tuple(f"xl/worksheets/sheet{i}.xml" for i in range(1, 512))
+    else:
+        return None, None
+
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            parts: list[str] = []
+            for member in members:
+                if member not in names:
+                    continue
+                extracted = _extract_xml_text(zf.read(member))
+                if extracted:
+                    parts.append(extracted)
+            merged = _normalize_text(" ".join(parts))
+            return (merged or None), extractor
+    except (OSError, zipfile.BadZipFile):
+        return None, extractor
 
 
 def _extract_pdf_text(path: Path) -> str | None:
@@ -200,6 +250,20 @@ def _extract_attachment_text(conn, *, workspace_id: int, source_kind: str, sourc
             "error": "pdf_text_unavailable",
             "local_path": str(path),
             "media_type": media_type or "application/pdf",
+        }
+
+    if suffix in _OOXML_SUFFIXES or media_type in {meta[0] for meta in _OOXML_SUFFIXES.values()}:
+        text, extractor = _extract_ooxml_text(path)
+        if text and extractor:
+            return text, {
+                "extractor": extractor,
+                "local_path": str(path),
+                "media_type": media_type or _OOXML_SUFFIXES.get(suffix, (None,))[0],
+            }
+        return None, {
+            "error": "ooxml_text_unavailable",
+            "local_path": str(path),
+            "media_type": media_type or _OOXML_SUFFIXES.get(suffix, (None,))[0],
         }
 
     if suffix in _SAFE_TEXT_SUFFIXES or media_type in _SAFE_TEXT_MEDIA_TYPES or media_type.startswith("text/"):
