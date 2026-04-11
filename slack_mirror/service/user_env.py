@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,8 @@ PrintFn = Callable[[str], None]
 
 LIVE_EVENT_PENDING_FAIL_THRESHOLD = 100
 LIVE_EMBEDDING_PENDING_FAIL_THRESHOLD = 1000
+LIVE_STALE_HOURS = 24.0
+LIVE_STALE_CHANNEL_FAIL_THRESHOLD = 0
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,7 @@ class LiveValidationWorkspace:
     embedding_errors: int
     event_pending: int
     embedding_pending: int
+    stale_channels: int
     failure_codes: list[str]
     warning_codes: list[str]
 
@@ -357,6 +361,30 @@ def _db_workspace_names(db_path: Path) -> set[str]:
         conn.close()
 
 
+def _db_workspace_stale_channels(db_path: Path, workspace: str, *, stale_hours: float) -> int:
+    stale_cutoff_ts = time.time() - (float(stale_hours) * 3600.0)
+    conn = sqlite3.connect(db_path, timeout=10)
+    try:
+        row = conn.execute(
+            """
+            WITH last_msg AS (
+              SELECT workspace_id, channel_id, max(cast(ts as real)) AS max_ts
+              FROM messages
+              GROUP BY workspace_id, channel_id
+            )
+            SELECT sum(case when lm.max_ts is not null and lm.max_ts < ? then 1 else 0 end) AS stale_channels
+            FROM channels c
+            JOIN workspaces w ON w.id = c.workspace_id
+            LEFT JOIN last_msg lm ON lm.workspace_id = c.workspace_id AND lm.channel_id = c.channel_id
+            WHERE w.name = ?
+            """,
+            (stale_cutoff_ts, workspace),
+        ).fetchone()
+        return int((row[0] if row and row[0] is not None else 0))
+    finally:
+        conn.close()
+
+
 def _build_live_validation_report(
     *,
     paths: UserEnvPaths | None = None,
@@ -541,6 +569,7 @@ def _build_live_validation_report(
                     embedding_errors=0,
                     event_pending=0,
                     embedding_pending=0,
+                    stale_channels=0,
                     failure_codes=ws_failures,
                     warning_codes=ws_warnings,
                 )
@@ -551,6 +580,15 @@ def _build_live_validation_report(
         embedding_errors = embedding_counts.get("error", 0)
         event_pending = event_counts.get("pending", 0)
         embedding_pending = embedding_counts.get("pending", 0)
+        try:
+            stale_channels = _db_workspace_stale_channels(db_path, name, stale_hours=LIVE_STALE_HOURS)
+        except sqlite3.DatabaseError as exc:
+            ws_fail(
+                "FRESHNESS_INSPECTION_FAILED",
+                f"workspace {name} freshness inspection failed: {exc}",
+                f"inspect `{db_path}` and rerun `slack-mirror user-env validate-live` after DB health is restored",
+            )
+            stale_channels = 0
 
         if event_errors:
             handler = ws_fail if require_live_units else ws_warn
@@ -593,6 +631,19 @@ def _build_live_validation_report(
                 f"watch embedding queue drain and rerun validation if backlog persists for `{name}`",
             )
 
+        if require_live_units and stale_channels > LIVE_STALE_CHANNEL_FAIL_THRESHOLD:
+            ws_fail(
+                "STALE_MIRROR",
+                f"workspace {name} has {stale_channels} stale mirrored channels older than {LIVE_STALE_HOURS:g}h",
+                f"inspect `slack-mirror --config {target.config_path} mirror status --workspace {name} --healthy --enforce-stale --stale-hours {LIVE_STALE_HOURS:g}` and confirm reconcile is advancing",
+            )
+        elif stale_channels:
+            ws_warn(
+                "STALE_MIRROR",
+                f"workspace {name} has {stale_channels} stale mirrored channels older than {LIVE_STALE_HOURS:g}h",
+                f"inspect mirror freshness for `{name}` before treating the install as healthy for unattended use",
+            )
+
         workspace_reports.append(
             LiveValidationWorkspace(
                 name=name,
@@ -600,6 +651,7 @@ def _build_live_validation_report(
                 embedding_errors=embedding_errors,
                 event_pending=event_pending,
                 embedding_pending=embedding_pending,
+                stale_channels=stale_channels,
                 failure_codes=ws_failures,
                 warning_codes=ws_warnings,
             )
@@ -729,6 +781,7 @@ def _live_validation_report_payload(report: LiveValidationReport) -> dict[str, A
                 "embedding_errors": workspace.embedding_errors,
                 "event_pending": workspace.event_pending,
                 "embedding_pending": workspace.embedding_pending,
+                "stale_channels": workspace.stale_channels,
                 "failure_codes": workspace.failure_codes,
                 "warning_codes": workspace.warning_codes,
             }

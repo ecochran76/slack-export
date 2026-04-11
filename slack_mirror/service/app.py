@@ -116,6 +116,7 @@ class SlackMirrorAppService:
                     "embedding_errors": workspace.embedding_errors,
                     "event_pending": workspace.event_pending,
                     "embedding_pending": workspace.embedding_pending,
+                    "stale_channels": workspace.stale_channels,
                     "failure_codes": workspace.failure_codes,
                     "warning_codes": workspace.warning_codes,
                 }

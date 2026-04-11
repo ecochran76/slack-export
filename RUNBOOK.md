@@ -303,3 +303,14 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 20 | 2026-04-10
+
+- Tightened the `P04` freshness policy so stale mirrored channels are now part of the supported live-health contract instead of being observability-only.
+- Full `slack-mirror user-env validate-live` now fails when a workspace has mirrored channels older than the built-in `24h` freshness window.
+- The narrower managed-runtime gate used by `user-env install` and `user-env update` keeps stale freshness as a warning, because those flows do not provision workspace live units.
+- Added stale-mirror regression coverage in the `user_env` tests and updated the live-ops docs to show the mirror-status command used to inspect freshness directly.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

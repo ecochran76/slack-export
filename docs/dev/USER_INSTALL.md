@@ -211,8 +211,10 @@ This checks the supported unattended runtime contract and fails when it finds:
 - missing explicit outbound write tokens
 - missing or inactive managed API/webhooks/daemon units
 - duplicate legacy `events` or `embeddings` units active alongside the unified daemon
+- stale mirrored channels older than the built-in freshness window when live units are expected
 
 Queue error counts are reported as warnings so the command can distinguish broken topology from recoverable backlog or historical failures.
+The narrower install/update validation gate still treats stale mirror freshness as a warning because live workspace units are not provisioned there.
 
 The command emits stable issue classes such as:
 
@@ -226,5 +228,6 @@ The command emits stable issue classes such as:
 - `EMBEDDING_ERRORS`
 - `EVENT_BACKLOG`
 - `EMBEDDING_BACKLOG`
+- `STALE_MIRROR`
 
 See [LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md) for the recovery flow tied to those classes.

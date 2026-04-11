@@ -25,7 +25,8 @@ Harden the supported live-service operating model into a stable operator contrac
 - `slack-mirror user-env recover-live` now defines the bounded safe auto-remediation policy: restart-only fixes are supported, while config/token/DB/topology cleanup remains operator-owned
 - `user-env install` and `user-env update` now run a managed-runtime validation gate for config, DB, workspace sync, and API service health
 - full live validation now fails on queue error rows and on sustained backlog beyond bounded thresholds
-- remaining work is deeper freshness heuristics and deciding whether any non-restart remediation should ever graduate from operator-only to supported automation
+- full live validation now also fails on stale mirrored channels older than the built-in freshness window, while the narrower managed-runtime gate keeps stale freshness as a warning
+- remaining work is deciding whether the built-in freshness heuristic is sufficient and whether any non-restart remediation should ever graduate from operator-only to supported automation
 
 ## Parallel Tracks
 

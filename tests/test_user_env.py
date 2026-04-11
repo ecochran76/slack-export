@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 import sqlite3
 import json
+import time
+from unittest.mock import patch
 
 from slack_mirror.service import user_env
 
@@ -65,6 +67,8 @@ class UserEnvTests(unittest.TestCase):
                 conn.executescript(
                     """
                     CREATE TABLE IF NOT EXISTS workspaces (id INTEGER PRIMARY KEY, name TEXT);
+                    CREATE TABLE IF NOT EXISTS channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+                    CREATE TABLE IF NOT EXISTS messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
                     CREATE TABLE IF NOT EXISTS events (workspace_id INTEGER, status TEXT);
                     CREATE TABLE IF NOT EXISTS embedding_jobs (workspace_id INTEGER, status TEXT);
                     """
@@ -279,6 +283,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(payload["services"]["slack-mirror-api.service"], "active")
 
     def test_validate_live_passes_for_supported_runtime_contract(self):
+        current_ts = str(time.time())
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
             "version: 1\n"
@@ -302,11 +307,15 @@ class UserEnvTests(unittest.TestCase):
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
         conn.executescript(
-            """
+            f"""
             CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
             CREATE TABLE events (workspace_id INTEGER, status TEXT);
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
             INSERT INTO events(workspace_id, status) VALUES (1, 'done');
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
@@ -388,6 +397,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(payload["workspaces"][0]["name"], "default")
 
     def test_check_live_fails_when_managed_wrappers_are_missing(self):
+        current_ts = str(time.time())
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
             "version: 1\n"
@@ -409,11 +419,15 @@ class UserEnvTests(unittest.TestCase):
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
         conn.executescript(
-            """
+            f"""
             CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
             CREATE TABLE events (workspace_id INTEGER, status TEXT);
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
             INSERT INTO events(workspace_id, status) VALUES (1, 'done');
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
@@ -439,6 +453,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("Combined Summary: FAIL", rendered)
 
     def test_check_live_json_combines_status_and_validation(self):
+        current_ts = str(time.time())
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
         self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
@@ -464,11 +479,15 @@ class UserEnvTests(unittest.TestCase):
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
         conn.executescript(
-            """
+            f"""
             CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
             CREATE TABLE events (workspace_id INTEGER, status TEXT);
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
             INSERT INTO events(workspace_id, status) VALUES (1, 'done');
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
@@ -499,6 +518,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(payload["validation_report"]["status"], "pass")
 
     def test_recover_live_plans_safe_restart_and_flags_operator_only_issues(self):
+        current_ts = str(time.time())
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
         self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
@@ -524,11 +544,15 @@ class UserEnvTests(unittest.TestCase):
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
         conn.executescript(
-            """
+            f"""
             CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
             CREATE TABLE events (workspace_id INTEGER, status TEXT);
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
             INSERT INTO events(workspace_id, status) VALUES (1, 'done');
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
@@ -558,6 +582,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("Summary: ACTIONABLE", rendered)
 
     def test_recover_live_apply_restarts_units_and_rechecks(self):
+        current_ts = str(time.time())
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
         self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
@@ -583,11 +608,15 @@ class UserEnvTests(unittest.TestCase):
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
         conn.executescript(
-            """
+            f"""
             CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
             CREATE TABLE events (workspace_id INTEGER, status TEXT);
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
             INSERT INTO events(workspace_id, status) VALUES (1, 'done');
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
@@ -685,6 +714,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("disable --now slack-mirror-events-default.service", rendered)
 
     def test_validate_live_passes_with_warning_actions(self):
+        current_ts = str(time.time())
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
             "version: 1\n"
@@ -706,11 +736,15 @@ class UserEnvTests(unittest.TestCase):
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
         conn.executescript(
-            """
+            f"""
             CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
             CREATE TABLE events (workspace_id INTEGER, status TEXT);
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
             INSERT INTO events(workspace_id, status) VALUES (1, 'error');
             INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
             """
@@ -849,6 +883,116 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(report.status, "fail")
         self.assertIn("EVENT_BACKLOG", report.failure_codes)
         self.assertEqual(report.workspaces[0].event_pending, user_env.LIVE_EVENT_PENDING_FAIL_THRESHOLD + 1)
+
+    def test_validate_live_fails_on_stale_mirror_for_full_live_gate(self):
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        stale_ts = 1000.0
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '1000.0');
+            """
+        )
+        conn.commit()
+        conn.close()
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            unit = args[-1]
+            stdout = "active\n" if unit in {
+                "slack-mirror-api.service",
+                "slack-mirror-webhooks-default.service",
+                "slack-mirror-daemon-default.service",
+            } else "inactive\n"
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+        with patch("slack_mirror.service.user_env.time.time", return_value=stale_ts + (user_env.LIVE_STALE_HOURS * 3600.0) + 10.0):
+            rc = user_env.validate_live_user_env(paths=self.paths, runner=runner, out=output.append)
+            report = user_env._build_live_validation_report(paths=self.paths, runner=runner, require_live_units=True)
+
+        self.assertEqual(rc, 1)
+        rendered = "\n".join(output)
+        self.assertIn("FAIL  [STALE_MIRROR]", rendered)
+        self.assertIn("Summary: FAIL", rendered)
+        self.assertIn("STALE_MIRROR", report.failure_codes)
+        self.assertEqual(report.workspaces[0].stale_channels, 1)
+
+    def test_validate_live_warns_on_stale_mirror_for_managed_runtime_gate(self):
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        stale_ts = 1000.0
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '1000.0');
+            """
+        )
+        conn.commit()
+        conn.close()
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            unit = args[-1]
+            stdout = "active\n" if unit == "slack-mirror-api.service" else "inactive\n"
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+        with patch("slack_mirror.service.user_env.time.time", return_value=stale_ts + (user_env.LIVE_STALE_HOURS * 3600.0) + 10.0):
+            rc = user_env.validate_live_user_env(
+                paths=self.paths,
+                runner=runner,
+                out=output.append,
+                require_live_units=False,
+            )
+
+        self.assertEqual(rc, 0)
+        rendered = "\n".join(output)
+        self.assertIn("WARN  [STALE_MIRROR]", rendered)
+        self.assertIn("Summary: PASS with warnings", rendered)
 
 
 if __name__ == "__main__":

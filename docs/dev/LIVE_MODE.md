@@ -182,6 +182,12 @@ Common hard failures:
 - `DUPLICATE_TOPOLOGY`
   - disable the split legacy workers:
     `systemctl --user disable --now slack-mirror-events-<workspace>.service slack-mirror-embeddings-<workspace>.service`
+- `STALE_MIRROR`
+  - inspect freshness with:
+    `slack-mirror --config ~/.config/slack-mirror/config.yaml mirror status --workspace <workspace> --healthy --enforce-stale`
+  - confirm the daemon is reconciling and new messages are landing
+  - if units are inactive, `slack-mirror user-env recover-live --apply` can safely restart them
+  - if units are active but channels stay stale, treat that as a real mirror-health failure and inspect daemon logs plus auth scope/state
 
 Warnings:
 
@@ -189,6 +195,7 @@ Warnings:
 - `EMBEDDING_ERRORS`
 - `EVENT_PENDING`
 - `EMBEDDING_PENDING`
+- `STALE_MIRROR`
 
 Live-mode hard failures also include:
 
@@ -199,6 +206,7 @@ In full live validation, queue error rows fail immediately, and sustained pendin
 
 - pending events over `100`
 - pending embedding jobs over `1000`
+- stale mirrored channels over `0` older than `24h`
 
 Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.
 
