@@ -13,6 +13,65 @@ from slack_mirror.sync.derived_text import CommandDerivedTextProvider, FallbackD
 
 
 class DerivedTextTests(unittest.TestCase):
+    def test_process_jobs_extracts_docx_story_parts_and_visible_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            cache = root / "cache"
+            docx_path = cache / "files" / "DOCX2" / "rich.docx"
+            docx_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with zipfile.ZipFile(docx_path, "w") as zf:
+                zf.writestr(
+                    'word/document.xml',
+                    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Body line</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>tabbed value</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>continued text</w:t></w:r></w:p></w:body></w:document>'
+                )
+                zf.writestr(
+                    'word/header1.xml',
+                    '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>Header note</w:t></w:r></w:p></w:hdr>'
+                )
+                zf.writestr(
+                    'word/footer1.xml',
+                    '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>Footer summary</w:t></w:r></w:p></w:ftr>'
+                )
+                zf.writestr(
+                    'word/footnotes.xml',
+                    '<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:footnote w:id="2"><w:p><w:r><w:t>Footnote detail</w:t></w:r></w:p></w:footnote></w:footnotes>'
+                )
+                zf.writestr(
+                    'word/endnotes.xml',
+                    '<w:endnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:endnote w:id="3"><w:p><w:r><w:t>Endnote appendix</w:t></w:r></w:p></w:endnote></w:endnotes>'
+                )
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(conn, ws_id, {"id": "DOCX2", "name": "rich.docx", "title": "Rich", "mimetype": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}, local_path=str(docx_path))
+
+            result = process_derived_text_jobs(conn, workspace_id=ws_id, derivation_kind="attachment_text", limit=10)
+            self.assertEqual(result["errored"], 0)
+            self.assertEqual(result["processed"], 1)
+
+            row = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="DOCX2",
+                derivation_kind="attachment_text",
+                extractor="ooxml_docx",
+            )
+            self.assertIsNotNone(row)
+            text_value = row["text"]
+            self.assertIn("Body line", text_value)
+            self.assertIn("tabbed value", text_value)
+            self.assertIn("continued text", text_value)
+            self.assertIn("Header note", text_value)
+            self.assertIn("Footer summary", text_value)
+            self.assertIn("Footnote detail", text_value)
+            self.assertIn("Endnote appendix", text_value)
+
     def test_process_jobs_extracts_opendocument_files(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

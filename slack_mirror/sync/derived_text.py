@@ -74,6 +74,14 @@ _OCR_IMAGE_SUFFIXES = {
     ".webp",
 }
 
+_W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+_W_TAG_PREFIX = f"{{{_W_NS}}}"
+_DOCX_STORY_PARTS = (
+    "word/document.xml",
+    "word/footnotes.xml",
+    "word/endnotes.xml",
+)
+
 
 ExtractResult = tuple[str | None, dict]
 
@@ -139,12 +147,58 @@ def _extract_xml_text(raw_xml: bytes) -> str:
     return _normalize_text(" ".join(parts))
 
 
+def _word_tag(local_name: str) -> str:
+    return f"{_W_TAG_PREFIX}{local_name}"
+
+
+def _extract_wordprocessingml_visible_text(raw_xml: bytes) -> str:
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return ""
+
+    parts: list[str] = []
+    for child in root.iter():
+        if child.tag in {_word_tag("t"), _word_tag("delText")}:
+            if child.text:
+                parts.append(child.text)
+        elif child.tag == _word_tag("tab"):
+            parts.append("	")
+        elif child.tag in {_word_tag("br"), _word_tag("cr")}:
+            parts.append("\n")
+    return _normalize_text("".join(parts))
+
+
+def _extract_docx_text(path: Path) -> tuple[str | None, str | None]:
+    extractor = "ooxml_docx"
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            parts: list[str] = []
+            for member in _DOCX_STORY_PARTS:
+                if member in names:
+                    extracted = _extract_wordprocessingml_visible_text(zf.read(member))
+                    if extracted:
+                        parts.append(extracted)
+            for member in sorted(name for name in names if name.startswith("word/header") and name.endswith(".xml")):
+                extracted = _extract_wordprocessingml_visible_text(zf.read(member))
+                if extracted:
+                    parts.append(extracted)
+            for member in sorted(name for name in names if name.startswith("word/footer") and name.endswith(".xml")):
+                extracted = _extract_wordprocessingml_visible_text(zf.read(member))
+                if extracted:
+                    parts.append(extracted)
+            merged = _normalize_text(" ".join(parts))
+            return (merged or None), extractor
+    except (OSError, zipfile.BadZipFile):
+        return None, extractor
+
+
 def _extract_ooxml_text(path: Path) -> tuple[str | None, str | None]:
     suffix = path.suffix.lower()
     if suffix == ".docx":
-        extractor = "ooxml_docx"
-        members = ("word/document.xml",)
-    elif suffix == ".pptx":
+        return _extract_docx_text(path)
+    if suffix == ".pptx":
         extractor = "ooxml_pptx"
         members = tuple(f"ppt/slides/slide{i}.xml" for i in range(1, 512))
     elif suffix == ".xlsx":

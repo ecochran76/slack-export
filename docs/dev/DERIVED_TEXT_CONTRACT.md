@@ -51,7 +51,8 @@ Implemented:
 - `utf8_text`
   - extracts text from safe UTF-8 text-like files such as `.txt`, `.md`, `.csv`, `.json`, and `.html`
 - `ooxml_docx`
-  - extracts text from `.docx` attachments through OOXML XML parts
+  - extracts visible text from `.docx` attachments across `word/document.xml`, headers, footers, footnotes, and endnotes
+  - preserves tabs and line breaks as visible separators before normalization
 - `ooxml_pptx`
   - extracts text from `.pptx` slide XML parts
 - `ooxml_xlsx`

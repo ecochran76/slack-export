@@ -701,3 +701,13 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 46 | 2026-04-11
+
+- Improved `.docx` searchability by making `ooxml_docx` extraction story-aware across body, headers, footers, footnotes, and endnotes.
+- Replaced the old document-body-only XML flattening path with visible-text extraction that preserves tabs and breaks before normalization.
+- Kept the extractor name and shared `attachment_text` contract unchanged.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_derived_text -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

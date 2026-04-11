@@ -75,6 +75,11 @@ Current status:
 
 ### Track C | Format Expansion
 
+Current status:
+
+- `.docx` extraction is now story-aware across body, headers, footers, footnotes, and endnotes, using visible-text handling instead of a document-body-only XML flattening path
+
+
 - review the next highest-value attachment formats after the current UTF-8, PDF, and OOXML baseline
 - only add formats that can map cleanly to `attachment_text` or `ocr_text`
 - avoid extractor-specific side tables or format-specific search semantics
