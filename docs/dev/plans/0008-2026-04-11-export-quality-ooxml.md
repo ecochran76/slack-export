@@ -24,9 +24,23 @@ This plan is not a generic reopening of search modernization or a commitment to 
   - `scripts/export_channel_day_pdf.py`
   - `scripts/export_multi_day_pdf.py`
   - `scripts/export_semantic_daypack.py`
+- the current export pipeline is centered on `export_channel_day.py`, which already defines the canonical per-day message bundle with:
+  - thread-aware ordering
+  - resolved user labels
+  - attachment metadata and local file paths
+- the PDF scripts are presentation layers over that JSON bundle; they are not independent export contracts
+- `export_semantic_daypack.py` is an orchestrator that composes the channel/day export path rather than defining a separate artifact model
 - the repo now has materially better OOXML extraction knowledge for search, especially for `.docx`, `.pptx`, and `.xlsx`
 - `docx-skill` appears to contain reusable OOXML story/text primitives that could improve export fidelity, but that reuse has not yet been scoped for this repo
 - the main gap is export quality, not search corpus shape
+
+## Track A Decision
+
+- the first DOCX-quality export target should be single channel/day export
+- `scripts/export_channel_day.py` should remain the canonical content assembly path
+- a future DOCX renderer should consume the same channel/day JSON bundle rather than re-querying SQLite independently
+- multi-day bundles and semantic daypacks should compose from that same per-day DOCX artifact or its shared rendering primitives, instead of inventing a separate DOCX pipeline first
+- this keeps one clear export ownership path and makes fixture-based QA tractable
 
 ## Goals
 
@@ -42,6 +56,12 @@ This plan is not a generic reopening of search modernization or a commitment to 
 - review the existing HTML, JSON, and PDF export scripts
 - identify where DOCX output belongs and where it does not
 - decide whether the first target is channel/day export, multi-day bundles, semantic daypacks, or another bounded export artifact
+
+Current status:
+
+- audit completed
+- the first target is channel/day export
+- multi-day and semantic daypack output should build on the channel/day export artifact instead of introducing a second canonical DOCX path
 
 ### Track B | OOXML Primitive Reuse
 
@@ -68,6 +88,13 @@ This plan is not a generic reopening of search modernization or a commitment to 
 - a bounded DOCX/OOXML export target is chosen explicitly
 - the expected reuse boundary with `docx-skill` is documented
 - at least one implementation slice is identified clearly enough to execute next without reopening broad planning
+
+## Next Implementation Slice
+
+- add a bounded DOCX renderer for the channel/day JSON export artifact
+- keep content assembly in `scripts/export_channel_day.py` and avoid a second SQLite-querying DOCX export path
+- use minimal OOXML primitives first: document sections, speaker paragraphs, reply indentation, timestamp metadata, and attachment link blocks
+- defer richer visual polish and multi-day composition until the single-day DOCX path is deterministic and testable
 
 ## Definition Of Done
 
