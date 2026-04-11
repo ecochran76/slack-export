@@ -1,6 +1,6 @@
 # Live Ops Runtime Hardening
 
-State: OPEN
+State: CLOSED
 Roadmap: P04
 Opened: 2026-04-10
 
@@ -26,7 +26,7 @@ Harden the supported live-service operating model into a stable operator contrac
 - `user-env install` and `user-env update` now run a managed-runtime validation gate for config, DB, workspace sync, and API service health
 - full live validation now fails on queue error rows and on sustained backlog beyond bounded thresholds
 - full live validation now also fails on stale mirrored channels older than the built-in freshness window, while the narrower managed-runtime gate keeps stale freshness as a warning
-- remaining work is deciding whether the built-in freshness heuristic is sufficient and whether any non-restart remediation should ever graduate from operator-only to supported automation
+- the shipped operator contract is now explicit enough to treat deeper freshness heuristics and richer remediation as future follow-on work rather than blockers for this lane
 
 ## Parallel Tracks
 

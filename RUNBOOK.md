@@ -314,3 +314,19 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 21 | 2026-04-10
+
+- Closed `P04 | Live Ops And Runtime Hardening`.
+- Closure basis:
+  - supported live topology is explicit in docs and scripts
+  - unattended validation is available through `validate-live`, `check-live`, and machine-readable JSON output
+  - bounded safe recovery is available through `recover-live`
+  - duplicate topology, inactive units, queue errors, queue backlog, and stale mirror freshness are all part of the supported health contract
+  - install/update flows run the narrower managed-runtime gate, while full live installs use the stricter live-service gate
+- Deferred beyond `P04` closure:
+  - richer non-restart remediation
+  - tuning or revising the built-in freshness heuristic
+  - any broader orchestration beyond the documented single-host user-service model
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

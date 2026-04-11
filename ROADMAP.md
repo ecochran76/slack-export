@@ -70,7 +70,7 @@ Legacy context:
 
 ## P04 | Live Ops And Runtime Hardening
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - keep live-mode operations, auth guardrails, user install, and daemon drift checks coherent
@@ -82,7 +82,9 @@ Current state:
 - supported live topology is documented
 - install/status scripts exist
 - auth guardrails and explicit outbound validation exist
-- remaining work is hardening operational checks, service supervision, and drift detection into a clearly bounded operator contract
+- live validation, smoke-check, and bounded recovery flows now define the supported unattended operator contract
+- queue backlog, queue errors, duplicate topology, inactive units, and stale mirror freshness are all surfaced through supported status paths
+- restart-only remediations are supported automatically, while config/token/DB/topology cleanup remains explicitly operator-owned
 
 Legacy context:
 - `docs/dev/LIVE_MODE.md`
