@@ -221,6 +221,71 @@ class AppServiceTests(unittest.TestCase):
         self.assertIn("query_reports", health["benchmark"])
         self.assertEqual(health["benchmark_thresholds"]["min_hit_at_10"], 0.8)
 
+    def test_search_health_applies_extraction_threshold_policy(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "incident review follow-up", "channel": "C123"},
+        )
+        self.conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+            VALUES (?, 'F1', 'scan.pdf', 'Incident PDF', 'application/pdf', '/tmp/scan.pdf', '{}')
+            """,
+            (workspace_id,),
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F1",
+            derivation_kind="ocr_text",
+            extractor="tesseract_pdf",
+            text="incident review appendix",
+            media_type="application/pdf",
+            local_path="/tmp/scan.pdf",
+            metadata={"provider": "local_host_tools", "origin": "test"},
+        )
+
+        enqueue_derived_text_job(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F2",
+            derivation_kind="attachment_text",
+            reason="sync",
+        )
+        enqueue_derived_text_job(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F3",
+            derivation_kind="ocr_text",
+            reason="sync",
+        )
+        error_job = self.conn.execute(
+            "SELECT id FROM derived_text_jobs WHERE workspace_id = ? AND source_id = 'F3' AND derivation_kind = 'ocr_text'",
+            (workspace_id,),
+        ).fetchone()["id"]
+        mark_derived_text_job_status(self.conn, job_id=int(error_job), status="error", error="ocr_tools_unavailable")
+
+        health = self.service.search_health(
+            self.conn,
+            workspace="default",
+            max_attachment_pending=0,
+            max_ocr_pending=10,
+        )
+
+        self.assertEqual(health["status"], "fail")
+        self.assertIn("OCR_ERRORS_PRESENT", health["failure_codes"])
+        self.assertIn("ATTACHMENT_PENDING_HIGH", health["warning_codes"])
+        self.assertIn("OCR_ISSUES_PRESENT", health["warning_codes"])
+        self.assertEqual(health["extraction_thresholds"]["max_attachment_pending"], 0)
+        self.assertEqual(health["extraction_thresholds"]["max_ocr_pending"], 10)
+
     def test_search_health_fails_on_low_ndcg_and_hit_at_10(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
         upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})

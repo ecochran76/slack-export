@@ -472,6 +472,8 @@ class SlackMirrorAppService:
         min_hit_at_10: float = 0.8,
         min_ndcg_at_k: float = 0.6,
         max_latency_p95_ms: float = 800.0,
+        max_attachment_pending: int = 25,
+        max_ocr_pending: int = 25,
     ) -> dict[str, Any]:
         readiness = self.search_readiness(conn, workspace=workspace)
         workspace_id = self.workspace_id(conn, workspace)
@@ -482,12 +484,41 @@ class SlackMirrorAppService:
             "readiness": readiness,
             "benchmark": None,
             "benchmark_thresholds": None,
+            "extraction_thresholds": {
+                "max_attachment_pending": int(max_attachment_pending),
+                "max_ocr_pending": int(max_ocr_pending),
+            },
             "failure_codes": [],
             "warning_codes": [],
         }
 
         if readiness["status"] != "ready":
             report["warning_codes"].append("READINESS_DEGRADED")
+
+        attachment = readiness["derived_text"].get("attachment_text", {})
+        ocr = readiness["derived_text"].get("ocr_text", {})
+
+        if int(attachment.get("errors", 0)) > 0:
+            report["failure_codes"].append("ATTACHMENT_ERRORS_PRESENT")
+        if int(ocr.get("errors", 0)) > 0:
+            report["failure_codes"].append("OCR_ERRORS_PRESENT")
+        if int(attachment.get("pending", 0)) > int(max_attachment_pending):
+            report["warning_codes"].append("ATTACHMENT_PENDING_HIGH")
+        if int(ocr.get("pending", 0)) > int(max_ocr_pending):
+            report["warning_codes"].append("OCR_PENDING_HIGH")
+
+        attachment_issue_reasons = {
+            key: value for key, value in dict(attachment.get("issue_reasons") or {}).items() if key
+        }
+        ocr_issue_reasons = {
+            key: value
+            for key, value in dict(ocr.get("issue_reasons") or {}).items()
+            if key and key != "pdf_has_text_layer"
+        }
+        if attachment_issue_reasons:
+            report["warning_codes"].append("ATTACHMENT_ISSUES_PRESENT")
+        if ocr_issue_reasons:
+            report["warning_codes"].append("OCR_ISSUES_PRESENT")
 
         if dataset_path:
             dataset = dataset_rows(dataset_path)

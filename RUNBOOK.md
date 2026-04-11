@@ -651,3 +651,16 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
   - `python -m py_compile slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_app_service.py`
+
+## Turn 41 | 2026-04-11
+
+- Landed the next `0007` policy slice on top of the new readiness reporting.
+- `search.health` now applies explicit extraction-health policy instead of treating extraction visibility as passive counters only.
+- Added extraction-health thresholds and codes:
+  - failures for derived-text error presence
+  - warnings for pending backlog above threshold
+  - warnings for non-benign extraction issue reasons
+- Kept `pdf_has_text_layer` excluded from OCR issue warnings because it is an expected skip, not an operational defect.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service -v`
+  - `python -m py_compile slack_mirror/service/app.py tests/test_app_service.py`

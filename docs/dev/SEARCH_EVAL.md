@@ -120,6 +120,19 @@ Current benchmark diagnostics:
 - per-query `query_reports` are included in benchmark output
 - search health also reports `degraded_queries` for misses or weak ranking
 
+Current extraction health policy:
+
+- extraction errors now fail `search.health` through:
+  - `ATTACHMENT_ERRORS_PRESENT`
+  - `OCR_ERRORS_PRESENT`
+- extraction backlog currently warns through:
+  - `ATTACHMENT_PENDING_HIGH`
+  - `OCR_PENDING_HIGH`
+- extraction issue visibility currently warns through:
+  - `ATTACHMENT_ISSUES_PRESENT`
+  - `OCR_ISSUES_PRESENT`
+- `pdf_has_text_layer` is treated as a benign OCR skip and is excluded from `OCR_ISSUES_PRESENT`
+
 ## Suggested cadence
 
 - Run benchmark before changing fusion weights.

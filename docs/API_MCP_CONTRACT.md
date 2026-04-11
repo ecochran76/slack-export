@@ -198,6 +198,7 @@ Both return one shared health payload with:
 - `benchmark`
   - optional benchmark report when a dataset is provided
 - `benchmark_thresholds`
+- `extraction_thresholds`
 - `degraded_queries`
 - `failure_codes`
 - `warning_codes`
@@ -209,10 +210,21 @@ Current benchmark gates:
 - `BENCHMARK_NDCG_AT_K_LOW`
 - `BENCHMARK_LATENCY_P95_HIGH`
 
+Current extraction health gates:
+
+- failures:
+  - `ATTACHMENT_ERRORS_PRESENT`
+  - `OCR_ERRORS_PRESENT`
+- warnings:
+  - `ATTACHMENT_PENDING_HIGH`
+  - `OCR_PENDING_HIGH`
+  - `ATTACHMENT_ISSUES_PRESENT`
+  - `OCR_ISSUES_PRESENT`
+
 Current semantics:
 
 - health is a gate over readiness plus optional benchmark quality checks
-- readiness degradation currently becomes a warning unless benchmark failures also occur
+- readiness degradation currently becomes a warning unless benchmark or extraction policy failures also occur
 - benchmark output includes per-query diagnostics through `query_reports`
 - `degraded_queries` surfaces the subset of benchmark queries that missed ranking-quality floors or hit-rate expectations
 - benchmark execution is optional but should be used before ranking changes or release decisions that affect search behavior

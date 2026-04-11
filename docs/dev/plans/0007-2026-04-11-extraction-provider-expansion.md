@@ -67,7 +67,7 @@ Current status:
 
 - `search.readiness` now reports per-derivation provider coverage, job status buckets, and issue reasons
 - the same richer readiness payload now flows through existing CLI, API, and MCP surfaces
-- deeper extraction-coverage policy and thresholding are still deferred
+- initial extraction-health thresholding is landed through `search.health`; deeper coverage policy is still deferred
 
 ### Track C | Format Expansion
 

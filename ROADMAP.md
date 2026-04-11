@@ -80,7 +80,7 @@ Current state:
 - active follow-up scope is now narrower:
   - an initial extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation
   - provider-routed OCR and extraction paths beyond current host-local tools remain to be added behind that boundary
-  - extraction outcome thresholding and richer coverage policy on top of the newly shipped readiness reporting
+  - extraction outcome thresholding is now landed on top of readiness reporting; richer coverage policy beyond the current health codes remains open
   - broader document-format coverage only where it fits the shared `derived_text` contract cleanly
 
 Legacy context:
