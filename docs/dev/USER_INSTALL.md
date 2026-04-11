@@ -155,6 +155,41 @@ This is the one-command operator smoke check. It combines:
 
 Use this when you want one pass/fail gate for unattended installs and release smoke checks.
 
+## Live Recovery
+
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env recover-live
+```
+
+Apply the safe remediations:
+
+```bash
+slack-mirror user-env recover-live --apply
+```
+
+Machine-readable form:
+
+```bash
+slack-mirror user-env recover-live --json
+```
+
+This recovery command is intentionally bounded. Safe automatic remediations are limited to:
+
+- `systemctl --user daemon-reload`
+- restarting the managed API service when its unit exists but is inactive
+- restarting the managed workspace live units when their unit files exist but the units are inactive
+
+These remain operator-only and are not auto-applied:
+
+- config or dotenv problems
+- missing or unreadable DB state
+- missing workspace sync
+- missing outbound write tokens
+- duplicate topology cleanup
+- queue error or backlog remediation beyond restarting the managed units
+
 ## Live Validation
 
 Supported product entrypoint:

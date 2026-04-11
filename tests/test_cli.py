@@ -7,6 +7,7 @@ from slack_mirror.cli.main import (
     cmd_serve_mcp,
     cmd_user_env_check_live,
     cmd_user_env_install,
+    cmd_user_env_recover_live,
     cmd_user_env_status,
     cmd_user_env_uninstall,
     cmd_user_env_update,
@@ -345,6 +346,15 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_user_env_recover_live_apply_json(self):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "recover-live", "--apply", "--json"])
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "recover-live")
+        self.assertTrue(args.apply)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_runtime_version_matches_pyproject_source(self):
         self.assertEqual(__version__, "0.2.0-dev")
 
@@ -403,6 +413,13 @@ class CliTests(unittest.TestCase):
         args = parser.parse_args(["user-env", "check-live", "--json"])
         self.assertEqual(cmd_user_env_check_live(args), 0)
         mock_check.assert_called_once_with(json_output=True)
+
+    @patch("slack_mirror.service.user_env.recover_live_user_env", return_value=0)
+    def test_user_env_recover_live_apply_json_dispatches_to_service(self, mock_recover):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "recover-live", "--apply", "--json"])
+        self.assertEqual(cmd_user_env_recover_live(args), 0)
+        mock_recover.assert_called_once_with(apply=True, json_output=True)
 
     @patch("slack_mirror.service.mcp.run_mcp_stdio", return_value=None)
     def test_mcp_serve_dispatches_to_service(self, mock_run):

@@ -24,6 +24,8 @@ slack-mirror user-env validate-live
 slack-mirror user-env validate-live --json
 slack-mirror user-env check-live
 slack-mirror user-env check-live --json
+slack-mirror user-env recover-live
+slack-mirror user-env recover-live --apply
 ./.venv/bin/python -m unittest discover -s tests -v
 ```
 

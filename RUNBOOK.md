@@ -283,3 +283,23 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 19 | 2026-04-10
+
+- Added `slack-mirror user-env recover-live` as the bounded recovery command for `P04`.
+- Defined the supported safe auto-remediation policy:
+  - `systemctl --user daemon-reload`
+  - restart the managed API service when its unit exists but is inactive
+  - restart the managed workspace live units when their unit files exist but the units are inactive
+- Kept the following explicitly operator-only:
+  - config or dotenv fixes
+  - DB repair or missing workspace sync
+  - outbound token fixes
+  - duplicate-topology cleanup
+  - queue-content repair beyond unit restarts
+- Added `--apply` and `--json` so recovery can be previewed or executed through one supported CLI surface.
+- Updated the live-ops docs and `P04` current-state note so the restart-only recovery boundary is explicit.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

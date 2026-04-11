@@ -1221,7 +1221,7 @@ _slack_mirror_complete() {
   local top="mirror workspaces channels search docs completion api mcp user-env version"
   local api_sub="serve"
   local mcp_sub="serve"
-  local user_env_sub="install update uninstall status validate-live check-live"
+  local user_env_sub="install update uninstall status validate-live check-live recover-live"
   local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1335,6 +1335,8 @@ except Exception:
         COMPREPLY=( $(compgen -W "--purge-data" -- "$cur") )
       elif [[ "${COMP_WORDS[2]}" == "status" || "${COMP_WORDS[2]}" == "validate-live" || "${COMP_WORDS[2]}" == "check-live" ]]; then
         COMPREPLY=( $(compgen -W "--json" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "recover-live" ]]; then
+        COMPREPLY=( $(compgen -W "--apply --json" -- "$cur") )
       else
         COMPREPLY=()
       fi
@@ -1368,7 +1370,7 @@ _slack_mirror() {
   top=(mirror workspaces channels search docs completion api mcp user-env version)
   api_sub=(serve)
   mcp_sub=(serve)
-  user_env_sub=(install update uninstall status validate-live check-live)
+  user_env_sub=(install update uninstall status validate-live check-live recover-live)
   mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -1494,6 +1496,8 @@ _slack_mirror() {
         _arguments '--purge-data[also remove config, DB, and cache]'
       elif [[ "$words[3]" == "status" || "$words[3]" == "validate-live" || "$words[3]" == "check-live" ]]; then
         _arguments '--json[json output]'
+      elif [[ "$words[3]" == "recover-live" ]]; then
+        _arguments '--apply[execute the safe remediations]' '--json[json output]'
       else
         _arguments
       fi
@@ -1556,6 +1560,12 @@ def cmd_user_env_check_live(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import check_live_user_env
 
     return check_live_user_env(json_output=bool(args.json))
+
+
+def cmd_user_env_recover_live(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import recover_live_user_env
+
+    return recover_live_user_env(apply=bool(args.apply), json_output=bool(args.json))
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
@@ -1862,6 +1872,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_user_check_live.add_argument("--json", action="store_true", help="json output")
     p_user_check_live.set_defaults(func=cmd_user_env_check_live)
+    p_user_recover_live = user_env_sub.add_parser(
+        "recover-live",
+        help="plan or apply only the bounded safe remediations for a failing live runtime",
+    )
+    p_user_recover_live.add_argument("--apply", action="store_true", help="execute the safe remediations")
+    p_user_recover_live.add_argument("--json", action="store_true", help="json output")
+    p_user_recover_live.set_defaults(func=cmd_user_env_recover_live)
 
     version_parser = sub.add_parser("version", help="print the package version")
     version_parser.set_defaults(func=cmd_version)

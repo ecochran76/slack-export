@@ -641,7 +641,7 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 **Usage**
 
 usage: slack-mirror user-env [-h]
-                             {install,update,uninstall,status,validate-live,check-live}
+                             {install,update,uninstall,status,validate-live,check-live,recover-live}
                              ...
 
 **Arguments**
@@ -650,6 +650,8 @@ usage: slack-mirror user-env [-h]
 `check-live`
 .IP \[bu] 2
 `install`
+.IP \[bu] 2
+`recover-live`
 .IP \[bu] 2
 `status`
 .IP \[bu] 2
@@ -671,6 +673,16 @@ usage: slack-mirror user-env check-live [-h] [--json]
 
 usage: slack-mirror user-env install [-h]
 
+.SH SLACK-MIRROR USER-ENV RECOVER-LIVE
+**Usage**
+
+usage: slack-mirror user-env recover-live [-h] [--apply] [--json]
+
+**Options**
+.IP \[bu] 2
+`--apply` — execute the safe remediations
+.IP \[bu] 2
+`--json` — json output
 .SH SLACK-MIRROR USER-ENV STATUS
 **Usage**
 

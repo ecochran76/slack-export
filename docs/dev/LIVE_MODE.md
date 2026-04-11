@@ -122,6 +122,18 @@ Machine-readable smoke gate:
 slack-mirror user-env check-live --json
 ```
 
+Bounded recovery planner:
+
+```bash
+slack-mirror user-env recover-live
+```
+
+Apply the safe remediations:
+
+```bash
+slack-mirror user-env recover-live --apply
+```
+
 Follow logs:
 
 ```bash
@@ -190,8 +202,17 @@ In full live validation, queue error rows fail immediately, and sustained pendin
 
 Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.
 
+`slack-mirror user-env recover-live` intentionally auto-remediates only the safe restart class:
+
+- daemon-reload for `systemd --user`
+- restart inactive managed API service
+- restart inactive managed workspace live units
+
+It does not auto-fix config, token, DB, workspace-sync, duplicate-topology, or queue-content problems.
+
 For shell automation, prefer:
 
 - `slack-mirror user-env status --json`
 - `slack-mirror user-env validate-live --json`
 - `slack-mirror user-env check-live --json`
+- `slack-mirror user-env recover-live --json`

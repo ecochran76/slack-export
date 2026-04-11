@@ -105,6 +105,31 @@ class LiveSmokeCheckReport:
     validation_report: LiveValidationReport
 
 
+@dataclass(frozen=True)
+class LiveRecoveryAction:
+    code: str
+    description: str
+    command: list[str] | None
+    safe: bool
+    workspace: str | None = None
+
+
+@dataclass(frozen=True)
+class LiveRecoveryReport:
+    ok: bool
+    status: str
+    exit_code: int
+    applied: bool
+    summary: str
+    actionable_count: int
+    operator_only_count: int
+    action_codes: list[str]
+    operator_only_codes: list[str]
+    actions: list[LiveRecoveryAction]
+    operator_only_issues: list[LiveValidationIssue]
+    smoke_report: LiveSmokeCheckReport
+
+
 def default_user_env_paths(
     *,
     repo_root: Path | None = None,
@@ -814,6 +839,95 @@ def _build_live_smoke_report(
     )
 
 
+def _finalize_live_recovery_report(
+    *,
+    actions: list[LiveRecoveryAction],
+    operator_only_issues: list[LiveValidationIssue],
+    smoke_report: LiveSmokeCheckReport,
+    applied: bool,
+) -> LiveRecoveryReport:
+    actionable_codes = sorted({item.code for item in actions})
+    operator_only_codes = sorted({item.code for item in operator_only_issues})
+    if actions:
+        status = "actionable"
+        summary = f"Summary: ACTIONABLE ({len(actions)} safe remediation{'s' if len(actions) != 1 else ''})"
+        ok = True
+        exit_code = 0
+    elif operator_only_issues:
+        status = "operator_only"
+        summary = f"Summary: OPERATOR_ONLY ({len(operator_only_issues)} issue{'s' if len(operator_only_issues) != 1 else ''})"
+        ok = False
+        exit_code = 1
+    else:
+        status = "pass"
+        summary = "Summary: PASS"
+        ok = True
+        exit_code = 0
+    return LiveRecoveryReport(
+        ok=ok,
+        status=status,
+        exit_code=exit_code,
+        applied=applied,
+        summary=summary,
+        actionable_count=len(actions),
+        operator_only_count=len(operator_only_issues),
+        action_codes=actionable_codes,
+        operator_only_codes=operator_only_codes,
+        actions=actions,
+        operator_only_issues=operator_only_issues,
+        smoke_report=smoke_report,
+    )
+
+
+def _build_live_recovery_report(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+    applied: bool = False,
+) -> LiveRecoveryReport:
+    smoke_report = _build_live_smoke_report(paths=paths, runner=runner)
+    actions: list[LiveRecoveryAction] = []
+    operator_only_issues: list[LiveValidationIssue] = []
+    seen_actions: set[tuple[str, str | None]] = set()
+
+    def add_action(code: str, description: str, command: list[str], *, workspace: str | None = None) -> None:
+        key = (code, workspace)
+        if key in seen_actions:
+            return
+        seen_actions.add(key)
+        actions.append(LiveRecoveryAction(code=code, description=description, command=command, safe=True, workspace=workspace))
+
+    for issue in smoke_report.failures:
+        if issue.code == "API_UNIT_INACTIVE":
+            add_action(
+                "RESTART_API_UNIT",
+                "restart the managed API service",
+                ["systemctl", "--user", "restart", "slack-mirror-api.service"],
+            )
+        elif issue.code == "LIVE_UNIT_INACTIVE" and issue.workspace:
+            add_action(
+                "RESTART_WORKSPACE_UNITS",
+                f"restart the managed live units for workspace {issue.workspace}",
+                [
+                    "systemctl",
+                    "--user",
+                    "restart",
+                    f"slack-mirror-webhooks-{issue.workspace}.service",
+                    f"slack-mirror-daemon-{issue.workspace}.service",
+                ],
+                workspace=issue.workspace,
+            )
+        else:
+            operator_only_issues.append(issue)
+
+    return _finalize_live_recovery_report(
+        actions=actions,
+        operator_only_issues=operator_only_issues,
+        smoke_report=smoke_report,
+        applied=applied,
+    )
+
+
 def _run_migrations(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn) -> None:
     _log(out, "running schema migrations (mirror init)")
     env = _runtime_env(paths)
@@ -1130,4 +1244,107 @@ def check_live_user_env(
             if item.action:
                 out(f"  [{item.code}] {item.action}")
     out(f"Combined {report.summary}")
+    return report.exit_code
+
+
+def recover_live_user_env(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+    out: PrintFn = print,
+    apply: bool = False,
+    json_output: bool = False,
+) -> int:
+    target = paths or default_user_env_paths()
+    initial = _build_live_recovery_report(paths=target, runner=runner, applied=False)
+
+    if apply and initial.actions:
+        runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
+        for action in initial.actions:
+            if action.command:
+                runner(action.command, check=False, text=True)
+        report = _build_live_recovery_report(paths=target, runner=runner, applied=True)
+    else:
+        report = initial
+
+    if json_output:
+        out(
+            json.dumps(
+                {
+                    "ok": report.ok,
+                    "status": report.status,
+                    "exit_code": report.exit_code,
+                    "applied": report.applied,
+                    "summary": report.summary,
+                    "actionable_count": report.actionable_count,
+                    "operator_only_count": report.operator_only_count,
+                    "action_codes": report.action_codes,
+                    "operator_only_codes": report.operator_only_codes,
+                    "actions": [
+                        {
+                            "code": item.code,
+                            "description": item.description,
+                            "command": item.command,
+                            "safe": item.safe,
+                            "workspace": item.workspace,
+                        }
+                        for item in report.actions
+                    ],
+                    "operator_only_issues": [
+                        {
+                            "severity": item.severity,
+                            "code": item.code,
+                            "message": item.message,
+                            "action": item.action,
+                            "workspace": item.workspace,
+                        }
+                        for item in report.operator_only_issues
+                    ],
+                    "smoke_report": {
+                        "ok": report.smoke_report.ok,
+                        "status": report.smoke_report.status,
+                        "exit_code": report.smoke_report.exit_code,
+                        "summary": report.smoke_report.summary,
+                        "failure_codes": report.smoke_report.failure_codes,
+                        "warning_codes": report.smoke_report.warning_codes,
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return report.exit_code
+
+    if not report.actions and not report.operator_only_issues:
+        out("Safe Recovery Plan:")
+        out("  no remediation needed")
+        out(report.summary)
+        return report.exit_code
+
+    out("Safe Recovery Plan:")
+    if report.actions:
+        for action in report.actions:
+            scope = f" ({action.workspace})" if action.workspace else ""
+            out(f"  [{action.code}]{scope} {action.description}")
+            if action.command:
+                out(f"    command: {' '.join(action.command)}")
+    else:
+        out("  no safe automatic remediations available")
+
+    if report.operator_only_issues:
+        out("Operator-Only Issues:")
+        for issue in report.operator_only_issues:
+            scope = f" ({issue.workspace})" if issue.workspace else ""
+            out(f"  [{issue.code}]{scope} {issue.message}")
+            if issue.action:
+                out(f"    next: {issue.action}")
+
+    if apply and initial.actions:
+        out("Apply Mode:")
+        out("  executed safe remediations and rebuilt the recovery plan")
+    elif apply:
+        out("Apply Mode:")
+        out("  nothing safe to apply")
+
+    out(report.summary)
     return report.exit_code
