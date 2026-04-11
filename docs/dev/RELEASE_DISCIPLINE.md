@@ -45,3 +45,46 @@ python -m slack_mirror.cli.main release check
 ```
 
 That keeps docs freshness and planning-audit drift under the same supported gate instead of duplicating partial checks in workflow-only logic.
+
+## Supported Usage
+
+Use the default gate during normal development:
+
+```bash
+slack-mirror release check
+```
+
+That is the expected check for:
+
+- feature branches
+- local maintenance work
+- normal CI validation
+
+Use the stricter gate for an actual release candidate:
+
+```bash
+slack-mirror release check --require-clean --require-release-version
+```
+
+That is the expected check immediately before tagging or publishing a non-development release.
+
+## Release-Cut Sequence
+
+The supported cut sequence is:
+
+1. Update the canonical package version in `pyproject.toml` to the intended non-`-dev` release.
+2. Regenerate and commit any required CLI docs if the command surface changed.
+3. Run:
+
+```bash
+slack-mirror release check --require-clean --require-release-version
+```
+
+4. Cut the release or tag only after that strict check passes.
+5. Move the repo back to the next development version in `pyproject.toml` when post-release development resumes.
+
+Boundaries:
+
+- this repo treats `pyproject.toml` as the only version source of truth to edit manually
+- release readiness is defined by the supported gate, not by ad hoc combinations of tests and docs checks
+- the strict cut flow is intentionally repo-level and does not try to automate tagging or publishing policy beyond validation

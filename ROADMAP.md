@@ -11,7 +11,7 @@ Planning rules:
 
 ## P01 | Platform Foundation
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - standardize one supported runtime topology
@@ -26,7 +26,8 @@ Current state:
 - supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
 - user-scope install and update flows exist
 - bounded user-scope rollback exists
-- release/version discipline now has a supported `slack-mirror release check` gate, but the lane is still open until the remaining installer/release child work is closed cleanly
+- release/version discipline now has a supported `slack-mirror release check` gate with an explicit release-cut procedure
+- the coordinating platform-foundation lane is closed; remaining work proceeds through narrower lanes such as `P02` and future bounded child plans when needed
 
 Legacy context:
 - retained through the dated runbook and prior local planning notes when needed for archaeology

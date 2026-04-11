@@ -1,6 +1,6 @@
 # Installer Upgrade Path
 
-State: OPEN
+State: CLOSED
 Roadmap: P01
 Opened: 2026-04-09
 Supersedes: `docs/dev/INSTALLER_UPGRADE_PLAN.md`
@@ -23,7 +23,8 @@ Define the supported installer and upgrade path as a bounded product surface:
 - managed API launcher and API service unit exist
 - repo-level `slack-mirror release check` exists for version/docs/planning validation
 - CI now runs the supported release gate instead of checking only tests plus docs in isolation
-- remaining work is to tighten the remaining operator-facing upgrade and release discipline around the now-supported install/update/rollback surface
+- release-cut procedure is now explicit in `docs/dev/RELEASE_DISCIPLINE.md`
+- this plan is closed on the shipped install/update/rollback and release-gate baseline
 
 ## Parallel Tracks
 

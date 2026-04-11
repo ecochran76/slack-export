@@ -1,6 +1,6 @@
 # Platform Foundation
 
-State: OPEN
+State: CLOSED
 Roadmap: P01
 Opened: 2026-04-09
 Supersedes: `docs/dev/PHASE_1_PLATFORM_FOUNDATION.md`
@@ -20,7 +20,8 @@ Make the repo operable under one coherent planning and platform-foundation contr
 - the supported runtime topology, installer path, and service-boundary work now have active child plans under `P01`, `P02`, and `P04`
 - the repo has moved off the older `PHASE_*` planning files as active sources of truth
 - the repo now has a supported `slack-mirror release check` gate for version/docs/planning validation
-- remaining work is to close the child plans cleanly and decide when the platform-foundation lane itself can move from coordination to closure
+- the installer and live-ops child lanes have now closed cleanly, and future work can proceed through bounded child plans without relying on the older `PHASE_*` planning files
+- this coordination plan is closed on that planning and platform-foundation baseline
 
 ## Parallel Tracks
 

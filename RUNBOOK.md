@@ -380,3 +380,19 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 25 | 2026-04-11
+
+- Closed the remaining `P01 | Platform Foundation` planning work.
+- Added the missing operator-facing release-cut procedure to `docs/dev/RELEASE_DISCIPLINE.md` so the shipped release gate now has an explicit distinction between:
+  - normal development and CI usage via `slack-mirror release check`
+  - actual cut-candidate usage via `slack-mirror release check --require-clean --require-release-version`
+- Closed `0002 | Installer Upgrade Path` because the repo now has a documented install, update, rollback, validation, and release-gate baseline.
+- Closed `0001 | Platform Foundation` because the coordinating lane has served its purpose:
+  - deterministic planning wiring is in place
+  - old `PHASE_*` docs are no longer active sources of truth
+  - future work can proceed through narrower child lanes without keeping the coordination plan open artificially
+- Updated `ROADMAP.md` so `P01` is now closed and no longer claims unresolved installer/release work that the repo has already shipped.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `./.venv/bin/python -m slack_mirror.cli.main release check`
