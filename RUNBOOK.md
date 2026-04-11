@@ -768,3 +768,18 @@ This file is the dated turn log for planning and execution continuity.
   - multi-day and semantic daypack DOCX output should compose from that path instead of querying SQLite independently
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 51 | 2026-04-11
+
+- Landed the first implementation slice for `docs/dev/plans/0008-2026-04-11-export-quality-ooxml.md`.
+- Added `scripts/export_channel_day_docx.py` as a bounded DOCX renderer over the existing channel/day JSON export artifact.
+- Kept the export ownership path explicit:
+  - `scripts/export_channel_day.py` remains the canonical content assembly step
+  - the DOCX renderer consumes JSON instead of querying SQLite directly
+- Current DOCX baseline includes:
+  - title and channel/day metadata
+  - speaker/timestamp metadata lines
+  - thread-reply labeling and indentation
+  - clickable attachment links for local files and permalinks
+- Added regression coverage in `tests/test_export_docx.py` for OOXML package structure, reply indentation, and hyperlink relationships.
+- Updated `docs/dev/EXPORTS.md`, `README.md`, and `ROADMAP.md` to reflect the new renderer.

@@ -1,4 +1,4 @@
-# Export Workflows (HTML/JSON/PDF)
+# Export Workflows (HTML/JSON/PDF/DOCX)
 
 This doc covers the current export scripts for channel/day and semantic-hit day packs.
 
@@ -24,7 +24,22 @@ Features:
 - HTML thread styling (reply badge + connector line)
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
 
-## 2) Render JSON export to PDF
+## 2) Render JSON export to DOCX
+
+```bash
+python scripts/export_channel_day_docx.py \
+  --input-json exports/soylei-general-business-4-2022-06-10.json \
+  --output-docx exports/soylei-general-business-4-2022-06-10.docx
+```
+
+DOCX UX in the current baseline:
+- single channel/day JSON is the canonical input artifact
+- thread-reply labeling and indentation
+- speaker/timestamp metadata lines
+- clickable attachment links for local files or permalinks
+- no second SQLite-querying DOCX path
+
+## 3) Render JSON export to PDF
 
 ```bash
 .venv/bin/python scripts/export_channel_day_pdf.py \
@@ -43,7 +58,7 @@ PDF UX:
 - bold, color-coded datestamp lines by speaker
 - prominent clickable attachment links (`🔗 open: ...`)
 
-## 3) Combine multiple channel/day JSON exports into one PDF
+## 4) Combine multiple channel/day JSON exports into one PDF
 
 ```bash
 .venv/bin/python scripts/export_multi_day_pdf.py \
@@ -53,7 +68,7 @@ PDF UX:
   --attach-files
 ```
 
-## 4) One-shot semantic search -> full-day exports -> combined PDF
+## 5) One-shot semantic search -> full-day exports -> combined PDF
 
 ```bash
 python scripts/export_semantic_daypack.py \
@@ -68,4 +83,5 @@ Pipeline:
 1. semantic/hybrid searches per term
 2. collect channel/day bundles from hits
 3. export each bundle via `export_channel_day.py`
-4. combine via `export_multi_day_pdf.py`
+4. render downstream formats from the same JSON bundle
+5. combine via `export_multi_day_pdf.py`

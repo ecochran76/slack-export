@@ -69,11 +69,21 @@ Current status:
 - reuse only what helps deterministic export rendering or export QA
 - avoid importing mutation, review, or authoring features that do not serve Slack export output
 
+Current status:
+
+- the first implementation slice is intentionally self-contained and deterministic: a channel/day JSON -> DOCX renderer
+- reuse of deeper `docx-skill` primitives is still deferred until the bounded renderer baseline is shipped and assessed
+
 ### Track C | Export Contract And QA
 
 - define what a good DOCX-grade export means for this repo
 - add bounded fixture-based validation for export output quality
 - prefer render or structure checks that catch obvious formatting regressions
+
+Current status:
+
+- the first bounded renderer target is channel/day DOCX output over the canonical JSON artifact
+- the first QA pass is package-structure and content-contract validation rather than visual polish
 
 ## Non-Goals
 
@@ -95,6 +105,11 @@ Current status:
 - keep content assembly in `scripts/export_channel_day.py` and avoid a second SQLite-querying DOCX export path
 - use minimal OOXML primitives first: document sections, speaker paragraphs, reply indentation, timestamp metadata, and attachment link blocks
 - defer richer visual polish and multi-day composition until the single-day DOCX path is deterministic and testable
+
+Current status:
+
+- shipped through `scripts/export_channel_day_docx.py`
+- next likely slice is fixture quality and richer formatting, not a second export ownership path
 
 ## Definition Of Done
 

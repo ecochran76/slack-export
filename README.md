@@ -30,6 +30,7 @@ slack-mirror user-env recover-live --apply
 slack-mirror user-env rollback
 slack-mirror mirror process-derived-text-jobs --workspace default
 slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_text
+python scripts/export_channel_day_docx.py --input-json exports/day.json --output-docx exports/day.docx
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid
@@ -55,6 +56,7 @@ The current repo has:
 - an explicit cross-workspace corpus-search path through `search corpus --all-workspaces`
 - chunk-aware derived-text retrieval so long attachments and OCR-heavy documents surface the matching segment instead of only the top-level document row
 - a machine-readable search health path over readiness plus optional smoke benchmarks through `search health`
+- a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 The active search modernization lane is [0006-2026-04-11-search-evaluation-modernization.md](/home/ecochran76/workspace.local/slack-export/docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md). The derived-text ownership contract for this first slice is in [DERIVED_TEXT_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/dev/DERIVED_TEXT_CONTRACT.md).
 
