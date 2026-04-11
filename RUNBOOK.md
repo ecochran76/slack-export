@@ -396,3 +396,17 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `./.venv/bin/python -m slack_mirror.cli.main release check`
+
+## Turn 26 | 2026-04-11
+
+- Closed `P02 | Service Surfaces`.
+- Closure basis:
+  - the shared application-service boundary is established in `slack_mirror.service.app`
+  - API and MCP are both thin transports over that shared service layer
+  - live-validation, outbound writes, listener operations, and structured error handling are documented in `docs/API_MCP_CONTRACT.md`
+  - targeted regression coverage now protects the service, API, MCP, and CLI integration points for the shipped contract
+- Closed `0003 | API MCP Boundary` because the repo no longer needs to treat the baseline service-surface definition as open-ended hardening work.
+- Future API, MCP, or skill-surface expansion should now open narrower follow-up plans instead of keeping the base ownership/contract lane open.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

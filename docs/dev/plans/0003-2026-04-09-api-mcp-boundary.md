@@ -1,6 +1,6 @@
 # API MCP Boundary
 
-State: OPEN
+State: CLOSED
 Roadmap: P02
 Opened: 2026-04-09
 Supersedes: `docs/dev/API_MCP_BOUNDARY.md`
@@ -24,7 +24,9 @@ Define and harden the shared application-service boundary for CLI, API, MCP, and
 - API and MCP write/read failures now map through a shared machine-readable error envelope with stable codes, retryability, and operation context
 - outbound write actions now return explicit idempotency and retry semantics through the shared service boundary instead of exposing only raw DB rows
 - the shipped transport success/error semantics are now documented in `docs/API_MCP_CONTRACT.md`
-- remaining work is to tighten the documented contract, error model, and operator expectations around the shipped baseline
+- listener registration, delivery inspection, acknowledgement, and missing-id failure semantics are implemented and covered through the same shared service boundary
+- targeted service, API, MCP, and CLI regression coverage now protects the shipped contract
+- this plan is closed on the current shared-boundary and transport-contract baseline
 
 ## Parallel Tracks
 

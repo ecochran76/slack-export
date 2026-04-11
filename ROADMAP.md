@@ -34,7 +34,7 @@ Legacy context:
 
 ## P02 | Service Surfaces
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - define and harden the shared application boundary for CLI, API, MCP, and skills
@@ -46,7 +46,9 @@ Current state:
 - shared application-service layer exists
 - local API server exists
 - MCP server exists
-- remaining work is contract hardening, surface expansion, and operator discipline
+- shared machine-readable success and error contracts are documented and enforced across service, API, and MCP
+- outbound write, listener, and live-validation semantics now run through one explicit shared boundary
+- the baseline service-surface lane is closed; future surface work should open narrower follow-up plans instead of keeping `P02` generically open
 
 Legacy context:
 - retained through the dated runbook and prior local planning notes when needed for archaeology
