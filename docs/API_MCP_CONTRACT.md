@@ -150,16 +150,31 @@ Both return one shared machine-readable readiness payload with:
     - `count`
     - `pending`
     - `errors`
+    - `providers`
+    - `jobs`
+      - `pending`
+      - `done`
+      - `skipped`
+      - `error`
+    - `issue_reasons`
   - `ocr_text`
     - `count`
     - `pending`
     - `errors`
+    - `providers`
+    - `jobs`
+      - `pending`
+      - `done`
+      - `skipped`
+      - `error`
+    - `issue_reasons`
 
 Current semantics:
 
 - this is a readiness summary, not a quality benchmark
 - `degraded` currently means search corpus state exists but one or more tracked error conditions remain
 - callers should prefer these structured counters over inferring readiness from ad hoc queue inspection
+- provider coverage and issue-reason counts are intended for operator visibility and automation, not as a second quality gate separate from `search.health`
 
 ## Search Health
 

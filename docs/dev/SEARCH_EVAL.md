@@ -99,6 +99,7 @@ Relevance labels:
 ## Current P03 health contract
 
 - `slack-mirror search health --workspace <name>`
+- search readiness now also reports per-derivation provider coverage, job status buckets, and machine-readable issue reasons for `attachment_text` and `ocr_text`
 - optional benchmark gate:
   - `slack-mirror search health --workspace <name> --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl`
   - `slack-mirror search health --workspace <name> --dataset ./docs/dev/benchmarks/slack_corpus_depth.jsonl`

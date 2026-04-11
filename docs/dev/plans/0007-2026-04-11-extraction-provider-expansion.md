@@ -63,6 +63,12 @@ Current status:
 - make coverage and backlog status visible enough for operators and eval tooling
 - keep reporting aligned with the existing search-health and readiness model where appropriate
 
+Current status:
+
+- `search.readiness` now reports per-derivation provider coverage, job status buckets, and issue reasons
+- the same richer readiness payload now flows through existing CLI, API, and MCP surfaces
+- deeper extraction-coverage policy and thresholding are still deferred
+
 ### Track C | Format Expansion
 
 - review the next highest-value attachment formats after the current UTF-8, PDF, and OOXML baseline

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from slack_mirror.core.db import connect, get_workspace_by_name, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
+from slack_mirror.core.db import connect, enqueue_derived_text_job, get_workspace_by_name, mark_derived_text_job_status, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.service.app import SlackMirrorAppService
 
 
@@ -95,6 +95,81 @@ class AppServiceTests(unittest.TestCase):
 
         ws_row = get_workspace_by_name(self.conn, "default")
         self.assertIsNotNone(ws_row)
+
+    def test_search_readiness_reports_provider_and_issue_details(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "incident review follow-up", "channel": "C123"},
+        )
+        self.conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+            VALUES (?, 'F1', 'scan.pdf', 'Incident PDF', 'application/pdf', '/tmp/scan.pdf', '{}')
+            """,
+            (workspace_id,),
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F1",
+            derivation_kind="ocr_text",
+            extractor="tesseract_pdf",
+            text="incident review appendix",
+            media_type="application/pdf",
+            local_path="/tmp/scan.pdf",
+            metadata={"provider": "local_host_tools", "origin": "test"},
+        )
+
+        enqueue_derived_text_job(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F2",
+            derivation_kind="attachment_text",
+            reason="sync",
+        )
+        enqueue_derived_text_job(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F3",
+            derivation_kind="ocr_text",
+            reason="sync",
+        )
+        enqueue_derived_text_job(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F4",
+            derivation_kind="ocr_text",
+            reason="sync",
+        )
+        error_job = self.conn.execute(
+            "SELECT id FROM derived_text_jobs WHERE workspace_id = ? AND source_id = 'F3' AND derivation_kind = 'ocr_text'",
+            (workspace_id,),
+        ).fetchone()["id"]
+        skipped_job = self.conn.execute(
+            "SELECT id FROM derived_text_jobs WHERE workspace_id = ? AND source_id = 'F4' AND derivation_kind = 'ocr_text'",
+            (workspace_id,),
+        ).fetchone()["id"]
+        mark_derived_text_job_status(self.conn, job_id=int(error_job), status="error", error="ocr_tools_unavailable")
+        mark_derived_text_job_status(self.conn, job_id=int(skipped_job), status="skipped", error="pdf_has_text_layer")
+
+        readiness = self.service.search_readiness(self.conn, workspace="default")
+
+        self.assertEqual(readiness["status"], "degraded")
+        self.assertEqual(readiness["derived_text"]["attachment_text"]["jobs"]["pending"], 1)
+        self.assertEqual(readiness["derived_text"]["attachment_text"]["providers"], {})
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["providers"]["local_host_tools"], 1)
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["jobs"]["error"], 1)
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["jobs"]["skipped"], 1)
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["issue_reasons"]["ocr_tools_unavailable"], 1)
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["issue_reasons"]["pdf_has_text_layer"], 1)
 
     def test_search_health_reports_readiness_and_benchmark(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

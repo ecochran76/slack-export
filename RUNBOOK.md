@@ -637,3 +637,17 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_derived_text -v`
   - `python -m py_compile slack_mirror/sync/derived_text.py tests/test_derived_text.py`
+
+## Turn 40 | 2026-04-11
+
+- Landed the next `0007` reporting slice.
+- Expanded `search.readiness` so derived-text readiness now includes, per derivation kind:
+  - provider coverage
+  - job status buckets
+  - machine-readable issue reasons
+- Kept that richer reporting on the existing readiness/search-health surfaces instead of adding another parallel status endpoint.
+- Updated CLI operator output so non-JSON `search health` also surfaces provider and issue summaries when present.
+- Added service-level regression coverage for provider, backlog, skipped-job, and error-reason reporting.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_app_service.py`

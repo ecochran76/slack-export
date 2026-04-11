@@ -377,47 +377,71 @@ class SlackMirrorAppService:
             ).fetchone()["c"]
         )
 
-        attachment_count = int(
-            conn.execute(
-                """
-                SELECT COUNT(*) AS c
-                FROM derived_text
-                WHERE workspace_id = ? AND derivation_kind = 'attachment_text'
-                """,
-                (workspace_id,),
-            ).fetchone()["c"]
-        )
-        ocr_count = int(
-            conn.execute(
-                """
-                SELECT COUNT(*) AS c
-                FROM derived_text
-                WHERE workspace_id = ? AND derivation_kind = 'ocr_text'
-                """,
-                (workspace_id,),
-            ).fetchone()["c"]
-        )
-        derived_pending_rows = conn.execute(
+        derived_count_rows = conn.execute(
             """
             SELECT derivation_kind, COUNT(*) AS c
-            FROM derived_text_jobs
-            WHERE workspace_id = ? AND status = 'pending'
+            FROM derived_text
+            WHERE workspace_id = ?
             GROUP BY derivation_kind
             """,
             (workspace_id,),
         ).fetchall()
-        derived_error_rows = conn.execute(
-            """
-            SELECT derivation_kind, COUNT(*) AS c
-            FROM derived_text_jobs
-            WHERE workspace_id = ? AND status = 'error'
-            GROUP BY derivation_kind
-            """,
-            (workspace_id,),
-        ).fetchall()
+        derived_counts = {str(row["derivation_kind"]): int(row["c"]) for row in derived_count_rows}
 
-        derived_pending = {str(row["derivation_kind"]): int(row["c"]) for row in derived_pending_rows}
-        derived_errors = {str(row["derivation_kind"]): int(row["c"]) for row in derived_error_rows}
+        provider_rows = conn.execute(
+            """
+            SELECT derivation_kind, metadata_json
+            FROM derived_text
+            WHERE workspace_id = ?
+            """,
+            (workspace_id,),
+        ).fetchall()
+        provider_counts: dict[str, dict[str, int]] = {"attachment_text": {}, "ocr_text": {}}
+        for row in provider_rows:
+            kind = str(row["derivation_kind"])
+            if kind not in provider_counts:
+                provider_counts[kind] = {}
+            metadata = json.loads(row["metadata_json"] or "{}")
+            provider = str(metadata.get("provider") or "unknown")
+            provider_counts[kind][provider] = provider_counts[kind].get(provider, 0) + 1
+
+        job_rows = conn.execute(
+            """
+            SELECT derivation_kind, status, COALESCE(error, '') AS error_value, COUNT(*) AS c
+            FROM derived_text_jobs
+            WHERE workspace_id = ?
+            GROUP BY derivation_kind, status, error_value
+            """,
+            (workspace_id,),
+        ).fetchall()
+        job_counts: dict[str, dict[str, int]] = {
+            "attachment_text": {"pending": 0, "done": 0, "skipped": 0, "error": 0},
+            "ocr_text": {"pending": 0, "done": 0, "skipped": 0, "error": 0},
+        }
+        issue_reasons: dict[str, dict[str, int]] = {"attachment_text": {}, "ocr_text": {}}
+        for row in job_rows:
+            kind = str(row["derivation_kind"])
+            status = str(row["status"])
+            count = int(row["c"])
+            if kind not in job_counts:
+                job_counts[kind] = {"pending": 0, "done": 0, "skipped": 0, "error": 0}
+                issue_reasons[kind] = {}
+            job_counts[kind][status] = job_counts[kind].get(status, 0) + count
+            error_value = str(row["error_value"] or "")
+            if error_value:
+                issue_reasons[kind][error_value] = issue_reasons[kind].get(error_value, 0) + count
+
+        derived_text = {}
+        for kind in sorted(set(derived_counts) | set(job_counts) | {"attachment_text", "ocr_text"}):
+            jobs = job_counts.get(kind, {"pending": 0, "done": 0, "skipped": 0, "error": 0})
+            derived_text[kind] = {
+                "count": derived_counts.get(kind, 0),
+                "pending": jobs.get("pending", 0),
+                "errors": jobs.get("error", 0),
+                "providers": provider_counts.get(kind, {}),
+                "jobs": jobs,
+                "issue_reasons": issue_reasons.get(kind, {}),
+            }
 
         return {
             "workspace": workspace,
@@ -429,20 +453,9 @@ class SlackMirrorAppService:
                     "errors": message_embedding_errors,
                 },
             },
-            "derived_text": {
-                "attachment_text": {
-                    "count": attachment_count,
-                    "pending": derived_pending.get("attachment_text", 0),
-                    "errors": derived_errors.get("attachment_text", 0),
-                },
-                "ocr_text": {
-                    "count": ocr_count,
-                    "pending": derived_pending.get("ocr_text", 0),
-                    "errors": derived_errors.get("ocr_text", 0),
-                },
-            },
+            "derived_text": derived_text,
             "status": "ready"
-            if message_count > 0 and message_embedding_errors == 0 and derived_errors.get("attachment_text", 0) == 0 and derived_errors.get("ocr_text", 0) == 0
+            if message_count > 0 and message_embedding_errors == 0 and derived_text["attachment_text"]["errors"] == 0 and derived_text["ocr_text"]["errors"] == 0
             else "degraded",
         }
 

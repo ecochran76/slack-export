@@ -1059,19 +1059,29 @@ def cmd_search_health(args: argparse.Namespace) -> int:
     else:
         readiness = payload["readiness"]
         print(f"Search health workspace={payload['workspace']} status={payload['status']} readiness={readiness['status']}")
+        attachment = readiness['derived_text']['attachment_text']
+        ocr = readiness['derived_text']['ocr_text']
         print(
             "Readiness:"
             f" messages={readiness['messages']['count']}"
             f" embeddings.count={readiness['messages']['embeddings']['count']}"
             f" embeddings.pending={readiness['messages']['embeddings']['pending']}"
             f" embeddings.errors={readiness['messages']['embeddings']['errors']}"
-            f" attachment.count={readiness['derived_text']['attachment_text']['count']}"
-            f" attachment.pending={readiness['derived_text']['attachment_text']['pending']}"
-            f" attachment.errors={readiness['derived_text']['attachment_text']['errors']}"
-            f" ocr.count={readiness['derived_text']['ocr_text']['count']}"
-            f" ocr.pending={readiness['derived_text']['ocr_text']['pending']}"
-            f" ocr.errors={readiness['derived_text']['ocr_text']['errors']}"
+            f" attachment.count={attachment['count']}"
+            f" attachment.pending={attachment['pending']}"
+            f" attachment.errors={attachment['errors']}"
+            f" ocr.count={ocr['count']}"
+            f" ocr.pending={ocr['pending']}"
+            f" ocr.errors={ocr['errors']}"
         )
+        if attachment.get('providers'):
+            print("Attachment providers: " + ", ".join(f"{name}={count}" for name, count in sorted(attachment['providers'].items())))
+        if attachment.get('issue_reasons'):
+            print("Attachment issues: " + ", ".join(f"{name}={count}" for name, count in sorted(attachment['issue_reasons'].items())))
+        if ocr.get('providers'):
+            print("OCR providers: " + ", ".join(f"{name}={count}" for name, count in sorted(ocr['providers'].items())))
+        if ocr.get('issue_reasons'):
+            print("OCR issues: " + ", ".join(f"{name}={count}" for name, count in sorted(ocr['issue_reasons'].items())))
         if payload.get("benchmark"):
             bench = payload["benchmark"]
             print(
