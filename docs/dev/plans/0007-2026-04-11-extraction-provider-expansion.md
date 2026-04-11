@@ -1,6 +1,6 @@
 # Extraction Provider Expansion
 
-State: OPEN
+State: CLOSED
 Roadmap: P03
 Opened: 2026-04-11
 Follows: `docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md`
@@ -35,7 +35,7 @@ This plan is not a generic reopening of broad search modernization.
 - corpus retrieval, readiness, and health are already shipped through CLI, API, and MCP
 - an initial extraction-provider boundary is now landed, with `LocalCliDerivedTextProvider` as the default implementation
 - provider identity is now recorded in derived-text metadata so later coverage reporting can distinguish host-local versus future provider-routed extraction paths
-- the main remaining weakness is not corpus shape; it is extraction depth and operational visibility
+- the main weakness at plan open was not corpus shape; it was extraction depth and operational visibility
 - `../ragmail` demonstrated the value of provider/router abstraction, richer OCR fallback, and stronger extraction diagnostics
 - `../imcli` demonstrated the importance of keeping `attachment_text` and `ocr_text` explicit while making coverage operationally visible
 
@@ -58,8 +58,8 @@ Current status:
 
 - the shared provider seam is landed
 - the local host-tools implementation remains the default
-- initial command-backed and HTTP-backed providers are now landed behind config selection, with local fallback enabled by default
-- richer remote/provider-backed implementations are still deferred
+- command-backed and HTTP-backed providers are landed behind config selection, with local fallback enabled by default
+- richer remote/provider-backed implementations remain explicitly deferred to a future narrow follow-up instead of keeping this plan open indefinitely
 
 ### Track B | Outcome Reporting
 
@@ -71,7 +71,7 @@ Current status:
 
 - `search.readiness` now reports per-derivation provider coverage, job status buckets, and issue reasons
 - the same richer readiness payload now flows through existing CLI, API, and MCP surfaces
-- initial extraction-health thresholding is landed through `search.health`; deeper coverage policy is still deferred
+- extraction-health thresholding is landed through `search.health`; deeper coverage policy is deferred to any future narrow follow-up
 
 ### Track C | Format Expansion
 
@@ -89,6 +89,19 @@ Current note:
 
 - `docx-skill` appears to contain reusable OOXML story/text primitives that could improve both `.docx` extraction quality and future chat-export DOCX rendering, but that reuse is intentionally deferred until it can be scoped as a bounded export/extraction slice rather than folded into this plan ad hoc
 
+## Closure Basis
+
+- a shared provider boundary now exists for extraction and OCR paths
+- the current host-local extractor path remains supported and default
+- extraction outcome reporting is explicit and machine-readable through readiness and search-health surfaces
+- post-baseline provider and format-expansion slices are shipped through command, HTTP, local-fallback, OOXML, and OpenDocument coverage without changing the shared `derived_text` contract
+
+## Deferred Follow-Up
+
+- provider-specialized OCR or extraction beyond the current generic command/HTTP seam
+- deeper extraction coverage policy if future operators need stronger guarantees than the current readiness and health signals
+- reuse of `docx-skill` OOXML primitives for future export-quality DOCX rendering or further extraction fidelity improvements
+
 ## Non-Goals
 
 - replacing the SQLite-first search baseline
@@ -105,4 +118,4 @@ Current note:
 
 ## Definition Of Done
 
-This plan is done when Slack mirror has a documented and partially shipped post-baseline extraction follow-up with a real provider boundary, better extraction visibility, and bounded expansion rules that preserve the existing shared-core search model.
+This plan is done when Slack mirror has a documented and shipped post-baseline extraction follow-up with a real provider boundary, better extraction visibility, and bounded expansion rules that preserve the existing shared-core search model.

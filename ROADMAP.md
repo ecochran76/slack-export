@@ -55,7 +55,7 @@ Legacy context:
 
 ## P03 | Search And Evaluation
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
@@ -78,11 +78,12 @@ Current state:
   - API and MCP exposure for corpus search, readiness, and search health
   - shared search-health gates over readiness plus optional corpus smoke and depth benchmarks, with per-query diagnostics and bounded ranking-quality thresholds
 - active follow-up scope is now narrower:
-  - an initial extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation
-  - initial command-backed and HTTP-backed providers are landed, with local fallback retained by default; richer provider-routed OCR and extraction paths beyond current host-local tools remain to be added
-  - extraction outcome thresholding is now landed on top of readiness reporting; richer coverage policy beyond the current health codes remains open
-  - broader document-format coverage only where it fits the shared `derived_text` contract cleanly
+  - the extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation
+  - command-backed and HTTP-backed providers are landed, with local fallback retained by default
+  - extraction outcome thresholding is landed on top of readiness reporting and search health
+  - broader document-format coverage now includes OOXML and OpenDocument office files where they fit the shared `derived_text` contract cleanly
 - `docx-skill` is a likely source of reusable OOXML primitives for both richer `.docx` extraction and future DOCX-quality export rendering, but that reuse remains deferred to a bounded follow-up slice
+- the broad search/evaluation modernization lane is closed; any additional extraction-provider, export-quality, or benchmark work should reopen `P03` only through a new narrow plan
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

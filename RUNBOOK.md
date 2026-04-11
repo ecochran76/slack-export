@@ -721,3 +721,19 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_derived_text -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 48 | 2026-04-11
+
+- Closed `docs/dev/plans/0007-2026-04-11-extraction-provider-expansion.md` after reviewing the shipped provider and format-expansion baseline against its own acceptance criteria.
+- The closure basis is now explicit:
+  - shared extraction-provider seam exists
+  - host-local extraction remains the default baseline
+  - command-backed and HTTP-backed providers are shipped, with local fallback supported by default
+  - machine-readable extraction readiness and health reporting are shipped
+  - post-baseline format expansion now covers story-aware `.docx`, visible-text-aware `.pptx`, shared-string-aware `.xlsx`, and OpenDocument office files
+- Deferred follow-up remains narrow and explicit instead of keeping `P03` broadly open:
+  - provider-specialized OCR or extraction
+  - stronger extraction policy only if operators need stricter guarantees
+  - possible reuse of `docx-skill` OOXML primitives for future export-quality work
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
