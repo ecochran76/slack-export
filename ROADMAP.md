@@ -66,12 +66,15 @@ Actionable plans:
 Current state:
 - keyword and semantic search exist
 - embedding backlog discipline and SQLite contention hardening have landed
-- cross-repo comparison against `../ragmail` and `../imcli` shows the next gap is no longer basic message search, but broader searchable-corpus ownership:
-  - first-class derived text for attachments and canvases
+- cross-repo comparison against `../ragmail` and `../imcli` established the modernization direction explicitly
+- first P03 foundation slice is now landed:
+  - first-class `derived_text`, `derived_text_fts`, and `derived_text_jobs` tables
+  - document-native extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
+  - `search derived-text` and `mirror process-derived-text-jobs` operator surfaces
+- remaining work is still substantial:
   - OCR for image-like and scanned PDF content
   - lexical-first hybrid retrieval over messages plus derived text
-  - stronger search evaluation and readiness discipline
-- the lane is now open under `0006` to modernize search deliberately instead of relying on the older Phase E/F notes alone
+  - stronger evaluation, search-health, and readiness discipline
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

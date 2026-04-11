@@ -130,6 +130,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.limit, 20)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_process_derived_text_jobs(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["mirror", "process-derived-text-jobs", "--workspace", "default", "--kind", "attachment_text", "--limit", "15"]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.kind, "attachment_text")
+        self.assertEqual(args.limit, 15)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_process_events(self):
         parser = build_parser()
         args = parser.parse_args(
@@ -279,6 +290,34 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.mode, "hybrid")
         self.assertEqual(args.glob, "**/*.md")
         self.assertEqual(args.limit, 5)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_search_derived_text(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "derived-text",
+                "--workspace",
+                "default",
+                "--query",
+                "incident review",
+                "--kind",
+                "attachment_text",
+                "--source-kind",
+                "canvas",
+                "--limit",
+                "7",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.query, "incident review")
+        self.assertEqual(args.kind, "attachment_text")
+        self.assertEqual(args.source_kind, "canvas")
+        self.assertEqual(args.limit, 7)
+        self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_user_env_install(self):

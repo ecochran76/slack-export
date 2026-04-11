@@ -2,7 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_user, upsert_workspace
+from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
+from slack_mirror.search.derived_text import search_derived_text
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
 from slack_mirror.sync.embeddings import process_embedding_jobs
 
@@ -98,6 +99,38 @@ class SearchTests(unittest.TestCase):
             )
             self.assertGreaterEqual(len(hyb_rows), 1)
             self.assertIn("_hybrid_score", hyb_rows[0])
+
+    def test_search_derived_text_rows(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F1', 'notes.txt', 'Notes', 'text/plain', '/tmp/notes.txt', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text="project alpha deployment notes",
+                media_type="text/plain",
+                local_path="/tmp/notes.txt",
+                metadata={"origin": "test"},
+            )
+            rows = search_derived_text(conn, workspace_id=ws_id, query="deployment", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["source_kind"], "file")
+            self.assertEqual(rows[0]["source_label"], "Notes")
 
 
 if __name__ == "__main__":

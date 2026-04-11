@@ -943,6 +943,44 @@ def cmd_search_semantic(args: argparse.Namespace) -> int:
     return cmd_search_keyword(args)
 
 
+def cmd_search_derived_text(args: argparse.Namespace) -> int:
+    from slack_mirror.search.derived_text import search_derived_text
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    rows = search_derived_text(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        query=args.query,
+        limit=args.limit,
+        derivation_kind=args.kind,
+        source_kind=args.source_kind,
+    )
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        for row in rows:
+            snippet = str(row.get("text") or "").replace("\n", " ").strip()
+            if len(snippet) > 140:
+                snippet = snippet[:139] + "…"
+            print(
+                f"[{row.get('source_kind')}:{row.get('source_label')}] "
+                f"kind={row.get('derivation_kind')} extractor={row.get('extractor')} "
+                f"snippet={snippet}"
+            )
+    print(
+        f"Derived-text search workspace={args.workspace} query={args.query!r} results={len(rows)} "
+        f"kind={args.kind or 'any'} source_kind={args.source_kind or 'any'}"
+    )
+    return 0
+
+
 def cmd_search_query_dir(args: argparse.Namespace) -> int:
     from slack_mirror.search.dir_adapter import query_directory
 
@@ -1023,6 +1061,30 @@ def cmd_embeddings_process(args: argparse.Namespace) -> int:
     )
     print(
         f"Embedding jobs workspace={args.workspace} model={args.model} jobs={result['jobs']} "
+        f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']}"
+    )
+    return 0 if result["errored"] == 0 else 1
+
+
+def cmd_process_derived_text_jobs(args: argparse.Namespace) -> int:
+    from slack_mirror.sync.derived_text import process_derived_text_jobs
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    result = process_derived_text_jobs(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        derivation_kind=args.kind,
+        limit=args.limit,
+    )
+    print(
+        f"Derived-text jobs workspace={args.workspace} kind={args.kind} jobs={result['jobs']} "
         f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']}"
     )
     return 0 if result["errored"] == 0 else 1
@@ -1223,7 +1285,7 @@ _slack_mirror_complete() {
   local mcp_sub="serve"
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live"
-  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
+  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -1279,7 +1341,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -1300,7 +1362,7 @@ except Exception:
             return 0
             ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --profile --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --rerank --rerank-top-n --no-fts --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --profile --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --rerank --rerank-top-n --no-fts --kind --source-kind --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -1380,7 +1442,7 @@ _slack_mirror() {
   mcp_sub=(serve)
   release_sub=(check)
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live)
-  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
+  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
   if (( CURRENT == 2 )); then
@@ -1447,7 +1509,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -1473,6 +1535,8 @@ _slack_mirror() {
         '--rerank[apply optional heuristic reranking]' \
         '--rerank-top-n[top N rerank window]:number:' \
         '--no-fts[disable FTS prefilter]' \
+        '--kind[derived-text kind filter]:kind:(attachment_text ocr_text)' \
+        '--source-kind[derived-text source-kind filter]:source-kind:(file canvas)' \
         '--json[json output]'
       ;;
     completion)
@@ -1675,6 +1739,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_emb_process.add_argument("--limit", type=int, default=200, help="maximum jobs to process")
     p_emb_process.set_defaults(func=cmd_embeddings_process)
 
+    p_derived_process = mirror_sub.add_parser("process-derived-text-jobs", help="process queued derived-text extraction jobs")
+    p_derived_process.add_argument("--workspace", required=True, help="workspace name")
+    p_derived_process.add_argument(
+        "--kind",
+        choices=["attachment_text", "ocr_text"],
+        default="attachment_text",
+        help="derived-text kind to process",
+    )
+    p_derived_process.add_argument("--limit", type=int, default=100, help="maximum jobs to process")
+    p_derived_process.set_defaults(func=cmd_process_derived_text_jobs)
+
     p_oauth = mirror_sub.add_parser("oauth-callback", help="run local HTTPS Slack OAuth callback handler")
     p_oauth.add_argument("--workspace", required=True, help="workspace name from config")
     p_oauth.add_argument("--client-id", help="Slack app client ID (defaults to workspace config client_id)")
@@ -1845,6 +1920,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_sem.add_argument("--rerank-top-n", type=int, default=50, help="top N rows to rerank when --rerank is enabled")
     p_search_sem.add_argument("--json", action="store_true", help="json output")
     p_search_sem.set_defaults(func=cmd_search_semantic)
+
+    p_search_derived = search_sub.add_parser("derived-text", help="search extracted attachment, canvas, and OCR text")
+    p_search_derived.add_argument("--workspace", required=True, help="workspace name")
+    p_search_derived.add_argument("--query", required=True, help="query text")
+    p_search_derived.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_derived.add_argument(
+        "--kind",
+        choices=["attachment_text", "ocr_text"],
+        default=None,
+        help="optional derived-text kind filter",
+    )
+    p_search_derived.add_argument(
+        "--source-kind",
+        choices=["file", "canvas"],
+        default=None,
+        help="optional source kind filter",
+    )
+    p_search_derived.add_argument("--json", action="store_true", help="json output")
+    p_search_derived.set_defaults(func=cmd_search_derived_text)
 
     p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
     p_search_dir.add_argument("--path", required=True, help="root directory")

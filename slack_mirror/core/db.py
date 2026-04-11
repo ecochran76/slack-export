@@ -1,6 +1,7 @@
 import json
 import sqlite3
 from array import array
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -253,6 +254,172 @@ def mark_embedding_job_status(
         )
 
 
+def enqueue_derived_text_job(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    source_kind: str,
+    source_id: str,
+    derivation_kind: str = "attachment_text",
+    reason: str = "upsert",
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO derived_text_jobs(workspace_id, source_kind, source_id, derivation_kind, reason, status)
+            VALUES (?, ?, ?, ?, ?, 'pending')
+            ON CONFLICT(workspace_id, source_kind, source_id, derivation_kind) DO UPDATE SET
+              reason=excluded.reason,
+              status='pending',
+              error=NULL,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (workspace_id, source_kind, source_id, derivation_kind, reason),
+        )
+
+
+def list_pending_derived_text_jobs(
+    conn: sqlite3.Connection,
+    workspace_id: int,
+    *,
+    derivation_kind: str = "attachment_text",
+    limit: int = 100,
+) -> list[sqlite3.Row]:
+    return list(
+        conn.execute(
+            """
+            SELECT id, workspace_id, source_kind, source_id, derivation_kind, reason, status, error, created_at, updated_at
+            FROM derived_text_jobs
+            WHERE workspace_id = ? AND derivation_kind = ? AND status = 'pending'
+            ORDER BY id ASC
+            LIMIT ?
+            """,
+            (workspace_id, derivation_kind, limit),
+        )
+    )
+
+
+def mark_derived_text_job_status(
+    conn: sqlite3.Connection,
+    *,
+    job_id: int,
+    status: str,
+    error: str | None = None,
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            UPDATE derived_text_jobs
+            SET status = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (status, error, job_id),
+        )
+
+
+def upsert_derived_text(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    source_kind: str,
+    source_id: str,
+    derivation_kind: str,
+    extractor: str,
+    text: str,
+    media_type: str | None = None,
+    local_path: str | None = None,
+    language_code: str | None = None,
+    confidence: float | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    normalized_text = (text or "").strip()
+    if not normalized_text:
+        raise ValueError("derived text must not be empty")
+    content_hash = sha256(normalized_text.encode("utf-8")).hexdigest()
+    payload = json.dumps(metadata or {}, sort_keys=True)
+
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO derived_text(
+              workspace_id, source_kind, source_id, derivation_kind, extractor, text, content_hash,
+              media_type, local_path, language_code, confidence, metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workspace_id, source_kind, source_id, derivation_kind, extractor) DO UPDATE SET
+              text=excluded.text,
+              content_hash=excluded.content_hash,
+              media_type=excluded.media_type,
+              local_path=excluded.local_path,
+              language_code=excluded.language_code,
+              confidence=excluded.confidence,
+              metadata_json=excluded.metadata_json,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                workspace_id,
+                source_kind,
+                source_id,
+                derivation_kind,
+                extractor,
+                normalized_text,
+                content_hash,
+                media_type,
+                local_path,
+                language_code,
+                confidence,
+                payload,
+            ),
+        )
+        conn.execute(
+            """
+            DELETE FROM derived_text_fts
+            WHERE workspace_id = ?
+              AND source_kind = ?
+              AND source_id = ?
+              AND derivation_kind = ?
+              AND extractor = ?
+            """,
+            (workspace_id, source_kind, source_id, derivation_kind, extractor),
+        )
+        conn.execute(
+            """
+            INSERT INTO derived_text_fts(workspace_id, source_kind, source_id, derivation_kind, extractor, text)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (workspace_id, source_kind, source_id, derivation_kind, extractor, normalized_text),
+        )
+
+
+def get_derived_text(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    source_kind: str,
+    source_id: str,
+    derivation_kind: str,
+    extractor: str | None = None,
+) -> dict[str, Any] | None:
+    sql = """
+        SELECT
+          id, workspace_id, source_kind, source_id, derivation_kind, extractor, text, content_hash,
+          media_type, local_path, language_code, confidence, metadata_json, created_at, updated_at
+        FROM derived_text
+        WHERE workspace_id = ? AND source_kind = ? AND source_id = ? AND derivation_kind = ?
+    """
+    params: list[Any] = [workspace_id, source_kind, source_id, derivation_kind]
+    if extractor is not None:
+        sql += " AND extractor = ?"
+        params.append(extractor)
+    sql += " ORDER BY updated_at DESC, id DESC LIMIT 1"
+    row = conn.execute(sql, params).fetchone()
+    if not row:
+        return None
+    out = dict(row)
+    out["metadata"] = json.loads(out.get("metadata_json") or "{}")
+    return out
+
+
 def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str, message: dict[str, Any]) -> None:
     ts = message.get("ts")
     if not ts:
@@ -460,6 +627,15 @@ def upsert_file(conn: sqlite3.Connection, workspace_id: int, file_obj: dict[str,
                 json.dumps(file_obj, sort_keys=True),
             ),
         )
+    if local_path:
+        enqueue_derived_text_job(
+            conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id=str(file_obj.get("id") or ""),
+            derivation_kind="attachment_text",
+            reason="file_upsert",
+        )
 
 
 def upsert_canvas(
@@ -484,6 +660,15 @@ def upsert_canvas(
                 json.dumps(canvas_obj, sort_keys=True),
             ),
         )
+    if local_path:
+        enqueue_derived_text_job(
+            conn,
+            workspace_id=workspace_id,
+            source_kind="canvas",
+            source_id=str(canvas_obj.get("id") or ""),
+            derivation_kind="attachment_text",
+            reason="canvas_upsert",
+        )
 
 
 def update_file_download(
@@ -498,6 +683,14 @@ def update_file_download(
             """,
             (local_path, checksum, workspace_id, file_id),
         )
+    enqueue_derived_text_job(
+        conn,
+        workspace_id=workspace_id,
+        source_kind="file",
+        source_id=file_id,
+        derivation_kind="attachment_text",
+        reason="file_download",
+    )
 
 
 def insert_event(

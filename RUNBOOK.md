@@ -428,3 +428,23 @@ This file is the dated turn log for planning and execution continuity.
 - Updated `ROADMAP.md` so `P03` is now `OPEN` with one bounded active plan instead of remaining a parked lane with only legacy context.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 28 | 2026-04-11
+
+- Landed the first implementation slice under `0006 | Search Evaluation Modernization`.
+- Added first-class shared-core derived-text storage:
+  - `derived_text`
+  - `derived_text_fts`
+  - `derived_text_jobs`
+- Added the first document-native extraction path:
+  - canvas HTML extraction
+  - UTF-8 text-like file extraction
+  - machine-readable PDF extraction when `pdftotext` is available
+- Added operator surfaces:
+  - `slack-mirror mirror process-derived-text-jobs`
+  - `slack-mirror search derived-text`
+- Wrote the ownership contract in `docs/dev/DERIVED_TEXT_CONTRACT.md` so `attachment_text` and `ocr_text` semantics are explicit before OCR and broader hybrid retrieval expand further.
+- Kept OCR as a modeled but still-open path rather than pretending the first slice solved image-derived extraction.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_db tests.test_search tests.test_derived_text tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

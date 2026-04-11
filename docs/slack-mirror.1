@@ -170,7 +170,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 **Usage**
 
 usage: slack-mirror mirror [-h]
-                           {init,backfill,embeddings-backfill,process-embedding-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 
 **Arguments**
@@ -185,6 +185,8 @@ usage: slack-mirror mirror [-h]
 `init`
 .IP \[bu] 2
 `oauth-callback`
+.IP \[bu] 2
+`process-derived-text-jobs`
 .IP \[bu] 2
 `process-embedding-jobs`
 .IP \[bu] 2
@@ -342,6 +344,21 @@ usage: slack-mirror mirror oauth-callback [-h] --workspace WORKSPACE
 
 slack-mirror --config config.yaml mirror oauth-callback --workspace default --cert-file ./localhost+2.pem --key-file ./localhost+2-key.pem --scopes chat:write,channels:history --open-browser
 
+.SH SLACK-MIRROR MIRROR PROCESS-DERIVED-TEXT-JOBS
+**Usage**
+
+usage: slack-mirror mirror process-derived-text-jobs [-h] --workspace
+                                                     WORKSPACE
+                                                     [--kind {attachment_text,ocr_text}]
+                                                     [--limit LIMIT]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--kind` — derived-text kind to process; default: `attachment_text`
+.IP \[bu] 2
+`--limit` — maximum jobs to process; default: `100`
 .SH SLACK-MIRROR MIRROR PROCESS-EMBEDDING-JOBS
 **Usage**
 
@@ -515,10 +532,13 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,query-dir} ...
+                           {reindex-keyword,keyword,semantic,derived-text,query-dir}
+                           ...
 
 **Arguments**
 **Subcommands**
+.IP \[bu] 2
+`derived-text`
 .IP \[bu] 2
 `keyword`
 .IP \[bu] 2
@@ -527,6 +547,27 @@ usage: slack-mirror search [-h]
 `reindex-keyword`
 .IP \[bu] 2
 `semantic`
+.SH SLACK-MIRROR SEARCH DERIVED-TEXT
+**Usage**
+
+usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
+                                        QUERY [--limit LIMIT]
+                                        [--kind {attachment_text,ocr_text}]
+                                        [--source-kind {file,canvas}] [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--query` — query text
+.IP \[bu] 2
+`--limit` — maximum result rows; default: `20`
+.IP \[bu] 2
+`--kind` — optional derived-text kind filter
+.IP \[bu] 2
+`--source-kind` — optional source kind filter
+.IP \[bu] 2
+`--json` — json output
 .SH SLACK-MIRROR SEARCH KEYWORD
 **Usage**
 

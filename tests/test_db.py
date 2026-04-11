@@ -5,12 +5,14 @@ from pathlib import Path
 from slack_mirror.core.db import (
     apply_migrations,
     connect,
+    get_derived_text,
     get_message_embedding,
     get_sync_state,
     list_recent_thread_roots,
     list_workspaces,
     remove_channel_member,
     set_sync_state,
+    upsert_derived_text,
     upsert_canvas,
     upsert_channel,
     upsert_channel_member,
@@ -124,6 +126,41 @@ class DbTests(unittest.TestCase):
             canvas_count = conn.execute("SELECT COUNT(*) AS c FROM canvases").fetchone()["c"]
             self.assertEqual(file_count, 1)
             self.assertEqual(canvas_count, 1)
+
+            derived_job_count = conn.execute("SELECT COUNT(*) AS c FROM derived_text_jobs WHERE status='pending'").fetchone()["c"]
+            self.assertEqual(derived_job_count, 2)
+
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text="alpha bravo charlie",
+                media_type="text/plain",
+                local_path="cache/files/F1/a.txt",
+                metadata={"origin": "test"},
+            )
+            derived = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+            )
+            self.assertIsNotNone(derived)
+            self.assertEqual(derived["extractor"], "utf8_text")
+            self.assertEqual(derived["metadata"]["origin"], "test")
+            derived_fts_count = conn.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM derived_text_fts
+                WHERE workspace_id = ? AND source_kind = 'file' AND source_id = 'F1'
+                """,
+                (ws_id,),
+            ).fetchone()["c"]
+            self.assertEqual(derived_fts_count, 1)
 
 
 if __name__ == "__main__":

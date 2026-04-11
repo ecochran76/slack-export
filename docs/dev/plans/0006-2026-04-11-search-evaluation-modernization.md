@@ -27,7 +27,16 @@ to a world-class search stack with:
 - lexical search uses `messages_fts`
 - semantic search uses `message_embeddings`
 - the current semantic baseline is SQLite-first and local-model-friendly, but it is still message-centric
-- attachment, canvas, PDF, and OCR-derived text are not yet first-class searchable surfaces in the current search path
+- first-class derived-text storage is now landed through:
+  - `derived_text`
+  - `derived_text_fts`
+  - `derived_text_jobs`
+- the first document-native extraction slice is landed for:
+  - downloaded canvas HTML
+  - safe UTF-8 text-like files
+  - machine-readable PDFs when `pdftotext` is available
+- `search derived-text` and `mirror process-derived-text-jobs` now expose that first shared-core non-message text surface
+- OCR, chunking, cross-workspace retrieval semantics, and evaluation hardening still remain open
 - the current roadmap text is directionally right, but the active repo needs one explicit modernization plan instead of relying on older Phase E/F notes
 
 ## Cross-Repo Comparison

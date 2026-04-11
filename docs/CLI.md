@@ -219,7 +219,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 
 ```
 usage: slack-mirror mirror [-h]
-                           {init,backfill,embeddings-backfill,process-embedding-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 ```
 
@@ -233,6 +233,7 @@ usage: slack-mirror mirror [-h]
 - `embeddings-backfill`
 - `init`
 - `oauth-callback`
+- `process-derived-text-jobs`
 - `process-embedding-jobs`
 - `process-events`
 - `serve-socket-mode`
@@ -371,6 +372,23 @@ usage: slack-mirror mirror oauth-callback [-h] --workspace WORKSPACE
 ```
 slack-mirror --config config.yaml mirror oauth-callback --workspace default --cert-file ./localhost+2.pem --key-file ./localhost+2-key.pem --scopes chat:write,channels:history --open-browser
 ```
+
+
+### `slack-mirror mirror process-derived-text-jobs`
+**Usage**
+
+```
+usage: slack-mirror mirror process-derived-text-jobs [-h] --workspace
+                                                     WORKSPACE
+                                                     [--kind {attachment_text,ocr_text}]
+                                                     [--limit LIMIT]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--kind` — derived-text kind to process; default: `attachment_text`
+- `--limit` — maximum jobs to process; default: `100`
 
 
 ### `slack-mirror mirror process-embedding-jobs`
@@ -554,7 +572,8 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,query-dir} ...
+                           {reindex-keyword,keyword,semantic,derived-text,query-dir}
+                           ...
 ```
 
 **Arguments**
@@ -562,10 +581,31 @@ usage: slack-mirror search [-h]
 
 **Subcommands**
 
+- `derived-text`
 - `keyword`
 - `query-dir`
 - `reindex-keyword`
 - `semantic`
+
+### `slack-mirror search derived-text`
+**Usage**
+
+```
+usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
+                                        QUERY [--limit LIMIT]
+                                        [--kind {attachment_text,ocr_text}]
+                                        [--source-kind {file,canvas}] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--query` — query text
+- `--limit` — maximum result rows; default: `20`
+- `--kind` — optional derived-text kind filter
+- `--source-kind` — optional source kind filter
+- `--json` — json output
+
 
 ### `slack-mirror search keyword`
 **Usage**
