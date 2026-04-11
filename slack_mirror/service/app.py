@@ -456,6 +456,8 @@ class SlackMirrorAppService:
         limit: int = 10,
         model_id: str = "local-hash-128",
         min_hit_at_3: float = 0.5,
+        min_hit_at_10: float = 0.8,
+        min_ndcg_at_k: float = 0.6,
         max_latency_p95_ms: float = 800.0,
     ) -> dict[str, Any]:
         readiness = self.search_readiness(conn, workspace=workspace)
@@ -466,6 +468,7 @@ class SlackMirrorAppService:
             "status": "pass" if readiness["status"] == "ready" else "degraded",
             "readiness": readiness,
             "benchmark": None,
+            "benchmark_thresholds": None,
             "failure_codes": [],
             "warning_codes": [],
         }
@@ -483,11 +486,46 @@ class SlackMirrorAppService:
                 limit=limit,
                 model_id=model_id,
             )
+            benchmark["dataset_path"] = dataset_path
             report["benchmark"] = benchmark
+            report["benchmark_thresholds"] = {
+                "min_hit_at_3": float(min_hit_at_3),
+                "min_hit_at_10": float(min_hit_at_10),
+                "min_ndcg_at_k": float(min_ndcg_at_k),
+                "max_latency_p95_ms": float(max_latency_p95_ms),
+            }
             if float(benchmark["hit_at_3"]) < float(min_hit_at_3):
                 report["failure_codes"].append("BENCHMARK_HIT_AT_3_LOW")
+            if float(benchmark["hit_at_10"]) < float(min_hit_at_10):
+                report["failure_codes"].append("BENCHMARK_HIT_AT_10_LOW")
+            if float(benchmark["ndcg_at_k"]) < float(min_ndcg_at_k):
+                report["failure_codes"].append("BENCHMARK_NDCG_AT_K_LOW")
             if float(benchmark["latency_ms_p95"]) > float(max_latency_p95_ms):
                 report["failure_codes"].append("BENCHMARK_LATENCY_P95_HIGH")
+
+            query_reports = list(benchmark.get("query_reports") or [])
+            degraded_queries = [
+                {
+                    "query": row.get("query"),
+                    "ndcg_at_k": row.get("ndcg_at_k"),
+                    "hit_at_3": row.get("hit_at_3"),
+                    "hit_at_10": row.get("hit_at_10"),
+                    "latency_ms": row.get("latency_ms"),
+                }
+                for row in query_reports
+                if (
+                    float(row.get("ndcg_at_k") or 0.0) < float(min_ndcg_at_k)
+                    or not bool(row.get("hit_at_3"))
+                    or not bool(row.get("hit_at_10"))
+                )
+            ]
+            if degraded_queries:
+                report["warning_codes"].append("BENCHMARK_QUERY_DEGRADATION")
+                report["degraded_queries"] = degraded_queries
+            else:
+                report["degraded_queries"] = []
+        else:
+            report["degraded_queries"] = []
 
         if report["failure_codes"]:
             report["status"] = "fail"

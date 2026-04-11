@@ -75,7 +75,7 @@ Current state:
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
   - explicit cross-workspace corpus search through shared service, CLI, API, and MCP
   - API and MCP exposure for corpus search and machine-readable search readiness
-  - shared search-health gate over readiness plus optional corpus smoke and depth benchmarks
+  - shared search-health gate over readiness plus optional corpus smoke and depth benchmarks, with per-query benchmark diagnostics and stronger ranking-quality thresholds
 - remaining work is still substantial:
   - stronger ranking-quality evaluation and broader benchmark coverage
   - richer extraction coverage and search diagnostics

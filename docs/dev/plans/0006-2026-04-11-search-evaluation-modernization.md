@@ -44,6 +44,7 @@ to a world-class search stack with:
 - explicit cross-workspace corpus search is now landed through the shared service, CLI, API, and MCP instead of remaining a future-only goal
 - API and MCP now expose corpus search and machine-readable search readiness over the same shared service boundary
 - a shared search-health gate now exists over readiness plus optional benchmark execution
+- search-health now enforces stronger ranking-quality gates and exposes per-query benchmark diagnostics for misses and weak-ranking cases
 - chunk-aware derived-text retrieval is now landed through `derived_text_chunks` plus `derived_text_chunks_fts`
 - chunk-level matches now roll back up to shared-core derived-text results with snippet metadata instead of inventing a second document identity
 - a deeper corpus benchmark pack now exists alongside the smoke fixture for long-document and OCR retrieval checks

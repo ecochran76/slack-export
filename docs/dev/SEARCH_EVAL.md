@@ -110,7 +110,14 @@ Relevance labels:
 Current default benchmark thresholds:
 
 - `hit_at_3 >= 0.5`
+- `hit_at_10 >= 0.8`
+- `ndcg_at_k >= 0.6`
 - `latency_ms_p95 <= 800`
+
+Current benchmark diagnostics:
+
+- per-query `query_reports` are included in benchmark output
+- search health also reports `degraded_queries` for misses or weak ranking
 
 ## Suggested cadence
 

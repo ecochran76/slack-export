@@ -206,6 +206,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         limit=int(query.get("limit", [10])[0]),
                         model_id=str(query.get("model", ["local-hash-128"])[0]),
                         min_hit_at_3=float(query.get("min_hit_at_3", [0.5])[0]),
+                        min_hit_at_10=float(query.get("min_hit_at_10", [0.8])[0]),
+                        min_ndcg_at_k=float(query.get("min_ndcg_at_k", [0.6])[0]),
                         max_latency_p95_ms=float(query.get("max_latency_p95_ms", [800.0])[0]),
                     )
                 except Exception as exc:  # noqa: BLE001

@@ -182,18 +182,24 @@ Both return one shared health payload with:
   - the shared readiness payload
 - `benchmark`
   - optional benchmark report when a dataset is provided
+- `benchmark_thresholds`
+- `degraded_queries`
 - `failure_codes`
 - `warning_codes`
 
 Current benchmark gates:
 
 - `BENCHMARK_HIT_AT_3_LOW`
+- `BENCHMARK_HIT_AT_10_LOW`
+- `BENCHMARK_NDCG_AT_K_LOW`
 - `BENCHMARK_LATENCY_P95_HIGH`
 
 Current semantics:
 
 - health is a gate over readiness plus optional benchmark quality checks
 - readiness degradation currently becomes a warning unless benchmark failures also occur
+- benchmark output includes per-query diagnostics through `query_reports`
+- `degraded_queries` surfaces the subset of benchmark queries that missed ranking-quality floors or hit-rate expectations
 - benchmark execution is optional but should be used before ranking changes or release decisions that affect search behavior
 
 ## Outbound Write Success

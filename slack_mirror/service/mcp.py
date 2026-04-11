@@ -88,6 +88,8 @@ class SlackMirrorMcpServer:
                         "limit": {"type": "integer", "default": 10},
                         "model": {"type": "string", "default": "local-hash-128"},
                         "min_hit_at_3": {"type": "number", "default": 0.5},
+                        "min_hit_at_10": {"type": "number", "default": 0.8},
+                        "min_ndcg_at_k": {"type": "number", "default": 0.6},
                         "max_latency_p95_ms": {"type": "number", "default": 800.0},
                     },
                     "required": ["workspace"],
@@ -274,6 +276,8 @@ class SlackMirrorMcpServer:
                     limit=int(args.get("limit", 10)),
                     model_id=str(args.get("model", "local-hash-128")),
                     min_hit_at_3=float(args.get("min_hit_at_3", 0.5)),
+                    min_hit_at_10=float(args.get("min_hit_at_10", 0.8)),
+                    min_ndcg_at_k=float(args.get("min_ndcg_at_k", 0.6)),
                     max_latency_p95_ms=float(args.get("max_latency_p95_ms", 800.0)),
                 )
             )

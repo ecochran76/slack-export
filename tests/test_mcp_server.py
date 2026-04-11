@@ -303,7 +303,17 @@ class McpServerTests(unittest.TestCase):
                 "workspace": "default",
                 "status": "pass",
                 "readiness": {"workspace": "default", "status": "ready"},
-                "benchmark": {"corpus": "slack-corpus", "mode": "hybrid", "hit_at_3": 1.0, "latency_ms_p95": 10.0},
+                "benchmark": {
+                    "corpus": "slack-corpus",
+                    "mode": "hybrid",
+                    "hit_at_3": 1.0,
+                    "hit_at_10": 1.0,
+                    "ndcg_at_k": 1.0,
+                    "latency_ms_p95": 10.0,
+                    "query_reports": [{"query": "incident review", "hit_at_3": True, "hit_at_10": True, "ndcg_at_k": 1.0, "latency_ms": 10.0}],
+                },
+                "benchmark_thresholds": {"min_hit_at_3": 0.5, "min_hit_at_10": 0.8, "min_ndcg_at_k": 0.6, "max_latency_p95_ms": 800.0},
+                "degraded_queries": [],
                 "failure_codes": [],
                 "warning_codes": [],
             },
@@ -315,7 +325,7 @@ class McpServerTests(unittest.TestCase):
                     "method": "tools/call",
                     "params": {
                         "name": "search.health",
-                        "arguments": {"workspace": "default", "dataset_path": "docs/dev/benchmarks/slack_corpus_smoke.jsonl"},
+                        "arguments": {"workspace": "default", "dataset_path": "docs/dev/benchmarks/slack_corpus_smoke.jsonl", "min_hit_at_10": 0.8, "min_ndcg_at_k": 0.6},
                     },
                 }
             )

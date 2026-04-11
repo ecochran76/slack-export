@@ -653,6 +653,8 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
                                   [--mode {lexical,semantic,hybrid}]
                                   [--limit LIMIT] [--model MODEL]
                                   [--min-hit-at-3 MIN_HIT_AT_3]
+                                  [--min-hit-at-10 MIN_HIT_AT_10]
+                                  [--min-ndcg-at-k MIN_NDCG_AT_K]
                                   [--max-latency-p95-ms MAX_LATENCY_P95_MS]
                                   [--json]
 ```
@@ -665,6 +667,8 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
 - `--limit` — benchmark result window; default: `10`
 - `--model` — embedding model id for benchmark mode; default: `local-hash-128`
 - `--min-hit-at-3` — minimum acceptable hit@3 when dataset is provided; default: `0.5`
+- `--min-hit-at-10` — minimum acceptable hit@10 when dataset is provided; default: `0.8`
+- `--min-ndcg-at-k` — minimum acceptable ndcg@k when dataset is provided; default: `0.6`
 - `--max-latency-p95-ms` — maximum acceptable benchmark latency p95; default: `800.0`
 - `--json` — json output
 

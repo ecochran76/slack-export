@@ -388,6 +388,10 @@ class CliTests(unittest.TestCase):
                 "12",
                 "--min-hit-at-3",
                 "0.6",
+                "--min-hit-at-10",
+                "0.85",
+                "--min-ndcg-at-k",
+                "0.7",
                 "--max-latency-p95-ms",
                 "700",
                 "--json",
@@ -399,6 +403,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.mode, "hybrid")
         self.assertEqual(args.limit, 12)
         self.assertEqual(args.min_hit_at_3, 0.6)
+        self.assertEqual(args.min_hit_at_10, 0.85)
+        self.assertEqual(args.min_ndcg_at_k, 0.7)
         self.assertEqual(args.max_latency_p95_ms, 700.0)
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))

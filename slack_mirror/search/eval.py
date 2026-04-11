@@ -53,6 +53,7 @@ def _summarize_report(
     hit3: int,
     hit10: int,
     lats: list[float],
+    query_reports: list[dict[str, Any]] | None = None,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     report = {
@@ -65,6 +66,7 @@ def _summarize_report(
         "hit_at_10": round(hit10 / total, 6),
         "latency_ms_p50": round(statistics.median(lats), 3),
         "latency_ms_p95": round(sorted(lats)[max(0, math.ceil(total * 0.95) - 1)], 3),
+        "query_reports": query_reports or [],
     }
     if extra:
         report.update(extra)
@@ -85,6 +87,7 @@ def evaluate_message_search(
     hit3 = 0
     hit10 = 0
     lats: list[float] = []
+    query_reports: list[dict[str, Any]] = []
 
     for row in dataset:
         query = row["query"]
@@ -108,9 +111,22 @@ def evaluate_message_search(
                 pred.append(f"{r.get('channel_name')}:{r.get('ts')}")
         ndcgs.append(ndcg_at_k(pred, truth, limit))
         mrrs.append(mrr_at_k(pred, truth, limit))
-        hit3 += 1 if any(truth.get(x, 0) > 0 for x in pred[:3]) else 0
-        hit10 += 1 if any(truth.get(x, 0) > 0 for x in pred[:10]) else 0
+        query_hit3 = 1 if any(truth.get(x, 0) > 0 for x in pred[:3]) else 0
+        query_hit10 = 1 if any(truth.get(x, 0) > 0 for x in pred[:10]) else 0
+        hit3 += query_hit3
+        hit10 += query_hit10
         lats.append(lat_ms)
+        query_reports.append(
+            {
+                "query": query,
+                "ndcg_at_k": round(ndcgs[-1], 6),
+                "mrr_at_k": round(mrrs[-1], 6),
+                "hit_at_3": bool(query_hit3),
+                "hit_at_10": bool(query_hit10),
+                "latency_ms": round(lat_ms, 3),
+                "top_results": pred[: min(limit, 10)],
+            }
+        )
 
     return _summarize_report(
         corpus="slack-db",
@@ -121,6 +137,7 @@ def evaluate_message_search(
         hit3=hit3,
         hit10=hit10,
         lats=lats,
+        query_reports=query_reports,
     )
 
 
@@ -138,6 +155,7 @@ def evaluate_corpus_search(
     hit3 = 0
     hit10 = 0
     lats: list[float] = []
+    query_reports: list[dict[str, Any]] = []
 
     for row in dataset:
         query = row["query"]
@@ -168,9 +186,22 @@ def evaluate_corpus_search(
                     pred.append(str(r.get("source_label")))
         ndcgs.append(ndcg_at_k(pred, truth, limit))
         mrrs.append(mrr_at_k(pred, truth, limit))
-        hit3 += 1 if any(truth.get(x, 0) > 0 for x in pred[:3]) else 0
-        hit10 += 1 if any(truth.get(x, 0) > 0 for x in pred[:10]) else 0
+        query_hit3 = 1 if any(truth.get(x, 0) > 0 for x in pred[:3]) else 0
+        query_hit10 = 1 if any(truth.get(x, 0) > 0 for x in pred[:10]) else 0
+        hit3 += query_hit3
+        hit10 += query_hit10
         lats.append(lat_ms)
+        query_reports.append(
+            {
+                "query": query,
+                "ndcg_at_k": round(ndcgs[-1], 6),
+                "mrr_at_k": round(mrrs[-1], 6),
+                "hit_at_3": bool(query_hit3),
+                "hit_at_10": bool(query_hit10),
+                "latency_ms": round(lat_ms, 3),
+                "top_results": pred[: min(limit, 10)],
+            }
+        )
 
     return _summarize_report(
         corpus="slack-corpus",
@@ -181,4 +212,5 @@ def evaluate_corpus_search(
         hit3=hit3,
         hit10=hit10,
         lats=lats,
+        query_reports=query_reports,
     )

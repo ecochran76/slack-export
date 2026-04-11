@@ -560,3 +560,21 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 35 | 2026-04-11
+
+- Landed the next `P03` evaluation-hardening slice.
+- Tightened search-health quality gating beyond the earlier single hit-rate threshold.
+- Benchmark-backed search health now checks:
+  - `hit_at_3`
+  - `hit_at_10`
+  - `ndcg_at_k`
+  - `latency_ms_p95`
+- Added per-query benchmark diagnostics to the shared eval/report path:
+  - `query_reports` on benchmark output
+  - `degraded_queries` on search-health output
+- Kept the stricter quality contract aligned across CLI, API, and MCP surfaces.
+- Validation:
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

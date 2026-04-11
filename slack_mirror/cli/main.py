@@ -1050,6 +1050,8 @@ def cmd_search_health(args: argparse.Namespace) -> int:
         limit=args.limit,
         model_id=args.model,
         min_hit_at_3=args.min_hit_at_3,
+        min_hit_at_10=args.min_hit_at_10,
+        min_ndcg_at_k=args.min_ndcg_at_k,
         max_latency_p95_ms=args.max_latency_p95_ms,
     )
     if args.json:
@@ -2083,6 +2085,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health.add_argument("--limit", type=int, default=10, help="benchmark result window")
     p_search_health.add_argument("--model", default="local-hash-128", help="embedding model id for benchmark mode")
     p_search_health.add_argument("--min-hit-at-3", type=float, default=0.5, help="minimum acceptable hit@3 when dataset is provided")
+    p_search_health.add_argument("--min-hit-at-10", type=float, default=0.8, help="minimum acceptable hit@10 when dataset is provided")
+    p_search_health.add_argument("--min-ndcg-at-k", type=float, default=0.6, help="minimum acceptable ndcg@k when dataset is provided")
     p_search_health.add_argument("--max-latency-p95-ms", type=float, default=800.0, help="maximum acceptable benchmark latency p95")
     p_search_health.add_argument("--json", action="store_true", help="json output")
     p_search_health.set_defaults(func=cmd_search_health)

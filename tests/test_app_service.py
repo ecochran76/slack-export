@@ -142,6 +142,43 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(health["readiness"]["status"], "ready")
         self.assertIsNotNone(health["benchmark"])
         self.assertGreaterEqual(health["benchmark"]["hit_at_3"], 0.5)
+        self.assertEqual(health["benchmark"]["dataset_path"], str(dataset))
+        self.assertIn("query_reports", health["benchmark"])
+        self.assertEqual(health["benchmark_thresholds"]["min_hit_at_10"], 0.8)
+
+    def test_search_health_fails_on_low_ndcg_and_hit_at_10(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "irrelevant first result", "channel": "C123"},
+        )
+
+        dataset = self.root / "search_eval_bad.jsonl"
+        dataset.write_text(
+            '{"query":"incident review","relevant":{"missing:result":2}}\n',
+            encoding="utf-8",
+        )
+
+        health = self.service.search_health(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            mode="lexical",
+            limit=10,
+            min_hit_at_3=0.5,
+            min_hit_at_10=0.8,
+            min_ndcg_at_k=0.6,
+        )
+
+        self.assertEqual(health["status"], "fail")
+        self.assertIn("BENCHMARK_HIT_AT_10_LOW", health["failure_codes"])
+        self.assertIn("BENCHMARK_NDCG_AT_K_LOW", health["failure_codes"])
+        self.assertIn("BENCHMARK_QUERY_DEGRADATION", health["warning_codes"])
+        self.assertEqual(len(health["degraded_queries"]), 1)
 
     def test_corpus_search_can_aggregate_all_workspaces(self):
         default_id = self.service.workspace_id(self.conn, "default")
