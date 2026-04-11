@@ -33,6 +33,7 @@ slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_tex
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid
+slack-mirror search corpus --all-workspaces --query "incident review" --mode hybrid
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_depth.jsonl
@@ -50,6 +51,7 @@ The current repo has:
 - a queued attachment-text extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
 - an OCR-derived text path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
 - a corpus-wide hybrid search path over messages plus derived text through `search corpus`
+- an explicit cross-workspace corpus-search path through `search corpus --all-workspaces`
 - chunk-aware derived-text retrieval so long attachments and OCR-heavy documents surface the matching segment instead of only the top-level document row
 - a machine-readable search health path over readiness plus optional smoke benchmarks through `search health`
 

@@ -61,6 +61,10 @@ class McpServerTests(unittest.TestCase):
                     "    team_id: T123",
                     "    token: xoxb-test-token",
                     "    user_token: xoxp-test-token",
+                    "  - name: soylei",
+                    "    team_id: T456",
+                    "    token: xoxb-soylei-token",
+                    "    user_token: xoxp-soylei-token",
                     "",
                 ]
             ),
@@ -273,10 +277,22 @@ class McpServerTests(unittest.TestCase):
                     },
                 }
             )
+            corpus_all = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 64,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.corpus",
+                        "arguments": {"all_workspaces": True, "query": "incident review", "mode": "hybrid"},
+                    },
+                }
+            )
 
         self.assertIn('"result_kind": "message"', corpus["result"]["content"][0]["text"])
+        self.assertIn('"result_kind": "message"', corpus_all["result"]["content"][0]["text"])
         self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
-        mock_corpus.assert_called_once()
+        self.assertEqual(mock_corpus.call_count, 2)
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
 
     def test_search_health_tool(self):

@@ -73,6 +73,7 @@ Current state:
   - document-native extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
   - OCR extraction path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
+  - explicit cross-workspace corpus search through shared service, CLI, API, and MCP
   - API and MCP exposure for corpus search and machine-readable search readiness
   - shared search-health gate over readiness plus optional corpus smoke and depth benchmarks
 - remaining work is still substantial:

@@ -353,6 +353,25 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_corpus_all_workspaces(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "corpus",
+                "--all-workspaces",
+                "--query",
+                "incident review",
+                "--mode",
+                "hybrid",
+            ]
+        )
+        self.assertTrue(args.all_workspaces)
+        self.assertIsNone(args.workspace)
+        self.assertEqual(args.query, "incident review")
+        self.assertEqual(args.mode, "hybrid")
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_health(self):
         parser = build_parser()
         args = parser.parse_args(

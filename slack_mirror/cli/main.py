@@ -982,18 +982,12 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
 
 
 def cmd_search_corpus(args: argparse.Namespace) -> int:
-    from slack_mirror.search.corpus import search_corpus
+    from slack_mirror.service.app import get_app_service
 
-    cfg = load_config(args.config)
-    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
-    conn = connect(db_path)
-    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    service = get_app_service(args.config)
+    conn = service.connect()
 
-    ws_row = get_workspace_by_name(conn, args.workspace)
-    if not ws_row:
-        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
-
-    search_cfg = cfg.get("search", {})
+    search_cfg = service.config.get("search", {})
     semantic_cfg = search_cfg.get("semantic", {})
     mode = args.mode or semantic_cfg.get("mode_default", "hybrid")
     model = args.model or semantic_cfg.get("model", "local-hash-128")
@@ -1001,9 +995,10 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
     semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
     semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
 
-    rows = search_corpus(
+    rows = service.corpus_search(
         conn,
-        workspace_id=int(ws_row["id"]),
+        workspace=args.workspace,
+        all_workspaces=bool(args.all_workspaces),
         query=args.query,
         limit=args.limit,
         mode=mode,
@@ -1019,11 +1014,13 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
         print(json.dumps(rows, indent=2))
     else:
         for row in rows:
+            workspace_label = str(row.get("workspace") or "").strip()
             label = row.get("source_label") or row.get("channel_name") or row.get("channel_id") or row.get("source_id")
             snippet = str(row.get("snippet_text") or row.get("matched_text") or row.get("text") or "").replace("\n", " ").strip()
             if len(snippet) > 160:
                 snippet = snippet[:159] + "…"
-            line = f"[{row.get('result_kind')}:{label}] {snippet}"
+            prefix = f"{workspace_label}/" if workspace_label else ""
+            line = f"[{prefix}{row.get('result_kind')}:{label}] {snippet}"
             if args.explain:
                 line += (
                     f" | src={row.get('_source')}"
@@ -1032,8 +1029,9 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
                     f" hyb={row.get('_hybrid_score', 0)}"
                 )
             print(line)
+    scope = "all" if args.all_workspaces else str(args.workspace)
     print(
-        f"Corpus search workspace={args.workspace} mode={mode} query={args.query!r} results={len(rows)} "
+        f"Corpus search workspace={scope} mode={mode} query={args.query!r} results={len(rows)} "
         f"kind={args.kind or 'any'} source_kind={args.source_kind or 'any'}"
     )
     return 0
@@ -2051,7 +2049,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_derived.set_defaults(func=cmd_search_derived_text)
 
     p_search_corpus = search_sub.add_parser("corpus", help="search messages plus derived attachment and OCR text")
-    p_search_corpus.add_argument("--workspace", required=True, help="workspace name")
+    p_search_scope = p_search_corpus.add_mutually_exclusive_group(required=True)
+    p_search_scope.add_argument("--workspace", help="workspace name")
+    p_search_scope.add_argument("--all-workspaces", action="store_true", help="search across all enabled workspaces")
     p_search_corpus.add_argument("--query", required=True, help="query text")
     p_search_corpus.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_corpus.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="corpus retrieval mode")

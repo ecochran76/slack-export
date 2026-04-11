@@ -41,12 +41,13 @@ to a world-class search stack with:
   - PDFs with a real text layer are kept as `attachment_text` and explicitly skipped for `ocr_text`
 - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` now expose the current shared-core non-message and cross-corpus search surface
 - the current corpus baseline is lexical-first hybrid retrieval over messages plus derived text
+- explicit cross-workspace corpus search is now landed through the shared service, CLI, API, and MCP instead of remaining a future-only goal
 - API and MCP now expose corpus search and machine-readable search readiness over the same shared service boundary
 - a shared search-health gate now exists over readiness plus optional benchmark execution
 - chunk-aware derived-text retrieval is now landed through `derived_text_chunks` plus `derived_text_chunks_fts`
 - chunk-level matches now roll back up to shared-core derived-text results with snippet metadata instead of inventing a second document identity
 - a deeper corpus benchmark pack now exists alongside the smoke fixture for long-document and OCR retrieval checks
-- cross-workspace retrieval semantics and richer evaluation hardening still remain open
+- richer evaluation hardening still remains open
 - the current roadmap text is directionally right, but the active repo needs one explicit modernization plan instead of relying on older Phase E/F notes
 
 ## Cross-Repo Comparison

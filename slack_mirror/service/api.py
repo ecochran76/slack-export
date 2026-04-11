@@ -160,6 +160,29 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 200, {"ok": True, "results": payload})
                 return
 
+            if path == "/v1/search/corpus":
+                conn = service.connect()
+                try:
+                    payload = service.corpus_search(
+                        conn,
+                        all_workspaces=True,
+                        query=str(query.get("query", [""])[0]),
+                        limit=int(query.get("limit", [20])[0]),
+                        mode=str(query.get("mode", ["hybrid"])[0]),
+                        model_id=str(query.get("model", ["local-hash-128"])[0]),
+                        lexical_weight=float(query.get("lexical_weight", [0.6])[0]),
+                        semantic_weight=float(query.get("semantic_weight", [0.4])[0]),
+                        semantic_scale=float(query.get("semantic_scale", [10.0])[0]),
+                        use_fts=query.get("no_fts", ["0"])[0] not in {"1", "true", "yes"},
+                        derived_kind=query.get("kind", [None])[0],
+                        derived_source_kind=query.get("source_kind", [None])[0],
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="search.corpus")
+                    return
+                _json_response(self, 200, {"ok": True, "scope": "all", "results": payload})
+                return
+
             m = re.fullmatch(r"/v1/workspaces/([^/]+)/search/readiness", path)
             if m:
                 conn = service.connect()

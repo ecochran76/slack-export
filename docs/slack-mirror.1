@@ -554,8 +554,9 @@ usage: slack-mirror search [-h]
 .SH SLACK-MIRROR SEARCH CORPUS
 **Usage**
 
-usage: slack-mirror search corpus [-h] --workspace WORKSPACE --query QUERY
-                                  [--limit LIMIT]
+usage: slack-mirror search corpus [-h]
+                                  (--workspace WORKSPACE | --all-workspaces)
+                                  --query QUERY [--limit LIMIT]
                                   [--mode {lexical,semantic,hybrid}]
                                   [--model MODEL]
                                   [--lexical-weight LEXICAL_WEIGHT]
@@ -568,6 +569,8 @@ usage: slack-mirror search corpus [-h] --workspace WORKSPACE --query QUERY
 **Options**
 .IP \[bu] 2
 `--workspace` — workspace name
+.IP \[bu] 2
+`--all-workspaces` — search across all enabled workspaces
 .IP \[bu] 2
 `--query` — query text
 .IP \[bu] 2

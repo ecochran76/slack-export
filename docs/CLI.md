@@ -593,8 +593,9 @@ usage: slack-mirror search [-h]
 **Usage**
 
 ```
-usage: slack-mirror search corpus [-h] --workspace WORKSPACE --query QUERY
-                                  [--limit LIMIT]
+usage: slack-mirror search corpus [-h]
+                                  (--workspace WORKSPACE | --all-workspaces)
+                                  --query QUERY [--limit LIMIT]
                                   [--mode {lexical,semantic,hybrid}]
                                   [--model MODEL]
                                   [--lexical-weight LEXICAL_WEIGHT]
@@ -608,6 +609,7 @@ usage: slack-mirror search corpus [-h] --workspace WORKSPACE --query QUERY
 **Options**
 
 - `--workspace` — workspace name
+- `--all-workspaces` — search across all enabled workspaces
 - `--query` — query text
 - `--limit` — maximum result rows; default: `20`
 - `--mode` — corpus retrieval mode

@@ -242,6 +242,22 @@ class SearchTests(unittest.TestCase):
             derived = next(row for row in rows if row["result_kind"] == "derived_text")
             self.assertIn("payment discrepancy", str(derived["snippet_text"]))
 
+    def test_search_corpus_sets_workspace_metadata(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "12.0", "text": "cross workspace metadata check", "user": "U1"})
+
+            rows = search_corpus(conn, workspace_id=ws_id, workspace_name="default", query="metadata check", limit=5, mode="lexical")
+            self.assertEqual(rows[0]["workspace"], "default")
+            self.assertEqual(rows[0]["workspace_id"], ws_id)
+
 
 if __name__ == "__main__":
     unittest.main()

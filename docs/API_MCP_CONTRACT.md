@@ -59,6 +59,7 @@ Human-readable `lines` remain present for operators, but automation should prefe
 API:
 
 - `GET /v1/workspaces/{workspace}/search/corpus`
+- `GET /v1/search/corpus`
 
 MCP:
 
@@ -73,6 +74,10 @@ Both expose the same shared corpus-search result model over:
 Important request fields:
 
 - `query`
+- `workspace`
+  - required for workspace-scoped search unless `all_workspaces=true`
+- `all_workspaces`
+  - optional boolean for cross-workspace search through MCP or the top-level API route
 - `mode`
   - `lexical`
   - `semantic`
@@ -95,6 +100,8 @@ Important result fields:
 - `start_offset`
 - `end_offset`
 - `source_label`
+- `workspace`
+- `workspace_id`
 - `_source`
   - `lexical`
   - `semantic`
@@ -111,6 +118,10 @@ Current semantics:
 - long derived-text rows may be retrieved through chunk-level matches but still resolve to one owning derived-text result
 - `matched_text` and `snippet_text` are best-match snippet fields for long documents and OCR-heavy attachments
 - derived-text semantic scoring currently uses the same local embedding baseline used elsewhere in-repo
+- cross-workspace corpus search is explicit rather than implicit:
+  - CLI uses `--all-workspaces`
+  - API uses `GET /v1/search/corpus`
+  - MCP uses `all_workspaces=true`
 
 ## Search Readiness
 

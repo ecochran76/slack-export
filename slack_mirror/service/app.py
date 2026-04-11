@@ -14,7 +14,7 @@ from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.processor import process_pending_events
 from slack_mirror.service.user_env import _build_live_validation_report, default_user_env_paths
-from slack_mirror.search.corpus import search_corpus
+from slack_mirror.search.corpus import search_corpus, search_corpus_multi
 
 
 @dataclass(frozen=True)
@@ -284,11 +284,22 @@ class SlackMirrorAppService:
     def list_workspaces(self, conn) -> list[dict[str, Any]]:
         return [dict(row) for row in list_workspaces(conn)]
 
+    def enabled_workspace_names(self) -> list[str]:
+        names: list[str] = []
+        for ws in self.workspace_configs():
+            if ws.get("enabled", True) is False:
+                continue
+            name = str(ws.get("name") or "").strip()
+            if name:
+                names.append(name)
+        return names
+
     def corpus_search(
         self,
         conn,
         *,
-        workspace: str,
+        workspace: str | None = None,
+        all_workspaces: bool = False,
         query: str,
         limit: int = 20,
         mode: str = "hybrid",
@@ -300,10 +311,32 @@ class SlackMirrorAppService:
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
     ) -> list[dict[str, Any]]:
+        if all_workspaces:
+            if workspace:
+                raise ValueError("workspace must not be set when all_workspaces is true")
+            scopes = [{"id": self.workspace_id(conn, name), "name": name} for name in self.enabled_workspace_names()]
+            return search_corpus_multi(
+                conn,
+                workspaces=scopes,
+                query=query,
+                limit=limit,
+                mode=mode,
+                model_id=model_id,
+                lexical_weight=lexical_weight,
+                semantic_weight=semantic_weight,
+                semantic_scale=semantic_scale,
+                use_fts=use_fts,
+                derived_kind=derived_kind,
+                derived_source_kind=derived_source_kind,
+            )
+
+        if not workspace:
+            raise ValueError("workspace is required unless all_workspaces is true")
         workspace_id = self.workspace_id(conn, workspace)
         return search_corpus(
             conn,
             workspace_id=workspace_id,
+            workspace_name=workspace,
             query=query,
             limit=limit,
             mode=mode,

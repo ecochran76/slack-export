@@ -28,6 +28,10 @@ class ApiServerTests(unittest.TestCase):
                     "    team_id: T123",
                     "    token: xoxb-test-token",
                     "    user_token: xoxp-test-token",
+                    "  - name: soylei",
+                    "    team_id: T456",
+                    "    token: xoxb-soylei-token",
+                    "    user_token: xoxp-soylei-token",
                     "",
                 ]
             ),
@@ -219,7 +223,16 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(corpus.status_code, 200)
             self.assertTrue(corpus.json()["ok"])
             self.assertEqual(corpus.json()["results"][0]["result_kind"], "derived_text")
-            service.corpus_search.assert_called_once()
+
+            all_corpus = requests.get(
+                f"{base_url}/v1/search/corpus",
+                params={"query": "incident review", "mode": "hybrid"},
+                timeout=5,
+            )
+            self.assertEqual(all_corpus.status_code, 200)
+            self.assertEqual(all_corpus.json()["scope"], "all")
+            self.assertTrue(all_corpus.json()["ok"])
+            self.assertEqual(service.corpus_search.call_count, 2)
 
             readiness = requests.get(f"{base_url}/v1/workspaces/default/search/readiness", timeout=5)
             self.assertEqual(readiness.status_code, 200)

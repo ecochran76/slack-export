@@ -543,3 +543,20 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 34 | 2026-04-11
+
+- Landed the next `P03` scope-expansion slice for cross-workspace retrieval.
+- Added explicit cross-workspace corpus search through the shared service boundary instead of leaving "cross-tenant" as roadmap-only language.
+- Kept the contract explicit rather than overloading workspace-scoped paths:
+  - CLI: `search corpus --all-workspaces`
+  - API: `GET /v1/search/corpus`
+  - MCP: `search.corpus` with `all_workspaces=true`
+- Added stable workspace metadata on corpus-search results:
+  - `workspace`
+  - `workspace_id`
+- Kept workspace-scoped corpus search intact and backward-compatible.
+- Validation:
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

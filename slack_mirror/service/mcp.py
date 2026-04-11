@@ -52,6 +52,7 @@ class SlackMirrorMcpServer:
                     "type": "object",
                     "properties": {
                         "workspace": {"type": "string"},
+                        "all_workspaces": {"type": "boolean", "default": False},
                         "query": {"type": "string"},
                         "limit": {"type": "integer", "default": 20},
                         "mode": {"type": "string", "enum": ["lexical", "semantic", "hybrid"], "default": "hybrid"},
@@ -63,7 +64,7 @@ class SlackMirrorMcpServer:
                         "kind": {"type": "string", "enum": ["attachment_text", "ocr_text"]},
                         "source_kind": {"type": "string", "enum": ["file", "canvas"]},
                     },
-                    "required": ["workspace", "query"],
+                    "required": ["query"],
                 },
             ),
             _tool(
@@ -235,11 +236,14 @@ class SlackMirrorMcpServer:
         if name == "workspaces.list":
             return self._mcp_result({"workspaces": self.service.list_workspaces(conn)})
         if name == "search.corpus":
+            workspace = str(args["workspace"]) if args.get("workspace") is not None else None
+            all_workspaces = bool(args.get("all_workspaces", False))
             return self._mcp_result(
                 {
                     "results": self.service.corpus_search(
                         conn,
-                        workspace=str(args["workspace"]),
+                        workspace=workspace,
+                        all_workspaces=all_workspaces,
                         query=str(args["query"]),
                         limit=int(args.get("limit", 20)),
                         mode=str(args.get("mode", "hybrid")),

@@ -37,6 +37,7 @@ def search_corpus(
     conn: sqlite3.Connection,
     *,
     workspace_id: int,
+    workspace_name: str | None = None,
     query: str,
     limit: int = 20,
     mode: str = "hybrid",
@@ -60,14 +61,22 @@ def search_corpus(
         derived_rows = [_normalize_derived_row(r) for r in search_derived_text(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
-        return merged[: max(1, limit)]
+        out = merged[: max(1, limit)]
+        for row in out:
+            row["workspace_id"] = workspace_id
+            row["workspace"] = workspace_name
+        return out
 
     if mode == "semantic":
         msg_rows = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, mode="semantic", model_id=model_id)]
         derived_rows = [_normalize_derived_row(r) for r in search_derived_text_semantic(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
-        return merged[: max(1, limit)]
+        out = merged[: max(1, limit)]
+        for row in out:
+            row["workspace_id"] = workspace_id
+            row["workspace"] = workspace_name
+        return out
 
     msg_lexical = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
     msg_semantic = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, mode="semantic", model_id=model_id)]
@@ -108,4 +117,55 @@ def search_corpus(
         key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""),
         reverse=True,
     )
-    return out[: max(1, limit)]
+    final = out[: max(1, limit)]
+    for row in final:
+        row["workspace_id"] = workspace_id
+        row["workspace"] = workspace_name
+    return final
+
+
+def search_corpus_multi(
+    conn: sqlite3.Connection,
+    *,
+    workspaces: list[dict[str, Any]],
+    query: str,
+    limit: int = 20,
+    mode: str = "hybrid",
+    model_id: str = "local-hash-128",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
+    use_fts: bool = True,
+    derived_kind: str | None = None,
+    derived_source_kind: str | None = None,
+) -> list[dict[str, Any]]:
+    if not workspaces:
+        return []
+    per_workspace_limit = max(limit, 10)
+    rows: list[dict[str, Any]] = []
+    for workspace in workspaces:
+        rows.extend(
+            search_corpus(
+                conn,
+                workspace_id=int(workspace["id"]),
+                workspace_name=str(workspace["name"]),
+                query=query,
+                limit=per_workspace_limit,
+                mode=mode,
+                model_id=model_id,
+                lexical_weight=lexical_weight,
+                semantic_weight=semantic_weight,
+                semantic_scale=semantic_scale,
+                use_fts=use_fts,
+                derived_kind=derived_kind,
+                derived_source_kind=derived_source_kind,
+            )
+        )
+
+    if mode == "lexical":
+        rows.sort(key=lambda x: (float(x.get("_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+    elif mode == "semantic":
+        rows.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+    else:
+        rows.sort(key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+    return rows[: max(1, limit)]

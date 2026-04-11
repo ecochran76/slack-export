@@ -25,6 +25,10 @@ class AppServiceTests(unittest.TestCase):
                     "    team_id: T123",
                     "    token: xoxb-test-token",
                     "    user_token: xoxp-test-token",
+                    "  - name: soylei",
+                    "    team_id: T456",
+                    "    token: xoxb-soylei-token",
+                    "    user_token: xoxp-soylei-token",
                     "",
                 ]
             ),
@@ -138,6 +142,28 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(health["readiness"]["status"], "ready")
         self.assertIsNotNone(health["benchmark"])
         self.assertGreaterEqual(health["benchmark"]["hit_at_3"], 0.5)
+
+    def test_corpus_search_can_aggregate_all_workspaces(self):
+        default_id = self.service.workspace_id(self.conn, "default")
+        soylei_id = self.service.workspace_id(self.conn, "soylei")
+        upsert_channel(self.conn, default_id, {"id": "C1", "name": "general"})
+        upsert_channel(self.conn, soylei_id, {"id": "C2", "name": "ops"})
+        upsert_user(self.conn, default_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+        upsert_user(self.conn, soylei_id, {"id": "U2", "name": "bob", "real_name": "Bob Example", "profile": {"display_name": "bob"}})
+        upsert_message(self.conn, default_id, "C1", {"ts": "10.0", "text": "incident review default", "user": "U1"})
+        upsert_message(self.conn, soylei_id, "C2", {"ts": "11.0", "text": "incident review soylei", "user": "U2"})
+
+        rows = self.service.corpus_search(
+            self.conn,
+            all_workspaces=True,
+            query="incident review",
+            limit=10,
+            mode="lexical",
+        )
+
+        workspaces = {row["workspace"] for row in rows}
+        self.assertIn("default", workspaces)
+        self.assertIn("soylei", workspaces)
 
     def test_send_message_and_thread_reply_are_audited(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
