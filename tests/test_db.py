@@ -6,6 +6,7 @@ from slack_mirror.core.db import (
     apply_migrations,
     connect,
     get_derived_text,
+    get_derived_text_chunks,
     get_message_embedding,
     get_sync_state,
     list_recent_thread_roots,
@@ -176,6 +177,58 @@ class DbTests(unittest.TestCase):
                 (ws_id,),
             ).fetchone()["c"]
             self.assertEqual(derived_fts_count, 1)
+            chunks = get_derived_text_chunks(conn, derived_text_id=int(derived["id"]))
+            self.assertEqual(len(chunks), 1)
+            self.assertEqual(chunks[0]["chunk_index"], 0)
+
+    def test_upsert_derived_text_rebuilds_chunks_for_long_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            long_text = ("alpha " * 120) + "\n\n" + ("bravo " * 120) + "\n\n" + ("charlie " * 120)
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F9",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text=long_text,
+            )
+            derived = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F9",
+                derivation_kind="attachment_text",
+            )
+            self.assertIsNotNone(derived)
+            chunks = get_derived_text_chunks(conn, derived_text_id=int(derived["id"]))
+            self.assertGreater(len(chunks), 1)
+
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F9",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text="short replacement text",
+            )
+            refreshed = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F9",
+                derivation_kind="attachment_text",
+            )
+            refreshed_chunks = get_derived_text_chunks(conn, derived_text_id=int(refreshed["id"]))
+            self.assertEqual(len(refreshed_chunks), 1)
+            self.assertEqual(refreshed_chunks[0]["text"], "short replacement text")
 
 
 if __name__ == "__main__":

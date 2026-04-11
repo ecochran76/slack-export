@@ -133,6 +133,45 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(rows[0]["source_kind"], "file")
             self.assertEqual(rows[0]["source_label"], "Notes")
 
+    def test_search_derived_text_returns_deep_matching_chunk(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F2', 'playbook.txt', 'Playbook', 'text/plain', '/tmp/playbook.txt', '{}')
+                """,
+                (ws_id,),
+            )
+            long_text = (
+                ("intro status update " * 80)
+                + "\n\n"
+                + ("deployment background " * 80)
+                + "\n\n"
+                + ("catastrophic rollback signature " * 40)
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F2",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text=long_text,
+                media_type="text/plain",
+                local_path="/tmp/playbook.txt",
+            )
+            rows = search_derived_text(conn, workspace_id=ws_id, query="catastrophic rollback", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["source_label"], "Playbook")
+            self.assertIn("catastrophic rollback", str(rows[0]["matched_text"]))
+            self.assertGreaterEqual(int(rows[0]["chunk_index"]), 1)
+
     def test_search_corpus_combines_messages_and_derived_text(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"
@@ -170,6 +209,38 @@ class SearchTests(unittest.TestCase):
             self.assertIn("message", kinds)
             self.assertIn("derived_text", kinds)
             self.assertTrue(any("_hybrid_score" in row for row in rows))
+
+    def test_search_corpus_uses_chunk_snippet_for_derived_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F3', 'ocr.pdf', 'OCR Report', 'application/pdf', '/tmp/ocr.pdf', '{}')
+                """,
+                (ws_id,),
+            )
+            long_text = ("cover page " * 100) + "\n\n" + ("unusual payment discrepancy " * 50)
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F3",
+                derivation_kind="ocr_text",
+                extractor="tesseract_pdf",
+                text=long_text,
+                media_type="application/pdf",
+                local_path="/tmp/ocr.pdf",
+            )
+
+            rows = search_corpus(conn, workspace_id=ws_id, query="payment discrepancy", limit=5, mode="hybrid")
+            derived = next(row for row in rows if row["result_kind"] == "derived_text")
+            self.assertIn("payment discrepancy", str(derived["snippet_text"]))
 
 
 if __name__ == "__main__":

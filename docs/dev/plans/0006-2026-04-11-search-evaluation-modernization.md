@@ -43,7 +43,10 @@ to a world-class search stack with:
 - the current corpus baseline is lexical-first hybrid retrieval over messages plus derived text
 - API and MCP now expose corpus search and machine-readable search readiness over the same shared service boundary
 - a shared search-health gate now exists over readiness plus optional benchmark execution
-- chunking, cross-workspace retrieval semantics, and richer evaluation hardening still remain open
+- chunk-aware derived-text retrieval is now landed through `derived_text_chunks` plus `derived_text_chunks_fts`
+- chunk-level matches now roll back up to shared-core derived-text results with snippet metadata instead of inventing a second document identity
+- a deeper corpus benchmark pack now exists alongside the smoke fixture for long-document and OCR retrieval checks
+- cross-workspace retrieval semantics and richer evaluation hardening still remain open
 - the current roadmap text is directionally right, but the active repo needs one explicit modernization plan instead of relying on older Phase E/F notes
 
 ## Cross-Repo Comparison

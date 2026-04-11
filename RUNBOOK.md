@@ -521,3 +521,25 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_search tests.test_cli -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 33 | 2026-04-11
+
+- Landed the next `P03` retrieval-depth slice.
+- Added shared-core chunk storage for long derived text:
+  - `derived_text_chunks`
+  - `derived_text_chunks_fts`
+- Kept `derived_text` as the canonical non-message document row and treated chunk rows as retrieval-serving children rather than a second document identity.
+- Updated derived-text lexical and semantic retrieval so:
+  - long attachment and OCR rows are matched through chunk-level search
+  - results still roll up to one owning derived-text row
+  - best-match snippet metadata now surfaces through:
+    - `matched_text`
+    - `chunk_index`
+    - `start_offset`
+    - `end_offset`
+- Updated corpus search so long-document results expose chunk-aware snippet text instead of only whole-document snippets.
+- Added a deeper corpus benchmark pack beside the smoke fixture for long-document and OCR regression checks.
+- Validation:
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

@@ -69,13 +69,14 @@ Current state:
 - cross-repo comparison against `../ragmail` and `../imcli` established the modernization direction explicitly
 - first P03 foundation slice is now landed:
   - first-class `derived_text`, `derived_text_fts`, and `derived_text_jobs` tables
+  - first-class `derived_text_chunks` and `derived_text_chunks_fts` tables for retrieval depth on long non-message documents
   - document-native extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
   - OCR extraction path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
   - API and MCP exposure for corpus search and machine-readable search readiness
-  - shared search-health gate over readiness plus optional corpus smoke benchmarks
+  - shared search-health gate over readiness plus optional corpus smoke and depth benchmarks
 - remaining work is still substantial:
-  - richer benchmark sets and stronger ranking-quality evaluation
+  - stronger ranking-quality evaluation and broader benchmark coverage
   - richer extraction coverage and search diagnostics
 
 Legacy context:

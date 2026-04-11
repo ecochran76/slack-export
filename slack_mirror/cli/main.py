@@ -966,7 +966,7 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
         print(json.dumps(rows, indent=2))
     else:
         for row in rows:
-            snippet = str(row.get("text") or "").replace("\n", " ").strip()
+            snippet = str(row.get("matched_text") or row.get("text") or "").replace("\n", " ").strip()
             if len(snippet) > 140:
                 snippet = snippet[:139] + "…"
             print(
@@ -1020,7 +1020,7 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
     else:
         for row in rows:
             label = row.get("source_label") or row.get("channel_name") or row.get("channel_id") or row.get("source_id")
-            snippet = str(row.get("text") or "").replace("\n", " ").strip()
+            snippet = str(row.get("snippet_text") or row.get("matched_text") or row.get("text") or "").replace("\n", " ").strip()
             if len(snippet) > 160:
                 snippet = snippet[:159] + "…"
             line = f"[{row.get('result_kind')}:{label}] {snippet}"

@@ -22,6 +22,11 @@ Derived text now lives in:
 
 These are shared-core tables. They are not extractor-private state.
 
+Chunk-owned retrieval state now also lives in:
+
+- `derived_text_chunks`
+- `derived_text_chunks_fts`
+
 ## Current Source Kinds
 
 - `file`
@@ -65,6 +70,7 @@ Current OCR boundary:
 3. `attachment_text` and `ocr_text` must remain distinguishable in storage and query results.
 4. New extractors must write through the shared `derived_text` contract instead of adding extractor-specific tables.
 5. Search, CLI, API, and MCP work should resolve back to shared-core rows rather than extractor-private artifacts.
+6. Chunk rows are retrieval-serving children of `derived_text`, not a second canonical document store.
 
 ## Queue Semantics
 
@@ -92,10 +98,20 @@ Optional filters:
 
 This is intentionally separate from message search while the broader hybrid retrieval contract is still under `P03`.
 
+Chunk semantics:
+
+- long derived-text rows are split into overlapping retrieval chunks
+- search still resolves and returns the owning `derived_text` row
+- result payloads may include:
+  - `matched_text`
+  - `chunk_index`
+  - `start_offset`
+  - `end_offset`
+- callers should treat those as best-match snippet metadata, not as a separate document identity
+
 ## Remaining Work
 
-- chunking for long attachment and canvas text
 - hybrid retrieval over messages plus derived-text rows
-- API and MCP exposure for derived-text search and extraction status
+- broader benchmark depth beyond smoke fixtures
 - richer backlog and outcome reporting for extraction coverage
 - OCR coverage reporting and fallback/provider routing beyond local host tools

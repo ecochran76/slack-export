@@ -1,0 +1,4 @@
+{"query":"catastrophic rollback signature","relevant":{"file:F3:attachment_text:utf8_text":2,"Playbook":1}}
+{"query":"payment discrepancy appendix","relevant":{"file:F4:ocr_text:tesseract_pdf":2,"OCR Report":1}}
+{"query":"incident review follow-up","relevant":{"C1:10.0":2,"general:10.0":1,"file:F4:ocr_text:tesseract_pdf":1}}
+{"query":"deployment background","relevant":{"file:F3:attachment_text:utf8_text":2}}

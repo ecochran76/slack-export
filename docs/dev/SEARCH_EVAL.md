@@ -34,6 +34,18 @@ PYTHONPATH=. python3 scripts/eval_search.py \
   --limit 10
 ```
 
+### Slack corpus depth run
+
+```bash
+PYTHONPATH=. python3 scripts/eval_search.py \
+  --corpus slack-corpus \
+  --db ./.local/state/slack_mirror_test.db \
+  --workspace default \
+  --dataset ./docs/dev/benchmarks/slack_corpus_depth.jsonl \
+  --mode hybrid \
+  --limit 10
+```
+
 ### Directory run
 
 ```bash
@@ -89,6 +101,7 @@ Relevance labels:
 - `slack-mirror search health --workspace <name>`
 - optional benchmark gate:
   - `slack-mirror search health --workspace <name> --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl`
+  - `slack-mirror search health --workspace <name> --dataset ./docs/dev/benchmarks/slack_corpus_depth.jsonl`
 - API:
   - `GET /v1/workspaces/{workspace}/search/health`
 - MCP:
@@ -103,4 +116,5 @@ Current default benchmark thresholds:
 
 - Run benchmark before changing fusion weights.
 - Run benchmark after each search-ranking change.
+- Use the smoke dataset for fast guardrails and the depth dataset for long-document/chunk regressions.
 - Save output in PR notes so quality movement is explicit.

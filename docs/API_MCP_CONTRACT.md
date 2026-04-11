@@ -89,6 +89,11 @@ Important result fields:
   - `message`
   - `derived_text`
 - `text`
+- `matched_text`
+- `snippet_text`
+- `chunk_index`
+- `start_offset`
+- `end_offset`
 - `source_label`
 - `_source`
   - `lexical`
@@ -103,6 +108,8 @@ Current semantics:
 - lexical-first hybrid ranking is the shipped baseline
 - message results reuse the existing message-search path
 - derived-text results reuse shared-core `derived_text` rows
+- long derived-text rows may be retrieved through chunk-level matches but still resolve to one owning derived-text result
+- `matched_text` and `snippet_text` are best-match snippet fields for long documents and OCR-heavy attachments
 - derived-text semantic scoring currently uses the same local embedding baseline used elsewhere in-repo
 
 ## Search Readiness

@@ -3,6 +3,7 @@ import sqlite3
 from array import array
 from hashlib import sha256
 from pathlib import Path
+import re
 from typing import Any
 
 _OCR_IMAGE_SUFFIXES = {
@@ -15,6 +16,152 @@ _OCR_IMAGE_SUFFIXES = {
     ".tiff",
     ".webp",
 }
+
+_DERIVED_TEXT_CHUNK_TARGET_CHARS = 900
+_DERIVED_TEXT_CHUNK_OVERLAP_CHARS = 120
+
+
+def _split_long_segment(segment: str, *, start_offset: int, max_chars: int, overlap_chars: int) -> list[dict[str, Any]]:
+    parts: list[dict[str, Any]] = []
+    seg = segment.strip()
+    if not seg:
+        return parts
+
+    cursor = 0
+    while cursor < len(seg):
+        remaining = seg[cursor:]
+        if len(remaining) <= max_chars:
+            chunk_text = remaining.strip()
+            if chunk_text:
+                local_start = remaining.find(chunk_text)
+                chunk_start = start_offset + cursor + max(local_start, 0)
+                parts.append(
+                    {
+                        "start_offset": chunk_start,
+                        "end_offset": chunk_start + len(chunk_text),
+                        "text": chunk_text,
+                    }
+                )
+            break
+
+        window = remaining[:max_chars]
+        cut = max(window.rfind("\n\n"), window.rfind(". "), window.rfind("! "), window.rfind("? "), window.rfind(" "))
+        if cut < max_chars // 2:
+            cut = max_chars
+        chunk_text = remaining[:cut].strip()
+        if not chunk_text:
+            break
+        local_start = remaining.find(chunk_text)
+        chunk_start = start_offset + cursor + max(local_start, 0)
+        parts.append(
+            {
+                "start_offset": chunk_start,
+                "end_offset": chunk_start + len(chunk_text),
+                "text": chunk_text,
+            }
+        )
+        advance = max(len(chunk_text) - overlap_chars, 1)
+        cursor += advance
+    return parts
+
+
+def _chunk_derived_text(
+    text: str,
+    *,
+    max_chars: int = _DERIVED_TEXT_CHUNK_TARGET_CHARS,
+    overlap_chars: int = _DERIVED_TEXT_CHUNK_OVERLAP_CHARS,
+) -> list[dict[str, Any]]:
+    normalized = (text or "").strip()
+    if not normalized:
+        return []
+    if len(normalized) <= max_chars:
+        return [
+            {
+                "start_offset": 0,
+                "end_offset": len(normalized),
+                "text": normalized,
+                "content_hash": sha256(normalized.encode("utf-8")).hexdigest(),
+            }
+        ]
+
+    chunks: list[dict[str, Any]] = []
+    matches = list(re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|$)", normalized, flags=re.DOTALL))
+    if matches:
+        current = ""
+        current_start = 0
+        for match in matches:
+            segment = match.group(0).strip()
+            if not segment:
+                continue
+            segment_start = match.start()
+            candidate = segment if not current else f"{current}\n\n{segment}"
+            if current and len(candidate) > max_chars:
+                chunks.extend(
+                    _split_long_segment(
+                        current,
+                        start_offset=current_start,
+                        max_chars=max_chars,
+                        overlap_chars=overlap_chars,
+                    )
+                )
+                current = segment
+                current_start = segment_start
+            elif len(segment) > max_chars:
+                if current:
+                    chunks.extend(
+                        _split_long_segment(
+                            current,
+                            start_offset=current_start,
+                            max_chars=max_chars,
+                            overlap_chars=overlap_chars,
+                        )
+                    )
+                    current = ""
+                chunks.extend(
+                    _split_long_segment(
+                        segment,
+                        start_offset=segment_start,
+                        max_chars=max_chars,
+                        overlap_chars=overlap_chars,
+                    )
+                )
+            else:
+                if not current:
+                    current_start = segment_start
+                current = candidate
+        if current:
+            chunks.extend(
+                _split_long_segment(
+                    current,
+                    start_offset=current_start,
+                    max_chars=max_chars,
+                    overlap_chars=overlap_chars,
+                )
+            )
+    else:
+        chunks.extend(
+            _split_long_segment(
+                normalized,
+                start_offset=0,
+                max_chars=max_chars,
+                overlap_chars=overlap_chars,
+            )
+        )
+
+    out: list[dict[str, Any]] = []
+    for chunk in chunks:
+        chunk_text = str(chunk.get("text") or "").strip()
+        if not chunk_text:
+            continue
+        out.append(
+            {
+                "start_offset": int(chunk["start_offset"]),
+                "end_offset": int(chunk["end_offset"]),
+                "text": chunk_text,
+                "content_hash": sha256(chunk_text.encode("utf-8")).hexdigest(),
+            }
+        )
+    return out or [{"start_offset": 0, "end_offset": len(normalized), "text": normalized, "content_hash": sha256(normalized.encode("utf-8")).hexdigest()}]
 
 
 def _should_enqueue_file_ocr(*, mimetype: str | None, local_path: str | None) -> bool:
@@ -354,6 +501,7 @@ def upsert_derived_text(
         raise ValueError("derived text must not be empty")
     content_hash = sha256(normalized_text.encode("utf-8")).hexdigest()
     payload = json.dumps(metadata or {}, sort_keys=True)
+    chunks = _chunk_derived_text(normalized_text)
 
     with conn:
         conn.execute(
@@ -388,6 +536,15 @@ def upsert_derived_text(
                 payload,
             ),
         )
+        row = conn.execute(
+            """
+            SELECT id
+            FROM derived_text
+            WHERE workspace_id = ? AND source_kind = ? AND source_id = ? AND derivation_kind = ? AND extractor = ?
+            """,
+            (workspace_id, source_kind, source_id, derivation_kind, extractor),
+        ).fetchone()
+        derived_text_id = int(row["id"])
         conn.execute(
             """
             DELETE FROM derived_text_fts
@@ -406,6 +563,39 @@ def upsert_derived_text(
             """,
             (workspace_id, source_kind, source_id, derivation_kind, extractor, normalized_text),
         )
+        conn.execute(
+            "DELETE FROM derived_text_chunks WHERE derived_text_id = ?",
+            (derived_text_id,),
+        )
+        conn.execute(
+            "DELETE FROM derived_text_chunks_fts WHERE derived_text_id = ?",
+            (derived_text_id,),
+        )
+        for index, chunk in enumerate(chunks):
+            conn.execute(
+                """
+                INSERT INTO derived_text_chunks(
+                  derived_text_id, workspace_id, chunk_index, start_offset, end_offset, text, content_hash
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    derived_text_id,
+                    workspace_id,
+                    index,
+                    int(chunk["start_offset"]),
+                    int(chunk["end_offset"]),
+                    chunk["text"],
+                    chunk["content_hash"],
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO derived_text_chunks_fts(workspace_id, derived_text_id, chunk_index, text)
+                VALUES (?, ?, ?, ?)
+                """,
+                (workspace_id, derived_text_id, index, chunk["text"]),
+            )
 
 
 def get_derived_text(
@@ -435,6 +625,23 @@ def get_derived_text(
     out = dict(row)
     out["metadata"] = json.loads(out.get("metadata_json") or "{}")
     return out
+
+
+def get_derived_text_chunks(
+    conn: sqlite3.Connection,
+    *,
+    derived_text_id: int,
+) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        SELECT id, derived_text_id, workspace_id, chunk_index, start_offset, end_offset, text, content_hash, created_at
+        FROM derived_text_chunks
+        WHERE derived_text_id = ?
+        ORDER BY chunk_index ASC
+        """,
+        (derived_text_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str, message: dict[str, Any]) -> None:
