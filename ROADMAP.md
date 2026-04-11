@@ -55,15 +55,23 @@ Legacy context:
 
 ## P03 | Search And Evaluation
 
-Status: PLANNED
+Status: OPEN
 
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
 
+Actionable plans:
+- `docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md`
+
 Current state:
 - keyword and semantic search exist
 - embedding backlog discipline and SQLite contention hardening have landed
-- remaining work is evaluation, search freshness policy, and search-platform reuse boundaries
+- cross-repo comparison against `../ragmail` and `../imcli` shows the next gap is no longer basic message search, but broader searchable-corpus ownership:
+  - first-class derived text for attachments and canvases
+  - OCR for image-like and scanned PDF content
+  - lexical-first hybrid retrieval over messages plus derived text
+  - stronger search evaluation and readiness discipline
+- the lane is now open under `0006` to modernize search deliberately instead of relying on the older Phase E/F notes alone
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

@@ -410,3 +410,21 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_cli -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 27 | 2026-04-11
+
+- Opened `P03 | Search And Evaluation` as a real active lane under `0006 | Search Evaluation Modernization`.
+- Added the active plan file:
+  - `docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md`
+- Reviewed the current Slack mirror search stack against sibling repos:
+  - `slack-export` already has SQLite-backed lexical, semantic, and hybrid message retrieval
+  - `../imcli` contributes the stronger shared-core model for canonical message search, derived-text search, tenant safety, and lexical-first hybrid reranking
+  - `../ragmail` contributes the stronger extraction, OCR, chunking, provider-routing, and evaluation discipline
+- Chose the modernization direction explicitly:
+  - keep Slack mirror's SQLite-first baseline
+  - adopt first-class derived-text ownership similar to `imcli`
+  - adopt staged attachment/OCR extraction and stronger eval/diagnostic discipline similar to `ragmail`
+  - avoid making a heavy backend such as OpenSearch the first prerequisite for progress
+- Updated `ROADMAP.md` so `P03` is now `OPEN` with one bounded active plan instead of remaining a parked lane with only legacy context.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
