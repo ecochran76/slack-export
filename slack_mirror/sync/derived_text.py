@@ -6,11 +6,15 @@ import re
 import shlex
 import shutil
 import subprocess
+import os
 import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
 from typing import Protocol
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 from xml.etree import ElementTree as ET
 
 from slack_mirror.core.db import (
@@ -491,6 +495,114 @@ class CommandDerivedTextProvider:
         )
 
 
+class HttpDerivedTextProvider:
+    def __init__(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        bearer_token_env: str | None = None,
+        timeout_s: float = 120.0,
+    ):
+        normalized_url = str(url or '').strip()
+        if not normalized_url:
+            raise ValueError('http provider requires a non-empty url')
+        parsed = urllib_parse.urlparse(normalized_url)
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            raise ValueError('http provider requires an absolute http(s) url')
+        self.url = normalized_url
+        self.headers = {str(k): str(v) for k, v in (headers or {}).items()}
+        self.bearer_token_env = None if bearer_token_env is None else (str(bearer_token_env).strip() or None)
+        self.timeout_s = float(timeout_s)
+        self.name = f"http:{parsed.netloc}"
+
+    def _source_request(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> dict[str, Any]:
+        row = _resolve_source_row(conn, workspace_id=workspace_id, source_kind=source_kind, source_id=source_id)
+        if not row:
+            return {'error': 'source_missing'}
+        local_path = row['local_path']
+        if not local_path:
+            return {'error': 'local_path_missing'}
+        path = Path(str(local_path)).expanduser()
+        if not path.exists():
+            return {'error': 'local_path_missing'}
+        return {
+            'source_kind': source_kind,
+            'source_id': source_id,
+            'local_path': str(path),
+            'media_type': str(row['mimetype'] or '') if 'mimetype' in row.keys() else None,
+            'title': str(row['title'] or '') if 'title' in row.keys() else None,
+            'name': str(row['name'] or '') if 'name' in row.keys() else None,
+        }
+
+    def _invoke(self, *, action: str, conn, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        request = self._source_request(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+        if request.get('error'):
+            return None, {'error': str(request['error'])}
+        payload = {
+            'action': action,
+            'workspace_id': int(workspace_id),
+            **request,
+        }
+        headers = {'Content-Type': 'application/json', 'Accept': 'application/json', **self.headers}
+        if self.bearer_token_env:
+            token = os.environ.get(self.bearer_token_env, '').strip()
+            if not token:
+                return None, {'error': 'provider_auth_missing'}
+            headers.setdefault('Authorization', f'Bearer {token}')
+        req = urllib_request.Request(
+            self.url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers=headers,
+            method='POST',
+        )
+        try:
+            with urllib_request.urlopen(req, timeout=self.timeout_s) as resp:
+                body = resp.read().decode('utf-8', errors='replace')
+        except urllib_error.HTTPError as exc:
+            body = exc.read().decode('utf-8', errors='replace')
+            return None, {'error': 'provider_http_error', 'status_code': exc.code, 'response': _normalize_text(body)}
+        except urllib_error.URLError as exc:
+            return None, {'error': 'provider_connection_failed', 'reason': _normalize_text(str(exc.reason))}
+        try:
+            response = json.loads(body or '{}')
+        except json.JSONDecodeError:
+            return None, {'error': 'provider_invalid_json'}
+        if not response.get('ok', True):
+            return None, {'error': str(response.get('error') or 'provider_error')}
+        response_text = _normalize_text(str(response.get('text') or ''))
+        if not response_text:
+            return None, {'error': str(response.get('error') or 'no_text_detected')}
+        details = dict(response.get('details') or {})
+        details.setdefault('extractor', str(response.get('extractor') or self.name))
+        details.setdefault('media_type', request.get('media_type'))
+        details.setdefault('local_path', request.get('local_path'))
+        return response_text, details
+
+    def extract_attachment_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return self._invoke(
+            action='attachment_text',
+            conn=conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+    def extract_ocr_text(self, conn, *, workspace_id: int, source_kind: str, source_id: str) -> ExtractResult:
+        return self._invoke(
+            action='ocr_text',
+            conn=conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+        )
+
+
 _DEFAULT_PROVIDER = LocalCliDerivedTextProvider()
 
 
@@ -510,6 +622,15 @@ def build_derived_text_provider(config: dict[str, Any] | None = None) -> Derived
         else:
             command = []
         return CommandDerivedTextProvider(command)
+    if provider_type == "http":
+        headers_value = provider_cfg.get("headers")
+        headers = headers_value if isinstance(headers_value, dict) else {}
+        return HttpDerivedTextProvider(
+            str(provider_cfg.get("url") or ""),
+            headers=headers,
+            bearer_token_env=provider_cfg.get("bearer_token_env"),
+            timeout_s=float(provider_cfg.get("timeout_s") or 120.0),
+        )
     raise ValueError(f"Unsupported derived-text provider type: {provider_type}")
 
 

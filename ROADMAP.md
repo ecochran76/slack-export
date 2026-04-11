@@ -79,7 +79,7 @@ Current state:
   - shared search-health gates over readiness plus optional corpus smoke and depth benchmarks, with per-query diagnostics and bounded ranking-quality thresholds
 - active follow-up scope is now narrower:
   - an initial extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation
-  - an initial command-backed provider is landed; richer provider-routed OCR and extraction paths beyond current host-local tools remain to be added
+  - initial command-backed and HTTP-backed providers are landed; richer provider-routed OCR and extraction paths beyond current host-local tools remain to be added
   - extraction outcome thresholding is now landed on top of readiness reporting; richer coverage policy beyond the current health codes remains open
   - broader document-format coverage only where it fits the shared `derived_text` contract cleanly
 

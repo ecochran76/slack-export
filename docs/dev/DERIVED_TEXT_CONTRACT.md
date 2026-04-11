@@ -74,6 +74,7 @@ Current OCR boundary:
 - derived-text job execution now runs through a shared extraction-provider seam
 - `LocalCliDerivedTextProvider` is the current default implementation
 - `CommandDerivedTextProvider` is now supported as an optional configured provider
+- `HttpDerivedTextProvider` is now supported as an optional configured provider
 - provider identity is recorded in derived-text metadata as `provider`
 - new provider-backed extraction or OCR paths must preserve the existing `attachment_text` and `ocr_text` contract instead of inventing new derivation kinds
 
@@ -102,6 +103,16 @@ Command-provider contract:
     - `ok: false`
     - `error`
 - provider `details` are merged into derived-text metadata and must stay compatible with shared-core ownership
+
+HTTP-provider contract:
+
+- selection happens through `search.derived_text.provider`
+- `type: http` requires a configured absolute `url`
+- optional `headers` are sent with each request
+- optional `bearer_token_env` injects `Authorization: Bearer ...` from the named environment variable
+- optional `timeout_s` controls request timeout
+- Slack mirror sends the same JSON request body used by the command provider
+- the HTTP endpoint must return the same JSON response contract used by the command provider
 
 ## Ownership Rules
 

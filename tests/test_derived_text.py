@@ -1,13 +1,15 @@
+import io
 import json
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, get_derived_text, upsert_canvas, upsert_file, upsert_workspace
 from slack_mirror.search.derived_text import search_derived_text
-from slack_mirror.sync.derived_text import CommandDerivedTextProvider, build_derived_text_provider, process_derived_text_jobs
+from slack_mirror.sync.derived_text import CommandDerivedTextProvider, HttpDerivedTextProvider, build_derived_text_provider, process_derived_text_jobs
 
 
 class DerivedTextTests(unittest.TestCase):
@@ -445,6 +447,179 @@ class DerivedTextTests(unittest.TestCase):
             )
             self.assertEqual(row["metadata"]["provider"], "command:extractor")
             self.assertEqual(row["metadata"]["route"], "command")
+
+    def test_http_provider_invokes_json_protocol(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            file_path = root / "cache" / "files" / "F2" / "scan.pdf"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(b"%PDF-1.4 fake")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F2", "name": "scan.pdf", "title": "Scan", "mimetype": "application/pdf"},
+                local_path=str(file_path),
+            )
+
+            provider = HttpDerivedTextProvider("https://extractor.example/v1/extract", headers={"X-Provider": "test"}, timeout_s=12.0)
+
+            class FakeResponse:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, exc_type, exc, tb):
+                    return False
+
+                def read(self):
+                    return json.dumps({
+                        "ok": True,
+                        "text": "remote http attachment text",
+                        "extractor": "remote_http",
+                        "details": {"route": "http"},
+                    }).encode("utf-8")
+
+            def fake_urlopen(req, timeout):
+                self.assertEqual(timeout, 12.0)
+                self.assertEqual(req.full_url, "https://extractor.example/v1/extract")
+                self.assertEqual(req.get_method(), "POST")
+                self.assertEqual(req.headers.get("Content-type"), "application/json")
+                self.assertEqual(req.headers.get("X-provider"), "test")
+                payload = json.loads(req.data.decode("utf-8"))
+                self.assertEqual(payload["action"], "attachment_text")
+                self.assertEqual(payload["workspace_id"], ws_id)
+                self.assertEqual(payload["source_kind"], "file")
+                self.assertEqual(payload["source_id"], "F2")
+                self.assertEqual(payload["local_path"], str(file_path))
+                return FakeResponse()
+
+            with patch("slack_mirror.sync.derived_text.urllib_request.urlopen", side_effect=fake_urlopen):
+                result = process_derived_text_jobs(
+                    conn,
+                    workspace_id=ws_id,
+                    derivation_kind="attachment_text",
+                    limit=10,
+                    provider=provider,
+                )
+
+            self.assertEqual(result["processed"], 1)
+            row = get_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F2",
+                derivation_kind="attachment_text",
+                extractor="remote_http",
+            )
+            self.assertEqual(row["metadata"]["provider"], "http:extractor.example")
+            self.assertEqual(row["metadata"]["route"], "http")
+
+    def test_http_provider_reports_auth_missing(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            file_path = root / "cache" / "files" / "F3" / "scan.pdf"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(b"%PDF-1.4 fake")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F3", "name": "scan.pdf", "title": "Scan", "mimetype": "application/pdf"},
+                local_path=str(file_path),
+            )
+
+            provider = HttpDerivedTextProvider("https://extractor.example/v1/extract", bearer_token_env="SLACK_MIRROR_TEST_TOKEN")
+            with patch.dict("os.environ", {}, clear=False):
+                result = process_derived_text_jobs(
+                    conn,
+                    workspace_id=ws_id,
+                    derivation_kind="attachment_text",
+                    limit=10,
+                    provider=provider,
+                )
+
+            self.assertEqual(result["processed"], 0)
+            self.assertEqual(result["skipped"], 1)
+            row = conn.execute("SELECT status, error FROM derived_text_jobs WHERE source_id = 'F3'").fetchone()
+            self.assertEqual(row["status"], "skipped")
+            self.assertEqual(row["error"], "provider_auth_missing")
+
+    def test_http_provider_reports_http_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            file_path = root / "cache" / "files" / "F4" / "scan.pdf"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_bytes(b"%PDF-1.4 fake")
+
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(
+                conn,
+                ws_id,
+                {"id": "F4", "name": "scan.pdf", "title": "Scan", "mimetype": "application/pdf"},
+                local_path=str(file_path),
+            )
+
+            provider = HttpDerivedTextProvider("https://extractor.example/v1/extract")
+
+            def fake_urlopen(req, timeout):
+                raise HTTPError(req.full_url, 502, "Bad Gateway", hdrs=None, fp=io.BytesIO(b"upstream unavailable"))
+
+            with patch("slack_mirror.sync.derived_text.urllib_request.urlopen", side_effect=fake_urlopen):
+                result = process_derived_text_jobs(
+                    conn,
+                    workspace_id=ws_id,
+                    derivation_kind="attachment_text",
+                    limit=10,
+                    provider=provider,
+                )
+
+            self.assertEqual(result["processed"], 0)
+            self.assertEqual(result["skipped"], 1)
+            row = conn.execute("SELECT status, error FROM derived_text_jobs WHERE source_id = 'F4'").fetchone()
+            self.assertEqual(row["status"], "skipped")
+            self.assertEqual(row["error"], "provider_http_error")
+
+
+    def test_build_provider_from_config_returns_http_provider(self):
+        provider = build_derived_text_provider(
+            {
+                "search": {
+                    "derived_text": {
+                        "provider": {
+                            "type": "http",
+                            "url": "https://extractor.example/v1/extract",
+                            "headers": {"X-Provider": "test"},
+                            "bearer_token_env": "SLACK_MIRROR_EXTRACT_TOKEN",
+                            "timeout_s": 30,
+                        }
+                    }
+                }
+            }
+        )
+        self.assertIsInstance(provider, HttpDerivedTextProvider)
+        self.assertEqual(provider.url, "https://extractor.example/v1/extract")
+        self.assertEqual(provider.headers, {"X-Provider": "test"})
+        self.assertEqual(provider.bearer_token_env, "SLACK_MIRROR_EXTRACT_TOKEN")
+        self.assertEqual(provider.timeout_s, 30.0)
+        self.assertEqual(provider.name, "http:extractor.example")
+
 
     def test_build_provider_from_config_returns_command_provider(self):
         provider = build_derived_text_provider(

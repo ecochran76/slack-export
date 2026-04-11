@@ -27,6 +27,9 @@ search:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}
       command: ${SLACK_MIRROR_DERIVED_TEXT_COMMAND:-}
+      url: ${SLACK_MIRROR_DERIVED_TEXT_URL:-}
+      bearer_token_env: ${SLACK_MIRROR_DERIVED_TEXT_BEARER_ENV:-}
+      timeout_s: ${SLACK_MIRROR_DERIVED_TEXT_TIMEOUT_S:-120}
   query_profiles:
     nylon-research:
       mode: hybrid

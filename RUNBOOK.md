@@ -683,3 +683,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 44 | 2026-04-11
+
+- Added the first built-in remote extraction transport with `HttpDerivedTextProvider`.
+- Kept the provider contract aligned with the command-backed provider by reusing the same JSON request and response schema.
+- Added optional bearer-token and header configuration so external extractors can be authenticated without changing shared DB ownership.
+- Validation:
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
