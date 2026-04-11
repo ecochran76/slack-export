@@ -76,6 +76,23 @@ class SlackMirrorMcpServer:
                 },
             ),
             _tool(
+                "search.health",
+                "Run search health checks over readiness and optional benchmark dataset",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "dataset_path": {"type": "string"},
+                        "mode": {"type": "string", "enum": ["lexical", "semantic", "hybrid"], "default": "hybrid"},
+                        "limit": {"type": "integer", "default": 10},
+                        "model": {"type": "string", "default": "local-hash-128"},
+                        "min_hit_at_3": {"type": "number", "default": 0.5},
+                        "max_latency_p95_ms": {"type": "number", "default": 800.0},
+                    },
+                    "required": ["workspace"],
+                },
+            ),
+            _tool(
                 "workspace.status",
                 "Show workspace status and freshness",
                 {
@@ -241,6 +258,19 @@ class SlackMirrorMcpServer:
                 self.service.search_readiness(
                     conn,
                     workspace=str(args["workspace"]),
+                )
+            )
+        if name == "search.health":
+            return self._mcp_result(
+                self.service.search_health(
+                    conn,
+                    workspace=str(args["workspace"]),
+                    dataset_path=str(args["dataset_path"]) if args.get("dataset_path") is not None else None,
+                    mode=str(args.get("mode", "hybrid")),
+                    limit=int(args.get("limit", 10)),
+                    model_id=str(args.get("model", "local-hash-128")),
+                    min_hit_at_3=float(args.get("min_hit_at_3", 0.5)),
+                    max_latency_p95_ms=float(args.get("max_latency_p95_ms", 800.0)),
                 )
             )
         if name == "workspace.status":

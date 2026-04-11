@@ -7,6 +7,7 @@ Script: `scripts/eval_search.py`
 ## Corpus modes
 
 - `--corpus slack-db` (default): evaluate mirrored Slack DB
+- `--corpus slack-corpus`: evaluate the broader message-plus-derived-text corpus
 - `--corpus dir`: evaluate a directory/file corpus
 
 ### Slack DB run
@@ -17,6 +18,18 @@ PYTHONPATH=. python3 scripts/eval_search.py \
   --db ./.local/state/slack_mirror_test.db \
   --workspace default \
   --dataset ./docs/dev/benchmarks/slack_smoke.jsonl \
+  --mode hybrid \
+  --limit 10
+```
+
+### Slack corpus run
+
+```bash
+PYTHONPATH=. python3 scripts/eval_search.py \
+  --corpus slack-corpus \
+  --db ./.local/state/slack_mirror_test.db \
+  --workspace default \
+  --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl \
   --mode hybrid \
   --limit 10
 ```
@@ -42,6 +55,7 @@ Dataset format (`jsonl`):
 
 ID conventions:
 - Slack DB: `channel_id:ts` (or `channel_name:ts`)
+- Slack corpus derived text: `source_kind:source_id:derivation_kind:extractor` (or `source_label`)
 - Directory corpus: relative file path (e.g., `dev/SEARCH_EVAL.md`)
 
 Relevance labels:
@@ -69,6 +83,21 @@ Relevance labels:
 4. **Operational confidence**
    - embedding job error rate low and stable.
    - queue drains under normal ingest load.
+
+## Current P03 health contract
+
+- `slack-mirror search health --workspace <name>`
+- optional benchmark gate:
+  - `slack-mirror search health --workspace <name> --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl`
+- API:
+  - `GET /v1/workspaces/{workspace}/search/health`
+- MCP:
+  - `search.health`
+
+Current default benchmark thresholds:
+
+- `hit_at_3 >= 0.5`
+- `latency_ms_p95 <= 800`
 
 ## Suggested cadence
 

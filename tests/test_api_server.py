@@ -194,6 +194,14 @@ class ApiServerTests(unittest.TestCase):
                     "ocr_text": {"count": 2, "pending": 0, "errors": 0},
                 },
             }
+            service.search_health.return_value = {
+                "workspace": "default",
+                "status": "pass",
+                "readiness": {"workspace": "default", "status": "ready"},
+                "benchmark": {"corpus": "slack-corpus", "mode": "hybrid", "hit_at_3": 1.0, "latency_ms_p95": 10.0},
+                "failure_codes": [],
+                "warning_codes": [],
+            }
 
             server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -217,6 +225,15 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(readiness.status_code, 200)
             self.assertEqual(readiness.json()["readiness"]["status"], "ready")
             service.search_readiness.assert_called_once()
+
+            health = requests.get(
+                f"{base_url}/v1/workspaces/default/search/health",
+                params={"dataset": "docs/dev/benchmarks/slack_corpus_smoke.jsonl"},
+                timeout=5,
+            )
+            self.assertEqual(health.status_code, 200)
+            self.assertEqual(health.json()["health"]["status"], "pass")
+            service.search_health.assert_called_once()
 
     def test_message_send_uses_structured_error_envelope(self):
         resp = requests.post(

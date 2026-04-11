@@ -73,8 +73,9 @@ Current state:
   - OCR extraction path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
   - API and MCP exposure for corpus search and machine-readable search readiness
+  - shared search-health gate over readiness plus optional corpus smoke benchmarks
 - remaining work is still substantial:
-  - stronger evaluation, search-health, and readiness discipline
+  - richer benchmark sets and stronger ranking-quality evaluation
   - richer extraction coverage and search diagnostics
 
 Legacy context:

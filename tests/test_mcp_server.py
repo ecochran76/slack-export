@@ -79,6 +79,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("health", names)
         self.assertIn("runtime.live_validation", names)
         self.assertIn("search.corpus", names)
+        self.assertIn("search.health", names)
         self.assertIn("search.readiness", names)
         self.assertIn("messages.send", names)
         self.assertIn("listeners.register", names)
@@ -277,6 +278,34 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
         mock_corpus.assert_called_once()
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
+
+    def test_search_health_tool(self):
+        with patch.object(
+            self.server.service,
+            "search_health",
+            return_value={
+                "workspace": "default",
+                "status": "pass",
+                "readiness": {"workspace": "default", "status": "ready"},
+                "benchmark": {"corpus": "slack-corpus", "mode": "hybrid", "hit_at_3": 1.0, "latency_ms_p95": 10.0},
+                "failure_codes": [],
+                "warning_codes": [],
+            },
+        ) as mock_health:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 63,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.health",
+                        "arguments": {"workspace": "default", "dataset_path": "docs/dev/benchmarks/slack_corpus_smoke.jsonl"},
+                    },
+                }
+            )
+
+        self.assertIn('"status": "pass"', result["result"]["content"][0]["text"])
+        mock_health.assert_called_once()
 
     def test_message_send_error_uses_structured_mcp_error(self):
         result = self.server.handle_request(

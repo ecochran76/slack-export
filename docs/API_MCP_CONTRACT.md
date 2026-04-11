@@ -11,6 +11,7 @@ Current shared contract coverage:
 - live runtime validation
 - corpus search
 - search readiness
+- search health
 - outbound message sends
 - outbound thread replies
 - listener registration
@@ -141,6 +142,41 @@ Current semantics:
 - this is a readiness summary, not a quality benchmark
 - `degraded` currently means search corpus state exists but one or more tracked error conditions remain
 - callers should prefer these structured counters over inferring readiness from ad hoc queue inspection
+
+## Search Health
+
+API:
+
+- `GET /v1/workspaces/{workspace}/search/health`
+
+MCP:
+
+- `search.health`
+
+Both return one shared health payload with:
+
+- `workspace`
+- `status`
+  - `pass`
+  - `pass_with_warnings`
+  - `fail`
+- `readiness`
+  - the shared readiness payload
+- `benchmark`
+  - optional benchmark report when a dataset is provided
+- `failure_codes`
+- `warning_codes`
+
+Current benchmark gates:
+
+- `BENCHMARK_HIT_AT_3_LOW`
+- `BENCHMARK_LATENCY_P95_HIGH`
+
+Current semantics:
+
+- health is a gate over readiness plus optional benchmark quality checks
+- readiness degradation currently becomes a warning unless benchmark failures also occur
+- benchmark execution is optional but should be used before ranking changes or release decisions that affect search behavior
 
 ## Outbound Write Success
 

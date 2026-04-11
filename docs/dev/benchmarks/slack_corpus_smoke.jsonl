@@ -1,0 +1,2 @@
+{"query":"incident review","relevant":{"file:F1:ocr_text:tesseract_pdf":2,"Incident PDF":1}}
+{"query":"deployment notes","relevant":{"file:F2:attachment_text:utf8_text":2,"Notes":1}}

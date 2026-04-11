@@ -532,7 +532,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,query-dir}
                            ...
 
 **Arguments**
@@ -541,6 +541,8 @@ usage: slack-mirror search [-h]
 `corpus`
 .IP \[bu] 2
 `derived-text`
+.IP \[bu] 2
+`health`
 .IP \[bu] 2
 `keyword`
 .IP \[bu] 2
@@ -609,6 +611,34 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 `--kind` — optional derived-text kind filter
 .IP \[bu] 2
 `--source-kind` — optional source kind filter
+.IP \[bu] 2
+`--json` — json output
+.SH SLACK-MIRROR SEARCH HEALTH
+**Usage**
+
+usage: slack-mirror search health [-h] --workspace WORKSPACE
+                                  [--dataset DATASET]
+                                  [--mode {lexical,semantic,hybrid}]
+                                  [--limit LIMIT] [--model MODEL]
+                                  [--min-hit-at-3 MIN_HIT_AT_3]
+                                  [--max-latency-p95-ms MAX_LATENCY_P95_MS]
+                                  [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--dataset` — optional JSONL benchmark dataset path
+.IP \[bu] 2
+`--mode` — benchmark retrieval mode; default: `hybrid`
+.IP \[bu] 2
+`--limit` — benchmark result window; default: `10`
+.IP \[bu] 2
+`--model` — embedding model id for benchmark mode; default: `local-hash-128`
+.IP \[bu] 2
+`--min-hit-at-3` — minimum acceptable hit@3 when dataset is provided; default: `0.5`
+.IP \[bu] 2
+`--max-latency-p95-ms` — maximum acceptable benchmark latency p95; default: `800.0`
 .IP \[bu] 2
 `--json` — json output
 .SH SLACK-MIRROR SEARCH KEYWORD

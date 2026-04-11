@@ -503,3 +503,21 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server tests.test_mcp_server tests.test_search tests.test_cli -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 32 | 2026-04-11
+
+- Landed the next `P03` evaluation and search-health slice.
+- Refactored the older eval harness into shared search-eval helpers so benchmark logic is no longer script-private.
+- Added `slack-corpus` benchmark mode to `scripts/eval_search.py` for message-plus-derived-text evaluation.
+- Added a shared search-health gate over:
+  - readiness counters
+  - optional benchmark execution
+  - bounded quality and latency thresholds
+- Exposed search health through:
+  - CLI: `search health`
+  - API: `GET /v1/workspaces/{workspace}/search/health`
+  - MCP: `search.health`
+- Added a corpus smoke benchmark pack and updated the eval docs so the new path is usable.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_mcp_server tests.test_search tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

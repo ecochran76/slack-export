@@ -353,6 +353,37 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_health(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "health",
+                "--workspace",
+                "default",
+                "--dataset",
+                "docs/dev/benchmarks/slack_corpus_smoke.jsonl",
+                "--mode",
+                "hybrid",
+                "--limit",
+                "12",
+                "--min-hit-at-3",
+                "0.6",
+                "--max-latency-p95-ms",
+                "700",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.dataset, "docs/dev/benchmarks/slack_corpus_smoke.jsonl")
+        self.assertEqual(args.mode, "hybrid")
+        self.assertEqual(args.limit, 12)
+        self.assertEqual(args.min_hit_at_3, 0.6)
+        self.assertEqual(args.max_latency_p95_ms, 700.0)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_user_env_install(self):
         parser = build_parser()
         args = parser.parse_args(["user-env", "install"])

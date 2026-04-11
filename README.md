@@ -33,6 +33,8 @@ slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_tex
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid
+slack-mirror search health --workspace default
+slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
 slack-mirror release check
 slack-mirror release check --require-clean --require-release-version
 ./.venv/bin/python -m unittest discover -s tests -v
@@ -47,6 +49,7 @@ The current repo has:
 - a queued attachment-text extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
 - an OCR-derived text path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
 - a corpus-wide hybrid search path over messages plus derived text through `search corpus`
+- a machine-readable search health path over readiness plus optional smoke benchmarks through `search health`
 
 The active search modernization lane is [0006-2026-04-11-search-evaluation-modernization.md](/home/ecochran76/workspace.local/slack-export/docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md). The derived-text ownership contract for this first slice is in [DERIVED_TEXT_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/dev/DERIVED_TEXT_CONTRACT.md).
 

@@ -1039,6 +1039,58 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_search_health(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    payload = service.search_health(
+        conn,
+        workspace=args.workspace,
+        dataset_path=args.dataset,
+        mode=args.mode,
+        limit=args.limit,
+        model_id=args.model,
+        min_hit_at_3=args.min_hit_at_3,
+        max_latency_p95_ms=args.max_latency_p95_ms,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        readiness = payload["readiness"]
+        print(f"Search health workspace={payload['workspace']} status={payload['status']} readiness={readiness['status']}")
+        print(
+            "Readiness:"
+            f" messages={readiness['messages']['count']}"
+            f" embeddings.count={readiness['messages']['embeddings']['count']}"
+            f" embeddings.pending={readiness['messages']['embeddings']['pending']}"
+            f" embeddings.errors={readiness['messages']['embeddings']['errors']}"
+            f" attachment.count={readiness['derived_text']['attachment_text']['count']}"
+            f" attachment.pending={readiness['derived_text']['attachment_text']['pending']}"
+            f" attachment.errors={readiness['derived_text']['attachment_text']['errors']}"
+            f" ocr.count={readiness['derived_text']['ocr_text']['count']}"
+            f" ocr.pending={readiness['derived_text']['ocr_text']['pending']}"
+            f" ocr.errors={readiness['derived_text']['ocr_text']['errors']}"
+        )
+        if payload.get("benchmark"):
+            bench = payload["benchmark"]
+            print(
+                "Benchmark:"
+                f" mode={bench['mode']}"
+                f" queries={bench['queries']}"
+                f" hit@3={bench['hit_at_3']}"
+                f" hit@10={bench['hit_at_10']}"
+                f" ndcg@k={bench['ndcg_at_k']}"
+                f" mrr@k={bench['mrr_at_k']}"
+                f" p95_ms={bench['latency_ms_p95']}"
+            )
+        if payload["failure_codes"]:
+            print("Failures: " + ", ".join(payload["failure_codes"]))
+        if payload["warning_codes"]:
+            print("Warnings: " + ", ".join(payload["warning_codes"]))
+    return 0 if payload["status"] != "fail" else 1
+
+
 def cmd_search_query_dir(args: argparse.Namespace) -> int:
     from slack_mirror.search.dir_adapter import query_directory
 
@@ -1399,7 +1451,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -1567,7 +1619,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -2023,6 +2075,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_corpus.add_argument("--explain", action="store_true", help="include score breakdown")
     p_search_corpus.add_argument("--json", action="store_true", help="json output")
     p_search_corpus.set_defaults(func=cmd_search_corpus)
+
+    p_search_health = search_sub.add_parser("health", help="show search readiness and optional benchmark health")
+    p_search_health.add_argument("--workspace", required=True, help="workspace name")
+    p_search_health.add_argument("--dataset", help="optional JSONL benchmark dataset path")
+    p_search_health.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default="hybrid", help="benchmark retrieval mode")
+    p_search_health.add_argument("--limit", type=int, default=10, help="benchmark result window")
+    p_search_health.add_argument("--model", default="local-hash-128", help="embedding model id for benchmark mode")
+    p_search_health.add_argument("--min-hit-at-3", type=float, default=0.5, help="minimum acceptable hit@3 when dataset is provided")
+    p_search_health.add_argument("--max-latency-p95-ms", type=float, default=800.0, help="maximum acceptable benchmark latency p95")
+    p_search_health.add_argument("--json", action="store_true", help="json output")
+    p_search_health.set_defaults(func=cmd_search_health)
 
     p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
     p_search_dir.add_argument("--path", required=True, help="root directory")

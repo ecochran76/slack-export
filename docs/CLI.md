@@ -572,7 +572,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,query-dir}
                            ...
 ```
 
@@ -583,6 +583,7 @@ usage: slack-mirror search [-h]
 
 - `corpus`
 - `derived-text`
+- `health`
 - `keyword`
 - `query-dir`
 - `reindex-keyword`
@@ -638,6 +639,31 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 - `--limit` — maximum result rows; default: `20`
 - `--kind` — optional derived-text kind filter
 - `--source-kind` — optional source kind filter
+- `--json` — json output
+
+
+### `slack-mirror search health`
+**Usage**
+
+```
+usage: slack-mirror search health [-h] --workspace WORKSPACE
+                                  [--dataset DATASET]
+                                  [--mode {lexical,semantic,hybrid}]
+                                  [--limit LIMIT] [--model MODEL]
+                                  [--min-hit-at-3 MIN_HIT_AT_3]
+                                  [--max-latency-p95-ms MAX_LATENCY_P95_MS]
+                                  [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--dataset` — optional JSONL benchmark dataset path
+- `--mode` — benchmark retrieval mode; default: `hybrid`
+- `--limit` — benchmark result window; default: `10`
+- `--model` — embedding model id for benchmark mode; default: `local-hash-128`
+- `--min-hit-at-3` — minimum acceptable hit@3 when dataset is provided; default: `0.5`
+- `--max-latency-p95-ms` — maximum acceptable benchmark latency p95; default: `800.0`
 - `--json` — json output
 
 

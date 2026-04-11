@@ -42,7 +42,8 @@ to a world-class search stack with:
 - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` now expose the current shared-core non-message and cross-corpus search surface
 - the current corpus baseline is lexical-first hybrid retrieval over messages plus derived text
 - API and MCP now expose corpus search and machine-readable search readiness over the same shared service boundary
-- chunking, cross-workspace retrieval semantics, and evaluation hardening still remain open
+- a shared search-health gate now exists over readiness plus optional benchmark execution
+- chunking, cross-workspace retrieval semantics, and richer evaluation hardening still remain open
 - the current roadmap text is directionally right, but the active repo needs one explicit modernization plan instead of relying on older Phase E/F notes
 
 ## Cross-Repo Comparison

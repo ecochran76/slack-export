@@ -171,6 +171,27 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 200, {"ok": True, "readiness": payload})
                 return
 
+            m = re.fullmatch(r"/v1/workspaces/([^/]+)/search/health", path)
+            if m:
+                conn = service.connect()
+                try:
+                    payload = service.search_health(
+                        conn,
+                        workspace=m.group(1),
+                        dataset_path=query.get("dataset", [None])[0],
+                        mode=str(query.get("mode", ["hybrid"])[0]),
+                        limit=int(query.get("limit", [10])[0]),
+                        model_id=str(query.get("model", ["local-hash-128"])[0]),
+                        min_hit_at_3=float(query.get("min_hit_at_3", [0.5])[0]),
+                        max_latency_p95_ms=float(query.get("max_latency_p95_ms", [800.0])[0]),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="search.health")
+                    return
+                status = 200 if payload["status"] != "fail" else 503
+                _json_response(self, status, {"ok": payload["status"] != "fail", "health": payload})
+                return
+
             _error_response(self, 404, "NOT_FOUND", f"Unknown path: {path}")
 
         def do_POST(self):  # noqa: N802

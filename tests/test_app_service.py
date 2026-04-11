@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from slack_mirror.core.db import connect, get_workspace_by_name, upsert_channel, upsert_message, upsert_user, upsert_workspace
+from slack_mirror.core.db import connect, get_workspace_by_name, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.service.app import SlackMirrorAppService
 
 
@@ -91,6 +91,53 @@ class AppServiceTests(unittest.TestCase):
 
         ws_row = get_workspace_by_name(self.conn, "default")
         self.assertIsNotNone(ws_row)
+
+    def test_search_health_reports_readiness_and_benchmark(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "incident review follow-up", "channel": "C123"},
+        )
+        self.conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+            VALUES (?, 'F1', 'scan.pdf', 'Incident PDF', 'application/pdf', '/tmp/scan.pdf', '{}')
+            """,
+            (workspace_id,),
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F1",
+            derivation_kind="ocr_text",
+            extractor="tesseract_pdf",
+            text="incident review appendix",
+            media_type="application/pdf",
+            local_path="/tmp/scan.pdf",
+            metadata={"origin": "test"},
+        )
+        dataset = self.root / "search_eval.jsonl"
+        dataset.write_text(
+            '{"query":"incident review","relevant":{"C123:1700000000.000100":2,"file:F1:ocr_text:tesseract_pdf":2}}\n',
+            encoding="utf-8",
+        )
+
+        health = self.service.search_health(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            mode="hybrid",
+            limit=10,
+        )
+
+        self.assertEqual(health["status"], "pass")
+        self.assertEqual(health["readiness"]["status"], "ready")
+        self.assertIsNotNone(health["benchmark"])
+        self.assertGreaterEqual(health["benchmark"]["hit_at_3"], 0.5)
 
     def test_send_message_and_thread_reply_are_audited(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

@@ -11,6 +11,7 @@ from typing import Any
 from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
 from slack_mirror.core.slack_api import SlackApiClient
+from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.processor import process_pending_events
 from slack_mirror.service.user_env import _build_live_validation_report, default_user_env_paths
 from slack_mirror.search.corpus import search_corpus
@@ -411,6 +412,55 @@ class SlackMirrorAppService:
             if message_count > 0 and message_embedding_errors == 0 and derived_errors.get("attachment_text", 0) == 0 and derived_errors.get("ocr_text", 0) == 0
             else "degraded",
         }
+
+    def search_health(
+        self,
+        conn,
+        *,
+        workspace: str,
+        dataset_path: str | None = None,
+        mode: str = "hybrid",
+        limit: int = 10,
+        model_id: str = "local-hash-128",
+        min_hit_at_3: float = 0.5,
+        max_latency_p95_ms: float = 800.0,
+    ) -> dict[str, Any]:
+        readiness = self.search_readiness(conn, workspace=workspace)
+        workspace_id = self.workspace_id(conn, workspace)
+
+        report: dict[str, Any] = {
+            "workspace": workspace,
+            "status": "pass" if readiness["status"] == "ready" else "degraded",
+            "readiness": readiness,
+            "benchmark": None,
+            "failure_codes": [],
+            "warning_codes": [],
+        }
+
+        if readiness["status"] != "ready":
+            report["warning_codes"].append("READINESS_DEGRADED")
+
+        if dataset_path:
+            dataset = dataset_rows(dataset_path)
+            benchmark = evaluate_corpus_search(
+                conn,
+                workspace_id=workspace_id,
+                dataset=dataset,
+                mode=mode,
+                limit=limit,
+                model_id=model_id,
+            )
+            report["benchmark"] = benchmark
+            if float(benchmark["hit_at_3"]) < float(min_hit_at_3):
+                report["failure_codes"].append("BENCHMARK_HIT_AT_3_LOW")
+            if float(benchmark["latency_ms_p95"]) > float(max_latency_p95_ms):
+                report["failure_codes"].append("BENCHMARK_LATENCY_P95_HIGH")
+
+        if report["failure_codes"]:
+            report["status"] = "fail"
+        elif report["warning_codes"]:
+            report["status"] = "pass_with_warnings"
+        return report
 
     def get_workspace_status(
         self,
