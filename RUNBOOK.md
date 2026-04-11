@@ -592,3 +592,21 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_derived_text tests.test_search -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 37 | 2026-04-11
+
+- Closed `P03 | Search And Evaluation`.
+- Closure basis:
+  - shared-core search now spans canonical messages plus first-class derived text
+  - the shipped extractor set covers canvases, UTF-8 text-like files, OOXML office files, machine-readable PDFs, and OCRable image/scanned-PDF content
+  - chunk-aware retrieval is landed for long derived-text rows without inventing a second canonical document identity
+  - cross-workspace corpus search is exposed through shared service, CLI, API, and MCP
+  - search readiness and search health are machine-readable supported contracts, with smoke and depth benchmark packs plus per-query diagnostics
+- Deferred from `P03` closure:
+  - provider-routed OCR or extraction paths beyond current host-local tools
+  - broader extraction coverage beyond the current shipped document set
+  - future ranking-model or backend changes beyond the current SQLite-first hybrid baseline
+  - deeper benchmark suites beyond the current smoke and depth packs
+- Future search work should open narrower follow-up plans instead of keeping `P03` generically open.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

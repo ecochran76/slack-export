@@ -55,7 +55,7 @@ Legacy context:
 
 ## P03 | Search And Evaluation
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
@@ -67,18 +67,16 @@ Current state:
 - keyword and semantic search exist
 - embedding backlog discipline and SQLite contention hardening have landed
 - cross-repo comparison against `../ragmail` and `../imcli` established the modernization direction explicitly
-- first P03 foundation slice is now landed:
+- the shipped baseline now includes:
   - first-class `derived_text`, `derived_text_fts`, and `derived_text_jobs` tables
   - first-class `derived_text_chunks` and `derived_text_chunks_fts` tables for retrieval depth on long non-message documents
-  - document-native extraction path for canvases, UTF-8 text-like files, OOXML office files, and machine-readable PDFs when `pdftotext` is available
-  - OCR extraction path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
+  - document-native extraction for canvases, UTF-8 text-like files, OOXML office files, and machine-readable PDFs when `pdftotext` is available
+  - OCR extraction for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
   - explicit cross-workspace corpus search through shared service, CLI, API, and MCP
-  - API and MCP exposure for corpus search and machine-readable search readiness
-  - shared search-health gate over readiness plus optional corpus smoke and depth benchmarks, with per-query benchmark diagnostics and stronger ranking-quality thresholds
-- remaining work is still substantial:
-  - stronger ranking-quality evaluation and broader benchmark coverage
-  - richer extraction coverage and search diagnostics
+  - API and MCP exposure for corpus search, readiness, and search health
+  - shared search-health gates over readiness plus optional corpus smoke and depth benchmarks, with per-query diagnostics and bounded ranking-quality thresholds
+- the modernization lane is closed on this SQLite-first shipped baseline; future search work should open narrower follow-up plans for additional extraction providers, ranking changes, or backend expansion rather than leaving `P03` generically open
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

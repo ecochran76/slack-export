@@ -102,7 +102,7 @@ Optional filters:
 - `--kind attachment_text|ocr_text`
 - `--source-kind file|canvas`
 
-This is intentionally separate from message search while the broader hybrid retrieval contract is still under `P03`.
+This is intentionally separate from message search even though the broader corpus-retrieval contract is now shipped through `search corpus`.
 
 Chunk semantics:
 
@@ -115,9 +115,9 @@ Chunk semantics:
   - `end_offset`
 - callers should treat those as best-match snippet metadata, not as a separate document identity
 
-## Remaining Work
+## Remaining Follow-On Work
 
-- hybrid retrieval over messages plus derived-text rows
-- broader benchmark depth beyond smoke fixtures
 - richer backlog and outcome reporting for extraction coverage
 - OCR coverage reporting and fallback/provider routing beyond local host tools
+- broader document-format coverage beyond the current UTF-8, PDF, and OOXML baseline
+- future semantic-ranking improvements beyond the current local hybrid baseline

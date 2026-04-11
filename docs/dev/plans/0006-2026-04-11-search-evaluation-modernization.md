@@ -1,6 +1,6 @@
 # Search Evaluation Modernization
 
-State: OPEN
+State: CLOSED
 Roadmap: P03
 Opened: 2026-04-11
 Supersedes: `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`, `docs/dev/PHASE_F_SEARCH_PLATFORM.md`, `docs/dev/SEARCH_EVAL.md`
@@ -49,7 +49,6 @@ to a world-class search stack with:
 - chunk-aware derived-text retrieval is now landed through `derived_text_chunks` plus `derived_text_chunks_fts`
 - chunk-level matches now roll back up to shared-core derived-text results with snippet metadata instead of inventing a second document identity
 - a deeper corpus benchmark pack now exists alongside the smoke fixture for long-document and OCR retrieval checks
-- richer evaluation hardening still remains open
 - the current roadmap text is directionally right, but the active repo needs one explicit modernization plan instead of relying on older Phase E/F notes
 
 ## Cross-Repo Comparison
@@ -143,6 +142,13 @@ That means:
 - quality comparison across lexical, semantic, and hybrid modes
 - search-health and freshness checks for lexical, derived-text, OCR, and embedding readiness
 
+Status on completion:
+
+- Track A shipped on the shared `messages` plus `derived_text` corpus with explicit cross-workspace scope
+- Track B shipped on the current host-local extractor set for canvases, UTF-8 files, OOXML files, machine-readable PDFs, and OCRable image/scanned-PDF content
+- Track C shipped on lexical-first hybrid retrieval over messages plus derived text, with chunk-aware retrieval for long derived-text rows
+- Track D shipped on shared readiness plus corpus smoke/depth benchmark gating, including per-query diagnostics and bounded ranking thresholds
+
 ## Critical Path
 
 1. define the searchable corpus contract first
@@ -168,3 +174,12 @@ That means:
 ## Definition Of Done
 
 This plan is done when Slack mirror has a documented and shipped search stack that supports cross-workspace lexical and semantic retrieval over message text plus derived attachment/OCR text, with explicit evaluation and operator readiness checks, and future search work no longer depends on the older Phase E/F notes as the active source of truth.
+
+Closure note:
+
+- This condition is now met on the current SQLite-first baseline.
+- Explicitly deferred from closure:
+  - remote/provider-routed OCR or extraction paths
+  - broader office/document format coverage beyond the current shipped set
+  - future ranking-model or backend changes beyond the current local hybrid baseline
+  - deeper benchmark suites beyond the current smoke and depth packs
