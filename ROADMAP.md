@@ -55,7 +55,7 @@ Legacy context:
 
 ## P03 | Search And Evaluation
 
-Status: CLOSED
+Status: OPEN
 
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
@@ -63,6 +63,7 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md`
 - `docs/dev/plans/0007-2026-04-11-extraction-provider-expansion.md`
+- `docs/dev/plans/0008-2026-04-11-export-quality-ooxml.md`
 
 Current state:
 - keyword and semantic search exist
@@ -82,8 +83,8 @@ Current state:
   - command-backed and HTTP-backed providers are landed, with local fallback retained by default
   - extraction outcome thresholding is landed on top of readiness reporting and search health
   - broader document-format coverage now includes OOXML and OpenDocument office files where they fit the shared `derived_text` contract cleanly
-- `docx-skill` is a likely source of reusable OOXML primitives for both richer `.docx` extraction and future DOCX-quality export rendering, but that reuse remains deferred to a bounded follow-up slice
-- the broad search/evaluation modernization lane is closed; any additional extraction-provider, export-quality, or benchmark work should reopen `P03` only through a new narrow plan
+- `docx-skill` is a likely source of reusable OOXML primitives for both richer `.docx` extraction and future DOCX-quality export rendering
+- active follow-up scope is now narrowed again through `0008`, which is focused on export-quality OOXML work rather than reopening generic search modernization
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

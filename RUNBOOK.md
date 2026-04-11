@@ -737,3 +737,20 @@ This file is the dated turn log for planning and execution continuity.
   - possible reuse of `docx-skill` OOXML primitives for future export-quality work
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 49 | 2026-04-11
+
+- Reopened `P03` only through a new narrow follow-up plan instead of broadly reopening search modernization.
+- Opened `docs/dev/plans/0008-2026-04-11-export-quality-ooxml.md` for export-quality OOXML work.
+- Grounded that plan in the repo's actual shipped export surfaces:
+  - `scripts/export_channel_day.py`
+  - `scripts/export_channel_day_pdf.py`
+  - `scripts/export_multi_day_pdf.py`
+  - `scripts/export_semantic_daypack.py`
+- Scoped the new plan around:
+  - export-surface audit
+  - bounded `docx-skill` primitive reuse
+  - explicit DOCX-quality export contract and QA
+- Kept the new work narrow: this is not a reopening of generic search or office-document editing.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
