@@ -56,6 +56,7 @@ The canonical system should look like this:
 
 - FTS keyword search
 - semantic retrieval
+- corpus-wide retrieval over messages plus derived text
 - shared ranking and query interpretation
 - freshness and backlog observability
 

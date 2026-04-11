@@ -72,9 +72,10 @@ Current state:
   - document-native extraction path for canvases, UTF-8 text-like files, and machine-readable PDFs when `pdftotext` is available
   - OCR extraction path for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
   - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
+  - API and MCP exposure for corpus search and machine-readable search readiness
 - remaining work is still substantial:
   - stronger evaluation, search-health, and readiness discipline
-  - richer extraction coverage, transport exposure, and search diagnostics
+  - richer extraction coverage and search diagnostics
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

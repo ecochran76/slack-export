@@ -9,6 +9,8 @@ It is not a full endpoint catalog. It captures the response shapes and semantics
 Current shared contract coverage:
 
 - live runtime validation
+- corpus search
+- search readiness
 - outbound message sends
 - outbound thread replies
 - listener registration
@@ -50,6 +52,95 @@ Both return the same shared validation payload with:
   - `warning_codes`
 
 Human-readable `lines` remain present for operators, but automation should prefer the structured fields above.
+
+## Corpus Search
+
+API:
+
+- `GET /v1/workspaces/{workspace}/search/corpus`
+
+MCP:
+
+- `search.corpus`
+
+Both expose the same shared corpus-search result model over:
+
+- messages
+- attachment-derived text
+- OCR-derived text
+
+Important request fields:
+
+- `query`
+- `mode`
+  - `lexical`
+  - `semantic`
+  - `hybrid`
+- `limit`
+- `kind`
+  - optional derived-text filter
+- `source_kind`
+  - optional derived-text source filter
+
+Important result fields:
+
+- `result_kind`
+  - `message`
+  - `derived_text`
+- `text`
+- `source_label`
+- `_source`
+  - `lexical`
+  - `semantic`
+  - `hybrid`
+- `_lexical_score`
+- `_semantic_score`
+- `_hybrid_score`
+
+Current semantics:
+
+- lexical-first hybrid ranking is the shipped baseline
+- message results reuse the existing message-search path
+- derived-text results reuse shared-core `derived_text` rows
+- derived-text semantic scoring currently uses the same local embedding baseline used elsewhere in-repo
+
+## Search Readiness
+
+API:
+
+- `GET /v1/workspaces/{workspace}/search/readiness`
+
+MCP:
+
+- `search.readiness`
+
+Both return one shared machine-readable readiness payload with:
+
+- `workspace`
+- `status`
+  - `ready`
+  - `degraded`
+- `messages`
+  - `count`
+  - `embeddings`
+    - `count`
+    - `pending`
+    - `errors`
+- `derived_text`
+  - `attachment_text`
+    - `count`
+    - `pending`
+    - `errors`
+  - `ocr_text`
+    - `count`
+    - `pending`
+    - `errors`
+
+Current semantics:
+
+- this is a readiness summary, not a quality benchmark
+- `degraded` currently means search corpus state exists but one or more tracked error conditions remain
+- callers should prefer these structured counters over inferring readiness from ad hoc queue inspection
 
 ## Outbound Write Success
 

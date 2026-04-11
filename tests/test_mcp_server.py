@@ -78,6 +78,8 @@ class McpServerTests(unittest.TestCase):
         names = [tool["name"] for tool in tools["result"]["tools"]]
         self.assertIn("health", names)
         self.assertIn("runtime.live_validation", names)
+        self.assertIn("search.corpus", names)
+        self.assertIn("search.readiness", names)
         self.assertIn("messages.send", names)
         self.assertIn("listeners.register", names)
 
@@ -221,6 +223,60 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"summary": "Summary: PASS"', text)
         self.assertIn('"workspaces"', text)
         mock_validate.assert_called_once_with(require_live_units=False)
+
+    def test_search_tools(self):
+        with patch.object(
+            self.server.service,
+            "corpus_search",
+            return_value=[
+                {
+                    "result_kind": "message",
+                    "source_label": "general",
+                    "text": "incident review follow-up",
+                    "_source": "hybrid",
+                    "_hybrid_score": 5.1,
+                }
+            ],
+        ) as mock_corpus, patch.object(
+            self.server.service,
+            "search_readiness",
+            return_value={
+                "workspace": "default",
+                "status": "ready",
+                "messages": {"count": 10, "embeddings": {"count": 10, "pending": 0, "errors": 0}},
+                "derived_text": {
+                    "attachment_text": {"count": 4, "pending": 0, "errors": 0},
+                    "ocr_text": {"count": 2, "pending": 0, "errors": 0},
+                },
+            },
+        ) as mock_readiness:
+            corpus = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 61,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.corpus",
+                        "arguments": {"workspace": "default", "query": "incident review", "mode": "hybrid"},
+                    },
+                }
+            )
+            readiness = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 62,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.readiness",
+                        "arguments": {"workspace": "default"},
+                    },
+                }
+            )
+
+        self.assertIn('"result_kind": "message"', corpus["result"]["content"][0]["text"])
+        self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
+        mock_corpus.assert_called_once()
+        mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
 
     def test_message_send_error_uses_structured_mcp_error(self):
         result = self.server.handle_request(

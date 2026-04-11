@@ -13,6 +13,7 @@ from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_nam
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.service.processor import process_pending_events
 from slack_mirror.service.user_env import _build_live_validation_report, default_user_env_paths
+from slack_mirror.search.corpus import search_corpus
 
 
 @dataclass(frozen=True)
@@ -281,6 +282,135 @@ class SlackMirrorAppService:
 
     def list_workspaces(self, conn) -> list[dict[str, Any]]:
         return [dict(row) for row in list_workspaces(conn)]
+
+    def corpus_search(
+        self,
+        conn,
+        *,
+        workspace: str,
+        query: str,
+        limit: int = 20,
+        mode: str = "hybrid",
+        model_id: str = "local-hash-128",
+        lexical_weight: float = 0.6,
+        semantic_weight: float = 0.4,
+        semantic_scale: float = 10.0,
+        use_fts: bool = True,
+        derived_kind: str | None = None,
+        derived_source_kind: str | None = None,
+    ) -> list[dict[str, Any]]:
+        workspace_id = self.workspace_id(conn, workspace)
+        return search_corpus(
+            conn,
+            workspace_id=workspace_id,
+            query=query,
+            limit=limit,
+            mode=mode,
+            model_id=model_id,
+            lexical_weight=lexical_weight,
+            semantic_weight=semantic_weight,
+            semantic_scale=semantic_scale,
+            use_fts=use_fts,
+            derived_kind=derived_kind,
+            derived_source_kind=derived_source_kind,
+        )
+
+    def search_readiness(self, conn, *, workspace: str) -> dict[str, Any]:
+        workspace_id = self.workspace_id(conn, workspace)
+
+        message_count = int(
+            conn.execute(
+                "SELECT COUNT(*) AS c FROM messages WHERE workspace_id = ? AND deleted = 0",
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+        message_embedding_count = int(
+            conn.execute(
+                "SELECT COUNT(*) AS c FROM message_embeddings WHERE workspace_id = ?",
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+        message_embedding_pending = int(
+            conn.execute(
+                "SELECT COUNT(*) AS c FROM embedding_jobs WHERE workspace_id = ? AND status = 'pending'",
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+        message_embedding_errors = int(
+            conn.execute(
+                "SELECT COUNT(*) AS c FROM embedding_jobs WHERE workspace_id = ? AND status = 'error'",
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+
+        attachment_count = int(
+            conn.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM derived_text
+                WHERE workspace_id = ? AND derivation_kind = 'attachment_text'
+                """,
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+        ocr_count = int(
+            conn.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM derived_text
+                WHERE workspace_id = ? AND derivation_kind = 'ocr_text'
+                """,
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+        derived_pending_rows = conn.execute(
+            """
+            SELECT derivation_kind, COUNT(*) AS c
+            FROM derived_text_jobs
+            WHERE workspace_id = ? AND status = 'pending'
+            GROUP BY derivation_kind
+            """,
+            (workspace_id,),
+        ).fetchall()
+        derived_error_rows = conn.execute(
+            """
+            SELECT derivation_kind, COUNT(*) AS c
+            FROM derived_text_jobs
+            WHERE workspace_id = ? AND status = 'error'
+            GROUP BY derivation_kind
+            """,
+            (workspace_id,),
+        ).fetchall()
+
+        derived_pending = {str(row["derivation_kind"]): int(row["c"]) for row in derived_pending_rows}
+        derived_errors = {str(row["derivation_kind"]): int(row["c"]) for row in derived_error_rows}
+
+        return {
+            "workspace": workspace,
+            "messages": {
+                "count": message_count,
+                "embeddings": {
+                    "count": message_embedding_count,
+                    "pending": message_embedding_pending,
+                    "errors": message_embedding_errors,
+                },
+            },
+            "derived_text": {
+                "attachment_text": {
+                    "count": attachment_count,
+                    "pending": derived_pending.get("attachment_text", 0),
+                    "errors": derived_errors.get("attachment_text", 0),
+                },
+                "ocr_text": {
+                    "count": ocr_count,
+                    "pending": derived_pending.get("ocr_text", 0),
+                    "errors": derived_errors.get("ocr_text", 0),
+                },
+            },
+            "status": "ready"
+            if message_count > 0 and message_embedding_errors == 0 and derived_errors.get("attachment_text", 0) == 0 and derived_errors.get("ocr_text", 0) == 0
+            else "degraded",
+        }
 
     def get_workspace_status(
         self,

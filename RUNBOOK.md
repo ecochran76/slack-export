@@ -485,3 +485,21 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_search tests.test_cli -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 31 | 2026-04-11
+
+- Landed the next `P03` transport and readiness slice.
+- Added shared service methods for:
+  - corpus search over messages plus derived text
+  - machine-readable search readiness reporting
+- Exposed those through both transports:
+  - API:
+    - `GET /v1/workspaces/{workspace}/search/corpus`
+    - `GET /v1/workspaces/{workspace}/search/readiness`
+  - MCP:
+    - `search.corpus`
+    - `search.readiness`
+- Updated the transport contract docs so corpus search and readiness are explicit shared API/MCP commitments rather than CLI-only behavior.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_mcp_server tests.test_search tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

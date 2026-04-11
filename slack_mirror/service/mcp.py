@@ -46,6 +46,36 @@ class SlackMirrorMcpServer:
             ),
             _tool("workspaces.list", "List configured workspaces", {"type": "object", "properties": {}, "additionalProperties": False}),
             _tool(
+                "search.corpus",
+                "Search messages plus derived attachment and OCR text",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "query": {"type": "string"},
+                        "limit": {"type": "integer", "default": 20},
+                        "mode": {"type": "string", "enum": ["lexical", "semantic", "hybrid"], "default": "hybrid"},
+                        "model": {"type": "string", "default": "local-hash-128"},
+                        "lexical_weight": {"type": "number", "default": 0.6},
+                        "semantic_weight": {"type": "number", "default": 0.4},
+                        "semantic_scale": {"type": "number", "default": 10.0},
+                        "no_fts": {"type": "boolean", "default": False},
+                        "kind": {"type": "string", "enum": ["attachment_text", "ocr_text"]},
+                        "source_kind": {"type": "string", "enum": ["file", "canvas"]},
+                    },
+                    "required": ["workspace", "query"],
+                },
+            ),
+            _tool(
+                "search.readiness",
+                "Show workspace search readiness across messages, embeddings, attachment text, and OCR",
+                {
+                    "type": "object",
+                    "properties": {"workspace": {"type": "string"}},
+                    "required": ["workspace"],
+                },
+            ),
+            _tool(
                 "workspace.status",
                 "Show workspace status and freshness",
                 {
@@ -187,6 +217,32 @@ class SlackMirrorMcpServer:
             )
         if name == "workspaces.list":
             return self._mcp_result({"workspaces": self.service.list_workspaces(conn)})
+        if name == "search.corpus":
+            return self._mcp_result(
+                {
+                    "results": self.service.corpus_search(
+                        conn,
+                        workspace=str(args["workspace"]),
+                        query=str(args["query"]),
+                        limit=int(args.get("limit", 20)),
+                        mode=str(args.get("mode", "hybrid")),
+                        model_id=str(args.get("model", "local-hash-128")),
+                        lexical_weight=float(args.get("lexical_weight", 0.6)),
+                        semantic_weight=float(args.get("semantic_weight", 0.4)),
+                        semantic_scale=float(args.get("semantic_scale", 10.0)),
+                        use_fts=not bool(args.get("no_fts", False)),
+                        derived_kind=str(args["kind"]) if args.get("kind") is not None else None,
+                        derived_source_kind=str(args["source_kind"]) if args.get("source_kind") is not None else None,
+                    )
+                }
+            )
+        if name == "search.readiness":
+            return self._mcp_result(
+                self.service.search_readiness(
+                    conn,
+                    workspace=str(args["workspace"]),
+                )
+            )
         if name == "workspace.status":
             summary, rows = self.service.get_workspace_status(
                 conn,

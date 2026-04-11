@@ -172,6 +172,52 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(resp.json()["validation"]["workspaces"][0]["name"], "default")
             service.validate_live_runtime.assert_called_once_with(require_live_units=True)
 
+    def test_search_endpoints(self):
+        with patch("slack_mirror.service.api.get_app_service") as mock_get_service:
+            service = mock_get_service.return_value
+            service.connect.return_value = object()
+            service.corpus_search.return_value = [
+                {
+                    "result_kind": "derived_text",
+                    "source_label": "Incident PDF",
+                    "text": "incident review appendix",
+                    "_source": "hybrid",
+                    "_hybrid_score": 4.2,
+                }
+            ]
+            service.search_readiness.return_value = {
+                "workspace": "default",
+                "status": "ready",
+                "messages": {"count": 10, "embeddings": {"count": 10, "pending": 0, "errors": 0}},
+                "derived_text": {
+                    "attachment_text": {"count": 4, "pending": 0, "errors": 0},
+                    "ocr_text": {"count": 2, "pending": 0, "errors": 0},
+                },
+            }
+
+            server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self.addCleanup(server.shutdown)
+            self.addCleanup(server.server_close)
+            self.addCleanup(thread.join, 2)
+            base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+            corpus = requests.get(
+                f"{base_url}/v1/workspaces/default/search/corpus",
+                params={"query": "incident review", "mode": "hybrid", "kind": "ocr_text", "source_kind": "file"},
+                timeout=5,
+            )
+            self.assertEqual(corpus.status_code, 200)
+            self.assertTrue(corpus.json()["ok"])
+            self.assertEqual(corpus.json()["results"][0]["result_kind"], "derived_text")
+            service.corpus_search.assert_called_once()
+
+            readiness = requests.get(f"{base_url}/v1/workspaces/default/search/readiness", timeout=5)
+            self.assertEqual(readiness.status_code, 200)
+            self.assertEqual(readiness.json()["readiness"]["status"], "ready")
+            service.search_readiness.assert_called_once()
+
     def test_message_send_uses_structured_error_envelope(self):
         resp = requests.post(
             f"{self.base_url}/v1/workspaces/default/messages",
