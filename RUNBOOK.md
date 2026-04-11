@@ -268,3 +268,18 @@ This file is the dated turn log for planning and execution continuity.
 - Updated the live-ops docs and `P04` current-state note to reflect the new CLI-native machine-output path.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+
+## Turn 18 | 2026-04-10
+
+- Added `slack-mirror user-env check-live` as the one-command operator smoke gate for the managed runtime.
+- The new check combines:
+  - managed runtime artifact presence for the CLI, API, and MCP launchers
+  - API unit-file presence
+  - full live validation of config, DB, workspace sync, explicit outbound tokens, expected units, and queue-health thresholds
+- Added `--json` support so the combined smoke gate is machine-readable for unattended release and install checks.
+- Kept `status` and `validate-live` as narrower primitives instead of overloading either one.
+- Updated the live-ops docs and `P04` current-state note so the operator workflow now includes a single pass/fail smoke command.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

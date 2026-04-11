@@ -89,6 +89,22 @@ class UserEnvStatusReport:
     services: dict[str, str]
 
 
+@dataclass(frozen=True)
+class LiveSmokeCheckReport:
+    ok: bool
+    status: str
+    exit_code: int
+    summary: str
+    failure_count: int
+    warning_count: int
+    failure_codes: list[str]
+    warning_codes: list[str]
+    failures: list[LiveValidationIssue]
+    warnings: list[LiveValidationIssue]
+    status_report: UserEnvStatusReport
+    validation_report: LiveValidationReport
+
+
 def default_user_env_paths(
     *,
     repo_root: Path | None = None,
@@ -637,6 +653,167 @@ def _build_status_report(
     )
 
 
+def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
+    return {
+        "wrapper_present": report.wrapper_present,
+        "api_wrapper_present": report.api_wrapper_present,
+        "mcp_wrapper_present": report.mcp_wrapper_present,
+        "api_service_present": report.api_service_present,
+        "config_present": report.config_present,
+        "db_present": report.db_present,
+        "cache_present": report.cache_present,
+        "services": report.services,
+    }
+
+
+def _live_validation_report_payload(report: LiveValidationReport) -> dict[str, Any]:
+    return {
+        "ok": report.ok,
+        "status": report.status,
+        "require_live_units": report.require_live_units,
+        "exit_code": report.exit_code,
+        "summary": report.summary,
+        "failure_count": report.failure_count,
+        "warning_count": report.warning_count,
+        "failure_codes": report.failure_codes,
+        "warning_codes": report.warning_codes,
+        "failures": [
+            {
+                "severity": item.severity,
+                "code": item.code,
+                "message": item.message,
+                "action": item.action,
+                "workspace": item.workspace,
+            }
+            for item in report.failures
+        ],
+        "warnings": [
+            {
+                "severity": item.severity,
+                "code": item.code,
+                "message": item.message,
+                "action": item.action,
+                "workspace": item.workspace,
+            }
+            for item in report.warnings
+        ],
+        "workspaces": [
+            {
+                "name": workspace.name,
+                "event_errors": workspace.event_errors,
+                "embedding_errors": workspace.embedding_errors,
+                "event_pending": workspace.event_pending,
+                "embedding_pending": workspace.embedding_pending,
+                "failure_codes": workspace.failure_codes,
+                "warning_codes": workspace.warning_codes,
+            }
+            for workspace in report.workspaces
+        ],
+    }
+
+
+def _finalize_live_smoke_report(
+    *,
+    failures: list[LiveValidationIssue],
+    warnings: list[LiveValidationIssue],
+    status_report: UserEnvStatusReport,
+    validation_report: LiveValidationReport,
+) -> LiveSmokeCheckReport:
+    failure_codes = sorted({item.code for item in failures})
+    warning_codes = sorted({item.code for item in warnings})
+    if failures:
+        return LiveSmokeCheckReport(
+            ok=False,
+            status="fail",
+            exit_code=1,
+            summary=f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})",
+            failure_count=len(failures),
+            warning_count=len(warnings),
+            failure_codes=failure_codes,
+            warning_codes=warning_codes,
+            failures=failures,
+            warnings=warnings,
+            status_report=status_report,
+            validation_report=validation_report,
+        )
+    if warnings:
+        return LiveSmokeCheckReport(
+            ok=True,
+            status="pass_with_warnings",
+            exit_code=0,
+            summary=f"Summary: PASS with warnings ({len(warnings)})",
+            failure_count=0,
+            warning_count=len(warnings),
+            failure_codes=[],
+            warning_codes=warning_codes,
+            failures=[],
+            warnings=warnings,
+            status_report=status_report,
+            validation_report=validation_report,
+        )
+    return LiveSmokeCheckReport(
+        ok=True,
+        status="pass",
+        exit_code=0,
+        summary="Summary: PASS",
+        failure_count=0,
+        warning_count=0,
+        failure_codes=[],
+        warning_codes=[],
+        failures=[],
+        warnings=[],
+        status_report=status_report,
+        validation_report=validation_report,
+    )
+
+
+def _build_live_smoke_report(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+) -> LiveSmokeCheckReport:
+    target = paths or default_user_env_paths()
+    status_report = _build_status_report(paths=target, runner=runner)
+    validation_report = _build_live_validation_report(paths=target, runner=runner, require_live_units=True)
+    failures = list(validation_report.failures)
+    warnings = list(validation_report.warnings)
+
+    def fail(code: str, message: str, action: str | None = None) -> None:
+        failures.append(LiveValidationIssue("fail", code, message, action=action))
+
+    if not status_report.wrapper_present:
+        fail(
+            "USER_WRAPPER_MISSING",
+            "slack-mirror-user wrapper missing",
+            "run `slack-mirror user-env update` to restore the managed CLI wrapper",
+        )
+    if not status_report.api_wrapper_present:
+        fail(
+            "API_WRAPPER_MISSING",
+            "slack-mirror-api wrapper missing",
+            "run `slack-mirror user-env update` to restore the managed API launcher",
+        )
+    if not status_report.mcp_wrapper_present:
+        fail(
+            "MCP_WRAPPER_MISSING",
+            "slack-mirror-mcp wrapper missing",
+            "run `slack-mirror user-env update` to restore the managed MCP launcher",
+        )
+    if not status_report.api_service_present:
+        fail(
+            "API_SERVICE_FILE_MISSING",
+            "managed API service unit file missing",
+            "run `slack-mirror user-env update` to recreate slack-mirror-api.service",
+        )
+
+    return _finalize_live_smoke_report(
+        failures=failures,
+        warnings=warnings,
+        status_report=status_report,
+        validation_report=validation_report,
+    )
+
+
 def _run_migrations(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn) -> None:
     _log(out, "running schema migrations (mirror init)")
     env = _runtime_env(paths)
@@ -773,22 +950,7 @@ def status_user_env(
     target = paths or default_user_env_paths()
     report = _build_status_report(paths=target, runner=runner)
     if json_output:
-        out(
-            json.dumps(
-                {
-                    "wrapper_present": report.wrapper_present,
-                    "api_wrapper_present": report.api_wrapper_present,
-                    "mcp_wrapper_present": report.mcp_wrapper_present,
-                    "api_service_present": report.api_service_present,
-                    "config_present": report.config_present,
-                    "db_present": report.db_present,
-                    "cache_present": report.cache_present,
-                    "services": report.services,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        out(json.dumps(_status_report_payload(report), indent=2, sort_keys=True))
         return 0
     db_path = target.state_dir / "slack_mirror.db"
     out(f"Wrapper:  {target.wrapper_path}")
@@ -832,55 +994,7 @@ def validate_live_user_env(
         require_live_units=require_live_units,
     )
     if json_output:
-        out(
-            json.dumps(
-                {
-                    "ok": report.ok,
-                    "status": report.status,
-                    "require_live_units": report.require_live_units,
-                    "exit_code": report.exit_code,
-                    "summary": report.summary,
-                    "failure_count": report.failure_count,
-                    "warning_count": report.warning_count,
-                    "failure_codes": report.failure_codes,
-                    "warning_codes": report.warning_codes,
-                    "failures": [
-                        {
-                            "severity": item.severity,
-                            "code": item.code,
-                            "message": item.message,
-                            "action": item.action,
-                            "workspace": item.workspace,
-                        }
-                        for item in report.failures
-                    ],
-                    "warnings": [
-                        {
-                            "severity": item.severity,
-                            "code": item.code,
-                            "message": item.message,
-                            "action": item.action,
-                            "workspace": item.workspace,
-                        }
-                        for item in report.warnings
-                    ],
-                    "workspaces": [
-                        {
-                            "name": workspace.name,
-                            "event_errors": workspace.event_errors,
-                            "embedding_errors": workspace.embedding_errors,
-                            "event_pending": workspace.event_pending,
-                            "embedding_pending": workspace.embedding_pending,
-                            "failure_codes": workspace.failure_codes,
-                            "warning_codes": workspace.warning_codes,
-                        }
-                        for workspace in report.workspaces
-                    ],
-                },
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        out(json.dumps(_live_validation_report_payload(report), indent=2, sort_keys=True))
         return report.exit_code
 
     def emit_actions(items: list[LiveValidationIssue], *, label: str) -> None:
@@ -936,4 +1050,84 @@ def validate_live_user_env(
         emit_actions(report.warnings, label="Warnings:")
     elif report.warnings:
         emit_actions(report.warnings, label="Warnings:")
+    return report.exit_code
+
+
+def check_live_user_env(
+    *,
+    paths: UserEnvPaths | None = None,
+    runner: RunFn = subprocess.run,
+    out: PrintFn = print,
+    json_output: bool = False,
+) -> int:
+    target = paths or default_user_env_paths()
+    report = _build_live_smoke_report(paths=target, runner=runner)
+
+    if json_output:
+        out(
+            json.dumps(
+                {
+                    "ok": report.ok,
+                    "status": report.status,
+                    "exit_code": report.exit_code,
+                    "summary": report.summary,
+                    "failure_count": report.failure_count,
+                    "warning_count": report.warning_count,
+                    "failure_codes": report.failure_codes,
+                    "warning_codes": report.warning_codes,
+                    "failures": [
+                        {
+                            "severity": item.severity,
+                            "code": item.code,
+                            "message": item.message,
+                            "action": item.action,
+                            "workspace": item.workspace,
+                        }
+                        for item in report.failures
+                    ],
+                    "warnings": [
+                        {
+                            "severity": item.severity,
+                            "code": item.code,
+                            "message": item.message,
+                            "action": item.action,
+                            "workspace": item.workspace,
+                        }
+                        for item in report.warnings
+                    ],
+                    "status_report": _status_report_payload(report.status_report),
+                    "validation_report": _live_validation_report_payload(report.validation_report),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return report.exit_code
+
+    out("Managed Runtime:")
+    out(f"  wrapper: {'present' if report.status_report.wrapper_present else 'missing'}")
+    out(f"  api wrapper: {'present' if report.status_report.api_wrapper_present else 'missing'}")
+    out(f"  mcp wrapper: {'present' if report.status_report.mcp_wrapper_present else 'missing'}")
+    out(f"  api unit file: {'present' if report.status_report.api_service_present else 'missing'}")
+    out("")
+    out("Live Validation:")
+    validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=True, json_output=False)
+
+    wrapper_failures = [item for item in report.failures if item.code in {
+        "USER_WRAPPER_MISSING",
+        "API_WRAPPER_MISSING",
+        "MCP_WRAPPER_MISSING",
+        "API_SERVICE_FILE_MISSING",
+    }]
+    if wrapper_failures:
+        out("Managed Runtime Recovery:")
+        seen: set[tuple[str, str | None]] = set()
+        for item in wrapper_failures:
+            key = (item.code, item.action)
+            if key in seen:
+                continue
+            seen.add(key)
+            if item.action:
+                out(f"  [{item.code}] {item.action}")
+    out(f"Combined {report.summary}")
     return report.exit_code

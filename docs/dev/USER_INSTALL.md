@@ -48,6 +48,7 @@ This will:
 9. run managed-runtime validation for config, DB, workspace sync, and the API service
 
 This does not install the per-workspace live `webhooks` and `daemon` units. After you install those, use `slack-mirror user-env validate-live` for the full live-service gate.
+If you want one unattended operator gate that also checks the managed launchers and API unit file, use `slack-mirror user-env check-live`.
 
 ## Update
 
@@ -132,6 +133,27 @@ scripts/user_env.sh status
 The script is a compatibility shim that delegates to `slack-mirror user-env`.
 
 Shows wrapper/API/MCP/API service/config/db presence and current live-mode service status.
+
+## Combined Live Check
+
+Supported product entrypoint:
+
+```bash
+slack-mirror user-env check-live
+```
+
+Machine-readable form:
+
+```bash
+slack-mirror user-env check-live --json
+```
+
+This is the one-command operator smoke check. It combines:
+
+- managed runtime artifact presence for the CLI/API/MCP launchers and API unit file
+- full `validate-live` health checks for config, DB, workspace sync, tokens, units, and queue health
+
+Use this when you want one pass/fail gate for unattended installs and release smoke checks.
 
 ## Live Validation
 

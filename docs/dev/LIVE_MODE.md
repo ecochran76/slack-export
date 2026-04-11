@@ -110,6 +110,18 @@ Machine-readable validation for shell automation:
 slack-mirror user-env validate-live --json
 ```
 
+One-command operator smoke gate:
+
+```bash
+slack-mirror user-env check-live
+```
+
+Machine-readable smoke gate:
+
+```bash
+slack-mirror user-env check-live --json
+```
+
 Follow logs:
 
 ```bash
@@ -182,3 +194,4 @@ For shell automation, prefer:
 
 - `slack-mirror user-env status --json`
 - `slack-mirror user-env validate-live --json`
+- `slack-mirror user-env check-live --json`

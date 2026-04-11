@@ -22,6 +22,8 @@ scripts/install_live_mode_systemd_user.sh soylei
 scripts/live_mode_status_all.sh
 slack-mirror user-env validate-live
 slack-mirror user-env validate-live --json
+slack-mirror user-env check-live
+slack-mirror user-env check-live --json
 ./.venv/bin/python -m unittest discover -s tests -v
 ```
 

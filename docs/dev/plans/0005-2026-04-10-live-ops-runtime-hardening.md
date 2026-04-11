@@ -21,9 +21,10 @@ Harden the supported live-service operating model into a stable operator contrac
 - `slack-mirror user-env validate-live` now checks the managed live contract for config, DB, workspace sync, explicit outbound write tokens, expected active units, and duplicate legacy topology
 - validator output now includes stable failure classes and recovery hints
 - `slack-mirror user-env status --json` and `slack-mirror user-env validate-live --json` now provide machine-readable local operator output for shell automation
+- `slack-mirror user-env check-live` now provides one combined operator smoke gate over managed runtime artifacts and full live-service validation
 - `user-env install` and `user-env update` now run a managed-runtime validation gate for config, DB, workspace sync, and API service health
 - full live validation now fails on queue error rows and on sustained backlog beyond bounded thresholds
-- remaining work is broader operator smoke coverage and any deeper freshness heuristics that should become part of the supported contract
+- remaining work is deeper freshness heuristics and any additional supervised-recovery policy that should become part of the supported contract
 
 ## Parallel Tracks
 

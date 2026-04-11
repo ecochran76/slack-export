@@ -1221,7 +1221,7 @@ _slack_mirror_complete() {
   local top="mirror workspaces channels search docs completion api mcp user-env version"
   local api_sub="serve"
   local mcp_sub="serve"
-  local user_env_sub="install update uninstall status validate-live"
+  local user_env_sub="install update uninstall status validate-live check-live"
   local mirror_sub="init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1333,7 +1333,7 @@ except Exception:
       fi
       if [[ "${COMP_WORDS[2]}" == "uninstall" ]]; then
         COMPREPLY=( $(compgen -W "--purge-data" -- "$cur") )
-      elif [[ "${COMP_WORDS[2]}" == "status" || "${COMP_WORDS[2]}" == "validate-live" ]]; then
+      elif [[ "${COMP_WORDS[2]}" == "status" || "${COMP_WORDS[2]}" == "validate-live" || "${COMP_WORDS[2]}" == "check-live" ]]; then
         COMPREPLY=( $(compgen -W "--json" -- "$cur") )
       else
         COMPREPLY=()
@@ -1368,7 +1368,7 @@ _slack_mirror() {
   top=(mirror workspaces channels search docs completion api mcp user-env version)
   api_sub=(serve)
   mcp_sub=(serve)
-  user_env_sub=(install update uninstall status validate-live)
+  user_env_sub=(install update uninstall status validate-live check-live)
   mirror_sub=(init backfill embeddings-backfill process-embedding-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -1492,7 +1492,7 @@ _slack_mirror() {
       fi
       if [[ "$words[3]" == "uninstall" ]]; then
         _arguments '--purge-data[also remove config, DB, and cache]'
-      elif [[ "$words[3]" == "status" || "$words[3]" == "validate-live" ]]; then
+      elif [[ "$words[3]" == "status" || "$words[3]" == "validate-live" || "$words[3]" == "check-live" ]]; then
         _arguments '--json[json output]'
       else
         _arguments
@@ -1550,6 +1550,12 @@ def cmd_user_env_validate_live(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import validate_live_user_env
 
     return validate_live_user_env(json_output=bool(args.json))
+
+
+def cmd_user_env_check_live(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import check_live_user_env
+
+    return check_live_user_env(json_output=bool(args.json))
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
@@ -1850,6 +1856,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_user_validate_live.add_argument("--json", action="store_true", help="json output")
     p_user_validate_live.set_defaults(func=cmd_user_env_validate_live)
+    p_user_check_live = user_env_sub.add_parser(
+        "check-live",
+        help="run one operator smoke check over managed runtime artifacts and live-service validation",
+    )
+    p_user_check_live.add_argument("--json", action="store_true", help="json output")
+    p_user_check_live.set_defaults(func=cmd_user_env_check_live)
 
     version_parser = sub.add_parser("version", help="print the package version")
     version_parser.set_defaults(func=cmd_version)
