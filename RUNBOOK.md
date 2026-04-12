@@ -837,3 +837,24 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_export_docx -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 56 | 2026-04-12
+
+- Generated real single-day and multi-day DOCX export examples and rendered them through the local `docx-skill` LibreOffice-based QA path instead of relying on XML inspection alone.
+- Found and fixed a real compatibility bug in `scripts/export_channel_day_docx.py`:
+  - `word/_rels/document.xml.rels` was being emitted with `ns0:`-prefixed relationship elements
+  - LibreOffice would not load that package for render/vision QA
+  - registering the package relationships namespace as the default output namespace fixed the issue
+- Tightened the default DOCX rendering contract around the visual target requested for this lane:
+  - 1in margins
+  - sans-serif 10pt body text
+  - more compact header metadata
+  - quieter reply presentation without visible `thread=...` debug data
+  - human-readable attachment type labels instead of raw MIME strings
+- Confirmed the updated output visually on:
+  - a thread-and-attachment-heavy single-day export
+  - a bounded two-page multi-day daypack export
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_docx -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

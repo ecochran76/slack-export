@@ -34,12 +34,16 @@ python scripts/export_channel_day_docx.py \
 
 DOCX UX in the current baseline:
 - single channel/day JSON is the canonical input artifact
+- compact letter-page layout with 1in margins
+- sans-serif 10pt body text by default
 - thread-reply labeling and indentation
 - speaker/timestamp metadata lines
 - clickable attachment links for local files or permalinks
 - explicit paragraph styles for metadata, message body, reply body, and attachment blocks
+- human-readable attachment metadata like `PDF document` or `Word document` instead of raw MIME strings
 - attachment follow-up lines that distinguish local-only files from permalink-backed files
 - no second SQLite-querying DOCX path
+- package output is now compatible with the local LibreOffice render/QA path used by `docx-skill`
 
 ## 3) Render JSON export to PDF
 

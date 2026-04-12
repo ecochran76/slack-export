@@ -59,7 +59,12 @@ The current repo has:
 - chunk-aware derived-text retrieval so long attachments and OCR-heavy documents surface the matching segment instead of only the top-level document row
 - a machine-readable search health path over readiness plus optional smoke benchmarks through `search health`
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
-- the shipped DOCX baseline now includes explicit paragraph styles, reply indentation, and attachment link/source blocks over the same channel/day JSON artifact
+- the shipped DOCX baseline now includes:
+  - explicit paragraph styles over the same channel/day JSON artifact
+  - compact 1in-margin, sans-serif 10pt defaults
+  - reply indentation without internal thread-ID noise
+  - attachment link/source blocks with human-readable type labels
+  - render-engine-compatible OOXML output that can be visually QA'd through the `docx-skill` render path
 
 The active search modernization lane is [0006-2026-04-11-search-evaluation-modernization.md](/home/ecochran76/workspace.local/slack-export/docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md). The derived-text ownership contract for this first slice is in [DERIVED_TEXT_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/dev/DERIVED_TEXT_CONTRACT.md).
 

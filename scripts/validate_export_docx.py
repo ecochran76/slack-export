@@ -80,6 +80,9 @@ def inspect_docx(path: Path) -> dict:
         "word/document.xml",
         "word/_rels/document.xml.rels",
         "word/styles.xml",
+        "word/fontTable.xml",
+        "word/settings.xml",
+        "word/theme/theme1.xml",
     }
     issues: list[str] = []
     names: set[str] = set()

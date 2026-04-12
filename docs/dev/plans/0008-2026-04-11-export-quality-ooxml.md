@@ -89,6 +89,11 @@ Current status:
   - XML and relationship-part parseability
   - content-type overrides that point to real parts
   - internal relationship targets that resolve to real parts
+- the default DOCX rendering baseline is now visually reviewed through the local `docx-skill` render path and currently targets:
+  - 1in page margins
+  - sans-serif 10pt body text
+  - compact header metadata
+  - quieter human-readable attachment type labels
 
 ## Non-Goals
 
@@ -119,7 +124,8 @@ Current status:
 - semantic daypack DOCX output now composes through the same JSON-based renderer path
 - structural DOCX export validation is now landed through `scripts/validate_export_docx.py`
 - the validator now includes a first bounded reuse of `docx-skill` package-validation ideas without importing the whole skill
-- next likely slice is deeper fixture quality or more ambitious OOXML primitive reuse, not a second export ownership path
+- renderer output is now compatible with the local LibreOffice render/vision QA path used by `docx-skill`
+- next likely slice is deeper fixture quality, appearance configurability, or more ambitious OOXML primitive reuse, not a second export ownership path
 
 ## Definition Of Done
 

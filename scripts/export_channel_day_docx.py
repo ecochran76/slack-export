@@ -11,9 +11,15 @@ W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
+THEME_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"
+FONT_TABLE_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable"
+SETTINGS_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings"
+BODY_FONT = "Arial"
+BODY_FONT_FALLBACK = "Liberation Sans"
 
 ET.register_namespace("w", W_NS)
 ET.register_namespace("r", R_NS)
+ET.register_namespace("", PKG_REL_NS)
 
 
 def w(tag: str) -> str:
@@ -33,10 +39,15 @@ def _content_types_xml() -> bytes:
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/_rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+  <Override PartName="/word/_rels/document.xml.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>
+  <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
+  <Override PartName="/word/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
 </Types>
 """
 
@@ -76,63 +87,199 @@ def _styles_xml() -> bytes:
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
     <w:name w:val="Normal"/>
     <w:qFormat/>
-    <w:pPr><w:spacing w:after="120"/></w:pPr>
-    <w:rPr><w:sz w:val="22"/></w:rPr>
+    <w:pPr><w:spacing w:line="240" w:lineRule="auto" w:after="80"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:color w:val="1F2937"/>
+      <w:sz w:val="20"/>
+      <w:szCs w:val="20"/>
+    </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Title">
     <w:name w:val="Title"/>
     <w:basedOn w:val="Normal"/>
     <w:qFormat/>
-    <w:pPr><w:spacing w:after="180"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="28"/></w:rPr>
+    <w:pPr><w:spacing w:after="120"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:b/>
+      <w:color w:val="0F172A"/>
+      <w:sz w:val="28"/>
+      <w:szCs w:val="28"/>
+    </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading1">
     <w:name w:val="heading 1"/>
     <w:basedOn w:val="Normal"/>
     <w:qFormat/>
-    <w:pPr><w:spacing w:before="120" w:after="120"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="24"/></w:rPr>
+    <w:pPr><w:spacing w:before="80" w:after="100"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:b/>
+      <w:color w:val="0F172A"/>
+      <w:sz w:val="24"/>
+      <w:szCs w:val="24"/>
+    </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Meta">
     <w:name w:val="Meta"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="80" w:after="20"/></w:pPr>
-    <w:rPr><w:sz w:val="20"/><w:color w:val="1F4E79"/></w:rPr>
+    <w:pPr><w:spacing w:before="60" w:after="10"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:sz w:val="18"/>
+      <w:szCs w:val="18"/>
+      <w:color w:val="3B5B7A"/>
+    </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="ReplyMeta">
     <w:name w:val="Reply Meta"/>
     <w:basedOn w:val="Meta"/>
-    <w:pPr><w:ind w:left="720"/><w:spacing w:before="120" w:after="20"/></w:pPr>
+    <w:pPr><w:ind w:left="720"/><w:spacing w:before="80" w:after="10"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="MessageBody">
     <w:name w:val="Message Body"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:ind w:left="240"/><w:spacing w:after="40"/></w:pPr>
+    <w:pPr><w:ind w:left="180"/><w:spacing w:after="30"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="ReplyBody">
     <w:name w:val="Reply Body"/>
     <w:basedOn w:val="MessageBody"/>
-    <w:pPr><w:ind w:left="960"/><w:spacing w:after="40"/></w:pPr>
+    <w:pPr><w:ind w:left="720"/><w:spacing w:after="30"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="AttachmentHeading">
     <w:name w:val="Attachment Heading"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:ind w:left="240"/><w:spacing w:before="40" w:after="20"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="20"/></w:rPr>
+    <w:pPr><w:ind w:left="180"/><w:spacing w:before="24" w:after="8"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:b/>
+      <w:color w:val="475569"/>
+      <w:sz w:val="18"/>
+      <w:szCs w:val="18"/>
+    </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="AttachmentItem">
     <w:name w:val="Attachment Item"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:ind w:left="480"/><w:spacing w:after="20"/></w:pPr>
-    <w:rPr><w:sz w:val="20"/></w:rPr>
+    <w:pPr><w:ind w:left="420"/><w:spacing w:after="10"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:sz w:val="18"/>
+      <w:szCs w:val="18"/>
+      <w:color w:val="334155"/>
+    </w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="AttachmentItemReply">
     <w:name w:val="Attachment Item Reply"/>
     <w:basedOn w:val="AttachmentItem"/>
-    <w:pPr><w:ind w:left="1200"/><w:spacing w:after="20"/></w:pPr>
-    <w:rPr><w:sz w:val="20"/></w:rPr>
+    <w:pPr><w:ind w:left="1140"/><w:spacing w:after="10"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="AttachmentMeta">
+    <w:name w:val="Attachment Meta"/>
+    <w:basedOn w:val="AttachmentItem"/>
+    <w:pPr><w:ind w:left="600"/><w:spacing w:after="8"/></w:pPr>
+    <w:rPr>
+      <w:rFonts w:ascii="{BODY_FONT}" w:hAnsi="{BODY_FONT}" w:cs="{BODY_FONT}"/>
+      <w:sz w:val="16"/>
+      <w:szCs w:val="16"/>
+      <w:color w:val="64748B"/>
+    </w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="AttachmentMetaReply">
+    <w:name w:val="Attachment Meta Reply"/>
+    <w:basedOn w:val="AttachmentMeta"/>
+    <w:pPr><w:ind w:left="960"/><w:spacing w:after="8"/></w:pPr>
   </w:style>
 </w:styles>
+""".encode("utf-8")
+
+
+def _font_table_xml() -> bytes:
+    return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:fonts xmlns:w="{W_NS}" xmlns:r="{R_NS}">
+  <w:font w:name="{BODY_FONT}">
+    <w:charset w:val="00"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+  <w:font w:name="{BODY_FONT_FALLBACK}">
+    <w:altName w:val="{BODY_FONT}"/>
+    <w:charset w:val="01"/>
+    <w:family w:val="swiss"/>
+    <w:pitch w:val="variable"/>
+  </w:font>
+</w:fonts>
+""".encode("utf-8")
+
+
+def _settings_xml() -> bytes:
+    return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:settings xmlns:w="{W_NS}">
+  <w:zoom w:percent="100"/>
+  <w:defaultTabStop w:val="720"/>
+  <w:autoHyphenation w:val="false"/>
+  <w:compat>
+    <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/>
+  </w:compat>
+</w:settings>
+""".encode("utf-8")
+
+
+def _theme_xml() -> bytes:
+    return f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="{R_NS}" name="SlackExport">
+  <a:themeElements>
+    <a:clrScheme name="SlackExport">
+      <a:dk1><a:srgbClr val="0F172A"/></a:dk1>
+      <a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>
+      <a:dk2><a:srgbClr val="1F2937"/></a:dk2>
+      <a:lt2><a:srgbClr val="F8FAFC"/></a:lt2>
+      <a:accent1><a:srgbClr val="3B5B7A"/></a:accent1>
+      <a:accent2><a:srgbClr val="64748B"/></a:accent2>
+      <a:accent3><a:srgbClr val="94A3B8"/></a:accent3>
+      <a:accent4><a:srgbClr val="CBD5E1"/></a:accent4>
+      <a:accent5><a:srgbClr val="0EA5E9"/></a:accent5>
+      <a:accent6><a:srgbClr val="0F766E"/></a:accent6>
+      <a:hlink><a:srgbClr val="3B5B7A"/></a:hlink>
+      <a:folHlink><a:srgbClr val="475569"/></a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="SlackExport">
+      <a:majorFont>
+        <a:latin typeface="{BODY_FONT}" pitchFamily="0" charset="1"/>
+        <a:ea typeface="{BODY_FONT_FALLBACK}" pitchFamily="0" charset="1"/>
+        <a:cs typeface="{BODY_FONT_FALLBACK}" pitchFamily="0" charset="1"/>
+      </a:majorFont>
+      <a:minorFont>
+        <a:latin typeface="{BODY_FONT}" pitchFamily="0" charset="1"/>
+        <a:ea typeface="{BODY_FONT_FALLBACK}" pitchFamily="0" charset="1"/>
+        <a:cs typeface="{BODY_FONT_FALLBACK}" pitchFamily="0" charset="1"/>
+      </a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="SlackExport">
+      <a:fillStyleLst>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:prstDash val="solid"/><a:miter/></a:ln>
+        <a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:prstDash val="solid"/><a:miter/></a:ln>
+        <a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:prstDash val="solid"/><a:miter/></a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+</a:theme>
 """.encode("utf-8")
 
 
@@ -142,6 +289,27 @@ def _xml_escape(value: str) -> str:
         .replace("<", "&lt;")
         .replace(">", "&gt;")
     )
+
+
+def _attachment_type_label(mimetype: str) -> str:
+    if not mimetype:
+        return ""
+    labels = {
+        "application/pdf": "PDF document",
+        "image/png": "PNG image",
+        "image/jpeg": "JPEG image",
+        "image/jpg": "JPEG image",
+        "image/gif": "GIF image",
+        "text/plain": "Plain text",
+        "text/html": "HTML document",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint presentation",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel workbook",
+        "application/vnd.oasis.opendocument.text": "OpenDocument text",
+        "application/vnd.oasis.opendocument.presentation": "OpenDocument presentation",
+        "application/vnd.oasis.opendocument.spreadsheet": "OpenDocument spreadsheet",
+    }
+    return labels.get(mimetype, mimetype)
 
 
 def _next_rid(existing: int) -> str:
@@ -227,9 +395,16 @@ def _hyperlink_paragraph(
     hyperlink.set(f"{{{R_NS}}}id", rid)
     run = ET.SubElement(hyperlink, w("r"))
     rpr = ET.SubElement(run, w("rPr"))
+    rfonts = ET.SubElement(rpr, w("rFonts"))
+    rfonts.set(w("ascii"), BODY_FONT)
+    rfonts.set(w("hAnsi"), BODY_FONT)
+    rfonts.set(w("cs"), BODY_FONT)
     color = ET.SubElement(rpr, w("color"))
-    color.set(w("val"), "1155CC")
-    ET.SubElement(rpr, w("u")).set(w("val"), "single")
+    color.set(w("val"), "3B5B7A")
+    size = ET.SubElement(rpr, w("sz"))
+    size.set(w("val"), "18")
+    size_cs = ET.SubElement(rpr, w("szCs"))
+    size_cs.set(w("val"), "18")
     text_el = ET.SubElement(run, w("t"))
     text_el.text = label
     return paragraph
@@ -249,13 +424,17 @@ def _append_export_block(
 ) -> int:
     title = f"{data.get('workspace')} / #{data.get('channel')}"
     body.append(_paragraph(title, style="Title", spacing_after=180))
-    body.append(_paragraph(f"Day: {data.get('day')} ({data.get('tz')})", spacing_after=80))
-    body.append(_paragraph(f"Channel ID: {data.get('channel_id')}", spacing_after=80))
-    body.append(_paragraph(f"Messages exported: {len(data.get('messages', []))}", spacing_after=200))
+    header_parts = [
+        data.get("day") or "",
+        data.get("tz") or "",
+        data.get("channel_id") or "",
+        f"{len(data.get('messages', []))} messages",
+    ]
+    body.append(_paragraph("  |  ".join(part for part in header_parts if part), style="Meta", spacing_after=140))
 
     for msg in data.get("messages", []):
         is_reply = bool(msg.get("thread_ts")) and str(msg.get("thread_ts")) != str(msg.get("ts"))
-        indent = 720 if is_reply else 0
+        indent = 540 if is_reply else 0
         meta = _paragraph(
             style="ReplyMeta" if is_reply else "Meta",
             indent_twips=indent if not is_reply else None,
@@ -271,8 +450,6 @@ def _append_export_block(
             color="1F4E79",
         )
         _add_text_run(meta, msg.get("user_label") or msg.get("user_id") or "unknown", bold=True)
-        if msg.get("thread_ts"):
-            _add_text_run(meta, f"  thread={msg.get('thread_ts')}", preserve_space=True)
         if msg.get("deleted"):
             _add_text_run(meta, "  deleted", preserve_space=True)
         body.append(meta)
@@ -288,8 +465,9 @@ def _append_export_block(
                 local_path = att.get("local_path") or ""
                 permalink = att.get("permalink") or ""
                 link = local_path or permalink or ""
-                label = f"{name} ({mimetype})" if mimetype else name
+                label = name
                 item_style = "AttachmentItemReply" if is_reply else "AttachmentItem"
+                meta_style = "AttachmentMetaReply" if is_reply else "AttachmentMeta"
                 if link:
                     rid = _next_rid(next_rel_index)
                     next_rel_index += 1
@@ -298,12 +476,14 @@ def _append_export_block(
                     body.append(_hyperlink_paragraph(label, target, rid, style=item_style))
                 else:
                     body.append(_paragraph(label, style=item_style))
+                if mimetype:
+                    body.append(_paragraph(f"type: {_attachment_type_label(mimetype)}", style=meta_style))
                 if local_path and permalink:
-                    body.append(_paragraph(f"permalink: {permalink}", style=item_style))
+                    body.append(_paragraph(f"permalink: {permalink}", style=meta_style))
                 elif local_path:
-                    body.append(_paragraph("source: local file", style=item_style))
+                    body.append(_paragraph("source: local file", style=meta_style))
                 elif permalink:
-                    body.append(_paragraph(f"permalink: {permalink}", style=item_style))
+                    body.append(_paragraph(f"permalink: {permalink}", style=meta_style))
     return next_rel_index
 
 
@@ -356,6 +536,33 @@ def _document_rels_xml(relationships: list[tuple[str, str]]) -> bytes:
             "Target": "styles.xml",
         },
     )
+    ET.SubElement(
+        root,
+        rel("Relationship"),
+        {
+            "Id": "rIdFontTable",
+            "Type": FONT_TABLE_REL_TYPE,
+            "Target": "fontTable.xml",
+        },
+    )
+    ET.SubElement(
+        root,
+        rel("Relationship"),
+        {
+            "Id": "rIdSettings",
+            "Type": SETTINGS_REL_TYPE,
+            "Target": "settings.xml",
+        },
+    )
+    ET.SubElement(
+        root,
+        rel("Relationship"),
+        {
+            "Id": "rIdTheme",
+            "Type": THEME_REL_TYPE,
+            "Target": "theme/theme1.xml",
+        },
+    )
     for rid, target in relationships:
         ET.SubElement(
             root,
@@ -381,6 +588,9 @@ def render_channel_day_docx(input_json: Path, output_docx: Path) -> Path:
         "docProps/core.xml": _core_props_xml(title),
         "docProps/app.xml": _app_props_xml(),
         "word/styles.xml": _styles_xml(),
+        "word/fontTable.xml": _font_table_xml(),
+        "word/settings.xml": _settings_xml(),
+        "word/theme/theme1.xml": _theme_xml(),
     }
     parts["word/document.xml"] = _document_xml(data, relationships)
     parts["word/_rels/document.xml.rels"] = _document_rels_xml(relationships)
@@ -401,6 +611,9 @@ def render_multi_day_docx(json_paths: list[Path], output_docx: Path, *, package_
         "docProps/core.xml": _core_props_xml(title),
         "docProps/app.xml": _app_props_xml(),
         "word/styles.xml": _styles_xml(),
+        "word/fontTable.xml": _font_table_xml(),
+        "word/settings.xml": _settings_xml(),
+        "word/theme/theme1.xml": _theme_xml(),
     }
     parts["word/document.xml"] = _document_xml_for_exports(data_items, relationships, package_title=package_title)
     parts["word/_rels/document.xml.rels"] = _document_rels_xml(relationships)

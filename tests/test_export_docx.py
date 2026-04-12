@@ -110,6 +110,9 @@ class ExportDocxTests(unittest.TestCase):
                 self.assertIn("word/document.xml", names)
                 self.assertIn("word/_rels/document.xml.rels", names)
                 self.assertIn("word/styles.xml", names)
+                self.assertIn("word/fontTable.xml", names)
+                self.assertIn("word/settings.xml", names)
+                self.assertIn("word/theme/theme1.xml", names)
 
                 document = ET.fromstring(zf.read("word/document.xml"))
                 rels = ET.fromstring(zf.read("word/_rels/document.xml.rels"))
@@ -122,8 +125,10 @@ class ExportDocxTests(unittest.TestCase):
             self.assertIn("Q4 milestone", joined)
             self.assertIn("[THREAD REPLY] ", joined)
             self.assertIn("Reply detail", joined)
-            self.assertIn("incident.png (image/png)", joined)
+            self.assertIn("incident.png", joined)
+            self.assertIn("type: PNG image", joined)
             self.assertIn("source: local file", joined)
+            self.assertNotIn("thread=10.0", joined)
 
             paragraph_styles = [
                 style.get(f"{{{W_NS}}}val")
@@ -132,6 +137,7 @@ class ExportDocxTests(unittest.TestCase):
             self.assertIn("ReplyMeta", paragraph_styles)
             self.assertIn("ReplyBody", paragraph_styles)
             self.assertIn("AttachmentItem", paragraph_styles)
+            self.assertIn("AttachmentMeta", paragraph_styles)
 
             style_ids = {style.attrib.get(f"{{{W_NS}}}styleId") for style in styles.findall(f".//{{{W_NS}}}style")}
             self.assertIn("Meta", style_ids)
@@ -140,6 +146,8 @@ class ExportDocxTests(unittest.TestCase):
             self.assertIn("ReplyBody", style_ids)
             self.assertIn("AttachmentItem", style_ids)
             self.assertIn("AttachmentItemReply", style_ids)
+            self.assertIn("AttachmentMeta", style_ids)
+            self.assertIn("AttachmentMetaReply", style_ids)
 
             hyperlink_rels = [
                 rel
