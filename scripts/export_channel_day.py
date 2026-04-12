@@ -11,6 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from slack_mirror.core.config import load_config
+from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.exports import (
     build_export_id,
     build_export_manifest,
@@ -94,6 +95,100 @@ def resolve_user_presentation(conn: sqlite3.Connection, ws_id: int, user_id: str
     initials_source = display_source or fallback_label
     initials = "".join(part[:1].upper() for part in initials_source.replace("_", " ").replace("-", " ").split() if part)[:2] or "?"
     return {"label": label, "avatar_url": avatar_url, "avatar_initials": initials}
+
+
+def _display_name_from_label(label: str | None) -> str:
+    text = str(label or "").strip()
+    if not text:
+        return "unknown"
+    if text.endswith(")") and " (" in text:
+        return text.rsplit(" (", 1)[0].strip() or text
+    return text
+
+
+def _resolve_workspace_actor_name(config: dict | None, workspace: str, conn: sqlite3.Connection, ws_id: int) -> str | None:
+    if not config:
+        return None
+    for ws_cfg in config.get("workspaces") or []:
+        if ws_cfg.get("name") != workspace:
+            continue
+        token = ws_cfg.get("user_token") or ws_cfg.get("token")
+        if not token:
+            return None
+        try:
+            auth = SlackApiClient(str(token)).auth_test()
+        except Exception:
+            return None
+        user_id = auth.get("user_id")
+        if isinstance(user_id, str) and user_id.strip():
+            return _display_name_from_label(resolve_user_label(conn, ws_id, user_id))
+        user_name = auth.get("user")
+        if isinstance(user_name, str) and user_name.strip():
+            return user_name.strip()
+        return None
+    return None
+
+
+def _resolve_channel_display(
+    conn: sqlite3.Connection,
+    ws_id: int,
+    workspace: str,
+    channel_id: str,
+    channel_name: str,
+    rows: list[tuple],
+    *,
+    config: dict | None = None,
+) -> tuple[str, str]:
+    ch = conn.execute(
+        """
+        select is_im, is_mpim, raw_json
+        from channels
+        where workspace_id=? and channel_id=?
+        """,
+        (ws_id, channel_id),
+    ).fetchone()
+    is_im = bool(ch[0]) if ch else False
+    is_mpim = bool(ch[1]) if ch else False
+
+    participant_ids: list[str] = []
+    if is_im or is_mpim:
+        for row in rows:
+            user_id = row[1]
+            if isinstance(user_id, str) and user_id.strip() and user_id not in participant_ids:
+                participant_ids.append(user_id)
+
+    if is_im:
+        peer_user_id = channel_name if isinstance(channel_name, str) and channel_name.startswith("U") else None
+        if peer_user_id and peer_user_id not in participant_ids:
+            participant_ids.append(peer_user_id)
+        participant_names = [_display_name_from_label(resolve_user_label(conn, ws_id, user_id)) for user_id in participant_ids[:2]]
+        workspace_actor = _resolve_workspace_actor_name(config, workspace, conn, ws_id)
+        if workspace_actor and workspace_actor not in participant_names:
+            participant_names.append(workspace_actor)
+        if len(participant_names) >= 2:
+            participant_names = sorted(participant_names, key=str.casefold)
+            return f"DM between {participant_names[0]} and {participant_names[1]}", f"{workspace} DM"
+        if len(participant_names) == 1:
+            return f"DM with {participant_names[0]}", f"{workspace} DM"
+        return "Direct Message", f"{workspace} DM"
+
+    if is_mpim:
+        if ch and ch[2]:
+            try:
+                data = json.loads(ch[2])
+            except Exception:
+                data = {}
+            members = data.get("members") or []
+            for member_id in members:
+                if isinstance(member_id, str) and member_id not in participant_ids:
+                    participant_ids.append(member_id)
+        participant_names = [_display_name_from_label(resolve_user_label(conn, ws_id, user_id)) for user_id in participant_ids[:4]]
+        if participant_names:
+            ordered = sorted(dict.fromkeys(participant_names), key=str.casefold)
+            return f"Group DM: {', '.join(ordered)}", f"{workspace} group DM"
+        return "Group Direct Message", f"{workspace} group DM"
+
+    return f"{workspace} / #{channel_name}", f"{workspace} #{channel_name}"
 
 
 def load_rows(conn: sqlite3.Connection, workspace: str, channel: str, day: str, tz_name: str):
@@ -216,11 +311,11 @@ def extract_attachments(
     return out
 
 
-def render_html(workspace: str, channel_name: str, day: str, tz_name: str, messages: list[dict]) -> str:
+def render_html(page_title: str, header_title: str, day: str, tz_name: str, messages: list[dict]) -> str:
     lines = [
         "<!doctype html>",
         "<html><head><meta charset='utf-8'>",
-        f"<title>{html.escape(workspace)} #{html.escape(channel_name)} {html.escape(day)}</title>",
+        f"<title>{html.escape(page_title)} {html.escape(day)}</title>",
         "<style>"
         "body{font-family:Arial,sans-serif;max-width:1040px;margin:24px auto;line-height:1.45;background:#f4f7fb;color:#0f172a}"
         "h1{margin:0 0 10px}"
@@ -243,7 +338,7 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, messa
         "code{background:#eef2f7;padding:1px 4px;border-radius:4px}"
         "</style>"
         "</head><body>",
-        f"<h1>{html.escape(workspace)} / #{html.escape(channel_name)}</h1>",
+        f"<h1>{html.escape(header_title)}</h1>",
         f"<p class='summary'><b>Date:</b> {html.escape(day)} ({html.escape(tz_name)}) &nbsp; <b>Messages exported:</b> {len(messages)}</p>",
         "<div class='timeline'>",
     ]
@@ -316,10 +411,18 @@ def main() -> int:
     p.add_argument("--link-audience", choices=["local", "external"], default="local", help="base URL audience for generated download links")
     args = p.parse_args()
 
+    config = load_config(args.config) if args.managed_export or args.config else None
     conn = sqlite3.connect(args.db)
     ws_id, channel_id, channel_name, rows = load_rows(conn, args.workspace, args.channel, args.day, args.tz)
-
-    config = load_config(args.config) if args.managed_export or args.config else None
+    header_title, page_title = _resolve_channel_display(
+        conn,
+        ws_id,
+        args.workspace,
+        channel_id,
+        channel_name,
+        rows,
+        config=config,
+    )
     export_id = args.export_id
     bundle_dir: Path | None = None
     public_base_url: str | None = None
@@ -376,6 +479,8 @@ def main() -> int:
         "workspace": args.workspace,
         "channel": channel_name,
         "channel_id": channel_id,
+        "header_title": header_title,
+        "page_title": page_title,
         "day": args.day,
         "tz": args.tz,
         "export_id": export_id,
@@ -383,7 +488,7 @@ def main() -> int:
         "public_base_urls": base_urls,
         "messages": serial,
     }
-    html_doc = render_html(args.workspace, channel_name, args.day, args.tz, serial)
+    html_doc = render_html(page_title, header_title, args.day, args.tz, serial)
 
     out_html_path.parent.mkdir(parents=True, exist_ok=True)
     out_html_path.write_text(html_doc, encoding="utf-8")

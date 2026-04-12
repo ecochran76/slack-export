@@ -75,7 +75,7 @@ The current repo has:
   - shared portable attachment links across HTML, PDF, and DOCX through emitted `public_url` / `download_url` fields, plus audience-keyed `download_urls` / `preview_urls`
   - API-served export manifests through `/v1/exports` and `/v1/exports/<export-id>` so the live service owns the configured bundle URL contract
   - bundle HTML reports published directly at `/exports/<export-id>`
-  - channel/day HTML reports now render message bubbles and sender avatars when profile imagery is available
+  - channel/day HTML reports now render message bubbles and sender avatars when profile imagery is available, and direct-message exports use participant-aware titles instead of raw workspace/channel ids
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server

@@ -21,6 +21,7 @@ Features:
 - includes thread replies for threads rooted on that day
 - user ID -> readable display labels
 - user avatar URLs when available, with initials fallback in the HTML report
+- direct-message exports use participant-aware titles when both sides can be resolved
 - human-readable timestamps
 - HTML message bubbles with avatar rail and thread-reply styling
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
