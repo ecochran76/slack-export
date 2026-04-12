@@ -154,6 +154,8 @@ Current status:
   - images
   - PDFs
   - `.docx` through lightweight `mammoth` HTML conversion
+  - `.pptx` through slide-by-slide HTML summary rendering
+  - `.xlsx` through bounded sheet-table HTML summary rendering
   - text-like files
 - unsupported binary types now fail explicitly with `PREVIEW_UNSUPPORTED`
 - next likely slice is deeper OOXML primitive reuse or closure judgment, not more ad hoc render plumbing

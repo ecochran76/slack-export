@@ -76,6 +76,7 @@ The current repo has:
   - API-served export manifests through `/v1/exports` and `/v1/exports/<export-id>` so the live service owns the configured bundle URL contract
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
+  - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server
   - render-engine-compatible OOXML output that can be visually QA'd through the `docx-skill` render path
   - bounded appearance controls for font family, body size, margins, compactness, and accent color
   - a one-command fixture-artifact generator for canonical DOCX/PDF/PNG visual review outputs

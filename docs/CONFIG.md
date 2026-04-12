@@ -76,6 +76,8 @@ Current preview support behind the local API:
 - images: inline preview
 - PDFs: iframe preview
 - `.docx`: HTML preview through `mammoth`
+- `.pptx`: slide-by-slide HTML summary through the repo's OOXML extraction path
+- `.xlsx`: sheet-table HTML summary through the repo's OOXML extraction path
 - text-like files (`text/*`, JSON, XML): escaped text preview
 - other content types: `PREVIEW_UNSUPPORTED`
 

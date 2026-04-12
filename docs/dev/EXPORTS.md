@@ -55,6 +55,8 @@ Current preview support:
 - images: inline browser preview
 - PDFs: iframe browser preview
 - `.docx`: HTML preview through `mammoth`
+- `.pptx`: slide-by-slide HTML summary through the existing OOXML extraction layer
+- `.xlsx`: sheet-table HTML summary through the existing OOXML extraction layer
 - text-like files (`text/*`, JSON, XML): escaped text preview
 - other content types: explicit `PREVIEW_UNSUPPORTED`
 
@@ -116,6 +118,7 @@ Attachment URL contract:
 - the local API now serves bundle files under `/exports/<export-id>/<filepath>`
 - the local API now exposes bundle manifests under `/v1/exports` and `/v1/exports/<export-id>` so the service owns the current configured URL contract
 - preview URLs are now implemented in a bounded way for images, PDFs, and text-like files
+- preview URLs now cover `.docx`, `.pptx`, and `.xlsx` without introducing a heavyweight office server dependency
 - unsupported binary formats return `PREVIEW_UNSUPPORTED` instead of a broken browser experience
 - the intended long-term direction is service-configured HTTP/HTTPS download URLs behind the live mirror deployment, so rendered exports can link to stable reverse-proxied attachment endpoints instead of filesystem paths
 

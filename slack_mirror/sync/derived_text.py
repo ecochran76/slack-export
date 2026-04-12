@@ -213,6 +213,29 @@ def _extract_pptx_text(path: Path) -> tuple[str | None, str | None]:
         return None, extractor
 
 
+def _extract_pptx_slides(path: Path) -> list[dict[str, Any]]:
+    slides: list[dict[str, Any]] = []
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            for index, member in enumerate(
+                sorted(name for name in names if name.startswith("ppt/slides/slide") and name.endswith(".xml")),
+                start=1,
+            ):
+                extracted = _extract_pptx_slide_text(zf.read(member))
+                if extracted:
+                    slides.append(
+                        {
+                            "index": index,
+                            "title": f"Slide {index}",
+                            "text": extracted,
+                        }
+                    )
+    except (OSError, zipfile.BadZipFile):
+        return []
+    return slides
+
+
 def _extract_xlsx_shared_strings(raw_xml: bytes) -> list[str]:
     try:
         root = ET.fromstring(raw_xml)
@@ -265,6 +288,41 @@ def _extract_xlsx_sheet_text(raw_xml: bytes, shared_strings: list[str]) -> str:
     return _normalize_text(" ".join(parts))
 
 
+def _extract_xlsx_sheet_rows(raw_xml: bytes, shared_strings: list[str]) -> list[list[str]]:
+    try:
+        root = ET.fromstring(raw_xml)
+    except ET.ParseError:
+        return []
+    rows: list[list[str]] = []
+    for row in root.findall(f".//{_spreadsheet_tag('row')}"):
+        values: list[str] = []
+        for cell in row.findall(_spreadsheet_tag("c")):
+            cell_type = cell.get("t") or cell.get(_spreadsheet_tag("t")) or ""
+            value = ""
+            if cell_type == "s":
+                value_node = cell.find(_spreadsheet_tag("v"))
+                if value_node is not None and value_node.text:
+                    try:
+                        idx = int(value_node.text.strip())
+                    except ValueError:
+                        idx = -1
+                    if 0 <= idx < len(shared_strings):
+                        value = shared_strings[idx]
+            elif cell_type == "inlineStr":
+                inline = cell.find(f".//{_spreadsheet_tag('is')}")
+                if inline is not None:
+                    inline_parts = [node.text for node in inline.iter() if node.tag == _spreadsheet_tag("t") and node.text]
+                    value = _normalize_text("".join(inline_parts))
+            else:
+                value_node = cell.find(_spreadsheet_tag("v"))
+                if value_node is not None and value_node.text:
+                    value = _normalize_text(value_node.text)
+            values.append(value)
+        if any(v for v in values):
+            rows.append(values)
+    return rows
+
+
 def _extract_xlsx_text(path: Path) -> tuple[str | None, str | None]:
     extractor = "ooxml_xlsx"
     try:
@@ -280,6 +338,30 @@ def _extract_xlsx_text(path: Path) -> tuple[str | None, str | None]:
             return (merged or None), extractor
     except (OSError, zipfile.BadZipFile):
         return None, extractor
+
+
+def _extract_xlsx_sheets(path: Path) -> list[dict[str, Any]]:
+    sheets: list[dict[str, Any]] = []
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            shared_strings = _extract_xlsx_shared_strings(zf.read("xl/sharedStrings.xml")) if "xl/sharedStrings.xml" in names else []
+            for index, member in enumerate(
+                sorted(name for name in names if name.startswith("xl/worksheets/sheet") and name.endswith(".xml")),
+                start=1,
+            ):
+                rows = _extract_xlsx_sheet_rows(zf.read(member), shared_strings)
+                if rows:
+                    sheets.append(
+                        {
+                            "index": index,
+                            "title": f"Sheet {index}",
+                            "rows": rows,
+                        }
+                    )
+    except (OSError, zipfile.BadZipFile):
+        return []
+    return sheets
 
 
 def _extract_docx_text(path: Path) -> tuple[str | None, str | None]:
@@ -316,6 +398,57 @@ def _extract_ooxml_text(path: Path) -> tuple[str | None, str | None]:
     if suffix == ".xlsx":
         return _extract_xlsx_text(path)
     return None, None
+
+
+def render_ooxml_preview_html(path: Path) -> str | None:
+    suffix = path.suffix.lower()
+    if suffix == ".pptx":
+        slides = _extract_pptx_slides(path)
+        if not slides:
+            return None
+        sections = []
+        for slide in slides:
+            lines = "<br>".join(html.escape(part) for part in str(slide["text"]).splitlines() if part.strip())
+            sections.append(
+                "<section style=\"border:1px solid #d1d5db;border-radius:8px;padding:16px;background:#fff;margin-bottom:16px\">"
+                f"<h2 style=\"margin:0 0 12px;font-size:18px\">{html.escape(str(slide['title']))}</h2>"
+                f"<div style=\"line-height:1.5\">{lines}</div>"
+                "</section>"
+            )
+        return (
+            "<article>"
+            "<header style=\"margin-bottom:16px\"><strong>PowerPoint preview</strong></header>"
+            f"{''.join(sections)}"
+            "</article>"
+        )
+    if suffix == ".xlsx":
+        sheets = _extract_xlsx_sheets(path)
+        if not sheets:
+            return None
+        sections = []
+        for sheet in sheets:
+            rows = []
+            for row in sheet["rows"][:25]:
+                cells = "".join(
+                    f"<td style=\"border:1px solid #d1d5db;padding:6px 8px;vertical-align:top\">{html.escape(value or '')}</td>"
+                    for value in row
+                )
+                rows.append(f"<tr>{cells}</tr>")
+            sections.append(
+                "<section style=\"margin-bottom:20px\">"
+                f"<h2 style=\"margin:0 0 10px;font-size:18px\">{html.escape(str(sheet['title']))}</h2>"
+                "<div style=\"overflow:auto\">"
+                "<table style=\"border-collapse:collapse;min-width:320px;background:#fff\">"
+                f"{''.join(rows)}"
+                "</table></div></section>"
+            )
+        return (
+            "<article>"
+            "<header style=\"margin-bottom:16px\"><strong>Spreadsheet preview</strong></header>"
+            f"{''.join(sections)}"
+            "</article>"
+        )
+    return None
 
 
 def _extract_opendocument_text(path: Path) -> tuple[str | None, str | None]:

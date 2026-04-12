@@ -1050,3 +1050,15 @@ This file is the dated turn log for planning and execution continuity.
 - Those manifest endpoints rebuild local/external bundle URLs from current config, so the live service owns the HTTP/HTTPS export contract instead of freezing it entirely into one export-time audience choice.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_exports tests.test_export_channel_day tests.test_api_server -v`
+
+## Turn 72 | 2026-04-12
+
+- Extended bounded export preview support to `.pptx` and `.xlsx`.
+- `.pptx` preview now renders slide-by-slide HTML summaries from the existing OOXML extraction path.
+- `.xlsx` preview now renders bounded sheet-table HTML summaries from the existing OOXML extraction path.
+- Kept the preview architecture lightweight and deterministic:
+  - no office-server dependency
+  - no edit surface
+  - no promise of pixel-perfect Office fidelity
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_derived_text tests.test_exports -v`

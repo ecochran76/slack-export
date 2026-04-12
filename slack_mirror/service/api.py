@@ -78,6 +78,16 @@ def _preview_html(path: Path, source_url: str) -> str:
             f"{message_html}<article style=\"border:1px solid #d1d5db;border-radius:8px;padding:20px;background:#fff\">"
             f"{result.value}</article>"
         )
+    elif content_type in {
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }:
+        from slack_mirror.sync.derived_text import render_ooxml_preview_html
+
+        rendered = render_ooxml_preview_html(path)
+        if not rendered:
+            raise ValueError(f"Preview not supported for {content_type}")
+        viewer = rendered
     elif content_type.startswith("text/") or content_type in {"application/json", "application/xml"}:
         text = path.read_text(encoding="utf-8", errors="replace")
         viewer = (

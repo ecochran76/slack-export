@@ -133,6 +133,8 @@ def preview_supported_for_path(path: Path, *, content_type: str | None = None) -
         detected.startswith("image/")
         or detected == "application/pdf"
         or detected == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        or detected == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        or detected == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         or detected.startswith("text/")
         or detected in {"application/json", "application/xml"}
     )

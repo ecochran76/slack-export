@@ -198,6 +198,8 @@ class ApiServerTests(unittest.TestCase):
         (attachment_dir / "archive.bin").write_bytes(b"\x00\x01")
         docx_input = bundle_dir / "channel-day.json"
         docx_path = attachment_dir / "sample.docx"
+        pptx_path = attachment_dir / "slides.pptx"
+        xlsx_path = attachment_dir / "sheet.xlsx"
         docx_input.write_text(
             json.dumps(
                 {
@@ -223,6 +225,21 @@ class ApiServerTests(unittest.TestCase):
             encoding="utf-8",
         )
         _load_export_docx_module().render_channel_day_docx(docx_input, docx_path)
+        import zipfile
+        with zipfile.ZipFile(pptx_path, "w") as zf:
+            zf.writestr(
+                "ppt/slides/slide1.xml",
+                '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>Launch roadmap</a:t></a:r><a:br/><a:r><a:t>Q4 milestone</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>',
+            )
+        with zipfile.ZipFile(xlsx_path, "w") as zf:
+            zf.writestr(
+                "xl/sharedStrings.xml",
+                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Revenue plan</t></si></sst>',
+            )
+            zf.writestr(
+                "xl/worksheets/sheet1.xml",
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c t="s"><v>0</v></c><c t="inlineStr"><is><t>Projected pipeline</t></is></c><c><v>42</v></c></row></sheetData></worksheet>',
+            )
 
         config_text = self.config_path.read_text(encoding="utf-8")
         self.config_path.write_text(
@@ -280,6 +297,24 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("DOCX preview body", docx_preview.text)
         self.assertIn("<article", docx_preview.text)
 
+        pptx_preview = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/slides.pptx/preview",
+            timeout=5,
+        )
+        self.assertEqual(pptx_preview.status_code, 200)
+        self.assertIn("PowerPoint preview", pptx_preview.text)
+        self.assertIn("Launch roadmap", pptx_preview.text)
+        self.assertIn("Slide 1", pptx_preview.text)
+
+        xlsx_preview = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/sheet.xlsx/preview",
+            timeout=5,
+        )
+        self.assertEqual(xlsx_preview.status_code, 200)
+        self.assertIn("Spreadsheet preview", xlsx_preview.text)
+        self.assertIn("Revenue plan", xlsx_preview.text)
+        self.assertIn("Projected pipeline", xlsx_preview.text)
+
         unsupported = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/archive.bin/preview",
             timeout=5,
@@ -312,6 +347,14 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(
             file_map["attachments/incident/report.pdf"]["preview_url"],
             f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/report.pdf/preview",
+        )
+        self.assertEqual(
+            file_map["attachments/incident/slides.pptx"]["preview_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/slides.pptx/preview",
+        )
+        self.assertEqual(
+            file_map["attachments/incident/sheet.xlsx"]["preview_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/sheet.xlsx/preview",
         )
         self.assertIsNone(file_map["attachments/incident/archive.bin"]["preview_url"])
 
