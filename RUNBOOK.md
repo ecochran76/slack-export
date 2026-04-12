@@ -927,3 +927,112 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_export_docx -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 61 | 2026-04-12
+
+- Added config-backed managed export bundling to `scripts/export_channel_day.py` instead of leaving export outputs as ad hoc HTML/JSON files with brittle local attachment references.
+- Managed export bundles now:
+  - write to a user-scoped `exports.root_dir`
+  - use deterministic human-readable export IDs with a short stable hash suffix
+  - copy local attachment payloads into the bundle under `attachments/...`
+  - emit config-backed local/external download URLs for attachment references
+- Added local API static serving for export artifacts under:
+  - `/exports/<export-id>/<filepath>`
+- Reserved the future preview route explicitly without implementing it yet:
+  - `/exports/<export-id>/<filepath>/preview`
+- Removed the hardcoded API port mismatch by making `slack-mirror api serve` default to `service.bind` and `service.port` from config.
+- Updated the export and config docs to reflect:
+  - `http://slack.localhost`
+  - `https://slack.ecochran.dyndns.org`
+  - the direct download path contract for managed export bundles
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_exports tests.test_api_server tests.test_cli -v`
+
+## Turn 62 | 2026-04-12
+
+- Tightened the managed export attachment contract so downstream renderers do not have to guess between local paths and exported URLs.
+- `scripts/export_channel_day.py` now emits the same stable exported attachment URL under both:
+  - `download_url`
+  - `public_url`
+- HTML export now prefers `public_url` / `download_url` before falling back to Slack permalinks or local paths.
+- PDF renderers now follow the same portable-link preference instead of privileging local filesystem paths.
+- This keeps HTML, PDF, and DOCX aligned on one attachment-link contract for managed export bundles.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_channel_day tests.test_exports tests.test_api_server tests.test_cli -v`
+
+## Turn 63 | 2026-04-12
+
+- Added bounded in-browser preview support for managed export files through:
+  - `/exports/<export-id>/<filepath>/preview`
+- Current preview support is intentionally narrow:
+  - images render inline
+  - PDFs render in an iframe
+  - text-like files render as escaped text
+  - unsupported binary formats fail explicitly with `PREVIEW_UNSUPPORTED`
+- Kept the preview implementation inside the local API instead of introducing a second export-serving surface.
+- Updated export/config docs and the active `0008` plan to reflect the shipped preview contract.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_export_channel_day tests.test_exports tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 64 | 2026-04-12
+
+- Extended the bounded export preview path to support `.docx` without introducing a full office-server dependency.
+- The local API now uses `mammoth` to render `.docx` previews to HTML under:
+  - `/exports/<export-id>/<filepath>/preview`
+- Kept the preview contract intentionally lightweight:
+  - no edit surface
+  - no broad Office-suite runtime
+  - no promise of perfect Word fidelity
+- Updated dependency, docs, and tests to make `.docx` preview a real repo-level contract rather than a local experiment.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_export_channel_day tests.test_exports tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 65 | 2026-04-12
+
+- Corrected the live-runtime health contract for multi-channel Slack workspaces.
+- `user-env validate-live` previously failed on any stale mirrored channel, which produced false positives in workspaces with many legitimately quiet channels.
+- Added daemon heartbeat tracking and changed full live validation to fail on missing or stale daemon progress instead of raw stale-channel counts.
+- Kept stale-channel counts as warnings and directed operators to `mirror status --classify-access` for gap analysis.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 66 | 2026-04-12
+
+- Tightened `mirror status --classify-access` so stale warnings are easier to interpret in real workspaces.
+- Fixed the workspace-filter bug in access classification, which previously leaked other workspaces into the report when `--workspace` was set.
+- Added percentages, interpretation labels, and sample A-bucket/C-bucket channels to the classification payload and human output.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_status_and_verify -v`
+
+## Turn 67 | 2026-04-12
+
+- Extended `mirror status --classify-access` sample entries with channel class and bounded message-history context.
+- A-bucket samples now show channel class plus last-message age, so stale-but-mirrored channels are easier to judge.
+- C-bucket samples now carry an explicit `no_messages_recorded` status, which makes never-mirrored shells clearer in machine output.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_status_and_verify -v`
+
+## Turn 68 | 2026-04-12
+
+- Split zero-message access classification into shell-like IM/MPIM channels versus unexpected empty public/private channels.
+- Added `C_shell_like` and `C_unexpected_empty` counts plus clearer sample statuses to make the C bucket less ambiguous in live triage.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_status_and_verify -v`
+
+## Turn 69 | 2026-04-12
+
+- Aligned `user-env validate-live` with the richer access-classification evidence.
+- `STALE_MIRROR` is now suppressed in full live validation when a workspace has active recent channels and no unexpected empty public/private channels.
+- Kept the warning path for real suspicious cases, especially unexpected empty channels without recent activity.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+
+## Turn 70 | 2026-04-12
+
+- Added plain-text suppression reporting for live validation.
+- When stale evidence is intentionally suppressed, `validate-live` now prints an explicit `OK` line with stale count, active recent count, and unexpected-empty count, so operators do not need `--json` to understand why the workspace still passes.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`

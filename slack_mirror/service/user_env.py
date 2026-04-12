@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from slack_mirror.core.config import load_config
+from slack_mirror.service.runtime_heartbeat import heartbeat_path_for_config
 
 
 RunFn = Callable[..., subprocess.CompletedProcess]
@@ -21,7 +22,7 @@ PrintFn = Callable[[str], None]
 LIVE_EVENT_PENDING_FAIL_THRESHOLD = 100
 LIVE_EMBEDDING_PENDING_FAIL_THRESHOLD = 1000
 LIVE_STALE_HOURS = 24.0
-LIVE_STALE_CHANNEL_FAIL_THRESHOLD = 0
+LIVE_DAEMON_HEARTBEAT_STALE_SECONDS = 10 * 60
 
 
 @dataclass(frozen=True)
@@ -61,7 +62,12 @@ class LiveValidationWorkspace:
     embedding_errors: int
     event_pending: int
     embedding_pending: int
+    daemon_heartbeat_age_seconds: float | None
+    active_recent_channels: int
+    shell_like_zero_message_channels: int
+    unexpected_empty_channels: int
     stale_channels: int
+    stale_warning_suppressed: bool
     failure_codes: list[str]
     warning_codes: list[str]
 
@@ -435,6 +441,53 @@ def _db_workspace_stale_channels(db_path: Path, workspace: str, *, stale_hours: 
         conn.close()
 
 
+def _db_workspace_access_summary(db_path: Path, workspace: str, *, stale_hours: float) -> dict[str, int]:
+    stale_cutoff_ts = time.time() - (float(stale_hours) * 3600.0)
+    conn = sqlite3.connect(db_path, timeout=10)
+    try:
+        row = conn.execute(
+            """
+            WITH last_msg AS (
+              SELECT workspace_id, channel_id, max(cast(ts as real)) AS max_ts, count(*) AS msg_count
+              FROM messages
+              GROUP BY workspace_id, channel_id
+            )
+            SELECT
+              sum(case when coalesce(lm.msg_count,0)>0 and lm.max_ts >= ? then 1 else 0 end) as active_recent_channels,
+              sum(case when coalesce(lm.msg_count,0)=0 and (c.is_im=1 or c.is_mpim=1) then 1 else 0 end) as shell_like_zero_message_channels,
+              sum(case when coalesce(lm.msg_count,0)=0 and c.is_im=0 and c.is_mpim=0 then 1 else 0 end) as unexpected_empty_channels
+            FROM channels c
+            JOIN workspaces w ON w.id = c.workspace_id
+            LEFT JOIN last_msg lm ON lm.workspace_id = c.workspace_id AND lm.channel_id = c.channel_id
+            WHERE w.name = ?
+            """,
+            (stale_cutoff_ts, workspace),
+        ).fetchone()
+        return {
+            "active_recent_channels": int((row[0] if row and row[0] is not None else 0)),
+            "shell_like_zero_message_channels": int((row[1] if row and row[1] is not None else 0)),
+            "unexpected_empty_channels": int((row[2] if row and row[2] is not None else 0)),
+        }
+    finally:
+        conn.close()
+
+
+def _heartbeat_age_seconds(config_path: Path, workspace: str, *, kind: str) -> float | None:
+    path = heartbeat_path_for_config(str(config_path), workspace=workspace, kind=kind)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    try:
+        ts = float(payload.get("ts"))
+    except (TypeError, ValueError):
+        return None
+    age = time.time() - ts
+    return max(age, 0.0)
+
+
 def _build_live_validation_report(
     *,
     paths: UserEnvPaths | None = None,
@@ -603,6 +656,25 @@ def _build_live_validation_report(
                         f"run `systemctl --user disable --now {unit_name}` to keep only the unified daemon topology for `{name}`",
                     )
 
+            daemon_heartbeat_age = _heartbeat_age_seconds(target.config_path, name, kind="daemon")
+            if daemon_heartbeat_age is None:
+                ws_fail(
+                    "DAEMON_HEARTBEAT_MISSING",
+                    f"workspace {name} has no recent daemon heartbeat record",
+                    f"run `systemctl --user restart {daemon_unit}` and confirm `{daemon_unit}` is writing heartbeat state under the managed DB directory",
+                )
+            elif daemon_heartbeat_age > LIVE_DAEMON_HEARTBEAT_STALE_SECONDS:
+                ws_fail(
+                    "DAEMON_HEARTBEAT_STALE",
+                    (
+                        f"workspace {name} daemon heartbeat is stale at {int(daemon_heartbeat_age)}s "
+                        f"(threshold {LIVE_DAEMON_HEARTBEAT_STALE_SECONDS}s)"
+                    ),
+                    f"run `systemctl --user restart {daemon_unit}` and inspect `journalctl --user -u {daemon_unit} -n 50`",
+                )
+        else:
+            daemon_heartbeat_age = None
+
         try:
             event_counts = _db_status_counts(db_path, name, "events")
             embedding_counts = _db_status_counts(db_path, name, "embedding_jobs")
@@ -619,7 +691,12 @@ def _build_live_validation_report(
                     embedding_errors=0,
                     event_pending=0,
                     embedding_pending=0,
+                    daemon_heartbeat_age_seconds=daemon_heartbeat_age,
+                    active_recent_channels=0,
+                    shell_like_zero_message_channels=0,
+                    unexpected_empty_channels=0,
                     stale_channels=0,
+                    stale_warning_suppressed=False,
                     failure_codes=ws_failures,
                     warning_codes=ws_warnings,
                 )
@@ -632,6 +709,7 @@ def _build_live_validation_report(
         embedding_pending = embedding_counts.get("pending", 0)
         try:
             stale_channels = _db_workspace_stale_channels(db_path, name, stale_hours=LIVE_STALE_HOURS)
+            access_summary = _db_workspace_access_summary(db_path, name, stale_hours=LIVE_STALE_HOURS)
         except sqlite3.DatabaseError as exc:
             ws_fail(
                 "FRESHNESS_INSPECTION_FAILED",
@@ -639,6 +717,11 @@ def _build_live_validation_report(
                 f"inspect `{db_path}` and rerun `slack-mirror user-env validate-live` after DB health is restored",
             )
             stale_channels = 0
+            access_summary = {
+                "active_recent_channels": 0,
+                "shell_like_zero_message_channels": 0,
+                "unexpected_empty_channels": 0,
+            }
 
         if event_errors:
             handler = ws_fail if require_live_units else ws_warn
@@ -681,18 +764,20 @@ def _build_live_validation_report(
                 f"watch embedding queue drain and rerun validation if backlog persists for `{name}`",
             )
 
-        if require_live_units and stale_channels > LIVE_STALE_CHANNEL_FAIL_THRESHOLD:
-            ws_fail(
-                "STALE_MIRROR",
-                f"workspace {name} has {stale_channels} stale mirrored channels older than {LIVE_STALE_HOURS:g}h",
-                f"inspect `slack-mirror --config {target.config_path} mirror status --workspace {name} --healthy --enforce-stale --stale-hours {LIVE_STALE_HOURS:g}` and confirm reconcile is advancing",
-            )
-        elif stale_channels:
-            ws_warn(
-                "STALE_MIRROR",
-                f"workspace {name} has {stale_channels} stale mirrored channels older than {LIVE_STALE_HOURS:g}h",
-                f"inspect mirror freshness for `{name}` before treating the install as healthy for unattended use",
-            )
+        stale_warning_suppressed = False
+        if stale_channels:
+            if require_live_units and access_summary["active_recent_channels"] > 0 and access_summary["unexpected_empty_channels"] == 0:
+                stale_warning_suppressed = True
+            else:
+                ws_warn(
+                    "STALE_MIRROR",
+                    f"workspace {name} has {stale_channels} stale mirrored channels older than {LIVE_STALE_HOURS:g}h",
+                    (
+                        f"inspect `slack-mirror --config {target.config_path} mirror status --workspace {name} "
+                        f"--healthy --enforce-stale --stale-hours {LIVE_STALE_HOURS:g} --classify-access` "
+                        "to distinguish quiet channels from real mirror gaps"
+                    ),
+                )
 
         workspace_reports.append(
             LiveValidationWorkspace(
@@ -701,7 +786,12 @@ def _build_live_validation_report(
                 embedding_errors=embedding_errors,
                 event_pending=event_pending,
                 embedding_pending=embedding_pending,
+                daemon_heartbeat_age_seconds=daemon_heartbeat_age,
+                active_recent_channels=access_summary["active_recent_channels"],
+                shell_like_zero_message_channels=access_summary["shell_like_zero_message_channels"],
+                unexpected_empty_channels=access_summary["unexpected_empty_channels"],
                 stale_channels=stale_channels,
+                stale_warning_suppressed=stale_warning_suppressed,
                 failure_codes=ws_failures,
                 warning_codes=ws_warnings,
             )
@@ -833,7 +923,12 @@ def _live_validation_report_payload(report: LiveValidationReport) -> dict[str, A
                 "embedding_errors": workspace.embedding_errors,
                 "event_pending": workspace.event_pending,
                 "embedding_pending": workspace.embedding_pending,
+                "daemon_heartbeat_age_seconds": workspace.daemon_heartbeat_age_seconds,
+                "active_recent_channels": workspace.active_recent_channels,
+                "shell_like_zero_message_channels": workspace.shell_like_zero_message_channels,
+                "unexpected_empty_channels": workspace.unexpected_empty_channels,
                 "stale_channels": workspace.stale_channels,
+                "stale_warning_suppressed": workspace.stale_warning_suppressed,
                 "failure_codes": workspace.failure_codes,
                 "warning_codes": workspace.warning_codes,
             }
@@ -1300,6 +1395,13 @@ def validate_live_user_env(
             out(f"OK    workspace {workspace.name} synced into DB")
         if "OUTBOUND_TOKEN_MISSING" not in workspace.failure_codes:
             out(f"OK    workspace {workspace.name} explicit outbound bot token configured")
+        if workspace.stale_warning_suppressed:
+            out(
+                "OK    "
+                f"workspace {workspace.name} stale mirror evidence suppressed "
+                f"({workspace.stale_channels} stale, {workspace.active_recent_channels} active_recent, "
+                f"{workspace.unexpected_empty_channels} unexpected_empty)"
+            )
 
     for issue in report.failures:
         out(f"FAIL  [{issue.code}] {issue.message}")

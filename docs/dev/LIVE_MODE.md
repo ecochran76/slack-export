@@ -182,12 +182,29 @@ Common hard failures:
 - `DUPLICATE_TOPOLOGY`
   - disable the split legacy workers:
     `systemctl --user disable --now slack-mirror-events-<workspace>.service slack-mirror-embeddings-<workspace>.service`
+- `DAEMON_HEARTBEAT_MISSING` or `DAEMON_HEARTBEAT_STALE`
+  - the daemon unit may be active but not making progress
+  - restart it with `systemctl --user restart slack-mirror-daemon-<workspace>.service`
+  - inspect logs with `journalctl --user -u slack-mirror-daemon-<workspace>.service -n 50`
+  - confirm heartbeat files under the managed DB directory are advancing
 - `STALE_MIRROR`
-  - inspect freshness with:
-    `slack-mirror --config ~/.config/slack-mirror/config.yaml mirror status --workspace <workspace> --healthy --enforce-stale`
-  - confirm the daemon is reconciling and new messages are landing
-  - if units are inactive, `slack-mirror user-env recover-live --apply` can safely restart them
-  - if units are active but channels stay stale, treat that as a real mirror-health failure and inspect daemon logs plus auth scope/state
+  - inspect freshness classification with:
+    `slack-mirror --config ~/.config/slack-mirror/config.yaml mirror status --workspace <workspace> --healthy --enforce-stale --classify-access`
+  - treat this as an observability warning first; quiet historical channels are common in large workspaces
+  - the access report now includes:
+    - percentages for A/B/C buckets
+    - a simple interpretation label
+    - sample inactive and zero-message channels
+    - channel class and last-message age on inactive samples
+    - a split between shell-like empty IM/MPIM channels and unexpected empty public/private channels
+    - explicit zero-message statuses:
+      - `shell_channel_no_messages`
+      - `unexpected_empty_channel`
+  - full `validate-live` now suppresses `STALE_MIRROR` when:
+    - the workspace has active recent channels, and
+    - the zero-message bucket has no unexpected empty public/private channels
+  - in plain-text output, suppressed stale evidence is still surfaced as an `OK` line with the stale count and suppression rationale
+  - if it coincides with daemon-heartbeat or queue failures, then it is strong evidence of a real mirror-health problem
 
 Warnings:
 
@@ -206,8 +223,9 @@ In full live validation, queue error rows fail immediately, and sustained pendin
 
 - pending events over `100`
 - pending embedding jobs over `1000`
-- stale mirrored channels over `0` older than `24h`
+- daemon heartbeat older than `10m`
 
+Stale-channel counts remain warnings. They are useful for spotting coverage gaps, but they are not by themselves proof that a live mirror is failing.
 Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.
 
 `slack-mirror user-env recover-live` intentionally auto-remediates only the safe restart class:

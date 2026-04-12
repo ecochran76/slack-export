@@ -39,6 +39,24 @@ slack-mirror --config config.local.yaml mirror status \
   --json --classify-access --classify-limit 200
 ```
 
+The classification payload is intended to explain stale warnings, not just count them. It now includes:
+
+- total channels
+- A/B/C percentages
+- an interpretation label:
+  - `active_recent_activity_present`
+  - `mirrored_but_quiet`
+  - `not_yet_mirrored`
+- sample A-bucket and C-bucket channels
+- channel class on sample entries
+- last-message age for A-bucket samples
+- split C-bucket counts for:
+  - `shell_like` IM/MPIM channels
+  - `unexpected_empty` public/private channels
+- explicit status on C-bucket samples:
+  - `shell_channel_no_messages`
+  - `unexpected_empty_channel`
+
 Reports by workspace/channel class:
 - channel count
 - zero-message channels

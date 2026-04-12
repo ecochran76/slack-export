@@ -347,6 +347,7 @@ def cmd_serve_webhooks(args: argparse.Namespace) -> int:
 
 
 def cmd_serve_socket_mode(args: argparse.Namespace) -> int:
+    from slack_mirror.service.runtime_heartbeat import write_heartbeat
     from slack_mirror.service.server import run_socket_mode
 
     db_path = _db_path_from_config(args.config)
@@ -375,6 +376,12 @@ def cmd_serve_socket_mode(args: argparse.Namespace) -> int:
         event_ts = str(payload.get("event_time") or "")
         event_type = (payload.get("event") or {}).get("type") or payload.get("type")
         insert_event(conn, workspace_id, event_id, event_ts, event_type, payload, status="pending")
+        write_heartbeat(
+            args.config,
+            workspace=args.workspace,
+            kind="receiver",
+            extra={"event_type": event_type or "unknown", "event_id": event_id},
+        )
 
     run_socket_mode(app_token=app_token, bot_token=bot_token, on_event=on_event)
     return 0
@@ -530,7 +537,7 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         stale_cutoff_ts = time.time() - (float(args.stale_hours) * 3600.0)
         where_ws = ""
         if args.workspace:
-            where_ws = " and w.name=?"
+            where_ws = " where w.name=?"
         q_cls = f"""
         with last_msg as (
           select workspace_id, channel_id, max(cast(ts as real)) as max_ts, count(*) as msg_count
@@ -554,29 +561,101 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         cls_rows = conn.execute(q_cls, tuple(cls_params)).fetchall()
         details = []
         for ws, zero_cnt, inactive_cnt, active_cnt in cls_rows:
-            q_ids = f"""
+            total_channels = int((inactive_cnt or 0)) + int((active_cnt or 0)) + int((zero_cnt or 0))
+            q_ids = """
             with msg_ch as (
-              select workspace_id, channel_id, count(*) as msg_count
+              select workspace_id, channel_id, max(cast(ts as real)) as max_ts, count(*) as msg_count
               from messages
               group by workspace_id, channel_id
             )
-            select c.channel_id
+            select c.channel_id,
+                   coalesce(c.name, ''),
+                   case
+                     when c.is_im=1 then 'im'
+                     when c.is_mpim=1 then 'mpim'
+                     when c.is_private=1 then 'private'
+                     else 'public'
+                   end as channel_class,
+                   m.max_ts,
+                   'inactive'
+            from channels c
+            join workspaces w on w.id=c.workspace_id
+            left join msg_ch m on m.workspace_id=c.workspace_id and m.channel_id=c.channel_id
+            where w.name=? and coalesce(m.msg_count,0)>0 and m.max_ts < ?
+            union all
+            select c.channel_id,
+                   coalesce(c.name, ''),
+                   case
+                     when c.is_im=1 then 'im'
+                     when c.is_mpim=1 then 'mpim'
+                     when c.is_private=1 then 'private'
+                     else 'public'
+                   end as channel_class,
+                   null as max_ts,
+                   'zero_message'
             from channels c
             join workspaces w on w.id=c.workspace_id
             left join msg_ch m on m.workspace_id=c.workspace_id and m.channel_id=c.channel_id
             where w.name=? and coalesce(m.msg_count,0)=0
-            order by c.channel_id
-            limit ?
             """
-            ids = [r[0] for r in conn.execute(q_ids, (ws, int(args.classify_limit))).fetchall()]
+            sample_rows = conn.execute(q_ids, (ws, stale_cutoff_ts, ws)).fetchall()
+            inactive_examples: list[dict[str, str]] = []
+            zero_examples: list[dict[str, str]] = []
+            zero_shell_like = 0
+            zero_unexpected = 0
+            for channel_id, name, channel_class, max_ts, bucket in sample_rows:
+                item = {
+                    "channel_id": str(channel_id),
+                    "name": str(name or ""),
+                    "channel_class": str(channel_class),
+                }
+                if bucket == "inactive":
+                    if max_ts is not None:
+                        age_hours = max((time.time() - float(max_ts)) / 3600.0, 0.0)
+                        item["last_message_ts"] = float(max_ts)
+                        item["last_message_age_hours"] = round(age_hours, 1)
+                    if len(inactive_examples) < int(args.classify_limit):
+                        inactive_examples.append(item)
+                elif len(zero_examples) < int(args.classify_limit):
+                    item["last_message_ts"] = None
+                    item["last_message_age_hours"] = None
+                    if str(channel_class) in {"im", "mpim"}:
+                        item["status"] = "shell_channel_no_messages"
+                        zero_shell_like += 1
+                    else:
+                        item["status"] = "unexpected_empty_channel"
+                        zero_unexpected += 1
+                    zero_examples.append(item)
+                elif str(channel_class) in {"im", "mpim"}:
+                    zero_shell_like += 1
+                else:
+                    zero_unexpected += 1
+
+            if int(active_cnt or 0) > 0:
+                interpretation = "active_recent_activity_present"
+            elif int(inactive_cnt or 0) > 0:
+                interpretation = "mirrored_but_quiet"
+            elif zero_unexpected > 0:
+                interpretation = "unexpected_empty_channels_present"
+            else:
+                interpretation = "not_yet_mirrored"
             details.append(
                 {
                     "workspace": ws,
+                    "total_channels": total_channels,
                     "A_mirrored_inactive": int(inactive_cnt or 0),
                     "B_active_recent": int(active_cnt or 0),
                     "C_zero_message": int(zero_cnt or 0),
-                    "C_zero_message_channel_ids": ids,
-                    "C_zero_message_ids_truncated": bool(int(zero_cnt or 0) > len(ids)),
+                    "A_percent": round((int(inactive_cnt or 0) / total_channels) * 100.0, 1) if total_channels else 0.0,
+                    "B_percent": round((int(active_cnt or 0) / total_channels) * 100.0, 1) if total_channels else 0.0,
+                    "C_percent": round((int(zero_cnt or 0) / total_channels) * 100.0, 1) if total_channels else 0.0,
+                    "C_shell_like": zero_shell_like,
+                    "C_unexpected_empty": zero_unexpected,
+                    "interpretation": interpretation,
+                    "A_mirrored_inactive_examples": inactive_examples,
+                    "A_mirrored_inactive_examples_truncated": bool(int(inactive_cnt or 0) > len(inactive_examples)),
+                    "C_zero_message_examples": zero_examples,
+                    "C_zero_message_examples_truncated": bool(int(zero_cnt or 0) > len(zero_examples)),
                 }
             )
         access_classification = details
@@ -626,12 +705,39 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
         print("\nAccess classification (A mirrored+inactive, B active_recent, C zero_message):")
         for r in access_classification:
             print(
-                f"- {r['workspace']}: A={r['A_mirrored_inactive']} B={r['B_active_recent']} C={r['C_zero_message']}"
+                f"- {r['workspace']}: "
+                f"A={r['A_mirrored_inactive']} ({r['A_percent']}%) "
+                f"B={r['B_active_recent']} ({r['B_percent']}%) "
+                f"C={r['C_zero_message']} ({r['C_percent']}%) "
+                f"-> {r['interpretation']}"
             )
-            if r["C_zero_message_channel_ids"]:
-                ids = ",".join(r["C_zero_message_channel_ids"])
-                suffix = " ..." if r["C_zero_message_ids_truncated"] else ""
-                print(f"  C_ids: {ids}{suffix}")
+            if r["C_zero_message"] > 0:
+                print(
+                    f"  C_split: shell_like={r['C_shell_like']} unexpected_empty={r['C_unexpected_empty']}"
+                )
+            if r["A_mirrored_inactive_examples"]:
+                examples = ",".join(
+                    (
+                        f"{item['channel_id']}:{item['name']}[{item['channel_class']}]"
+                        f" last={item['last_message_age_hours']}h"
+                    )
+                    if item["name"]
+                    else f"{item['channel_id']}[{item['channel_class']}] last={item['last_message_age_hours']}h"
+                    for item in r["A_mirrored_inactive_examples"]
+                )
+                suffix = " ..." if r["A_mirrored_inactive_examples_truncated"] else ""
+                print(f"  A_examples: {examples}{suffix}")
+            if r["C_zero_message_examples"]:
+                examples = ",".join(
+                    (
+                        f"{item['channel_id']}:{item['name']}[{item['channel_class']}]"
+                        if item["name"]
+                        else f"{item['channel_id']}[{item['channel_class']}]"
+                    )
+                    for item in r["C_zero_message_examples"]
+                )
+                suffix = " ..." if r["C_zero_message_examples_truncated"] else ""
+                print(f"  C_examples: {examples}{suffix}")
 
     if args.fail_on_gap and not summary.healthy:
         return 2
@@ -640,6 +746,7 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
 
 def cmd_mirror_daemon(args: argparse.Namespace) -> int:
     from slack_mirror.service.processor import process_pending_events
+    from slack_mirror.service.runtime_heartbeat import write_heartbeat
     from slack_mirror.sync.backfill import backfill_messages
     from slack_mirror.sync.embeddings import process_embedding_jobs
 
@@ -675,12 +782,22 @@ def cmd_mirror_daemon(args: argparse.Namespace) -> int:
         cycle += 1
         for ws_name in names:
             state = ws_state[ws_name]
-            process_pending_events(conn, int(state["id"]), limit=args.event_limit)
+            event_result = process_pending_events(conn, int(state["id"]), limit=args.event_limit)
             process_embedding_jobs(
                 conn,
                 workspace_id=int(state["id"]),
                 model_id=args.model,
                 limit=args.embedding_limit,
+            )
+            write_heartbeat(
+                args.config,
+                workspace=ws_name,
+                kind="daemon",
+                extra={
+                    "cycle": cycle,
+                    "processed_events": int(event_result.get("processed", 0)),
+                    "errored_events": int(event_result.get("errored", 0)),
+                },
             )
 
         if args.reconcile_minutes > 0 and (time.time() - last_reconcile) >= args.reconcile_minutes * 60:
@@ -691,6 +808,12 @@ def cmd_mirror_daemon(args: argparse.Namespace) -> int:
                     workspace_id=int(state["id"]),
                     conn=conn,
                     channel_limit=args.reconcile_channel_limit,
+                )
+                write_heartbeat(
+                    args.config,
+                    workspace=ws_name,
+                    kind="daemon",
+                    extra={"cycle": cycle, "reconcile_complete": True},
                 )
             last_reconcile = time.time()
             print(f"[daemon] reconcile complete cycle={cycle}")
@@ -1788,9 +1911,14 @@ def cmd_user_env_recover_live(args: argparse.Namespace) -> int:
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
+    from slack_mirror.core.config import load_config
     from slack_mirror.service.api import run_api_server
 
-    run_api_server(bind=args.bind, port=args.port, config_path=args.config)
+    config = load_config(args.config)
+    service_cfg = config.get("service", {}) or {}
+    bind = args.bind or str(service_cfg.get("bind") or "127.0.0.1")
+    port = int(args.port or service_cfg.get("port") or 8787)
+    run_api_server(bind=bind, port=port, config_path=args.config)
     return 0
 
 
@@ -2129,8 +2257,8 @@ def build_parser() -> argparse.ArgumentParser:
     api = sub.add_parser("api", help="local HTTP API commands")
     api_sub = api.add_subparsers(dest="api_cmd")
     p_api_serve = api_sub.add_parser("serve", help="run the local HTTP API server")
-    p_api_serve.add_argument("--bind", default="127.0.0.1", help="bind address")
-    p_api_serve.add_argument("--port", type=int, default=8788, help="listen port")
+    p_api_serve.add_argument("--bind", default=None, help="bind address (defaults to config service.bind)")
+    p_api_serve.add_argument("--port", type=int, default=None, help="listen port (defaults to config service.port)")
     p_api_serve.set_defaults(func=cmd_serve_api)
 
     mcp = sub.add_parser("mcp", help="local MCP server commands")

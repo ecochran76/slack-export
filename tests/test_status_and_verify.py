@@ -1,4 +1,5 @@
 import io
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -101,6 +102,80 @@ class StatusAndVerifyTests(unittest.TestCase):
                     rc = cmd_workspaces_verify(args)
 
             self.assertEqual(rc, 0)
+
+    def test_mirror_status_classify_access_respects_workspace_filter_and_reports_examples(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            cfg = td_path / "config.yaml"
+            cfg.write_text(
+                "storage:\n"
+                "  db_path: ./mirror.db\n"
+                "workspaces:\n"
+                "  - name: default\n"
+                "  - name: other\n",
+                encoding="utf-8",
+            )
+
+            conn = connect(str(td_path / "mirror.db"))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+            default_id = upsert_workspace(conn, name="default")
+            other_id = upsert_workspace(conn, name="other")
+            upsert_channel(conn, default_id, {"id": "C_ACTIVE", "name": "active"})
+            upsert_channel(conn, default_id, {"id": "C_OLD", "name": "archive"})
+            upsert_channel(conn, default_id, {"id": "C_ZERO", "name": "empty"})
+            upsert_channel(conn, other_id, {"id": "C_OTHER", "name": "other-room"})
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts) VALUES (?, ?, ?)",
+                (default_id, "C_ACTIVE", "200000.0"),
+            )
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts) VALUES (?, ?, ?)",
+                (default_id, "C_OLD", "1000.0"),
+            )
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts) VALUES (?, ?, ?)",
+                (other_id, "C_OTHER", "1000.0"),
+            )
+            conn.commit()
+
+            args = SimpleNamespace(
+                config=str(cfg),
+                stale_hours=24.0,
+                workspace="default",
+                max_zero_msg=0,
+                max_stale=0,
+                enforce_stale=True,
+                classify_access=True,
+                classify_limit=5,
+                json=True,
+                healthy=True,
+                fail_on_gap=False,
+            )
+
+            with patch("slack_mirror.cli.main.time.time", return_value=200000.0):
+                with redirect_stdout(io.StringIO()) as out:
+                    rc = cmd_mirror_status(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(out.getvalue())
+            self.assertEqual(len(payload["access_classification"]), 1)
+            row = payload["access_classification"][0]
+            self.assertEqual(row["workspace"], "default")
+            self.assertEqual(row["total_channels"], 3)
+            self.assertEqual(row["A_mirrored_inactive"], 1)
+            self.assertEqual(row["B_active_recent"], 1)
+            self.assertEqual(row["C_zero_message"], 1)
+            self.assertEqual(row["interpretation"], "active_recent_activity_present")
+            self.assertEqual(row["C_shell_like"], 0)
+            self.assertEqual(row["C_unexpected_empty"], 1)
+            self.assertEqual(row["A_mirrored_inactive_examples"][0]["channel_id"], "C_OLD")
+            self.assertEqual(row["A_mirrored_inactive_examples"][0]["channel_class"], "public")
+            self.assertIsInstance(row["A_mirrored_inactive_examples"][0]["last_message_age_hours"], float)
+            self.assertEqual(row["C_zero_message_examples"][0]["channel_id"], "C_ZERO")
+            self.assertEqual(row["C_zero_message_examples"][0]["channel_class"], "public")
+            self.assertEqual(row["C_zero_message_examples"][0]["status"], "unexpected_empty_channel")
+            self.assertIsNone(row["C_zero_message_examples"][0]["last_message_ts"])
 
 
 if __name__ == "__main__":

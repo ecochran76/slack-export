@@ -225,9 +225,12 @@ This checks the supported unattended runtime contract and fails when it finds:
 - missing explicit outbound write tokens
 - missing or inactive managed API/webhooks/daemon units
 - duplicate legacy `events` or `embeddings` units active alongside the unified daemon
-- stale mirrored channels older than the built-in freshness window when live units are expected
+- daemon units that are active in `systemd` but not writing fresh runtime heartbeats
 
-Queue error counts are reported as warnings so the command can distinguish broken topology from recoverable backlog or historical failures.
+Queue error counts still fail in full live validation when they exceed the live thresholds.
+Stale mirrored channels older than the built-in freshness window are now warnings rather than hard failures, because large Slack workspaces naturally contain many quiet historical channels.
+Use `mirror status --classify-access` to distinguish inactive-but-mirrored channels from actual ingest regressions.
+When full live validation sees active recent channels and no unexpected empty public/private channels, it suppresses `STALE_MIRROR` entirely instead of emitting a low-value warning.
 The narrower install/update validation gate still treats stale mirror freshness as a warning because live workspace units are not provisioned there.
 
 The command emits stable issue classes such as:
