@@ -1,6 +1,6 @@
 # Export Quality OOXML
 
-State: OPEN
+State: CLOSED
 Roadmap: P03
 Opened: 2026-04-11
 Follows: `docs/dev/plans/0007-2026-04-11-extraction-provider-expansion.md`
@@ -166,3 +166,25 @@ Current status:
 ## Definition Of Done
 
 This plan is done when Slack Mirror has a narrow, actionable export-quality OOXML plan that is grounded in the repo's actual export scripts, has an explicit reuse boundary for `docx-skill`, and is ready for bounded implementation slices.
+
+Current status:
+
+- done
+- the repo now ships:
+  - bounded DOCX-grade rendering over the canonical channel/day JSON artifact
+  - multi-day and semantic daypack DOCX composition through the same renderer path
+  - structural DOCX validation plus canonical fixture generation
+  - managed export bundles with deterministic IDs and copied attachment payloads
+  - API-served export manifests under `/v1/exports` and `/v1/exports/<export-id>`
+  - bounded in-browser preview for:
+    - images
+    - PDFs
+    - text-like files
+    - `.docx`
+    - `.pptx`
+    - `.xlsx`
+    - `.odt`
+    - `.odp`
+    - `.ods`
+- the current shipped baseline treats lightweight extraction-first preview as the intended contract and explicitly does not depend on a heavyweight office server
+- future work, if needed, should reopen a new narrow export or preview plan instead of keeping `0008` generically open

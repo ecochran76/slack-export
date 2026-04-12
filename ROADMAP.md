@@ -55,7 +55,7 @@ Legacy context:
 
 ## P03 | Search And Evaluation
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - keep search, evaluation, and search-platform reuse on a bounded roadmap lane
@@ -93,6 +93,7 @@ Current state:
 - the live service now exposes first-class export manifests through `/v1/exports` and `/v1/exports/<export-id>`, rebuilding configured local/external bundle URLs instead of leaving the published export contract entirely script-owned
 - bounded in-browser previews now cover `.docx`, `.pptx`, and `.xlsx` through lightweight conversion paths rather than a full office-server dependency
 - bounded in-browser previews now cover the OpenDocument office set as well (`.odt`, `.odp`, `.ods`) through the same lightweight extraction-first architecture
+- `P03` is now closed; future search or export follow-up work should open a new narrow child plan instead of reopening the broad modernization lane
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

@@ -1075,3 +1075,19 @@ This file is the dated turn log for planning and execution continuity.
   - deterministic extraction-first rendering
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server tests.test_derived_text tests.test_exports -v`
+
+## Turn 74 | 2026-04-12
+
+- Closed `0008 | Export Quality OOXML`.
+- Closed `P03 | Search And Evaluation`.
+- Closure basis:
+  - search modernization, derived-text expansion, and export-quality follow-up are all shipped through bounded plans
+  - the export baseline now includes:
+    - canonical JSON-first DOCX rendering
+    - multi-day/daypack composition
+    - structural validation and review fixtures
+    - managed export bundles and API-served manifests
+    - lightweight preview coverage across PDF, OOXML, and OpenDocument formats
+- Future work should open a new narrow plan instead of keeping `P03` open as a catch-all lane.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
