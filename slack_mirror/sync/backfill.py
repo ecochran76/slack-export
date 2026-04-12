@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from slack_sdk.errors import SlackApiError
 
 from pathlib import Path
@@ -136,6 +137,16 @@ def _safe_name(value: str, fallback: str) -> str:
     return "".join(c for c in name if c.isalnum() or c in ("-", "_", ".")) or fallback
 
 
+def _planned_file_path(*, cache_root: str, file_obj: dict[str, object]) -> Path | None:
+    fid = file_obj.get("id")
+    if not fid:
+        return None
+    return Path(cache_root) / "files" / str(fid) / _safe_name(
+        str(file_obj.get("name") or file_obj.get("title") or fid),
+        f"file_{fid}",
+    )
+
+
 def backfill_files_and_canvases(
     *,
     token: str,
@@ -170,7 +181,9 @@ def backfill_files_and_canvases(
         fid = f.get("id")
         if not fid:
             continue
-        local = files_dir / fid / _safe_name(f.get("name") or f.get("title") or fid, f"file_{fid}")
+        local = _planned_file_path(cache_root=cache_root, file_obj=f)
+        if local is None:
+            continue
         local.parent.mkdir(parents=True, exist_ok=True)
         upsert_file(conn, workspace_id, f, local_path=str(local))
 
@@ -199,4 +212,78 @@ def backfill_files_and_canvases(
         "canvases": canvas_count,
         "files_downloaded": file_downloaded,
         "canvases_downloaded": canvas_downloaded,
+    }
+
+
+def reconcile_file_downloads(
+    *,
+    token: str,
+    workspace_id: int,
+    conn,
+    cache_root: str = "./cache",
+    limit: int = 100,
+) -> dict[str, int]:
+    rows = conn.execute(
+        """
+        SELECT file_id, raw_json, local_path
+        FROM files
+        WHERE workspace_id = ?
+          AND raw_json IS NOT NULL
+          AND raw_json LIKE '%url_private_download%'
+        ORDER BY updated_at ASC, file_id ASC
+        """,
+        (workspace_id,),
+    ).fetchall()
+
+    scanned = 0
+    attempted = 0
+    downloaded = 0
+    skipped = 0
+    failed = 0
+
+    for row in rows:
+        scanned += 1
+        raw_json = row["raw_json"]
+        if not raw_json:
+            skipped += 1
+            continue
+        try:
+            file_obj = json.loads(raw_json)
+        except Exception:
+            failed += 1
+            continue
+
+        download_url = str(file_obj.get("url_private_download") or "").strip()
+        if not download_url:
+            skipped += 1
+            continue
+
+        existing_local_path = str(row["local_path"] or "").strip()
+        if existing_local_path and Path(existing_local_path).exists():
+            skipped += 1
+            continue
+
+        if attempted >= limit:
+            break
+
+        local = _planned_file_path(cache_root=cache_root, file_obj=file_obj)
+        if local is None:
+            failed += 1
+            continue
+
+        attempted += 1
+        local.parent.mkdir(parents=True, exist_ok=True)
+        ok, checksum_or_error = download_with_retries(download_url, token, local)
+        if ok and checksum_or_error:
+            update_file_download(conn, workspace_id, str(file_obj.get("id") or row["file_id"]), str(local), checksum_or_error)
+            downloaded += 1
+        else:
+            failed += 1
+
+    return {
+        "scanned": scanned,
+        "attempted": attempted,
+        "downloaded": downloaded,
+        "skipped": skipped,
+        "failed": failed,
     }

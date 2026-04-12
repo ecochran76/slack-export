@@ -14,9 +14,10 @@ from slack_mirror.core.db import (
 )
 
 try:
-    from slack_mirror.sync.backfill import backfill_messages
+    from slack_mirror.sync.backfill import backfill_messages, reconcile_file_downloads
 except ModuleNotFoundError:
     backfill_messages = None
+    reconcile_file_downloads = None
 
 
 class _FakeApi:
@@ -97,6 +98,101 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["channels"], 1)
             self.assertGreaterEqual(result["messages"], 2)
             self.assertEqual(get_sync_state(conn, ws_id, "messages.oldest.C123"), "2000.0")
+
+    def test_reconcile_file_downloads_repairs_missing_local_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            cache_root = Path(td) / "cache"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, mimetype, size, local_path, checksum, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ws_id,
+                    "F123",
+                    "image.png",
+                    "image/png",
+                    12,
+                    None,
+                    None,
+                    '{"id":"F123","name":"image.png","mimetype":"image/png","url_private_download":"https://files.slack.test/F123/download/image.png"}',
+                ),
+            )
+            conn.commit()
+
+            expected_local = cache_root / "files" / "F123" / "image.png"
+
+            with patch("slack_mirror.sync.backfill.download_with_retries", return_value=(True, "abc123")) as mock_download:
+                result = reconcile_file_downloads(
+                    token="xoxp-test",
+                    workspace_id=ws_id,
+                    conn=conn,
+                    cache_root=str(cache_root),
+                    limit=10,
+                )
+
+            self.assertEqual(result["attempted"], 1)
+            self.assertEqual(result["downloaded"], 1)
+            mock_download.assert_called_once_with(
+                "https://files.slack.test/F123/download/image.png",
+                "xoxp-test",
+                expected_local,
+            )
+            row = conn.execute(
+                "SELECT local_path, checksum FROM files WHERE workspace_id = ? AND file_id = ?",
+                (ws_id, "F123"),
+            ).fetchone()
+            self.assertEqual(row["local_path"], str(expected_local))
+            self.assertEqual(row["checksum"], "abc123")
+
+    def test_reconcile_file_downloads_skips_existing_local_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            cache_root = Path(td) / "cache"
+            existing = cache_root / "files" / "F123" / "image.png"
+            existing.parent.mkdir(parents=True, exist_ok=True)
+            existing.write_bytes(b"png")
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, mimetype, size, local_path, checksum, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ws_id,
+                    "F123",
+                    "image.png",
+                    "image/png",
+                    12,
+                    str(existing),
+                    "abc123",
+                    '{"id":"F123","name":"image.png","mimetype":"image/png","url_private_download":"https://files.slack.test/F123/download/image.png"}',
+                ),
+            )
+            conn.commit()
+
+            with patch("slack_mirror.sync.backfill.download_with_retries") as mock_download:
+                result = reconcile_file_downloads(
+                    token="xoxp-test",
+                    workspace_id=ws_id,
+                    conn=conn,
+                    cache_root=str(cache_root),
+                    limit=10,
+                )
+
+            self.assertEqual(result["attempted"], 0)
+            self.assertEqual(result["skipped"], 1)
+            mock_download.assert_not_called()
 
 
 if __name__ == "__main__":

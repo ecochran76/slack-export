@@ -55,6 +55,17 @@ Managed bundle behavior:
 - emits stable `download_url` / `public_url` plus audience-keyed `download_urls` and `preview_urls`
 - uses `exports.local_base_url` and `exports.external_base_url` when configured, so one export bundle can serve both local and external consumers
 
+Repair command for older mirrored files:
+
+```bash
+slack-mirror mirror reconcile-files --workspace default --auth-mode user --limit 100
+```
+
+- scans mirrored `files` rows with `url_private_download`
+- skips rows that already have a real on-disk `local_path`
+- attempts bounded repair downloads into the normal cache layout
+- updates `files.local_path` / `checksum` only on real binary success
+
 Download path contract:
 - bundle HTML report: `/exports/<export-id>` or `/exports/<export-id>/`
 - `/exports/<export-id>/<filepath>`

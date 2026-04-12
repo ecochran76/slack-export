@@ -227,6 +227,45 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
+    from slack_mirror.sync.backfill import reconcile_file_downloads
+
+    db_path = _db_path_from_config(args.config)
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+
+    ws_cfg = _workspace_config_by_name(args.config, args.workspace)
+    auth_mode = (args.auth_mode or "user").lower()
+    token_key = "user_token" if auth_mode == "user" else "token"
+    token = ws_cfg.get(token_key)
+    if not token:
+        raise ValueError(f"Workspace '{args.workspace}' has no {token_key} configured")
+    _enforce_auth_mode(token, auth_mode, command_name="mirror reconcile-files")
+
+    workspace_id = upsert_workspace(
+        conn,
+        name=ws_cfg.get("name"),
+        team_id=ws_cfg.get("team_id"),
+        domain=ws_cfg.get("domain"),
+        config=ws_cfg,
+    )
+
+    cache_root = args.cache_root or _cache_root_from_config(args.config)
+    counts = reconcile_file_downloads(
+        token=token,
+        workspace_id=workspace_id,
+        conn=conn,
+        cache_root=cache_root,
+        limit=args.limit,
+    )
+    print(
+        "Reconcile complete "
+        f"workspace={ws_cfg.get('name')} scanned={counts['scanned']} attempted={counts['attempted']} "
+        f"downloaded={counts['downloaded']} skipped={counts['skipped']} failed={counts['failed']}"
+    )
+    return 0
+
+
 def cmd_mirror_oauth_callback(args: argparse.Namespace) -> int:
     from slack_mirror.service.oauth import (
         build_install_url,
@@ -1531,7 +1570,7 @@ _slack_mirror_complete() {
   local mcp_sub="serve"
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live"
-  local mirror_sub="init backfill embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
+  local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -1688,7 +1727,7 @@ _slack_mirror() {
   mcp_sub=(serve)
   release_sub=(check)
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live)
-  mirror_sub=(init backfill embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
+  mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
   if (( CURRENT == 2 )); then
@@ -1977,6 +2016,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--download-content", action="store_true")
     p_backfill.add_argument("--cache-root", default=None, help="override cache root (defaults to storage.cache_root from config)")
     p_backfill.set_defaults(func=cmd_mirror_backfill)
+
+    p_reconcile_files = mirror_sub.add_parser("reconcile-files", help="repair missing local file downloads from mirrored file metadata")
+    p_reconcile_files.add_argument("--workspace", required=True, help="workspace name")
+    p_reconcile_files.add_argument("--auth-mode", default="user", choices=["bot", "user"], help="auth mode for file download repair")
+    p_reconcile_files.add_argument("--limit", type=int, default=100, help="maximum file downloads to attempt in this run")
+    p_reconcile_files.add_argument("--cache-root", default=None, help="override cache root (defaults to storage.cache_root from config)")
+    p_reconcile_files.set_defaults(func=cmd_mirror_reconcile_files)
 
     p_emb_backfill = mirror_sub.add_parser("embeddings-backfill", help="backfill message embeddings")
     p_emb_backfill.add_argument("--workspace", required=True, help="workspace name")

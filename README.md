@@ -30,6 +30,7 @@ slack-mirror user-env recover-live --apply
 slack-mirror user-env rollback
 slack-mirror mirror process-derived-text-jobs --workspace default
 slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_text
+slack-mirror mirror reconcile-files --workspace default --auth-mode user --limit 100
 python scripts/export_channel_day_docx.py --input-json exports/day.json --output-docx exports/day.docx
 python scripts/export_channel_day_docx.py --input-json exports/day.json --output-docx exports/day.docx --font-family Aptos --font-size-pt 11 --margin-in 1.25 --compactness cozy --accent-color 8B5CF6
 python scripts/export_multi_day_docx.py --inputs exports/*.json --output-docx exports/daypack.docx

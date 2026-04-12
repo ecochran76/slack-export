@@ -62,8 +62,8 @@ usage: slack-mirror api serve [-h] [--bind BIND] [--port PORT]
 
 **Options**
 
-- `--bind` — bind address; default: `127.0.0.1`
-- `--port` — listen port; default: `8788`
+- `--bind` — bind address (defaults to config service.bind)
+- `--port` — listen port (defaults to config service.port)
 
 
 
@@ -219,7 +219,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 
 ```
 usage: slack-mirror mirror [-h]
-                           {init,backfill,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 ```
 
@@ -236,6 +236,7 @@ usage: slack-mirror mirror [-h]
 - `process-derived-text-jobs`
 - `process-embedding-jobs`
 - `process-events`
+- `reconcile-files`
 - `serve-socket-mode`
 - `serve-webhooks`
 - `status`
@@ -431,6 +432,24 @@ usage: slack-mirror mirror process-events [-h] --workspace WORKSPACE
 slack-mirror --config config.yaml mirror process-events --workspace default --limit 200
 slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10
 ```
+
+
+### `slack-mirror mirror reconcile-files`
+**Usage**
+
+```
+usage: slack-mirror mirror reconcile-files [-h] --workspace WORKSPACE
+                                           [--auth-mode {bot,user}]
+                                           [--limit LIMIT]
+                                           [--cache-root CACHE_ROOT]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--auth-mode` — auth mode for file download repair; default: `user`
+- `--limit` — maximum file downloads to attempt in this run; default: `100`
+- `--cache-root` — override cache root (defaults to storage.cache_root from config)
 
 
 ### `slack-mirror mirror serve-socket-mode`

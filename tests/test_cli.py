@@ -4,6 +4,7 @@ from unittest.mock import patch
 from slack_mirror import __version__
 from slack_mirror.cli.main import (
     build_parser,
+    cmd_mirror_reconcile_files,
     cmd_release_check,
     cmd_serve_api,
     cmd_serve_mcp,
@@ -142,6 +143,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.limit, 15)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_mirror_reconcile_files(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["mirror", "reconcile-files", "--workspace", "default", "--auth-mode", "user", "--limit", "25", "--cache-root", "./cache"]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.auth_mode, "user")
+        self.assertEqual(args.limit, 25)
+        self.assertEqual(args.cache_root, "./cache")
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_process_events(self):
         parser = build_parser()
         args = parser.parse_args(
@@ -198,6 +211,46 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(rc, 0)
         mock_run_api.assert_called_once_with(bind="127.0.0.1", port=8787, config_path="/tmp/config.yaml")
+
+    def test_cmd_mirror_reconcile_files_uses_user_token_and_reports_counts(self):
+        args = type(
+            "Args",
+            (),
+            {
+                "config": "/tmp/config.yaml",
+                "workspace": "default",
+                "auth_mode": "user",
+                "limit": 25,
+                "cache_root": "./cache-test",
+            },
+        )()
+        with patch("slack_mirror.cli.main._db_path_from_config", return_value="/tmp/mirror.db"), patch(
+            "slack_mirror.cli.main.connect"
+        ) as mock_connect, patch(
+            "slack_mirror.cli.main.apply_migrations"
+        ), patch(
+            "slack_mirror.cli.main._workspace_config_by_name",
+            return_value={"name": "default", "team_id": "T123", "user_token": "xoxp-test-token"},
+        ), patch(
+            "slack_mirror.cli.main.upsert_workspace",
+            return_value=7,
+        ), patch(
+            "slack_mirror.sync.backfill.reconcile_file_downloads",
+            return_value={"scanned": 100, "attempted": 25, "downloaded": 20, "skipped": 70, "failed": 5},
+        ) as mock_reconcile, patch("builtins.print") as mock_print:
+            rc = cmd_mirror_reconcile_files(args)
+
+        self.assertEqual(rc, 0)
+        mock_reconcile.assert_called_once_with(
+            token="xoxp-test-token",
+            workspace_id=7,
+            conn=mock_connect.return_value,
+            cache_root="./cache-test",
+            limit=25,
+        )
+        mock_print.assert_called_once_with(
+            "Reconcile complete workspace=default scanned=100 attempted=25 downloaded=20 skipped=70 failed=5"
+        )
 
     def test_parse_search_keyword(self):
         parser = build_parser()

@@ -61,9 +61,9 @@ usage: slack-mirror api serve [-h] [--bind BIND] [--port PORT]
 
 **Options**
 .IP \[bu] 2
-`--bind` — bind address; default: `127.0.0.1`
+`--bind` — bind address (defaults to config service.bind)
 .IP \[bu] 2
-`--port` — listen port; default: `8788`
+`--port` — listen port (defaults to config service.port)
 .SH SLACK-MIRROR CHANNELS
 **Usage**
 
@@ -170,7 +170,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 **Usage**
 
 usage: slack-mirror mirror [-h]
-                           {init,backfill,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 
 **Arguments**
@@ -191,6 +191,8 @@ usage: slack-mirror mirror [-h]
 `process-embedding-jobs`
 .IP \[bu] 2
 `process-events`
+.IP \[bu] 2
+`reconcile-files`
 .IP \[bu] 2
 `serve-socket-mode`
 .IP \[bu] 2
@@ -397,6 +399,23 @@ usage: slack-mirror mirror process-events [-h] --workspace WORKSPACE
 slack-mirror --config config.yaml mirror process-events --workspace default --limit 200
 slack-mirror --config config.yaml mirror process-events --workspace default --loop --interval 2 --max-cycles 10
 
+.SH SLACK-MIRROR MIRROR RECONCILE-FILES
+**Usage**
+
+usage: slack-mirror mirror reconcile-files [-h] --workspace WORKSPACE
+                                           [--auth-mode {bot,user}]
+                                           [--limit LIMIT]
+                                           [--cache-root CACHE_ROOT]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--auth-mode` — auth mode for file download repair; default: `user`
+.IP \[bu] 2
+`--limit` — maximum file downloads to attempt in this run; default: `100`
+.IP \[bu] 2
+`--cache-root` — override cache root (defaults to storage.cache_root from config)
 .SH SLACK-MIRROR MIRROR SERVE-SOCKET-MODE
 **Usage**
 

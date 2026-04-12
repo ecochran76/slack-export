@@ -1108,3 +1108,14 @@ This file is the dated turn log for planning and execution continuity.
 - When the workspace token cannot really fetch the file, exports now fall back honestly to the Slack permalink until credentials or scopes are corrected.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_downloads tests.test_export_channel_day -v`
+
+## Turn 77 | 2026-04-12
+
+- Added a bounded file-repair operator path: `slack-mirror mirror reconcile-files`.
+- The command scans mirrored `files` rows that still have `url_private_download` but no usable on-disk file, then attempts bounded repairs into the normal cache layout.
+- Kept the repair logic aligned with existing backfill ownership:
+  - same token/auth-mode guardrails
+  - same cache layout
+  - same `update_file_download()` post-download path
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`
