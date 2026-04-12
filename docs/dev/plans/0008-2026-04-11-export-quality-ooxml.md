@@ -113,6 +113,7 @@ Current status:
 - paragraph-style and attachment-presentation hardening is now landed in the same renderer
 - bounded multi-day composition is now landed through `scripts/export_multi_day_docx.py`
 - semantic daypack DOCX output now composes through the same JSON-based renderer path
+- structural DOCX export validation is now landed through `scripts/validate_export_docx.py`
 - next likely slice is deeper fixture quality or more ambitious OOXML primitive reuse, not a second export ownership path
 
 ## Definition Of Done

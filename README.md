@@ -32,6 +32,7 @@ slack-mirror mirror process-derived-text-jobs --workspace default
 slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_text
 python scripts/export_channel_day_docx.py --input-json exports/day.json --output-docx exports/day.docx
 python scripts/export_multi_day_docx.py --inputs exports/*.json --output-docx exports/daypack.docx
+python scripts/validate_export_docx.py --input-docx exports/day.docx --json --fail-on-issues
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid

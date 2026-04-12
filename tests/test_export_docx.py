@@ -9,12 +9,21 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 SCRIPT_PATH = Path(__file__).resolve().parent.parent / "scripts" / "export_channel_day_docx.py"
+VALIDATOR_PATH = Path(__file__).resolve().parent.parent / "scripts" / "validate_export_docx.py"
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 
 
 def _load_module():
     spec = importlib.util.spec_from_file_location("export_channel_day_docx", SCRIPT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_validator_module():
+    spec = importlib.util.spec_from_file_location("validate_export_docx", VALIDATOR_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -155,6 +164,46 @@ class ExportDocxTests(unittest.TestCase):
                 if br.get(f"{{{W_NS}}}type") == "page"
             ]
             self.assertEqual(len(page_breaks), 1)
+
+    def test_validate_export_docx_reports_expected_summary(self) -> None:
+        module = _load_module()
+        validator = _load_validator_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            input_json = tmp / "sample.json"
+            output_docx = tmp / "sample.docx"
+            attachment_path = tmp / "incident.png"
+            attachment_path.write_bytes(b"png")
+            self._write_sample_json(
+                input_json,
+                day="2026-04-11",
+                channel="general",
+                channel_id="C1",
+                attachment_local=str(attachment_path),
+            )
+            module.render_channel_day_docx(input_json, output_docx)
+
+            summary = validator.inspect_docx(output_docx)
+
+            self.assertEqual(summary["status"], "ok")
+            self.assertEqual(summary["issues"], [])
+            self.assertEqual(summary["page_break_count"], 0)
+            self.assertEqual(summary["hyperlink_count"], 1)
+            self.assertTrue(summary["contains_reply_badge"])
+            self.assertTrue(summary["contains_local_source_note"])
+            self.assertIn("ReplyMeta", summary["style_ids"])
+
+    def test_validate_export_docx_flags_missing_parts(self) -> None:
+        validator = _load_validator_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            broken_docx = Path(tmpdir) / "broken.docx"
+            with zipfile.ZipFile(broken_docx, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("[Content_Types].xml", b"test")
+
+            summary = validator.inspect_docx(broken_docx)
+
+            self.assertEqual(summary["status"], "invalid")
+            self.assertTrue(any(issue.startswith("missing_part:word/document.xml") for issue in summary["issues"]))
 
 
 if __name__ == "__main__":

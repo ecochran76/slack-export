@@ -806,3 +806,15 @@ This file is the dated turn log for planning and execution continuity.
   - single-day and multi-day DOCX output both build from the same JSON artifact
   - semantic daypack DOCX output now composes through that same path instead of querying SQLite independently
 - Added regression coverage for page-break-based multi-day DOCX composition in `tests/test_export_docx.py`.
+
+## Turn 54 | 2026-04-12
+
+- Added `scripts/validate_export_docx.py` as a bounded structural validator for export DOCX packages.
+- The validator reports:
+  - required OOXML parts
+  - style IDs
+  - hyperlink count and targets
+  - page-break count
+  - reply-badge presence
+  - local/permalink attachment note presence
+- Added regression coverage in `tests/test_export_docx.py` for both valid DOCX summaries and invalid/missing-part detection.

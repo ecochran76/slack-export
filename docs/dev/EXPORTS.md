@@ -83,6 +83,7 @@ DOCX UX in the current multi-day baseline:
 - builds from the same channel/day JSON artifact as the single-day DOCX renderer
 - inserts page breaks between bundled day/channel exports
 - preserves the same message, reply, and attachment block semantics
+- can be checked structurally with `python scripts/validate_export_docx.py --input-docx ... --json`
 
 ## 6) One-shot semantic search -> full-day exports -> combined PDF/DOCX
 
