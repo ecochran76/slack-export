@@ -311,7 +311,15 @@ def extract_attachments(
     return out
 
 
-def render_html(page_title: str, header_title: str, day: str, tz_name: str, messages: list[dict]) -> str:
+def render_html(
+    page_title: str,
+    header_title: str,
+    workspace: str,
+    channel_id: str,
+    day: str,
+    tz_name: str,
+    messages: list[dict],
+) -> str:
     lines = [
         "<!doctype html>",
         "<html><head><meta charset='utf-8'>",
@@ -320,13 +328,18 @@ def render_html(page_title: str, header_title: str, day: str, tz_name: str, mess
         "body{font-family:Arial,sans-serif;max-width:1040px;margin:24px auto;line-height:1.45;background:#f4f7fb;color:#0f172a}"
         "h1{margin:0 0 10px}"
         ".summary{margin:0 0 24px;color:#475569}"
+        ".summary-line{display:flex;flex-wrap:wrap;gap:10px;align-items:center}"
+        ".summary-identifiers{display:flex;flex-wrap:wrap;gap:8px;align-items:center}"
         ".timeline{display:flex;flex-direction:column;gap:12px}"
         ".m{display:flex;gap:12px;align-items:flex-start}"
+        ".m.grouped{margin-top:-6px}"
         ".m.reply{margin-left:56px}"
         ".avatar{width:40px;height:40px;flex:0 0 40px;border-radius:999px;overflow:hidden;background:linear-gradient(135deg,#2563eb,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;box-shadow:0 4px 10px rgba(15,23,42,.12)}"
+        ".avatar.avatar-gap{background:transparent;box-shadow:none}"
         ".avatar img{width:100%;height:100%;object-fit:cover;display:block}"
         ".bubble{flex:1;min-width:0;background:#fff;border:1px solid #dbe4f0;border-radius:18px;padding:12px 14px;box-shadow:0 4px 14px rgba(15,23,42,.05)}"
         ".m.reply .bubble{background:#f8fbff;border-color:#cbdcf5}"
+        ".m.grouped .bubble{padding-top:9px}"
         ".meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:#475569;font-size:12px;margin-bottom:6px}"
         ".reply-badge{display:inline-block;background:#0f172a;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;letter-spacing:.02em}"
         ".txt{white-space:pre-wrap}"
@@ -339,9 +352,17 @@ def render_html(page_title: str, header_title: str, day: str, tz_name: str, mess
         "</style>"
         "</head><body>",
         f"<h1>{html.escape(header_title)}</h1>",
-        f"<p class='summary'><b>Date:</b> {html.escape(day)} ({html.escape(tz_name)}) &nbsp; <b>Messages exported:</b> {len(messages)}</p>",
+        (
+            "<div class='summary'>"
+            f"<div class='summary-line'><b>Date:</b> {html.escape(day)} ({html.escape(tz_name)}) "
+            f"<b>Messages exported:</b> {len(messages)}</div>"
+            f"<div class='summary-identifiers'><code>tenant:{html.escape(workspace)}</code> "
+            f"<code>channel:{html.escape(channel_id)}</code></div>"
+            "</div>"
+        ),
         "<div class='timeline'>",
     ]
+    previous_group_key: tuple[str, bool] | None = None
     for message in messages:
         ts = message.get("ts")
         subtype = message.get("subtype")
@@ -352,22 +373,33 @@ def render_html(page_title: str, header_title: str, day: str, tz_name: str, mess
         avatar_url = message.get("avatar_url")
         avatar_initials = message.get("avatar_initials") or "?"
         is_reply = bool(thread_ts) and str(thread_ts) != str(ts)
-        lines.append("<div class='m reply'>" if is_reply else "<div class='m'>")
-        if avatar_url:
+        group_key = (str(user_label), bool(is_reply))
+        is_grouped = previous_group_key == group_key
+        row_classes = ["m"]
+        if is_reply:
+            row_classes.append("reply")
+        if is_grouped:
+            row_classes.append("grouped")
+        lines.append(f"<div class='{' '.join(row_classes)}'>")
+        if is_grouped:
+            lines.append("<div class='avatar avatar-gap' aria-hidden='true'></div>")
+        elif avatar_url:
             lines.append(
                 f"<div class='avatar'><img src='{html.escape(str(avatar_url), quote=True)}' alt='{html.escape(str(user_label))}' /></div>"
             )
         else:
             lines.append(f"<div class='avatar'>{html.escape(str(avatar_initials))}</div>")
         lines.append("<div class='bubble'>")
-        meta_prefix = "<span class='reply-badge'>THREAD REPLY</span>" if is_reply else ""
-        lines.append(
-            f"<div class='meta'>{meta_prefix}<b>{html.escape(str(user_label))}</b> · {html.escape(str(message.get('human_ts') or parse_ts(str(ts), tz_name)))}"
-            + (f" · subtype={html.escape(subtype)}" if subtype else "")
-            + (" · deleted" if int(deleted or 0) else "")
-            + (f" · thread={html.escape(str(thread_ts))}" if thread_ts else "")
-            + "</div>"
-        )
+        if not is_grouped:
+            meta_prefix = "<span class='reply-badge'>THREAD REPLY</span>" if is_reply else ""
+            thread_code = f" <code>thread:{html.escape(str(thread_ts))}</code>" if thread_ts else ""
+            lines.append(
+                f"<div class='meta'>{meta_prefix}<b>{html.escape(str(user_label))}</b> · {html.escape(str(message.get('human_ts') or parse_ts(str(ts), tz_name)))}"
+                + (f" · subtype={html.escape(subtype)}" if subtype else "")
+                + (" · deleted" if int(deleted or 0) else "")
+                + thread_code
+                + "</div>"
+            )
         lines.append(f"<div class='txt'>{html.escape(message.get('text') or '')}</div>")
         if attachments:
             lines.append("<div class='att'><b>Attachments</b><ul>")
@@ -391,6 +423,7 @@ def render_html(page_title: str, header_title: str, day: str, tz_name: str, mess
                 )
             lines.append("</ul></div>")
         lines.append("</div></div>")
+        previous_group_key = group_key
     lines.append("</div></body></html>")
     return "\n".join(lines)
 
@@ -488,7 +521,7 @@ def main() -> int:
         "public_base_urls": base_urls,
         "messages": serial,
     }
-    html_doc = render_html(page_title, header_title, args.day, args.tz, serial)
+    html_doc = render_html(page_title, header_title, args.workspace, channel_id, args.day, args.tz, serial)
 
     out_html_path.parent.mkdir(parents=True, exist_ok=True)
     out_html_path.write_text(html_doc, encoding="utf-8")

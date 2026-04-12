@@ -24,6 +24,8 @@ Features:
 - direct-message exports use participant-aware titles when both sides can be resolved
 - human-readable timestamps
 - HTML message bubbles with avatar rail and thread-reply styling
+- consecutive messages from the same sender are visually grouped to reduce repeated avatar and metadata noise
+- HTML header includes code-style tenant and channel identifiers, and replies render thread IDs as code-style metadata
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
 
 Managed bundle mode:

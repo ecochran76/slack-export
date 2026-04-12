@@ -192,6 +192,8 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             self.assertIn("class='bubble'", html_output)
             self.assertIn("class='avatar'><img", html_output)
             self.assertIn("avatar-u123.png", html_output)
+            self.assertIn("<code>tenant:default</code>", html_output)
+            self.assertIn("<code>channel:C123</code>", html_output)
             self.assertIn(f"Download base: http://slack.localhost/exports/{bundle_dir.name}/", result.stdout)
 
     def test_managed_export_titles_direct_message_by_participants(self) -> None:
@@ -307,6 +309,222 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             self.assertEqual(payload["page_title"], "soylei DM")
             self.assertIn("<h1>DM between Baker and Eric</h1>", html_output)
             self.assertIn("<title>soylei DM 2026-04-11</title>", html_output)
+            self.assertIn("<code>tenant:soylei</code>", html_output)
+            self.assertIn("<code>channel:D123</code>", html_output)
+
+    def test_managed_export_groups_consecutive_messages_by_sender(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            db_path = root / "mirror.db"
+            export_root = root / "exports"
+            config_path = root / "config.yaml"
+
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "version: 1",
+                        "storage:",
+                        f"  db_path: {db_path}",
+                        "exports:",
+                        f"  root_dir: {export_root}",
+                        "  local_base_url: http://slack.localhost",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            conn = sqlite3.connect(db_path)
+            conn.executescript(
+                """
+                CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+                CREATE TABLE channels (
+                    workspace_id INTEGER,
+                    channel_id TEXT,
+                    name TEXT,
+                    is_private INTEGER DEFAULT 0,
+                    is_im INTEGER DEFAULT 0,
+                    is_mpim INTEGER DEFAULT 0,
+                    topic TEXT,
+                    purpose TEXT,
+                    raw_json TEXT
+                );
+                CREATE TABLE users (workspace_id INTEGER, user_id TEXT, raw_json TEXT);
+                CREATE TABLE messages (
+                    workspace_id INTEGER,
+                    channel_id TEXT,
+                    ts TEXT,
+                    user_id TEXT,
+                    text TEXT,
+                    subtype TEXT,
+                    thread_ts TEXT,
+                    edited_ts TEXT,
+                    deleted INTEGER,
+                    raw_json TEXT
+                );
+                CREATE TABLE files (
+                    workspace_id INTEGER,
+                    file_id TEXT,
+                    local_path TEXT
+                );
+                """
+            )
+            conn.execute("INSERT INTO workspaces(id, name) VALUES (1, 'default')")
+            conn.execute(
+                "INSERT INTO channels(workspace_id, channel_id, name, is_private, is_im, is_mpim, topic, purpose, raw_json) VALUES (1, 'C123', 'general', 0, 0, 0, NULL, NULL, NULL)"
+            )
+            conn.execute(
+                "INSERT INTO users(workspace_id, user_id, raw_json) VALUES (?, ?, ?)",
+                (
+                    1,
+                    "U123",
+                    json.dumps({"profile": {"display_name": "Eric", "image_72": "https://cdn.example.test/avatar-u123.png"}}),
+                ),
+            )
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (1, "C123", "1775926800.0", "U123", "First line", None, None, None, 0, "{}"),
+            )
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (1, "C123", "1775926810.0", "U123", "Second line", None, None, None, 0, "{}"),
+            )
+            conn.commit()
+            conn.close()
+
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(REPO_ROOT)
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--config",
+                    str(config_path),
+                    "--db",
+                    str(db_path),
+                    "--workspace",
+                    "default",
+                    "--channel",
+                    "general",
+                    "--day",
+                    "2026-04-11",
+                    "--managed-export",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            bundle_dir = next(export_root.iterdir())
+            html_output = (bundle_dir / "index.html").read_text(encoding="utf-8")
+            self.assertEqual(html_output.count("class='meta'"), 1)
+            self.assertIn("class='m grouped'", html_output)
+            self.assertIn("class='avatar avatar-gap' aria-hidden='true'", html_output)
+            self.assertIn("First line", html_output)
+            self.assertIn("Second line", html_output)
+
+    def test_managed_export_renders_thread_identifier_as_code(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            db_path = root / "mirror.db"
+            export_root = root / "exports"
+            config_path = root / "config.yaml"
+
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "version: 1",
+                        "storage:",
+                        f"  db_path: {db_path}",
+                        "exports:",
+                        f"  root_dir: {export_root}",
+                        "  local_base_url: http://slack.localhost",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            conn = sqlite3.connect(db_path)
+            conn.executescript(
+                """
+                CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+                CREATE TABLE channels (
+                    workspace_id INTEGER,
+                    channel_id TEXT,
+                    name TEXT,
+                    is_private INTEGER DEFAULT 0,
+                    is_im INTEGER DEFAULT 0,
+                    is_mpim INTEGER DEFAULT 0,
+                    topic TEXT,
+                    purpose TEXT,
+                    raw_json TEXT
+                );
+                CREATE TABLE users (workspace_id INTEGER, user_id TEXT, raw_json TEXT);
+                CREATE TABLE messages (
+                    workspace_id INTEGER,
+                    channel_id TEXT,
+                    ts TEXT,
+                    user_id TEXT,
+                    text TEXT,
+                    subtype TEXT,
+                    thread_ts TEXT,
+                    edited_ts TEXT,
+                    deleted INTEGER,
+                    raw_json TEXT
+                );
+                CREATE TABLE files (
+                    workspace_id INTEGER,
+                    file_id TEXT,
+                    local_path TEXT
+                );
+                """
+            )
+            conn.execute("INSERT INTO workspaces(id, name) VALUES (1, 'default')")
+            conn.execute(
+                "INSERT INTO channels(workspace_id, channel_id, name, is_private, is_im, is_mpim, topic, purpose, raw_json) VALUES (1, 'C123', 'general', 0, 0, 0, NULL, NULL, NULL)"
+            )
+            conn.execute(
+                "INSERT INTO users(workspace_id, user_id, raw_json) VALUES (?, ?, ?)",
+                (1, "U123", json.dumps({"profile": {"display_name": "Eric"}})),
+            )
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (1, "C123", "1775926801.0", "U123", "Reply message", None, "1775926800.0", None, 0, "{}"),
+            )
+            conn.commit()
+            conn.close()
+
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(REPO_ROOT)
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--config",
+                    str(config_path),
+                    "--db",
+                    str(db_path),
+                    "--workspace",
+                    "default",
+                    "--channel",
+                    "general",
+                    "--day",
+                    "2026-04-11",
+                    "--managed-export",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            bundle_dir = next(export_root.iterdir())
+            html_output = (bundle_dir / "index.html").read_text(encoding="utf-8")
+            self.assertIn("<code>thread:1775926800.0</code>", html_output)
 
 
 if __name__ == "__main__":
