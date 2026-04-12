@@ -43,11 +43,12 @@ DOCX UX in the current baseline:
 - single channel/day JSON is the canonical input artifact
 - compact letter-page layout with 1in margins
 - sans-serif 10pt body text by default
+- subtle paragraph shading on message and reply blocks to improve scanability without turning the export into a card-heavy layout
 - thread-reply labeling and indentation
-- speaker/timestamp metadata lines
-- clickable attachment links for local files or permalinks
+- tighter speaker/timestamp metadata alignment
+- clickable attachment links now prefer explicit public/download URLs or Slack permalinks; local-only mirror files are rendered as labeled references instead of brittle `file://` links
 - explicit paragraph styles for metadata, message body, reply body, and attachment blocks
-- human-readable attachment metadata like `PDF document` or `Word document` instead of raw MIME strings
+- compact attachment-type badges plus human-readable metadata like `PDF document` or `Word document` instead of raw MIME strings
 - attachment follow-up lines that distinguish local-only files from permalink-backed files
 - no second SQLite-querying DOCX path
 - package output is now compatible with the local LibreOffice render/QA path used by `docx-skill`
@@ -72,6 +73,11 @@ This produces a stable review bundle with:
 - rendered single-day and multi-day DOCX outputs for `compact_default` and `cozy_review`
 - structural validation summaries in `manifest.json`
 - rendered PDF/PNG review artifacts through the local `docx-skill` path when available
+
+Attachment URL contract:
+- the DOCX renderer already understands `public_url` and `download_url` attachment fields and prefers them over local mirror paths
+- current exports still mainly provide local mirror paths plus Slack permalinks
+- the intended long-term direction is service-configured HTTP/HTTPS download URLs behind the live mirror deployment, so rendered exports can link to stable reverse-proxied attachment endpoints instead of filesystem paths
 
 ## 3) Render JSON export to PDF
 

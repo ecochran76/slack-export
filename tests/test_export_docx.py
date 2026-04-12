@@ -154,9 +154,9 @@ class ExportDocxTests(unittest.TestCase):
             self.assertIn("Q4 milestone", joined)
             self.assertIn("[THREAD REPLY] ", joined)
             self.assertIn("Reply detail", joined)
-            self.assertIn("incident.png", joined)
+            self.assertIn("[IMG] incident.png", joined)
             self.assertIn("type: PNG image", joined)
-            self.assertIn("source: local file", joined)
+            self.assertIn("source: local mirror file", joined)
             self.assertNotIn("thread=10.0", joined)
 
             paragraph_styles = [
@@ -183,8 +183,7 @@ class ExportDocxTests(unittest.TestCase):
                 for rel in rels.findall(f".//{{{PKG_REL_NS}}}Relationship")
                 if rel.attrib.get("Type") == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
             ]
-            self.assertEqual(len(hyperlink_rels), 1)
-            self.assertTrue(hyperlink_rels[0].attrib.get("Target", "").startswith("file://"))
+            self.assertEqual(len(hyperlink_rels), 0)
 
     def test_render_multi_day_docx_combines_json_exports_with_page_breaks(self) -> None:
         module = _load_module()
@@ -314,6 +313,19 @@ class ExportDocxTests(unittest.TestCase):
             self.assertEqual(compact_ind.get(f"{{{W_NS}}}left"), "180")
             self.assertEqual(cozy_ind.get(f"{{{W_NS}}}left"), "240")
 
+            compact_meta = _style_by_id(compact_styles, "Meta")
+            cozy_meta = _style_by_id(cozy_styles, "Meta")
+            compact_meta_ind = compact_meta.find(f".//{{{W_NS}}}ind")
+            cozy_meta_ind = cozy_meta.find(f".//{{{W_NS}}}ind")
+            compact_msg_shd = compact_msg.find(f".//{{{W_NS}}}shd")
+            cozy_msg_shd = cozy_msg.find(f".//{{{W_NS}}}shd")
+            assert compact_meta_ind is not None and cozy_meta_ind is not None
+            assert compact_msg_shd is not None and cozy_msg_shd is not None
+            self.assertEqual(compact_meta_ind.get(f"{{{W_NS}}}left"), "96")
+            self.assertEqual(cozy_meta_ind.get(f"{{{W_NS}}}left"), "144")
+            self.assertEqual(compact_msg_shd.get(f"{{{W_NS}}}fill"), "F8FAFC")
+            self.assertEqual(cozy_msg_shd.get(f"{{{W_NS}}}fill"), "F8FAFC")
+
             self.assertIn('srgbClr val="3B5B7A"', compact_theme)
             self.assertIn('srgbClr val="8B5CF6"', cozy_theme)
 
@@ -340,7 +352,7 @@ class ExportDocxTests(unittest.TestCase):
             self.assertEqual(summary["status"], "ok")
             self.assertEqual(summary["issues"], [])
             self.assertEqual(summary["page_break_count"], 0)
-            self.assertEqual(summary["hyperlink_count"], 1)
+            self.assertEqual(summary["hyperlink_count"], 0)
             self.assertTrue(summary["contains_reply_badge"])
             self.assertTrue(summary["contains_local_source_note"])
             self.assertIn("ReplyMeta", summary["style_ids"])

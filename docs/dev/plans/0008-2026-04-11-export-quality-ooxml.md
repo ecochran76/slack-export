@@ -136,6 +136,12 @@ Current status:
   - `compact_default`
   - `cozy_review`
 - a repo-local fixture artifact generator is now landed through `scripts/render_export_docx_fixtures.py`, producing canonical sample JSON, DOCX outputs, validator summaries, and rendered PDF/PNG review artifacts for the named fixture profiles
+- the current renderer refinement pass now includes:
+  - subtle paragraph shading for message/reply scanability
+  - tighter sender metadata alignment
+  - portable attachment-type badges
+  - safer attachment-link selection that prefers explicit public/download URLs or Slack permalinks and treats local mirror paths as descriptive references instead of primary hyperlinks
+- longer-term follow-up remains open for service-configured attachment URLs exposed over HTTP/HTTPS behind the live mirror deployment, so DOCX exports can point at stable reverse-proxied download endpoints
 - next likely slice is deeper OOXML primitive reuse or closure judgment, not more ad hoc render plumbing
 
 ## Definition Of Done

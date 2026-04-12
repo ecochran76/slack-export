@@ -44,6 +44,8 @@ class ExportDocxStyle:
         title_color: str = "0F172A",
         muted_color: str = "64748B",
         attachment_heading_color: str = "475569",
+        message_fill_color: str = "F8FAFC",
+        reply_fill_color: str = "F1F5F9",
     ) -> None:
         self.font_family = font_family
         self.font_family_fallback = font_family_fallback
@@ -55,6 +57,8 @@ class ExportDocxStyle:
         self.title_color = title_color
         self.muted_color = muted_color
         self.attachment_heading_color = attachment_heading_color
+        self.message_fill_color = message_fill_color
+        self.reply_fill_color = reply_fill_color
 
     def half_points(self, pt: int | float) -> str:
         return str(int(round(pt * 2)))
@@ -161,14 +165,16 @@ def _styles_xml(style: ExportDocxStyle) -> bytes:
     title_after = "120" if style.compact else "180"
     heading_before = "80" if style.compact else "120"
     heading_after = "100" if style.compact else "140"
-    meta_before = "60" if style.compact else "90"
+    meta_before = "44" if style.compact else "72"
     meta_after = "10" if style.compact else "20"
-    reply_meta_before = "80" if style.compact else "120"
+    reply_meta_before = "64" if style.compact else "96"
     body_after = "30" if style.compact else "60"
     attachment_heading_before = "24" if style.compact else "40"
     attachment_heading_after = "8" if style.compact else "16"
     attachment_item_after = "10" if style.compact else "20"
     attachment_meta_after = "8" if style.compact else "14"
+    meta_indent = "96" if style.compact else "144"
+    reply_meta_indent = "420" if style.compact else "540"
     message_indent = "180" if style.compact else "240"
     reply_body_indent = "720" if style.compact else "900"
     attachment_heading_indent = "180" if style.compact else "240"
@@ -218,7 +224,7 @@ def _styles_xml(style: ExportDocxStyle) -> bytes:
   <w:style w:type="paragraph" w:styleId="Meta">
     <w:name w:val="Meta"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:spacing w:before="{meta_before}" w:after="{meta_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{meta_indent}"/><w:spacing w:before="{meta_before}" w:after="{meta_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.message_fill_color}"/></w:pPr>
     <w:rPr>
       <w:rFonts w:ascii="{style.font_family}" w:hAnsi="{style.font_family}" w:cs="{style.font_family}"/>
       <w:sz w:val="{meta_half}"/>
@@ -229,22 +235,22 @@ def _styles_xml(style: ExportDocxStyle) -> bytes:
   <w:style w:type="paragraph" w:styleId="ReplyMeta">
     <w:name w:val="Reply Meta"/>
     <w:basedOn w:val="Meta"/>
-    <w:pPr><w:ind w:left="720"/><w:spacing w:before="{reply_meta_before}" w:after="{meta_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{reply_meta_indent}"/><w:spacing w:before="{reply_meta_before}" w:after="{meta_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.reply_fill_color}"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="MessageBody">
     <w:name w:val="Message Body"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:ind w:left="{message_indent}"/><w:spacing w:after="{body_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{message_indent}"/><w:spacing w:after="{body_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.message_fill_color}"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="ReplyBody">
     <w:name w:val="Reply Body"/>
     <w:basedOn w:val="MessageBody"/>
-    <w:pPr><w:ind w:left="{reply_body_indent}"/><w:spacing w:after="{body_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{reply_body_indent}"/><w:spacing w:after="{body_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.reply_fill_color}"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="AttachmentHeading">
     <w:name w:val="Attachment Heading"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:ind w:left="{attachment_heading_indent}"/><w:spacing w:before="{attachment_heading_before}" w:after="{attachment_heading_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{attachment_heading_indent}"/><w:spacing w:before="{attachment_heading_before}" w:after="{attachment_heading_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.message_fill_color}"/></w:pPr>
     <w:rPr>
       <w:rFonts w:ascii="{style.font_family}" w:hAnsi="{style.font_family}" w:cs="{style.font_family}"/>
       <w:b/>
@@ -256,7 +262,7 @@ def _styles_xml(style: ExportDocxStyle) -> bytes:
   <w:style w:type="paragraph" w:styleId="AttachmentItem">
     <w:name w:val="Attachment Item"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:ind w:left="{attachment_item_indent}"/><w:spacing w:after="{attachment_item_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{attachment_item_indent}"/><w:spacing w:after="{attachment_item_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.message_fill_color}"/></w:pPr>
     <w:rPr>
       <w:rFonts w:ascii="{style.font_family}" w:hAnsi="{style.font_family}" w:cs="{style.font_family}"/>
       <w:sz w:val="{meta_half}"/>
@@ -267,12 +273,12 @@ def _styles_xml(style: ExportDocxStyle) -> bytes:
   <w:style w:type="paragraph" w:styleId="AttachmentItemReply">
     <w:name w:val="Attachment Item Reply"/>
     <w:basedOn w:val="AttachmentItem"/>
-    <w:pPr><w:ind w:left="{attachment_item_reply_indent}"/><w:spacing w:after="{attachment_item_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{attachment_item_reply_indent}"/><w:spacing w:after="{attachment_item_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.reply_fill_color}"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="AttachmentMeta">
     <w:name w:val="Attachment Meta"/>
     <w:basedOn w:val="AttachmentItem"/>
-    <w:pPr><w:ind w:left="{attachment_meta_indent}"/><w:spacing w:after="{attachment_meta_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{attachment_meta_indent}"/><w:spacing w:after="{attachment_meta_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.message_fill_color}"/></w:pPr>
     <w:rPr>
       <w:rFonts w:ascii="{style.font_family}" w:hAnsi="{style.font_family}" w:cs="{style.font_family}"/>
       <w:sz w:val="{attachment_meta_half}"/>
@@ -283,7 +289,7 @@ def _styles_xml(style: ExportDocxStyle) -> bytes:
   <w:style w:type="paragraph" w:styleId="AttachmentMetaReply">
     <w:name w:val="Attachment Meta Reply"/>
     <w:basedOn w:val="AttachmentMeta"/>
-    <w:pPr><w:ind w:left="{attachment_meta_reply_indent}"/><w:spacing w:after="{attachment_meta_after}"/></w:pPr>
+    <w:pPr><w:ind w:left="{attachment_meta_reply_indent}"/><w:spacing w:after="{attachment_meta_after}"/><w:shd w:val="clear" w:color="auto" w:fill="{style.reply_fill_color}"/></w:pPr>
   </w:style>
 </w:styles>
 """.encode("utf-8")
@@ -404,6 +410,40 @@ def _attachment_type_label(mimetype: str) -> str:
         "application/vnd.oasis.opendocument.spreadsheet": "OpenDocument spreadsheet",
     }
     return labels.get(mimetype, mimetype)
+
+
+def _attachment_badge(mimetype: str) -> str:
+    mimetype = (mimetype or "").lower()
+    if mimetype.startswith("image/"):
+        return "[IMG]"
+    if mimetype == "application/pdf":
+        return "[PDF]"
+    if mimetype in {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text",
+        "text/plain",
+        "text/html",
+    }:
+        return "[DOC]"
+    if mimetype in {
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.oasis.opendocument.presentation",
+    }:
+        return "[PPT]"
+    if mimetype in {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.oasis.opendocument.spreadsheet",
+    }:
+        return "[XLS]"
+    return "[ATT]"
+
+
+def _attachment_link_target(attachment: dict) -> str:
+    for key in ("public_url", "download_url", "permalink"):
+        value = attachment.get(key) or ""
+        if value:
+            return str(value)
+    return ""
 
 
 def _next_rid(existing: int) -> str:
@@ -530,12 +570,10 @@ def _append_export_block(
 
     for msg in data.get("messages", []):
         is_reply = bool(msg.get("thread_ts")) and str(msg.get("thread_ts")) != str(msg.get("ts"))
-        indent = 540 if docx_style.compact else 720
         reply_indent = 720 if docx_style.compact else 900
         attachment_heading_indent = 180 if docx_style.compact else 240
         meta = _paragraph(
             style="ReplyMeta" if is_reply else "Meta",
-            indent_twips=indent if not is_reply else None,
             spacing_before=120 if not is_reply else None,
             spacing_after=20 if not is_reply else None,
         )
@@ -574,14 +612,14 @@ def _append_export_block(
                 mimetype = att.get("mimetype") or ""
                 local_path = att.get("local_path") or ""
                 permalink = att.get("permalink") or ""
-                link = local_path or permalink or ""
-                label = name
+                link = _attachment_link_target(att)
+                label = f"{_attachment_badge(mimetype)} {name}"
                 item_style = "AttachmentItemReply" if is_reply else "AttachmentItem"
                 meta_style = "AttachmentMetaReply" if is_reply else "AttachmentMeta"
                 if link:
                     rid = _next_rid(next_rel_index)
                     next_rel_index += 1
-                    target = f"file://{link}" if str(link).startswith("/") else str(link)
+                    target = str(link)
                     relationships.append((rid, target))
                     body.append(_hyperlink_paragraph(label, target, rid, docx_style=docx_style, style=item_style))
                 else:
@@ -591,7 +629,7 @@ def _append_export_block(
                 if local_path and permalink:
                     body.append(_paragraph(f"permalink: {permalink}", style=meta_style))
                 elif local_path:
-                    body.append(_paragraph("source: local file", style=meta_style))
+                    body.append(_paragraph("source: local mirror file", style=meta_style))
                 elif permalink:
                     body.append(_paragraph(f"permalink: {permalink}", style=meta_style))
     return next_rel_index

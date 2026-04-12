@@ -147,7 +147,9 @@ def inspect_docx(path: Path) -> dict:
         "style_ids": style_ids,
         "paragraph_style_usage": paragraph_styles,
         "contains_reply_badge": "[THREAD REPLY] " in text_values,
-        "contains_local_source_note": "source: local file" in text_values,
+        "contains_local_source_note": (
+            "source: local file" in text_values or "source: local mirror file" in text_values
+        ),
         "contains_permalink_note": any((text or "").startswith("permalink: ") for text in text_values),
     }
     return summary

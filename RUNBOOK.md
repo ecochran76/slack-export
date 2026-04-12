@@ -911,3 +911,19 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_export_docx -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 60 | 2026-04-12
+
+- Refined the DOCX renderer around readability and link safety instead of adding more surface area:
+  - added subtle paragraph shading for message and reply blocks
+  - reduced the sender/timestamp metadata indent so message ownership reads closer to the content block
+  - added portable attachment-type badges to attachment labels instead of relying on brittle emoji glyph fallback
+  - stopped treating local mirror filesystem paths as primary hyperlinks
+- The renderer now prefers explicit attachment `public_url` / `download_url` fields, then Slack permalinks, and falls back to a labeled local mirror reference when no public URL exists.
+- Recorded the longer-term direction in the export docs and active plan:
+  - service-configured HTTP/HTTPS attachment URLs behind the live mirror deployment
+  - reverse-proxied download endpoints instead of `file://` leakage into Word exports
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_docx -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

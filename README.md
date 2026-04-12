@@ -64,8 +64,11 @@ The current repo has:
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults
+  - subtle paragraph shading for top-level and reply message blocks
   - reply indentation without internal thread-ID noise
-  - attachment link/source blocks with human-readable type labels
+  - tighter sender metadata alignment
+  - attachment link/source blocks with compact type badges and human-readable type labels
+  - safer link preference for public URLs/permalinks over brittle local filesystem links
   - render-engine-compatible OOXML output that can be visually QA'd through the `docx-skill` render path
   - bounded appearance controls for font family, body size, margins, compactness, and accent color
   - a one-command fixture-artifact generator for canonical DOCX/PDF/PNG visual review outputs
