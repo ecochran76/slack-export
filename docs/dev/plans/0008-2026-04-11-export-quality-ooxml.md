@@ -135,7 +135,8 @@ Current status:
 - named fixture profiles are now part of the renderer QA contract:
   - `compact_default`
   - `cozy_review`
-- next likely slice is richer rendered-fixture preservation or more ambitious OOXML primitive reuse, not a second export ownership path
+- a repo-local fixture artifact generator is now landed through `scripts/render_export_docx_fixtures.py`, producing canonical sample JSON, DOCX outputs, validator summaries, and rendered PDF/PNG review artifacts for the named fixture profiles
+- next likely slice is deeper OOXML primitive reuse or closure judgment, not more ad hoc render plumbing
 
 ## Definition Of Done
 

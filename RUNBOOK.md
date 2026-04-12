@@ -894,3 +894,20 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_export_docx -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 59 | 2026-04-12
+
+- Added `scripts/render_export_docx_fixtures.py` as the repo-local one-command path for persisted DOCX export review artifacts.
+- The fixture generator now:
+  - writes canonical sample channel/day JSON inputs
+  - renders single-day and multi-day DOCX outputs for the named fixture profiles
+  - records structural validation output in a generated `manifest.json`
+  - optionally renders PDF/PNG review artifacts through the local `docx-skill` render path
+- This closes the gap between structural DOCX tests and repeatable visual review without making the export lane depend on ad hoc manual commands.
+- Added regression coverage in `tests/test_export_docx.py` for:
+  - manifest/output generation without external render tools
+  - rendered-artifact recording with a mocked render step
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_docx -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

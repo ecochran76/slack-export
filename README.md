@@ -33,6 +33,7 @@ slack-mirror mirror process-derived-text-jobs --workspace default --kind ocr_tex
 python scripts/export_channel_day_docx.py --input-json exports/day.json --output-docx exports/day.docx
 python scripts/export_channel_day_docx.py --input-json exports/day.json --output-docx exports/day.docx --font-family Aptos --font-size-pt 11 --margin-in 1.25 --compactness cozy --accent-color 8B5CF6
 python scripts/export_multi_day_docx.py --inputs exports/*.json --output-docx exports/daypack.docx
+python scripts/render_export_docx_fixtures.py --output-dir exports/docx-fixtures
 python scripts/validate_export_docx.py --input-docx exports/day.docx --json --fail-on-issues
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
@@ -67,6 +68,7 @@ The current repo has:
   - attachment link/source blocks with human-readable type labels
   - render-engine-compatible OOXML output that can be visually QA'd through the `docx-skill` render path
   - bounded appearance controls for font family, body size, margins, compactness, and accent color
+  - a one-command fixture-artifact generator for canonical DOCX/PDF/PNG visual review outputs
 
 The active search modernization lane is [0006-2026-04-11-search-evaluation-modernization.md](/home/ecochran76/workspace.local/slack-export/docs/dev/plans/0006-2026-04-11-search-evaluation-modernization.md). The derived-text ownership contract for this first slice is in [DERIVED_TEXT_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/dev/DERIVED_TEXT_CONTRACT.md).
 

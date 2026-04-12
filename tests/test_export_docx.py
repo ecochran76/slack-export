@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 from xml.etree import ElementTree as ET
 
 SCRIPT_PATH = Path(__file__).resolve().parent.parent / "scripts" / "export_channel_day_docx.py"
 VALIDATOR_PATH = Path(__file__).resolve().parent.parent / "scripts" / "validate_export_docx.py"
+FIXTURE_RENDER_PATH = Path(__file__).resolve().parent.parent / "scripts" / "render_export_docx_fixtures.py"
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 
@@ -24,6 +27,14 @@ def _load_module():
 
 def _load_validator_module():
     spec = importlib.util.spec_from_file_location("validate_export_docx", VALIDATOR_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_fixture_render_module():
+    spec = importlib.util.spec_from_file_location("render_export_docx_fixtures", FIXTURE_RENDER_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -406,6 +417,66 @@ class ExportDocxTests(unittest.TestCase):
 
             self.assertEqual(summary["status"], "invalid")
             self.assertIn("content_type_override_missing_part:word/missing-part.xml", summary["issues"])
+
+    def test_generate_fixture_artifacts_writes_manifest_and_docx_outputs(self) -> None:
+        fixture_module = _load_fixture_render_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "fixtures"
+
+            manifest = fixture_module.generate_fixture_artifacts(output_dir, render=False)
+
+            manifest_path = output_dir / "manifest.json"
+            self.assertTrue(manifest_path.exists())
+            self.assertEqual(manifest["fixture_inputs"], [
+                "fixture_inputs/channel-day-2026-04-11.json",
+                "fixture_inputs/channel-day-2026-04-12.json",
+            ])
+            self.assertEqual(set(manifest["profiles"].keys()), {"compact_default", "cozy_review"})
+
+            compact = manifest["profiles"]["compact_default"]
+            cozy = manifest["profiles"]["cozy_review"]
+            self.assertEqual(compact["style"]["font_family"], "Arial")
+            self.assertEqual(cozy["style"]["font_family"], "Aptos")
+
+            for profile_name in ("compact_default", "cozy_review"):
+                profile = manifest["profiles"][profile_name]
+                channel_day = profile["artifacts"]["channel_day"]
+                daypack = profile["artifacts"]["daypack"]
+                self.assertEqual(channel_day["validation"]["status"], "ok")
+                self.assertEqual(daypack["validation"]["status"], "ok")
+                self.assertTrue((output_dir / channel_day["docx"]).exists())
+                self.assertTrue((output_dir / daypack["docx"]).exists())
+                self.assertNotIn("render", channel_day)
+                self.assertNotIn("render", daypack)
+
+    def test_generate_fixture_artifacts_records_render_outputs(self) -> None:
+        fixture_module = _load_fixture_render_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "fixtures"
+            fake_render = Path(tmpdir) / "fake-render-docx.py"
+            fake_render.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+            def _fake_run(cmd, check, capture_output, text):
+                render_dir = Path(cmd[4])
+                render_dir.mkdir(parents=True, exist_ok=True)
+                (render_dir / "page-1.png").write_bytes(b"png")
+                (render_dir / f"{Path(cmd[2]).stem}.pdf").write_bytes(b"%PDF")
+                return subprocess.CompletedProcess(cmd, 0, stdout="ok\n", stderr="")
+
+            with mock.patch.object(fixture_module.subprocess, "run", side_effect=_fake_run):
+                manifest = fixture_module.generate_fixture_artifacts(
+                    output_dir,
+                    render=True,
+                    render_script=fake_render,
+                )
+
+            for profile_name in ("compact_default", "cozy_review"):
+                profile = manifest["profiles"][profile_name]
+                for artifact_name in ("channel_day", "daypack"):
+                    render = profile["artifacts"][artifact_name]["render"]
+                    self.assertEqual(render["returncode"], 0)
+                    self.assertIn("page-1.png", render["rendered_files"])
+                    self.assertTrue(any(name.endswith(".pdf") for name in render["rendered_files"]))
 
 
 if __name__ == "__main__":

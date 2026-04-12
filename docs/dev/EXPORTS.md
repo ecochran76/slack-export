@@ -61,6 +61,18 @@ DOCX UX in the current baseline:
   - `compact_default`: `Arial`, `10pt`, `1.0in`, `compact`, `#3B5B7A`
   - `cozy_review`: `Aptos`, `11pt`, `1.25in`, `cozy`, `#8B5CF6`
 
+Review-artifact generation:
+
+```bash
+python scripts/render_export_docx_fixtures.py --output-dir exports/docx-fixtures
+```
+
+This produces a stable review bundle with:
+- canonical sample JSON inputs
+- rendered single-day and multi-day DOCX outputs for `compact_default` and `cozy_review`
+- structural validation summaries in `manifest.json`
+- rendered PDF/PNG review artifacts through the local `docx-skill` path when available
+
 ## 3) Render JSON export to PDF
 
 ```bash
@@ -110,6 +122,7 @@ DOCX UX in the current multi-day baseline:
   - content-type overrides that point to real package parts
   - internal relationship targets that resolve to real package parts
   - exported style, hyperlink, reply-badge, and attachment-note signals
+- canonical review artifacts can be regenerated in one command rather than through ad hoc manual sample rendering
 
 ## 6) One-shot semantic search -> full-day exports -> combined PDF/DOCX
 
