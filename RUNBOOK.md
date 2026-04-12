@@ -1091,3 +1091,11 @@ This file is the dated turn log for planning and execution continuity.
 - Future work should open a new narrow plan instead of keeping `P03` open as a catch-all lane.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 75 | 2026-04-12
+
+- Hardened managed channel/day export localization for hosted Slack attachments.
+- If an attachment is present in mirrored message/file metadata but its `files.local_path` is still empty, the exporter now uses the configured workspace token and `url_private_download` to download the binary directly into the export bundle instead of leaving a Slack permalink in the published report.
+- Kept the existing fallback for Slack-native `email`/HTML preview attachments that have no binary download path.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_channel_day -v`

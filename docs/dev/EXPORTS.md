@@ -29,6 +29,7 @@ Features:
 - attachment rows keep the filename link but collapse long raw URLs into compact code-style file metadata plus a small preview link
 - image attachments render inline at a bounded size and open in an in-page lightbox instead of navigating away
 - Slack-native `email` attachments with embedded HTML previews are materialized into managed export bundles even when no binary file was downloaded locally
+- hosted Slack attachments with `url_private_download` are opportunistically downloaded into the managed bundle when the file row exists but the mirror has not yet persisted a `local_path`
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
 
 Managed bundle mode:
@@ -48,6 +49,7 @@ Managed bundle behavior:
 - writes into `exports.root_dir/<export-id>/`
 - uses deterministic export IDs such as `channel-day-default-general-2026-04-12-a1b2c3d4e5`
 - copies local attachment files into the bundle under `attachments/...`
+- if a hosted Slack attachment has no mirrored `local_path` yet, the exporter will use the configured workspace token and `url_private_download` to localize it into the bundle on demand
 - emits stable `download_url` / `public_url` plus audience-keyed `download_urls` and `preview_urls`
 - uses `exports.local_base_url` and `exports.external_base_url` when configured, so one export bundle can serve both local and external consumers
 

@@ -6,12 +6,33 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = REPO_ROOT / "scripts" / "export_channel_day.py"
+
+
+class _BinaryDownloadHandler(BaseHTTPRequestHandler):
+    payload = b""
+    auth_header = ""
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.headers.get("Authorization") != self.auth_header:
+            self.send_response(401)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(self.payload)))
+        self.end_headers()
+        self.wfile.write(self.payload)
+
+    def log_message(self, format: str, *args) -> None:  # noqa: A003
+        return
 
 
 class ExportChannelDayScriptTests(unittest.TestCase):
@@ -200,6 +221,165 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             self.assertIn(">preview</a>", html_output)
             self.assertNotIn(f"— <code>{attachment['download_url']}</code>", html_output)
             self.assertIn(f"Download base: http://slack.localhost/exports/{bundle_dir.name}/", result.stdout)
+
+    def test_managed_export_downloads_hosted_image_without_local_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            db_path = root / "mirror.db"
+            export_root = root / "exports"
+            config_path = root / "config.yaml"
+
+            _BinaryDownloadHandler.payload = b"\x89PNG\r\n\x1a\nfakepng"
+            _BinaryDownloadHandler.auth_header = "Bearer xoxp-test-token"
+            server = ThreadingHTTPServer(("127.0.0.1", 0), _BinaryDownloadHandler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                download_url = f"http://127.0.0.1:{server.server_port}/files-pri/T123-F456/image.png"
+                config_path.write_text(
+                    "\n".join(
+                        [
+                            "version: 1",
+                            "storage:",
+                            f"  db_path: {db_path}",
+                            "exports:",
+                            f"  root_dir: {export_root}",
+                            "  local_base_url: http://slack.localhost",
+                            "workspaces:",
+                            "  - name: default",
+                            "    token: xoxp-test-token",
+                            "",
+                        ]
+                    ),
+                    encoding="utf-8",
+                )
+
+                conn = sqlite3.connect(db_path)
+                conn.executescript(
+                    """
+                    CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+                    CREATE TABLE channels (
+                        workspace_id INTEGER,
+                        channel_id TEXT,
+                        name TEXT,
+                        is_private INTEGER DEFAULT 0,
+                        is_im INTEGER DEFAULT 0,
+                        is_mpim INTEGER DEFAULT 0,
+                        topic TEXT,
+                        purpose TEXT,
+                        raw_json TEXT
+                    );
+                    CREATE TABLE users (workspace_id INTEGER, user_id TEXT, raw_json TEXT);
+                    CREATE TABLE messages (
+                        workspace_id INTEGER,
+                        channel_id TEXT,
+                        ts TEXT,
+                        user_id TEXT,
+                        text TEXT,
+                        subtype TEXT,
+                        thread_ts TEXT,
+                        edited_ts TEXT,
+                        deleted INTEGER,
+                        raw_json TEXT
+                    );
+                    CREATE TABLE files (
+                        workspace_id INTEGER,
+                        file_id TEXT,
+                        local_path TEXT
+                    );
+                    """
+                )
+                conn.execute("INSERT INTO workspaces(id, name) VALUES (1, 'default')")
+                conn.execute(
+                    "INSERT INTO channels(workspace_id, channel_id, name, is_private, is_im, is_mpim, topic, purpose, raw_json) VALUES (1, 'C123', 'general', 0, 0, 0, NULL, NULL, NULL)"
+                )
+                conn.execute(
+                    "INSERT INTO users(workspace_id, user_id, raw_json) VALUES (?, ?, ?)",
+                    (
+                        1,
+                        "U123",
+                        json.dumps({"profile": {"display_name": "Eric"}}),
+                    ),
+                )
+                conn.execute(
+                    "INSERT INTO files(workspace_id, file_id, local_path) VALUES (?, ?, ?)",
+                    (1, "F456", None),
+                )
+                conn.execute(
+                    "INSERT INTO messages(workspace_id, channel_id, ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        1,
+                        "C123",
+                        "1775926800.0",
+                        "U123",
+                        "Attached image",
+                        None,
+                        None,
+                        None,
+                        0,
+                        json.dumps(
+                            {
+                                "files": [
+                                    {
+                                        "id": "F456",
+                                        "name": "image.png",
+                                        "mimetype": "image/png",
+                                        "permalink": "https://polycy.slack.com/files/U123/F456/image.png",
+                                        "url_private_download": download_url,
+                                    }
+                                ]
+                            }
+                        ),
+                    ),
+                )
+                conn.commit()
+                conn.close()
+
+                env = os.environ.copy()
+                env["PYTHONPATH"] = str(REPO_ROOT)
+                subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPT_PATH),
+                        "--config",
+                        str(config_path),
+                        "--db",
+                        str(db_path),
+                        "--workspace",
+                        "default",
+                        "--channel",
+                        "general",
+                        "--day",
+                        "2026-04-11",
+                        "--managed-export",
+                        "--link-audience",
+                        "local",
+                    ],
+                    cwd=REPO_ROOT,
+                    env=env,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+
+                bundle_dir = next(export_root.iterdir())
+                payload = json.loads((bundle_dir / "channel-day.json").read_text(encoding="utf-8"))
+                attachment = payload["messages"][0]["attachments"][0]
+                self.assertEqual(
+                    attachment["download_url"],
+                    f"http://slack.localhost/exports/{bundle_dir.name}/{attachment['export_relpath']}",
+                )
+                self.assertEqual(attachment["public_url"], attachment["download_url"])
+                self.assertTrue((bundle_dir / attachment["export_relpath"]).exists())
+                self.assertEqual((bundle_dir / attachment["export_relpath"]).read_bytes(), _BinaryDownloadHandler.payload)
+                html_output = (bundle_dir / "index.html").read_text(encoding="utf-8")
+                self.assertNotIn("https://polycy.slack.com/files/U123/F456/image.png", html_output)
+                self.assertIn("data-lightbox-src=", html_output)
+                self.assertIn(attachment["download_url"], html_output)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
 
     def test_managed_export_titles_direct_message_by_participants(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

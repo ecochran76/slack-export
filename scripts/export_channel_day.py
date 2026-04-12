@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from slack_mirror.core.config import load_config
 from slack_mirror.core.slack_api import SlackApiClient
+from slack_mirror.sync.downloads import download_with_retries
 from slack_mirror.exports import (
     build_export_id,
     build_export_manifest,
@@ -126,6 +127,18 @@ def _resolve_workspace_actor_name(config: dict | None, workspace: str, conn: sql
         if isinstance(user_name, str) and user_name.strip():
             return user_name.strip()
         return None
+    return None
+
+
+def _resolve_workspace_token(config: dict | None, workspace: str) -> str | None:
+    if not config:
+        return None
+    for ws_cfg in config.get("workspaces") or []:
+        if ws_cfg.get("name") != workspace:
+            continue
+        token = ws_cfg.get("user_token") or ws_cfg.get("token")
+        if isinstance(token, str) and token.strip():
+            return token.strip()
     return None
 
 
@@ -286,11 +299,42 @@ def _materialize_preview_attachment_into_bundle(bundle_dir: Path, attachment: di
     return str(relpath.as_posix()), str(dst)
 
 
+def _download_attachment_into_bundle(
+    *,
+    token: str,
+    download_url: str,
+    bundle_dir: Path,
+    attachment: dict,
+) -> tuple[str, str] | tuple[None, None]:
+    stem = slugify(attachment.get("id") or attachment.get("name") or "attachment", max_length=24)
+    safe_name = slugify(Path(attachment.get("name") or "attachment").stem, max_length=40) or "attachment"
+    suffix = Path(attachment.get("name") or "").suffix
+    if not suffix:
+        mimetype = str(attachment.get("mimetype") or "").lower()
+        if mimetype == "image/png":
+            suffix = ".png"
+        elif mimetype in {"image/jpeg", "image/jpg"}:
+            suffix = ".jpg"
+        elif mimetype == "image/gif":
+            suffix = ".gif"
+        elif mimetype == "image/webp":
+            suffix = ".webp"
+    relpath = Path("attachments") / stem / f"{safe_name}{suffix}"
+    dst = bundle_dir / relpath
+    ok, _ = download_with_retries(download_url, token, dst)
+    if not ok:
+        if dst.exists():
+            dst.unlink(missing_ok=True)
+        return None, None
+    return str(relpath.as_posix()), str(dst)
+
+
 def extract_attachments(
     conn: sqlite3.Connection,
     ws_id: int,
     raw_json: str | None,
     *,
+    workspace_token: str | None = None,
     bundle_dir: Path | None = None,
     export_id: str | None = None,
     base_urls: dict[str, str] | None = None,
@@ -317,6 +361,7 @@ def extract_attachments(
                 "name": f.get("name") or f.get("title") or fid,
                 "mimetype": f.get("mimetype"),
                 "permalink": f.get("permalink") or f.get("url_private"),
+                "url_private_download": f.get("url_private_download"),
                 "local_path": local_path,
                 "preview_html": f.get("preview"),
                 "preview_plain_text": f.get("preview_plain_text") or f.get("plain_text"),
@@ -324,6 +369,26 @@ def extract_attachments(
         )
         if bundle_dir and local_path:
             relpath, exported_path = _copy_attachment_into_bundle(local_path, bundle_dir, out[-1])
+            if relpath:
+                out[-1]["export_relpath"] = relpath
+                out[-1]["export_path"] = exported_path
+                if base_urls and export_id:
+                    download_urls = build_export_urls(base_urls, export_id, relpath)
+                    preview_urls = build_export_urls(base_urls, export_id, relpath, preview=True)
+                    selected_download_url = select_export_url(download_urls, default_audience)
+                    selected_preview_url = select_export_url(preview_urls, default_audience)
+                    out[-1]["download_urls"] = download_urls
+                    out[-1]["preview_urls"] = preview_urls
+                    out[-1]["download_url"] = selected_download_url
+                    out[-1]["public_url"] = selected_download_url
+                    out[-1]["preview_url"] = selected_preview_url
+        elif bundle_dir and workspace_token and out[-1].get("url_private_download"):
+            relpath, exported_path = _download_attachment_into_bundle(
+                token=workspace_token,
+                download_url=str(out[-1]["url_private_download"]),
+                bundle_dir=bundle_dir,
+                attachment=out[-1],
+            )
             if relpath:
                 out[-1]["export_relpath"] = relpath
                 out[-1]["export_path"] = exported_path
@@ -554,6 +619,7 @@ def main() -> int:
     config = load_config(args.config) if args.managed_export or args.config else None
     conn = sqlite3.connect(args.db)
     ws_id, channel_id, channel_name, rows = load_rows(conn, args.workspace, args.channel, args.day, args.tz)
+    workspace_token = _resolve_workspace_token(config, args.workspace)
     header_title, page_title = _resolve_channel_display(
         conn,
         ws_id,
@@ -608,6 +674,7 @@ def main() -> int:
                     conn,
                     ws_id,
                     raw_json,
+                    workspace_token=workspace_token,
                     bundle_dir=bundle_dir,
                     export_id=export_id,
                     base_urls=base_urls,
