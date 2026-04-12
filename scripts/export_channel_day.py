@@ -347,6 +347,7 @@ def render_html(
         ".att ul{margin:8px 0 0 18px;padding:0}"
         ".att li{margin:0 0 8px}"
         ".att a{color:#0b57d0;text-decoration:underline}"
+        ".att-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}"
         ".thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #d1d5db;border-radius:10px;margin-top:6px}"
         "code{background:#eef2f7;padding:1px 4px;border-radius:4px}"
         "</style>"
@@ -405,6 +406,7 @@ def render_html(
             lines.append("<div class='att'><b>Attachments</b><ul>")
             for a in attachments:
                 link = a.get("public_url") or a.get("download_url") or a.get("permalink") or a.get("local_path") or ""
+                preview_link = a.get("preview_url") or ""
                 mimetype = (a.get("mimetype") or "").lower()
                 image_src = a.get("public_url") or a.get("download_url") or a.get("export_relpath") or a.get("local_path") or ""
                 thumb = ""
@@ -413,11 +415,27 @@ def render_html(
                 name = html.escape(a.get("name") or "file")
                 href = html.escape(str(link)) if link else ""
                 label = f"<a href='{href}' target='_blank' rel='noopener'>{name}</a>" if href else name
+                compact_meta: list[str] = []
+                if a.get("id"):
+                    compact_meta.append(f"<code>file:{html.escape(str(a.get('id')))}</code>")
+                if a.get("mimetype"):
+                    compact_meta.append(f"<code>{html.escape(str(a.get('mimetype')))}</code>")
+                if a.get("export_relpath"):
+                    compact_meta.append(f"<code>bundle:{html.escape(Path(str(a.get('export_relpath'))).name)}</code>")
+                preview_html = ""
+                if preview_link:
+                    preview_href = html.escape(str(preview_link))
+                    preview_html = f"<a href='{preview_href}' target='_blank' rel='noopener'>preview</a>"
+                actions_html = ""
+                if compact_meta or preview_html:
+                    action_parts = compact_meta[:]
+                    if preview_html:
+                        action_parts.append(preview_html)
+                    actions_html = "<div class='att-actions'>" + " ".join(action_parts) + "</div>"
                 lines.append(
                     "<li>"
                     + label
-                    + (f" (<code>{html.escape(a.get('mimetype') or '')}</code>)" if a.get("mimetype") else "")
-                    + (f" — <code>{href}</code>" if href else "")
+                    + actions_html
                     + thumb
                     + "</li>"
                 )

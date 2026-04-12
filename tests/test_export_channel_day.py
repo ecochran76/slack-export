@@ -194,6 +194,11 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             self.assertIn("avatar-u123.png", html_output)
             self.assertIn("<code>tenant:default</code>", html_output)
             self.assertIn("<code>channel:C123</code>", html_output)
+            self.assertIn("<code>file:F123</code>", html_output)
+            self.assertIn("<code>application/pdf</code>", html_output)
+            self.assertIn("<code>bundle:incident-report.pdf</code>", html_output)
+            self.assertIn(">preview</a>", html_output)
+            self.assertNotIn(f"— <code>{attachment['download_url']}</code>", html_output)
             self.assertIn(f"Download base: http://slack.localhost/exports/{bundle_dir.name}/", result.stdout)
 
     def test_managed_export_titles_direct_message_by_participants(self) -> None:

@@ -26,6 +26,7 @@ Features:
 - HTML message bubbles with avatar rail and thread-reply styling
 - consecutive messages from the same sender are visually grouped to reduce repeated avatar and metadata noise
 - HTML header includes code-style tenant and channel identifiers, and replies render thread IDs as code-style metadata
+- attachment rows keep the filename link but collapse long raw URLs into compact code-style file metadata plus a small preview link
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
 
 Managed bundle mode:
