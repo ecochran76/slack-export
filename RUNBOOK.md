@@ -1119,3 +1119,15 @@ This file is the dated turn log for planning and execution continuity.
   - same `update_file_download()` post-download path
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`
+
+## Turn 78 | 2026-04-12
+
+- Extended `mirror reconcile-files` with structured failure reporting and `--json` output.
+- Failure counts are now classified by reason, so bounded repair runs can distinguish cases like:
+  - `html_interstitial`
+  - `not_found`
+  - `forbidden`
+  - `timeout`
+- This turns live repair passes into something operators can actually triage instead of a blind `failed=N`.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`

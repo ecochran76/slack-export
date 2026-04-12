@@ -405,7 +405,7 @@ slack-mirror --config config.yaml mirror process-events --workspace default --lo
 usage: slack-mirror mirror reconcile-files [-h] --workspace WORKSPACE
                                            [--auth-mode {bot,user}]
                                            [--limit LIMIT]
-                                           [--cache-root CACHE_ROOT]
+                                           [--cache-root CACHE_ROOT] [--json]
 
 **Options**
 .IP \[bu] 2
@@ -416,6 +416,8 @@ usage: slack-mirror mirror reconcile-files [-h] --workspace WORKSPACE
 `--limit` — maximum file downloads to attempt in this run; default: `100`
 .IP \[bu] 2
 `--cache-root` — override cache root (defaults to storage.cache_root from config)
+.IP \[bu] 2
+`--json` — json output
 .SH SLACK-MIRROR MIRROR SERVE-SOCKET-MODE
 **Usage**
 

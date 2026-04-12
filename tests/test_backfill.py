@@ -139,6 +139,8 @@ class BackfillTests(unittest.TestCase):
 
             self.assertEqual(result["attempted"], 1)
             self.assertEqual(result["downloaded"], 1)
+            self.assertEqual(result["failure_reasons"], {})
+            self.assertEqual(result["failed_files"], [])
             mock_download.assert_called_once_with(
                 "https://files.slack.test/F123/download/image.png",
                 "xoxp-test",
@@ -193,6 +195,50 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["attempted"], 0)
             self.assertEqual(result["skipped"], 1)
             mock_download.assert_not_called()
+
+    def test_reconcile_file_downloads_collects_failure_reasons(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            cache_root = Path(td) / "cache"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, mimetype, size, local_path, checksum, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ws_id,
+                    "F999",
+                    "bad.png",
+                    "image/png",
+                    12,
+                    None,
+                    None,
+                    '{"id":"F999","name":"bad.png","mimetype":"image/png","url_private_download":"https://files.slack.test/F999/download/bad.png"}',
+                ),
+            )
+            conn.commit()
+
+            with patch(
+                "slack_mirror.sync.backfill.download_with_retries",
+                return_value=(False, "downloaded HTML interstitial instead of file content"),
+            ):
+                result = reconcile_file_downloads(
+                    token="xoxp-test",
+                    workspace_id=ws_id,
+                    conn=conn,
+                    cache_root=str(cache_root),
+                    limit=10,
+                )
+
+            self.assertEqual(result["failed"], 1)
+            self.assertEqual(result["failure_reasons"], {"html_interstitial": 1})
+            self.assertEqual(result["failed_files"][0]["file_id"], "F999")
+            self.assertEqual(result["failed_files"][0]["reason"], "html_interstitial")
 
 
 if __name__ == "__main__":

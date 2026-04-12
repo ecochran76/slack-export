@@ -258,11 +258,19 @@ def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
         cache_root=cache_root,
         limit=args.limit,
     )
+    if getattr(args, "json", False):
+        print(json.dumps({"workspace": ws_cfg.get("name"), **counts}, indent=2))
+        return 0
     print(
         "Reconcile complete "
         f"workspace={ws_cfg.get('name')} scanned={counts['scanned']} attempted={counts['attempted']} "
         f"downloaded={counts['downloaded']} skipped={counts['skipped']} failed={counts['failed']}"
     )
+    if counts.get("failure_reasons"):
+        print(
+            "Failure reasons: "
+            + ", ".join(f"{name}={count}" for name, count in sorted(counts["failure_reasons"].items()))
+        )
     return 0
 
 
@@ -2022,6 +2030,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_reconcile_files.add_argument("--auth-mode", default="user", choices=["bot", "user"], help="auth mode for file download repair")
     p_reconcile_files.add_argument("--limit", type=int, default=100, help="maximum file downloads to attempt in this run")
     p_reconcile_files.add_argument("--cache-root", default=None, help="override cache root (defaults to storage.cache_root from config)")
+    p_reconcile_files.add_argument("--json", action="store_true", help="json output")
     p_reconcile_files.set_defaults(func=cmd_mirror_reconcile_files)
 
     p_emb_backfill = mirror_sub.add_parser("embeddings-backfill", help="backfill message embeddings")

@@ -21,7 +21,7 @@ from slack_mirror.core.db import (
 
 RECENT_THREAD_ROOT_LOOKBACK_SECONDS = 48 * 3600
 from slack_mirror.core.slack_api import SlackApiClient
-from slack_mirror.sync.downloads import download_with_retries
+from slack_mirror.sync.downloads import classify_download_error, download_with_retries
 
 
 def backfill_users_and_channels(*, token: str, workspace_id: int, conn) -> dict[str, int]:
@@ -240,6 +240,8 @@ def reconcile_file_downloads(
     downloaded = 0
     skipped = 0
     failed = 0
+    failure_reasons: dict[str, int] = {}
+    failed_files: list[dict[str, str]] = []
 
     for row in rows:
         scanned += 1
@@ -279,6 +281,16 @@ def reconcile_file_downloads(
             downloaded += 1
         else:
             failed += 1
+            reason = classify_download_error(checksum_or_error)
+            failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
+            failed_files.append(
+                {
+                    "file_id": str(file_obj.get("id") or row["file_id"]),
+                    "name": str(file_obj.get("name") or file_obj.get("title") or row["file_id"]),
+                    "reason": reason,
+                    "error": str(checksum_or_error or ""),
+                }
+            )
 
     return {
         "scanned": scanned,
@@ -286,4 +298,6 @@ def reconcile_file_downloads(
         "downloaded": downloaded,
         "skipped": skipped,
         "failed": failed,
+        "failure_reasons": failure_reasons,
+        "failed_files": failed_files,
     }
