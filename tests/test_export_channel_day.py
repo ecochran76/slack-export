@@ -71,7 +71,7 @@ class ExportChannelDayScriptTests(unittest.TestCase):
                 (
                     1,
                     "U123",
-                    json.dumps({"profile": {"display_name": "Eric"}}),
+                    json.dumps({"profile": {"display_name": "Eric", "image_72": "https://cdn.example.test/avatar-u123.png"}}),
                 ),
             )
             conn.execute(
@@ -145,6 +145,8 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             self.assertEqual(payload["public_base_url"], "http://slack.localhost")
             self.assertEqual(payload["public_base_urls"]["local"], "http://slack.localhost")
             self.assertEqual(payload["export_id"], bundle_dir.name)
+            self.assertEqual(payload["messages"][0]["avatar_url"], "https://cdn.example.test/avatar-u123.png")
+            self.assertEqual(payload["messages"][0]["avatar_initials"], "E")
             attachment = payload["messages"][0]["attachments"][0]
             self.assertTrue(attachment["export_relpath"].startswith("attachments/"))
             self.assertTrue((bundle_dir / attachment["export_relpath"]).exists())
@@ -173,6 +175,11 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             self.assertIn("index.html", relpaths)
             self.assertIn("channel-day.json", relpaths)
             self.assertIn(attachment["export_relpath"], relpaths)
+            html_output = (bundle_dir / "index.html").read_text(encoding="utf-8")
+            self.assertIn("class='timeline'", html_output)
+            self.assertIn("class='bubble'", html_output)
+            self.assertIn("class='avatar'><img", html_output)
+            self.assertIn("avatar-u123.png", html_output)
             self.assertIn(f"Download base: http://slack.localhost/exports/{bundle_dir.name}/", result.stdout)
 
 

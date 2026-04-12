@@ -57,6 +57,45 @@ def resolve_user_label(conn: sqlite3.Connection, ws_id: int, user_id: str | None
     return user_id
 
 
+def resolve_user_presentation(conn: sqlite3.Connection, ws_id: int, user_id: str | None) -> dict[str, str | None]:
+    fallback_label = "unknown" if not user_id else user_id
+    if not user_id:
+        return {"label": fallback_label, "avatar_url": None, "avatar_initials": "?"}
+
+    row = conn.execute(
+        "select raw_json from users where workspace_id=? and user_id=?",
+        (ws_id, user_id),
+    ).fetchone()
+    if not row or not row[0]:
+        initials = "".join(part[:1].upper() for part in fallback_label.split("-") if part)[:2] or "?"
+        return {"label": fallback_label, "avatar_url": None, "avatar_initials": initials}
+
+    try:
+        data = json.loads(row[0])
+    except Exception:
+        initials = "".join(part[:1].upper() for part in fallback_label.split("-") if part)[:2] or "?"
+        return {"label": fallback_label, "avatar_url": None, "avatar_initials": initials}
+
+    profile = data.get("profile") or {}
+    label = fallback_label
+    display_source = None
+    for key in ("display_name", "real_name", "name"):
+        val = profile.get(key) or data.get(key)
+        if isinstance(val, str) and val.strip():
+            display_source = val.strip()
+            label = f"{display_source} ({user_id})"
+            break
+    avatar_url = None
+    for key in ("image_192", "image_72", "image_48", "image_32", "image_24"):
+        val = profile.get(key)
+        if isinstance(val, str) and val.strip():
+            avatar_url = val.strip()
+            break
+    initials_source = display_source or fallback_label
+    initials = "".join(part[:1].upper() for part in initials_source.replace("_", " ").replace("-", " ").split() if part)[:2] or "?"
+    return {"label": label, "avatar_url": avatar_url, "avatar_initials": initials}
+
+
 def load_rows(conn: sqlite3.Connection, workspace: str, channel: str, day: str, tz_name: str):
     start_ts, end_ts = day_bounds_epoch(day, tz_name)
     ws = conn.execute("select id from workspaces where name=?", (workspace,)).fetchone()
@@ -182,18 +221,31 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, messa
         "<!doctype html>",
         "<html><head><meta charset='utf-8'>",
         f"<title>{html.escape(workspace)} #{html.escape(channel_name)} {html.escape(day)}</title>",
-        "<style>body{font-family:Arial,sans-serif;max-width:980px;margin:24px auto;line-height:1.4}"
-        ".m{border-bottom:1px solid #ddd;padding:10px 0;position:relative}"
-        ".m.reply{margin-left:96px;padding:12px 0 12px 22px;background:#f8fafc;border-radius:6px;border-left:8px solid #334155}"
-        ".m.reply:before{content:'';position:absolute;left:-74px;top:22px;width:64px;height:0;border-top:3px solid #334155;opacity:.9}"
-        ".reply-badge{display:inline-block;background:#0f172a;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;margin-right:8px;letter-spacing:.02em}"
-        ".meta{color:#555;font-size:12px}.txt{white-space:pre-wrap}.att{margin-top:6px;font-size:13px}"
-        ".att a{color:#0b57d0;text-decoration:underline}.thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #ddd;border-radius:4px;margin-top:4px}"
-        " code{background:#f4f4f4;padding:1px 4px}"
-        "</style></head><body>",
+        "<style>"
+        "body{font-family:Arial,sans-serif;max-width:1040px;margin:24px auto;line-height:1.45;background:#f4f7fb;color:#0f172a}"
+        "h1{margin:0 0 10px}"
+        ".summary{margin:0 0 24px;color:#475569}"
+        ".timeline{display:flex;flex-direction:column;gap:12px}"
+        ".m{display:flex;gap:12px;align-items:flex-start}"
+        ".m.reply{margin-left:56px}"
+        ".avatar{width:40px;height:40px;flex:0 0 40px;border-radius:999px;overflow:hidden;background:linear-gradient(135deg,#2563eb,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;box-shadow:0 4px 10px rgba(15,23,42,.12)}"
+        ".avatar img{width:100%;height:100%;object-fit:cover;display:block}"
+        ".bubble{flex:1;min-width:0;background:#fff;border:1px solid #dbe4f0;border-radius:18px;padding:12px 14px;box-shadow:0 4px 14px rgba(15,23,42,.05)}"
+        ".m.reply .bubble{background:#f8fbff;border-color:#cbdcf5}"
+        ".meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:#475569;font-size:12px;margin-bottom:6px}"
+        ".reply-badge{display:inline-block;background:#0f172a;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;letter-spacing:.02em}"
+        ".txt{white-space:pre-wrap}"
+        ".att{margin-top:10px;font-size:13px}"
+        ".att ul{margin:8px 0 0 18px;padding:0}"
+        ".att li{margin:0 0 8px}"
+        ".att a{color:#0b57d0;text-decoration:underline}"
+        ".thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #d1d5db;border-radius:10px;margin-top:6px}"
+        "code{background:#eef2f7;padding:1px 4px;border-radius:4px}"
+        "</style>"
+        "</head><body>",
         f"<h1>{html.escape(workspace)} / #{html.escape(channel_name)}</h1>",
-        f"<p><b>Date:</b> {html.escape(day)} ({html.escape(tz_name)})</p>",
-        f"<p><b>Messages exported:</b> {len(messages)}</p>",
+        f"<p class='summary'><b>Date:</b> {html.escape(day)} ({html.escape(tz_name)}) &nbsp; <b>Messages exported:</b> {len(messages)}</p>",
+        "<div class='timeline'>",
     ]
     for message in messages:
         ts = message.get("ts")
@@ -202,8 +254,17 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, messa
         deleted = message.get("deleted")
         attachments = message.get("attachments") or []
         user_label = message.get("user_label") or message.get("user_id") or "unknown"
+        avatar_url = message.get("avatar_url")
+        avatar_initials = message.get("avatar_initials") or "?"
         is_reply = bool(thread_ts) and str(thread_ts) != str(ts)
         lines.append("<div class='m reply'>" if is_reply else "<div class='m'>")
+        if avatar_url:
+            lines.append(
+                f"<div class='avatar'><img src='{html.escape(str(avatar_url), quote=True)}' alt='{html.escape(str(user_label))}' /></div>"
+            )
+        else:
+            lines.append(f"<div class='avatar'>{html.escape(str(avatar_initials))}</div>")
+        lines.append("<div class='bubble'>")
         meta_prefix = "<span class='reply-badge'>THREAD REPLY</span>" if is_reply else ""
         lines.append(
             f"<div class='meta'>{meta_prefix}<b>{html.escape(str(user_label))}</b> · {html.escape(str(message.get('human_ts') or parse_ts(str(ts), tz_name)))}"
@@ -234,8 +295,8 @@ def render_html(workspace: str, channel_name: str, day: str, tz_name: str, messa
                     + "</li>"
                 )
             lines.append("</ul></div>")
-        lines.append("</div>")
-    lines.append("</body></html>")
+        lines.append("</div></div>")
+    lines.append("</div></body></html>")
     return "\n".join(lines)
 
 
@@ -286,12 +347,15 @@ def main() -> int:
     serial = []
     for r in rows:
         ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json = r
+        user_presentation = resolve_user_presentation(conn, ws_id, user_id)
         serial.append(
             {
                 "ts": ts,
                 "human_ts": parse_ts(str(ts), args.tz),
                 "user_id": user_id,
-                "user_label": resolve_user_label(conn, ws_id, user_id),
+                "user_label": user_presentation["label"],
+                "avatar_url": user_presentation["avatar_url"],
+                "avatar_initials": user_presentation["avatar_initials"],
                 "text": text,
                 "subtype": subtype,
                 "thread_ts": thread_ts,
