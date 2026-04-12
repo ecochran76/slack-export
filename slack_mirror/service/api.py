@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from slack_mirror.core.config import load_config
-from slack_mirror.exports import resolve_export_root, safe_export_path
+from slack_mirror.exports import build_export_manifest, list_export_manifests, resolve_export_base_urls, resolve_export_root, safe_export_path
 from slack_mirror.service.errors import map_service_error
 from slack_mirror.service.app import get_app_service
 
@@ -118,6 +118,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
     service = get_app_service(config_path)
     config = load_config(config_path)
     export_root = resolve_export_root(config)
+    export_base_urls = resolve_export_base_urls(config)
 
     class Handler(BaseHTTPRequestHandler):
         def _query(self) -> dict[str, list[str]]:
@@ -159,6 +160,29 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 require_live_units = query.get("require_live_units", ["1"])[0] in {"1", "true", "yes"}
                 payload = service.validate_live_runtime(require_live_units=require_live_units)
                 _json_response(self, 200 if payload.ok else 503, {"ok": payload.ok, "validation": payload.__dict__})
+                return
+
+            if path == "/v1/exports":
+                audience = str(query.get("audience", ["local"])[0])
+                payload = list_export_manifests(export_root, base_urls=export_base_urls, default_audience=audience)
+                _json_response(self, 200, {"ok": True, "exports": payload})
+                return
+
+            m = re.fullmatch(r"/v1/exports/([^/]+)", path)
+            if m:
+                export_id = m.group(1)
+                audience = str(query.get("audience", ["local"])[0])
+                bundle_dir = export_root / export_id
+                if not bundle_dir.exists() or not bundle_dir.is_dir():
+                    _error_response(self, 404, "NOT_FOUND", f"Export bundle not found: {export_id}")
+                    return
+                payload = build_export_manifest(
+                    bundle_dir,
+                    export_id=export_id,
+                    base_urls=export_base_urls,
+                    default_audience=audience,
+                )
+                _json_response(self, 200, {"ok": True, "export": payload})
                 return
 
             m = re.fullmatch(r"/exports/([^/]+)/(.+?)/preview", path)

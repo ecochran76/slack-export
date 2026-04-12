@@ -1036,3 +1036,17 @@ This file is the dated turn log for planning and execution continuity.
 - When stale evidence is intentionally suppressed, `validate-live` now prints an explicit `OK` line with stale count, active recent count, and unexpected-empty count, so operators do not need `--json` to understand why the workspace still passes.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env tests.test_cli -v`
+
+## Turn 71 | 2026-04-12
+
+- Promoted managed export bundles from a script-only artifact to a first-class service object.
+- Managed channel/day bundles now write `manifest.json` alongside `channel-day.json` and emit:
+  - audience-keyed `download_urls`
+  - audience-keyed `preview_urls`
+  - selected `download_url` / `preview_url` for the requested default audience
+- The local API now exposes export manifests through:
+  - `/v1/exports`
+  - `/v1/exports/<export-id>`
+- Those manifest endpoints rebuild local/external bundle URLs from current config, so the live service owns the HTTP/HTTPS export contract instead of freezing it entirely into one export-time audience choice.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_exports tests.test_export_channel_day tests.test_api_server -v`

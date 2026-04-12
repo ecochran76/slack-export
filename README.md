@@ -72,7 +72,8 @@ The current repo has:
   - attachment link/source blocks with compact type badges and human-readable type labels
   - safer link preference for public URLs/permalinks over brittle local filesystem links
   - config-backed managed export bundles with deterministic export IDs and reverse-proxied `/exports/<export-id>/<filepath>` download URLs
-  - shared portable attachment links across HTML, PDF, and DOCX through emitted `public_url` / `download_url` fields
+  - shared portable attachment links across HTML, PDF, and DOCX through emitted `public_url` / `download_url` fields, plus audience-keyed `download_urls` / `preview_urls`
+  - API-served export manifests through `/v1/exports` and `/v1/exports/<export-id>` so the live service owns the configured bundle URL contract
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - render-engine-compatible OOXML output that can be visually QA'd through the `docx-skill` render path

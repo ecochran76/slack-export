@@ -1,14 +1,20 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from slack_mirror.core.config import load_config
 from slack_mirror.exports import (
+    build_export_manifest,
     build_export_id,
     build_export_url,
+    build_export_urls,
+    list_export_manifests,
     resolve_export_base_url,
+    resolve_export_base_urls,
     resolve_export_root,
     safe_export_path,
+    select_export_url,
 )
 
 
@@ -58,6 +64,24 @@ class ExportHelpersTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             safe_export_path(root, "example-export", "../secret.txt")
 
+    def test_export_url_sets_and_selection(self):
+        urls = build_export_urls(
+            {
+                "local": "http://slack.localhost",
+                "external": "https://slack.ecochran.dyndns.org",
+            },
+            "channel-day-default-general-2026-04-12-abc123",
+            "attachments/inc/report final.pdf",
+        )
+        self.assertEqual(
+            select_export_url(urls, "external"),
+            "https://slack.ecochran.dyndns.org/exports/channel-day-default-general-2026-04-12-abc123/attachments/inc/report%20final.pdf",
+        )
+        self.assertEqual(
+            select_export_url(urls, "local"),
+            "http://slack.localhost/exports/channel-day-default-general-2026-04-12-abc123/attachments/inc/report%20final.pdf",
+        )
+
     def test_export_root_and_base_url_resolve_from_config(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -86,3 +110,59 @@ class ExportHelpersTests(unittest.TestCase):
                 resolve_export_base_url(config, audience="external"),
                 "https://slack.ecochran.dyndns.org",
             )
+            self.assertEqual(
+                resolve_export_base_urls(config),
+                {
+                    "local": "http://slack.localhost",
+                    "external": "https://slack.ecochran.dyndns.org",
+                },
+            )
+
+    def test_build_and_list_export_manifests(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bundle_dir = root / "channel-day-default-general-2026-04-12-abc123"
+            (bundle_dir / "attachments" / "incident").mkdir(parents=True)
+            (bundle_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            (bundle_dir / "channel-day.json").write_text(
+                json.dumps(
+                    {
+                        "workspace": "default",
+                        "channel": "general",
+                        "channel_id": "C123",
+                        "day": "2026-04-12",
+                        "tz": "America/Chicago",
+                        "export_id": bundle_dir.name,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (bundle_dir / "attachments" / "incident" / "report.pdf").write_bytes(b"%PDF-1.4\n")
+            (bundle_dir / "attachments" / "incident" / "archive.bin").write_bytes(b"\x00\x01")
+
+            manifest = build_export_manifest(
+                bundle_dir,
+                export_id=bundle_dir.name,
+                base_urls={
+                    "local": "http://slack.localhost",
+                    "external": "https://slack.ecochran.dyndns.org",
+                },
+                default_audience="external",
+            )
+            self.assertEqual(manifest["bundle_url"], f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}")
+            self.assertEqual(manifest["attachment_count"], 2)
+            file_map = {entry["relpath"]: entry for entry in manifest["files"]}
+            self.assertEqual(file_map["index.html"]["role"], "bundle_file")
+            self.assertEqual(
+                file_map["attachments/incident/report.pdf"]["preview_url"],
+                f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/report.pdf/preview",
+            )
+            self.assertIsNone(file_map["attachments/incident/archive.bin"]["preview_url"])
+
+            manifests = list_export_manifests(
+                root,
+                base_urls={"local": "http://slack.localhost"},
+                default_audience="local",
+            )
+            self.assertEqual(len(manifests), 1)
+            self.assertEqual(manifests[0]["export_id"], bundle_dir.name)

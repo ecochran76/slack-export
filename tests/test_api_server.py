@@ -232,6 +232,7 @@ class ApiServerTests(unittest.TestCase):
                     "exports:",
                     f"  root_dir: {exports_root}",
                     "  local_base_url: http://slack.localhost",
+                    "  external_base_url: https://slack.ecochran.dyndns.org",
                     "",
                 ]
             ),
@@ -285,6 +286,34 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertEqual(unsupported.status_code, 415)
         self.assertEqual(unsupported.json()["error"]["code"], "PREVIEW_UNSUPPORTED")
+
+        exports = requests.get(f"{base_url}/v1/exports", timeout=5)
+        self.assertEqual(exports.status_code, 200)
+        self.assertTrue(exports.json()["ok"])
+        self.assertEqual(len(exports.json()["exports"]), 1)
+        self.assertEqual(exports.json()["exports"][0]["export_id"], bundle_dir.name)
+        self.assertEqual(
+            exports.json()["exports"][0]["bundle_url"],
+            f"http://slack.localhost/exports/{bundle_dir.name}",
+        )
+
+        external_manifest = requests.get(
+            f"{base_url}/v1/exports/{bundle_dir.name}",
+            params={"audience": "external"},
+            timeout=5,
+        )
+        self.assertEqual(external_manifest.status_code, 200)
+        manifest = external_manifest.json()["export"]
+        self.assertEqual(
+            manifest["bundle_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}",
+        )
+        file_map = {entry["relpath"]: entry for entry in manifest["files"]}
+        self.assertEqual(
+            file_map["attachments/incident/report.pdf"]["preview_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/report.pdf/preview",
+        )
+        self.assertIsNone(file_map["attachments/incident/archive.bin"]["preview_url"])
 
     def test_search_endpoints(self):
         with patch("slack_mirror.service.api.get_app_service") as mock_get_service:

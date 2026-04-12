@@ -139,9 +139,11 @@ class ExportChannelDayScriptTests(unittest.TestCase):
             bundle_dir = bundle_dirs[0]
             self.assertTrue((bundle_dir / "index.html").exists())
             self.assertTrue((bundle_dir / "channel-day.json").exists())
+            self.assertTrue((bundle_dir / "manifest.json").exists())
 
             payload = json.loads((bundle_dir / "channel-day.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["public_base_url"], "http://slack.localhost")
+            self.assertEqual(payload["public_base_urls"]["local"], "http://slack.localhost")
             self.assertEqual(payload["export_id"], bundle_dir.name)
             attachment = payload["messages"][0]["attachments"][0]
             self.assertTrue(attachment["export_relpath"].startswith("attachments/"))
@@ -151,6 +153,26 @@ class ExportChannelDayScriptTests(unittest.TestCase):
                 f"http://slack.localhost/exports/{bundle_dir.name}/{attachment['export_relpath']}",
             )
             self.assertEqual(attachment["public_url"], attachment["download_url"])
+            self.assertEqual(
+                attachment["preview_url"],
+                f"http://slack.localhost/exports/{bundle_dir.name}/{attachment['export_relpath']}/preview",
+            )
+            self.assertEqual(
+                attachment["download_urls"]["local"],
+                attachment["download_url"],
+            )
+            self.assertEqual(
+                attachment["preview_urls"]["local"],
+                attachment["preview_url"],
+            )
+            manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["export_id"], bundle_dir.name)
+            self.assertEqual(manifest["attachment_count"], 1)
+            self.assertEqual(manifest["bundle_url"], f"http://slack.localhost/exports/{bundle_dir.name}")
+            relpaths = {entry["relpath"] for entry in manifest["files"]}
+            self.assertIn("index.html", relpaths)
+            self.assertIn("channel-day.json", relpaths)
+            self.assertIn(attachment["export_relpath"], relpaths)
             self.assertIn(f"Download base: http://slack.localhost/exports/{bundle_dir.name}/", result.stdout)
 
 

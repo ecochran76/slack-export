@@ -147,7 +147,9 @@ Current status:
   - copied attachment bundle paths
   - config-backed local/external `download_url` generation
   - portable `public_url` emission for downstream renderers
+  - audience-keyed `download_urls` and `preview_urls` maps so one bundle can serve both local and external consumers
 - the local API now serves bundle files under `/exports/<export-id>/<filepath>`
+- the local API now exposes first-class export manifests under `/v1/exports` and `/v1/exports/<export-id>`, rebuilding current configured bundle URLs from live service config
 - bounded preview routing is now landed under `/exports/<export-id>/<filepath>/preview` for:
   - images
   - PDFs

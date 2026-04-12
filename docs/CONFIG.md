@@ -62,11 +62,15 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `exports.root_dir` is the user-scoped bundle root for managed export artifacts.
 - `exports.local_base_url` is the preferred base URL for local reverse-proxied download links, intended for `http://slack.localhost`.
 - `exports.external_base_url` is the preferred base URL for externally published download links, intended for `https://slack.ecochran.dyndns.org`.
+- managed exports now emit both local and external URL maps when both base URLs are configured, so consumers can switch audiences without rerunning the export.
+- the API export manifest endpoints rebuild bundle URLs from current config, so the live service remains the canonical owner of the published HTTP/HTTPS export contract.
 
 Managed export URLs use this path contract:
 
 - `/exports/<export-id>/<filepath>`
-- future preview path: `/exports/<export-id>/<filepath>/preview`
+- `/exports/<export-id>/<filepath>/preview`
+- `/v1/exports`
+- `/v1/exports/<export-id>`
 
 Current preview support behind the local API:
 - images: inline preview

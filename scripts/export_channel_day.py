@@ -11,7 +11,16 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from slack_mirror.core.config import load_config
-from slack_mirror.exports import build_export_id, build_export_url, resolve_export_base_url, resolve_export_root, slugify
+from slack_mirror.exports import (
+    build_export_id,
+    build_export_manifest,
+    build_export_urls,
+    resolve_export_base_url,
+    resolve_export_base_urls,
+    resolve_export_root,
+    select_export_url,
+    slugify,
+)
 
 
 def day_bounds_epoch(day: str, tz_name: str) -> tuple[float, float]:
@@ -123,7 +132,8 @@ def extract_attachments(
     *,
     bundle_dir: Path | None = None,
     export_id: str | None = None,
-    public_base_url: str | None = None,
+    base_urls: dict[str, str] | None = None,
+    default_audience: str = "local",
 ) -> list[dict]:
     if not raw_json:
         return []
@@ -154,10 +164,16 @@ def extract_attachments(
             if relpath:
                 out[-1]["export_relpath"] = relpath
                 out[-1]["export_path"] = exported_path
-                if public_base_url and export_id:
-                    export_url = build_export_url(public_base_url, export_id, relpath)
-                    out[-1]["download_url"] = export_url
-                    out[-1]["public_url"] = export_url
+                if base_urls and export_id:
+                    download_urls = build_export_urls(base_urls, export_id, relpath)
+                    preview_urls = build_export_urls(base_urls, export_id, relpath, preview=True)
+                    selected_download_url = select_export_url(download_urls, default_audience)
+                    selected_preview_url = select_export_url(preview_urls, default_audience)
+                    out[-1]["download_urls"] = download_urls
+                    out[-1]["preview_urls"] = preview_urls
+                    out[-1]["download_url"] = selected_download_url
+                    out[-1]["public_url"] = selected_download_url
+                    out[-1]["preview_url"] = selected_preview_url
     return out
 
 
@@ -246,6 +262,7 @@ def main() -> int:
     export_id = args.export_id
     bundle_dir: Path | None = None
     public_base_url: str | None = None
+    base_urls: dict[str, str] = {}
     out_html_path = Path(args.out_html).expanduser() if args.out_html else None
     out_json_path = Path(args.out_json).expanduser() if args.out_json else None
 
@@ -260,6 +277,7 @@ def main() -> int:
         bundle_dir = export_root / export_id
         out_html_path = out_html_path or (bundle_dir / "index.html")
         out_json_path = out_json_path or (bundle_dir / "channel-day.json")
+        base_urls = resolve_export_base_urls(config)
         public_base_url = resolve_export_base_url(config, audience=args.link_audience)
 
     if out_html_path is None:
@@ -285,7 +303,8 @@ def main() -> int:
                     raw_json,
                     bundle_dir=bundle_dir,
                     export_id=export_id,
-                    public_base_url=public_base_url,
+                    base_urls=base_urls,
+                    default_audience=args.link_audience,
                 ),
             }
         )
@@ -297,6 +316,7 @@ def main() -> int:
         "tz": args.tz,
         "export_id": export_id,
         "public_base_url": public_base_url,
+        "public_base_urls": base_urls,
         "messages": serial,
     }
     html_doc = render_html(args.workspace, channel_name, args.day, args.tz, serial)
@@ -307,6 +327,15 @@ def main() -> int:
     if out_json_path:
         out_json_path.parent.mkdir(parents=True, exist_ok=True)
         out_json_path.write_text(json.dumps(export_payload, indent=2), encoding="utf-8")
+
+    if bundle_dir and export_id:
+        manifest = build_export_manifest(
+            bundle_dir,
+            export_id=export_id,
+            base_urls=base_urls,
+            default_audience=args.link_audience,
+        )
+        (bundle_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     print(f"Exported {len(rows)} messages to {out_html_path}")
     if out_json_path:

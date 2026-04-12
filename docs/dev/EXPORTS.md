@@ -41,13 +41,15 @@ Managed bundle behavior:
 - writes into `exports.root_dir/<export-id>/`
 - uses deterministic export IDs such as `channel-day-default-general-2026-04-12-a1b2c3d4e5`
 - copies local attachment files into the bundle under `attachments/...`
-- emits stable `download_url` and `public_url` values using:
-  - `exports.local_base_url` for local links
-  - `exports.external_base_url` for external links
+- emits stable `download_url` / `public_url` plus audience-keyed `download_urls` and `preview_urls`
+- uses `exports.local_base_url` and `exports.external_base_url` when configured, so one export bundle can serve both local and external consumers
 
 Download path contract:
 - `/exports/<export-id>/<filepath>`
 - preview path: `/exports/<export-id>/<filepath>/preview`
+- API manifest paths:
+  - `/v1/exports`
+  - `/v1/exports/<export-id>`
 
 Current preview support:
 - images: inline browser preview
@@ -110,7 +112,9 @@ Attachment URL contract:
 - the DOCX and PDF renderers now understand `public_url` and `download_url` attachment fields and prefer them over local mirror paths
 - managed exports now emit `download_url` fields from config-backed base URLs when bundle mode is used
 - managed exports now emit the same stable URL under `public_url` as the portable attachment-link field for downstream renderers
+- managed exports now emit audience-keyed `download_urls` and `preview_urls` maps, with `download_url` / `preview_url` selected from the requested default audience
 - the local API now serves bundle files under `/exports/<export-id>/<filepath>`
+- the local API now exposes bundle manifests under `/v1/exports` and `/v1/exports/<export-id>` so the service owns the current configured URL contract
 - preview URLs are now implemented in a bounded way for images, PDFs, and text-like files
 - unsupported binary formats return `PREVIEW_UNSUPPORTED` instead of a broken browser experience
 - the intended long-term direction is service-configured HTTP/HTTPS download URLs behind the live mirror deployment, so rendered exports can link to stable reverse-proxied attachment endpoints instead of filesystem paths
