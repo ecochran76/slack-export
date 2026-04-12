@@ -30,6 +30,20 @@ def _load_validator_module():
     return module
 
 
+def _rewrite_docx_part(docx_path: Path, part_name: str, payload: bytes) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rewritten = Path(tmpdir) / "rewritten.docx"
+        with zipfile.ZipFile(docx_path, "r") as src, zipfile.ZipFile(
+            rewritten, "w", compression=zipfile.ZIP_DEFLATED
+        ) as dst:
+            for info in src.infolist():
+                if info.filename == part_name:
+                    continue
+                dst.writestr(info, src.read(info.filename))
+            dst.writestr(part_name, payload)
+        docx_path.write_bytes(rewritten.read_bytes())
+
+
 class ExportDocxTests(unittest.TestCase):
     def _write_sample_json(self, path: Path, *, day: str, channel: str, channel_id: str, attachment_local: str | None = None) -> None:
         payload = {
@@ -204,6 +218,67 @@ class ExportDocxTests(unittest.TestCase):
 
             self.assertEqual(summary["status"], "invalid")
             self.assertTrue(any(issue.startswith("missing_part:word/document.xml") for issue in summary["issues"]))
+
+    def test_validate_export_docx_flags_broken_internal_relationship_target(self) -> None:
+        module = _load_module()
+        validator = _load_validator_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            input_json = tmp / "sample.json"
+            output_docx = tmp / "sample.docx"
+            self._write_sample_json(input_json, day="2026-04-11", channel="general", channel_id="C1")
+            module.render_channel_day_docx(input_json, output_docx)
+
+            with zipfile.ZipFile(output_docx, "r") as zf:
+                rels = ET.fromstring(zf.read("word/_rels/document.xml.rels"))
+            first_rel = rels.find(f".//{{{PKG_REL_NS}}}Relationship")
+            assert first_rel is not None
+            first_rel.set("TargetMode", "Internal")
+            first_rel.set("Target", "media/missing.png")
+            _rewrite_docx_part(
+                output_docx,
+                "word/_rels/document.xml.rels",
+                ET.tostring(rels, encoding="utf-8", xml_declaration=True),
+            )
+
+            summary = validator.inspect_docx(output_docx)
+
+            self.assertEqual(summary["status"], "invalid")
+            self.assertIn(
+                "relationship_missing_target_part:word/_rels/document.xml.rels:word/media/missing.png",
+                summary["issues"],
+            )
+
+    def test_validate_export_docx_flags_broken_content_type_override(self) -> None:
+        module = _load_module()
+        validator = _load_validator_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            input_json = tmp / "sample.json"
+            output_docx = tmp / "sample.docx"
+            self._write_sample_json(input_json, day="2026-04-11", channel="general", channel_id="C1")
+            module.render_channel_day_docx(input_json, output_docx)
+
+            with zipfile.ZipFile(output_docx, "r") as zf:
+                content_types = ET.fromstring(zf.read("[Content_Types].xml"))
+            ET.SubElement(
+                content_types,
+                "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
+                {
+                    "PartName": "/word/missing-part.xml",
+                    "ContentType": "application/xml",
+                },
+            )
+            _rewrite_docx_part(
+                output_docx,
+                "[Content_Types].xml",
+                ET.tostring(content_types, encoding="utf-8", xml_declaration=True),
+            )
+
+            summary = validator.inspect_docx(output_docx)
+
+            self.assertEqual(summary["status"], "invalid")
+            self.assertIn("content_type_override_missing_part:word/missing-part.xml", summary["issues"])
 
 
 if __name__ == "__main__":

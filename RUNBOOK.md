@@ -818,3 +818,22 @@ This file is the dated turn log for planning and execution continuity.
   - reply-badge presence
   - local/permalink attachment note presence
 - Added regression coverage in `tests/test_export_docx.py` for both valid DOCX summaries and invalid/missing-part detection.
+
+## Turn 55 | 2026-04-12
+
+- Hardened `scripts/validate_export_docx.py` from a shallow part-check into a bounded OOXML package validator.
+- Added package-level checks for:
+  - XML parseability across XML and relationship parts
+  - `[Content_Types].xml` overrides that point to real package parts
+  - internal relationship targets that resolve to real package parts
+- Kept the slice narrow:
+  - no renderer changes
+  - no external runtime dependency on `docx-skill`
+  - only selective reuse of its package-validation ideas
+- Added regressions in `tests/test_export_docx.py` for:
+  - broken internal relationship targets
+  - broken content-type overrides
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_docx -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

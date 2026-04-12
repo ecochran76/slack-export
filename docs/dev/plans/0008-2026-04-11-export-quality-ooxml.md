@@ -85,6 +85,10 @@ Current status:
 - the first bounded renderer target is channel/day DOCX output over the canonical JSON artifact
 - the first QA pass is package-structure and content-contract validation rather than visual polish
 - the current implementation pass now includes explicit paragraph styles and richer attachment/source presentation within the same bounded renderer
+- DOCX export validation now performs deeper OOXML package checks for:
+  - XML and relationship-part parseability
+  - content-type overrides that point to real parts
+  - internal relationship targets that resolve to real parts
 
 ## Non-Goals
 
@@ -114,6 +118,7 @@ Current status:
 - bounded multi-day composition is now landed through `scripts/export_multi_day_docx.py`
 - semantic daypack DOCX output now composes through the same JSON-based renderer path
 - structural DOCX export validation is now landed through `scripts/validate_export_docx.py`
+- the validator now includes a first bounded reuse of `docx-skill` package-validation ideas without importing the whole skill
 - next likely slice is deeper fixture quality or more ambitious OOXML primitive reuse, not a second export ownership path
 
 ## Definition Of Done

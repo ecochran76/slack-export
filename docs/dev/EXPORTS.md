@@ -84,6 +84,12 @@ DOCX UX in the current multi-day baseline:
 - inserts page breaks between bundled day/channel exports
 - preserves the same message, reply, and attachment block semantics
 - can be checked structurally with `python scripts/validate_export_docx.py --input-docx ... --json`
+- the validator now checks:
+  - required OOXML parts
+  - XML parseability for XML and relationship parts
+  - content-type overrides that point to real package parts
+  - internal relationship targets that resolve to real package parts
+  - exported style, hyperlink, reply-badge, and attachment-note signals
 
 ## 6) One-shot semantic search -> full-day exports -> combined PDF/DOCX
 

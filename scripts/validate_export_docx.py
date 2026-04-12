@@ -3,12 +3,74 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+
+
+def _is_xml_part(path: str) -> bool:
+    return path == "[Content_Types].xml" or path.endswith((".xml", ".rels"))
+
+
+def _parse_xml_parts(zf: zipfile.ZipFile, names: set[str], issues: list[str]) -> dict[str, ET.Element]:
+    parsed: dict[str, ET.Element] = {}
+    for name in sorted(n for n in names if _is_xml_part(n)):
+        try:
+            parsed[name] = ET.fromstring(zf.read(name))
+        except ET.ParseError as exc:
+            issues.append(f"xml_parse_error:{name}:{exc}")
+    return parsed
+
+
+def _resolve_relationship_target(rels_path: str, target: str) -> str:
+    base_dir = posixpath.dirname(rels_path)
+    if base_dir.endswith("_rels"):
+        source_dir = posixpath.dirname(base_dir)
+    else:
+        source_dir = base_dir
+    return posixpath.normpath(posixpath.join(source_dir, target))
+
+
+def _validate_content_type_overrides(
+    content_types: ET.Element | None,
+    names: set[str],
+    issues: list[str],
+) -> None:
+    if content_types is None:
+        return
+    for override in content_types.findall(f".//{{{CONTENT_TYPES_NS}}}Override"):
+        part_name = override.attrib.get("PartName", "")
+        if not part_name.startswith("/"):
+            issues.append(f"content_type_override_invalid:{part_name}")
+            continue
+        part_path = part_name.lstrip("/")
+        if part_path not in names:
+            issues.append(f"content_type_override_missing_part:{part_path}")
+
+
+def _validate_relationship_targets(
+    parsed_parts: dict[str, ET.Element],
+    names: set[str],
+    issues: list[str],
+) -> None:
+    for part_name, root in parsed_parts.items():
+        if not part_name.endswith(".rels"):
+            continue
+        for rel in root.findall(f".//{{{PKG_REL_NS}}}Relationship"):
+            target = rel.attrib.get("Target", "")
+            if not target:
+                issues.append(f"relationship_missing_target:{part_name}:{rel.attrib.get('Id', '')}")
+                continue
+            if rel.attrib.get("TargetMode") == "External":
+                continue
+            resolved = _resolve_relationship_target(part_name, target)
+            if resolved not in names:
+                issues.append(f"relationship_missing_target_part:{part_name}:{resolved}")
 
 
 def inspect_docx(path: Path) -> dict:
@@ -20,15 +82,23 @@ def inspect_docx(path: Path) -> dict:
         "word/styles.xml",
     }
     issues: list[str] = []
+    names: set[str] = set()
+    parsed_parts: dict[str, ET.Element] = {}
     with zipfile.ZipFile(path, "r") as zf:
         names = set(zf.namelist())
         missing_parts = sorted(required_parts - names)
         if missing_parts:
             issues.extend(f"missing_part:{name}" for name in missing_parts)
 
-        document = ET.fromstring(zf.read("word/document.xml")) if "word/document.xml" in names else None
-        rels = ET.fromstring(zf.read("word/_rels/document.xml.rels")) if "word/_rels/document.xml.rels" in names else None
-        styles = ET.fromstring(zf.read("word/styles.xml")) if "word/styles.xml" in names else None
+        parsed_parts = _parse_xml_parts(zf, names, issues)
+
+    content_types = parsed_parts.get("[Content_Types].xml")
+    document = parsed_parts.get("word/document.xml")
+    rels = parsed_parts.get("word/_rels/document.xml.rels")
+    styles = parsed_parts.get("word/styles.xml")
+
+    _validate_content_type_overrides(content_types, names, issues)
+    _validate_relationship_targets(parsed_parts, names, issues)
 
     text_values = [elem.text or "" for elem in document.findall(f".//{{{W_NS}}}t")] if document is not None else []
     paragraph_styles = [
