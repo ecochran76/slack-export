@@ -1099,3 +1099,12 @@ This file is the dated turn log for planning and execution continuity.
 - Kept the existing fallback for Slack-native `email`/HTML preview attachments that have no binary download path.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_export_channel_day -v`
+
+## Turn 76 | 2026-04-12
+
+- Hardened shared Slack file downloading against bogus HTML success cases.
+- `download_with_retries()` now rejects Slack HTML/login interstitial responses instead of treating them as successful binary downloads.
+- This fixes the export failure mode where a hosted image could be published as a broken local `.png` that actually contained HTML.
+- When the workspace token cannot really fetch the file, exports now fall back honestly to the Slack permalink until credentials or scopes are corrected.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_downloads tests.test_export_channel_day -v`

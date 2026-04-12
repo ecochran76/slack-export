@@ -136,9 +136,10 @@ def _resolve_workspace_token(config: dict | None, workspace: str) -> str | None:
     for ws_cfg in config.get("workspaces") or []:
         if ws_cfg.get("name") != workspace:
             continue
-        token = ws_cfg.get("user_token") or ws_cfg.get("token")
-        if isinstance(token, str) and token.strip():
-            return token.strip()
+        for key in ("user_token", "token"):
+            token = ws_cfg.get(key)
+            if isinstance(token, str) and token.strip():
+                return token.strip()
     return None
 
 
