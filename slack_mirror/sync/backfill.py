@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import html
 import json
-from slack_sdk.errors import SlackApiError
-
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+import requests
+from slack_sdk.errors import SlackApiError
 
 from slack_mirror.core.db import (
     get_sync_state,
@@ -21,7 +25,22 @@ from slack_mirror.core.db import (
 
 RECENT_THREAD_ROOT_LOOKBACK_SECONDS = 48 * 3600
 from slack_mirror.core.slack_api import SlackApiClient
-from slack_mirror.sync.downloads import classify_download_error, download_with_retries
+from slack_mirror.sync.downloads import classify_download_error, download_with_retries, sha256_file
+
+
+class _EmailAssetUrlParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.urls: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        for key, value in attrs:
+            if key not in {"src", "href"}:
+                continue
+            if not isinstance(value, str) or "files-email-priv" not in value:
+                continue
+            if value not in self.urls:
+                self.urls.append(value)
 
 
 def backfill_users_and_channels(*, token: str, workspace_id: int, conn) -> dict[str, int]:
@@ -147,6 +166,79 @@ def _planned_file_path(*, cache_root: str, file_obj: dict[str, object]) -> Path 
     )
 
 
+def _planned_email_path(*, cache_root: str, file_obj: dict[str, object]) -> Path | None:
+    local = _planned_file_path(cache_root=cache_root, file_obj=file_obj)
+    if local is None:
+        return None
+    if local.suffix.lower() not in {".html", ".htm"}:
+        return local.with_suffix(".html")
+    return local
+
+
+def _looks_like_html_payload(content: bytes, content_type: str | None) -> bool:
+    lowered = (content[:512] or b"").lstrip().lower()
+    ctype = str(content_type or "").lower()
+    return "text/html" in ctype or lowered.startswith(b"<!doctype html") or lowered.startswith(b"<html")
+
+
+def _download_email_inline_asset(*, url: str, token: str, dest: Path) -> bool:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=60) as resp:
+        resp.raise_for_status()
+        content = resp.content
+        if _looks_like_html_payload(content, resp.headers.get("Content-Type")):
+            return False
+        dest.write_bytes(content)
+    return True
+
+
+def _materialize_email_container(
+    *,
+    token: str,
+    cache_root: str,
+    file_obj: dict[str, object],
+) -> tuple[bool, str | None, str | None]:
+    preview_html = file_obj.get("preview") or file_obj.get("simplified_html")
+    plain_text = file_obj.get("preview_plain_text") or file_obj.get("plain_text")
+    if isinstance(preview_html, str) and preview_html.strip():
+        body = str(preview_html)
+    elif isinstance(plain_text, str) and plain_text.strip():
+        body = f"<pre>{html.escape(str(plain_text))}</pre>"
+    else:
+        return False, None, "email container missing preview content"
+
+    html_path = _planned_email_path(cache_root=cache_root, file_obj=file_obj)
+    if html_path is None:
+        return False, None, "email container missing file id"
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+
+    parser = _EmailAssetUrlParser()
+    parser.feed(body)
+    if parser.urls:
+        asset_dir = html_path.parent / f"{html_path.stem}_assets"
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        for index, url in enumerate(parser.urls, start=1):
+            parsed = urlparse(url)
+            asset_name = Path(unquote(parsed.path)).name or f"asset_{index}"
+            asset_dest = asset_dir / _safe_name(asset_name, f"asset_{index}")
+            try:
+                if _download_email_inline_asset(url=url, token=token, dest=asset_dest):
+                    body = body.replace(url, f"{asset_dir.name}/{asset_dest.name}")
+            except Exception:
+                continue
+
+    title = str(file_obj.get("title") or file_obj.get("name") or file_obj.get("id") or "email")
+    html_path.write_text(
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{html.escape(title)}</title>"
+        "</head><body>"
+        f"{body}"
+        "</body></html>",
+        encoding="utf-8",
+    )
+    return True, str(html_path), sha256_file(html_path)
+
+
 def backfill_files_and_canvases(
     *,
     token: str,
@@ -248,7 +340,7 @@ def reconcile_file_downloads(
         mode = str(file_obj.get("mode") or "").strip().lower()
         mimetype = str(file_obj.get("mimetype") or "").strip().lower()
         attachment_count = int(file_obj.get("original_attachment_count") or 0)
-        if base == "html_interstitial" and mode == "email" and mimetype == "text/html":
+        if mode == "email" and mimetype == "text/html":
             return "email_container_with_attachments" if attachment_count > 0 else "email_container"
         return base
 
@@ -277,16 +369,26 @@ def reconcile_file_downloads(
         if attempted >= limit:
             break
 
-        local = _planned_file_path(cache_root=cache_root, file_obj=file_obj)
-        if local is None:
-            failed += 1
-            continue
-
         attempted += 1
-        local.parent.mkdir(parents=True, exist_ok=True)
-        ok, checksum_or_error = download_with_retries(download_url, token, local)
-        if ok and checksum_or_error:
-            update_file_download(conn, workspace_id, str(file_obj.get("id") or row["file_id"]), str(local), checksum_or_error)
+        mode = str(file_obj.get("mode") or "").strip().lower()
+        mimetype = str(file_obj.get("mimetype") or "").strip().lower()
+        if mode == "email" and mimetype == "text/html":
+            ok, local_path, checksum_or_error = _materialize_email_container(
+                token=token,
+                cache_root=cache_root,
+                file_obj=file_obj,
+            )
+        else:
+            local = _planned_file_path(cache_root=cache_root, file_obj=file_obj)
+            if local is None:
+                failed += 1
+                continue
+            local.parent.mkdir(parents=True, exist_ok=True)
+            ok, checksum_or_error = download_with_retries(download_url, token, local)
+            local_path = str(local) if ok else None
+
+        if ok and checksum_or_error and local_path:
+            update_file_download(conn, workspace_id, str(file_obj.get("id") or row["file_id"]), local_path, checksum_or_error)
             downloaded += 1
         else:
             failed += 1

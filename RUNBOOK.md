@@ -1133,3 +1133,12 @@ This file is the dated turn log for planning and execution continuity.
 - This turns live repair passes into something operators can actually triage instead of a blind `failed=N`.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`
+
+## Turn 79 | 2026-04-12
+
+- Added the first real remediation path for Slack-for-Gmail `mode=email` files in `mirror reconcile-files`.
+- The repair path now materializes the email body as local HTML instead of trying to binary-download the top-level email container.
+- When the preview HTML references inline `files-email-priv` assets that are token-downloadable, those assets are downloaded into a sibling local asset directory and the HTML is rewritten to point at the localized copies.
+- Managed export bundle copying now preserves those companion email asset directories, so repaired email artifacts remain self-contained when published under `/exports/<export-id>`.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_backfill tests.test_export_channel_day -v`

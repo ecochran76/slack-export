@@ -1134,6 +1134,164 @@ class ExportChannelDayScriptTests(unittest.TestCase):
                 f"http://slack.localhost/exports/{bundle_dir.name}/{attachment['export_relpath']}",
             )
 
+    def test_managed_export_copies_localized_email_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            db_path = root / "mirror.db"
+            export_root = root / "exports"
+            config_path = root / "config.yaml"
+            local_email_path = root / "cache" / "files" / "FMAIL1" / "re-golf-tee-request.html"
+            asset_dir = local_email_path.parent / f"{local_email_path.stem}_assets"
+            asset_dir.mkdir(parents=True, exist_ok=True)
+            (asset_dir / "image001.jpg").write_bytes(b"jpegbytes")
+            local_email_path.write_text(
+                "<!doctype html><html><body><img src='re-golf-tee-request_assets/image001.jpg'></body></html>",
+                encoding="utf-8",
+            )
+
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "version: 1",
+                        "storage:",
+                        f"  db_path: {db_path}",
+                        "exports:",
+                        f"  root_dir: {export_root}",
+                        "  local_base_url: http://slack.localhost",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            conn = sqlite3.connect(db_path)
+            conn.executescript(
+                """
+                CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+                CREATE TABLE channels (
+                    workspace_id INTEGER,
+                    channel_id TEXT,
+                    name TEXT,
+                    is_private INTEGER DEFAULT 0,
+                    is_im INTEGER DEFAULT 0,
+                    is_mpim INTEGER DEFAULT 0,
+                    topic TEXT,
+                    purpose TEXT,
+                    raw_json TEXT
+                );
+                CREATE TABLE users (workspace_id INTEGER, user_id TEXT, raw_json TEXT);
+                CREATE TABLE messages (
+                    workspace_id INTEGER,
+                    channel_id TEXT,
+                    ts TEXT,
+                    user_id TEXT,
+                    text TEXT,
+                    subtype TEXT,
+                    thread_ts TEXT,
+                    edited_ts TEXT,
+                    deleted INTEGER,
+                    raw_json TEXT
+                );
+                CREATE TABLE files (
+                    workspace_id INTEGER,
+                    file_id TEXT,
+                    name TEXT,
+                    title TEXT,
+                    mimetype TEXT,
+                    size INTEGER,
+                    local_path TEXT,
+                    checksum TEXT,
+                    raw_json TEXT
+                );
+                """
+            )
+            conn.execute("INSERT INTO workspaces(id, name) VALUES (1, 'default')")
+            conn.execute(
+                "INSERT INTO channels(workspace_id, channel_id, name, is_private, is_im, is_mpim, topic, purpose, raw_json) VALUES (1, 'C123', 'general', 0, 0, 0, NULL, NULL, NULL)"
+            )
+            conn.execute(
+                "INSERT INTO users(workspace_id, user_id, raw_json) VALUES (?, ?, ?)",
+                (1, "U123", json.dumps({"profile": {"display_name": "Eric"}})),
+            )
+            conn.execute(
+                "INSERT INTO files(workspace_id, file_id, name, title, mimetype, size, local_path, checksum, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    1,
+                    "FMAIL1",
+                    "Re: Golf Tee Request",
+                    "Re: Golf Tee Request",
+                    "text/html",
+                    12,
+                    str(local_email_path),
+                    "abc123",
+                    '{"id":"FMAIL1","name":"Re: Golf Tee Request","title":"Re: Golf Tee Request","mimetype":"text/html","mode":"email","permalink":"https://slack.example.test/files/FMAIL1"}',
+                ),
+            )
+            conn.execute(
+                "INSERT INTO messages(workspace_id, channel_id, ts, user_id, text, subtype, thread_ts, edited_ts, deleted, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    1,
+                    "C123",
+                    "1775926800.0",
+                    "U123",
+                    "Email attachment",
+                    None,
+                    None,
+                    None,
+                    0,
+                    json.dumps(
+                        {
+                            "files": [
+                                {
+                                    "id": "FMAIL1",
+                                    "name": "Re: Golf Tee Request",
+                                    "title": "Re: Golf Tee Request",
+                                    "mimetype": "text/html",
+                                    "filetype": "email",
+                                    "mode": "email",
+                                    "permalink": "https://slack.example.test/files/FMAIL1",
+                                }
+                            ]
+                        }
+                    ),
+                ),
+            )
+            conn.commit()
+            conn.close()
+
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(REPO_ROOT)
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--config",
+                    str(config_path),
+                    "--db",
+                    str(db_path),
+                    "--workspace",
+                    "default",
+                    "--channel",
+                    "general",
+                    "--day",
+                    "2026-04-11",
+                    "--managed-export",
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            bundle_dir = next(export_root.iterdir())
+            payload = json.loads((bundle_dir / "channel-day.json").read_text(encoding="utf-8"))
+            attachment = payload["messages"][0]["attachments"][0]
+            materialized = bundle_dir / attachment["export_relpath"]
+            copied_asset = materialized.parent / "re-golf-tee-request_assets" / "image001.jpg"
+            self.assertTrue(materialized.exists())
+            self.assertTrue(copied_asset.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

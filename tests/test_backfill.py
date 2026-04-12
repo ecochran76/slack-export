@@ -38,6 +38,23 @@ class _FakeApi:
         return []
 
 
+class _FakeResponse:
+    def __init__(self, content: bytes, content_type: str = "application/octet-stream", status_code: int = 200):
+        self.content = content
+        self.status_code = status_code
+        self.headers = {"Content-Type": content_type}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"{self.status_code} error")
+
+
 @unittest.skipIf(backfill_messages is None, "slack_sdk not installed")
 class BackfillTests(unittest.TestCase):
     def test_incremental_backfill_pulls_recent_known_thread_roots(self):
@@ -282,6 +299,66 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["failed"], 1)
             self.assertEqual(result["failure_reasons"], {"email_container_with_attachments": 1})
             self.assertEqual(result["failed_files"][0]["reason"], "email_container_with_attachments")
+
+    def test_reconcile_file_downloads_materializes_email_container_and_inline_assets(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            cache_root = Path(td) / "cache"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, size, local_path, checksum, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ws_id,
+                    "FEMAIL",
+                    "Re: Example",
+                    "Re: Example",
+                    "text/html",
+                    12,
+                    None,
+                    None,
+                    '{"id":"FEMAIL","name":"Re: Example","title":"Re: Example","mimetype":"text/html","mode":"email","preview":"<div><img src=\\"https://files-origin.slack.com/files-email-priv/T123-FEMAIL-abc/image001.jpg\\"></div>","url_private_download":"https://files.slack.test/FEMAIL/download"}',
+                ),
+            )
+            conn.commit()
+
+            with (
+                patch("slack_mirror.sync.backfill.download_with_retries") as mock_download,
+                patch(
+                    "slack_mirror.sync.backfill.requests.get",
+                    return_value=_FakeResponse(b"jpegbytes", content_type="image/jpeg"),
+                ) as mock_get,
+            ):
+                result = reconcile_file_downloads(
+                    token="xoxp-test",
+                    workspace_id=ws_id,
+                    conn=conn,
+                    cache_root=str(cache_root),
+                    limit=10,
+                )
+
+            self.assertEqual(result["downloaded"], 1)
+            self.assertEqual(result["failed"], 0)
+            mock_download.assert_not_called()
+            mock_get.assert_called_once()
+            row = conn.execute(
+                "SELECT local_path, checksum FROM files WHERE workspace_id = ? AND file_id = ?",
+                (ws_id, "FEMAIL"),
+            ).fetchone()
+            self.assertIsNotNone(row)
+            local_path = Path(row["local_path"])
+            self.assertTrue(local_path.exists())
+            self.assertEqual(local_path.suffix, ".html")
+            html_text = local_path.read_text(encoding="utf-8")
+            self.assertIn(f"{local_path.stem}_assets/image001.jpg", html_text)
+            asset_path = local_path.parent / f"{local_path.stem}_assets" / "image001.jpg"
+            self.assertTrue(asset_path.exists())
 
 
 if __name__ == "__main__":

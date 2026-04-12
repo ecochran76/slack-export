@@ -270,6 +270,13 @@ def _copy_attachment_into_bundle(local_path: str, bundle_dir: Path, attachment: 
     dst = bundle_dir / relpath
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
+    companion_asset_dir = src.parent / f"{src.stem}_assets"
+    if src.suffix.lower() in {".html", ".htm"} and companion_asset_dir.exists() and companion_asset_dir.is_dir():
+        shutil.copytree(
+            companion_asset_dir,
+            dst.parent / companion_asset_dir.name,
+            dirs_exist_ok=True,
+        )
     return str(relpath.as_posix()), str(dst)
 
 
