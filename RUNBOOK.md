@@ -877,3 +877,20 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_export_docx -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 58 | 2026-04-12
+
+- Added named DOCX visual fixture profiles to the export QA contract instead of relying on one-off manual examples:
+  - `compact_default`
+  - `cozy_review`
+- Added regression coverage in `tests/test_export_docx.py` to lock in the distinct style shape for those fixture profiles:
+  - font family
+  - body size
+  - page margin
+  - compact vs cozy indentation/spacing behavior
+  - accent color
+- Updated the export docs and active `0008` plan so future visual review work has explicit canonical profiles to compare against.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_docx -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

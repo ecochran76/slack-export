@@ -132,7 +132,10 @@ Current status:
 - the validator now includes a first bounded reuse of `docx-skill` package-validation ideas without importing the whole skill
 - renderer output is now compatible with the local LibreOffice render/vision QA path used by `docx-skill`
 - bounded appearance configurability is now landed without turning the renderer into a general theme engine
-- next likely slice is deeper fixture quality or more ambitious OOXML primitive reuse, not a second export ownership path
+- named fixture profiles are now part of the renderer QA contract:
+  - `compact_default`
+  - `cozy_review`
+- next likely slice is richer rendered-fixture preservation or more ambitious OOXML primitive reuse, not a second export ownership path
 
 ## Definition Of Done
 

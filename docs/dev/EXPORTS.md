@@ -57,6 +57,9 @@ DOCX UX in the current baseline:
   - page margins
   - compact vs cozy spacing
   - accent color
+- current canonical fixture profiles for visual review are:
+  - `compact_default`: `Arial`, `10pt`, `1.0in`, `compact`, `#3B5B7A`
+  - `cozy_review`: `Aptos`, `11pt`, `1.25in`, `cozy`, `#8B5CF6`
 
 ## 3) Render JSON export to PDF
 

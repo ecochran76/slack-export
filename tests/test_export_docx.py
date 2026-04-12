@@ -45,6 +45,24 @@ def _rewrite_docx_part(docx_path: Path, part_name: str, payload: bytes) -> None:
 
 
 class ExportDocxTests(unittest.TestCase):
+    def _fixture_profiles(self) -> dict[str, dict[str, object]]:
+        return {
+            "compact_default": {
+                "font_family": "Arial",
+                "body_font_size_pt": 10,
+                "margin_in": 1.0,
+                "compactness": "compact",
+                "accent_color": "3B5B7A",
+            },
+            "cozy_review": {
+                "font_family": "Aptos",
+                "body_font_size_pt": 11,
+                "margin_in": 1.25,
+                "compactness": "cozy",
+                "accent_color": "8B5CF6",
+            },
+        }
+
     def _write_sample_json(self, path: Path, *, day: str, channel: str, channel_id: str, attachment_local: str | None = None) -> None:
         payload = {
             "workspace": "default",
@@ -234,6 +252,59 @@ class ExportDocxTests(unittest.TestCase):
             self.assertEqual(ind.get(f"{{{W_NS}}}left"), "240")
 
             self.assertIn('srgbClr val="8B5CF6"', theme)
+
+    def test_fixture_profiles_render_distinct_stable_style_shapes(self) -> None:
+        module = _load_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            input_json = tmp / "sample.json"
+            self._write_sample_json(input_json, day="2026-04-11", channel="general", channel_id="C1")
+
+            outputs: dict[str, tuple[ET.Element, ET.Element, str]] = {}
+            for profile_name, kwargs in self._fixture_profiles().items():
+                output_docx = tmp / f"{profile_name}.docx"
+                docx_style = module._build_style(**kwargs)
+                module.render_channel_day_docx(input_json, output_docx, docx_style=docx_style)
+                with zipfile.ZipFile(output_docx, "r") as zf:
+                    outputs[profile_name] = (
+                        ET.fromstring(zf.read("word/document.xml")),
+                        ET.fromstring(zf.read("word/styles.xml")),
+                        zf.read("word/theme/theme1.xml").decode("utf-8"),
+                    )
+
+            compact_doc, compact_styles, compact_theme = outputs["compact_default"]
+            cozy_doc, cozy_styles, cozy_theme = outputs["cozy_review"]
+
+            compact_pg_mar = compact_doc.find(f".//{{{W_NS}}}pgMar")
+            cozy_pg_mar = cozy_doc.find(f".//{{{W_NS}}}pgMar")
+            assert compact_pg_mar is not None and cozy_pg_mar is not None
+            self.assertEqual(compact_pg_mar.get(f"{{{W_NS}}}left"), "1440")
+            self.assertEqual(cozy_pg_mar.get(f"{{{W_NS}}}left"), "1800")
+
+            def _style_by_id(root: ET.Element, style_id: str) -> ET.Element:
+                return next(
+                    style for style in root.findall(f".//{{{W_NS}}}style")
+                    if style.attrib.get(f"{{{W_NS}}}styleId") == style_id
+                )
+
+            compact_normal = _style_by_id(compact_styles, "Normal")
+            cozy_normal = _style_by_id(cozy_styles, "Normal")
+            compact_fonts = compact_normal.find(f".//{{{W_NS}}}rFonts")
+            cozy_fonts = cozy_normal.find(f".//{{{W_NS}}}rFonts")
+            assert compact_fonts is not None and cozy_fonts is not None
+            self.assertEqual(compact_fonts.get(f"{{{W_NS}}}ascii"), "Arial")
+            self.assertEqual(cozy_fonts.get(f"{{{W_NS}}}ascii"), "Aptos")
+
+            compact_msg = _style_by_id(compact_styles, "MessageBody")
+            cozy_msg = _style_by_id(cozy_styles, "MessageBody")
+            compact_ind = compact_msg.find(f".//{{{W_NS}}}ind")
+            cozy_ind = cozy_msg.find(f".//{{{W_NS}}}ind")
+            assert compact_ind is not None and cozy_ind is not None
+            self.assertEqual(compact_ind.get(f"{{{W_NS}}}left"), "180")
+            self.assertEqual(cozy_ind.get(f"{{{W_NS}}}left"), "240")
+
+            self.assertIn('srgbClr val="3B5B7A"', compact_theme)
+            self.assertIn('srgbClr val="8B5CF6"', cozy_theme)
 
     def test_validate_export_docx_reports_expected_summary(self) -> None:
         module = _load_module()
