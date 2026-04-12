@@ -11,6 +11,13 @@ version: 1
 storage:
   db_path: ${SLACK_MIRROR_DB:-~/.local/state/slack-mirror/slack_mirror.db}
   cache_root: ${SLACK_MIRROR_CACHE:-~/.local/cache/slack-mirror}
+service:
+  bind: ${SLACK_MIRROR_BIND:-127.0.0.1}
+  port: ${SLACK_MIRROR_PORT:-8787}
+exports:
+  root_dir: ${SLACK_MIRROR_EXPORT_ROOT:-~/.local/share/slack-mirror/exports}
+  local_base_url: ${SLACK_MIRROR_EXPORT_LOCAL_BASE_URL:-http://slack.localhost}
+  external_base_url: ${SLACK_MIRROR_EXPORT_EXTERNAL_BASE_URL:-https://slack.ecochran.dyndns.org}
 
 workspaces:
   - name: default
@@ -47,6 +54,30 @@ workspaces:
   3. `~/.config/slack-mirror/config.yaml`
 
 For automation, prefer passing an explicit `--config` path anyway.
+
+## Service and export settings
+
+- `service.bind` and `service.port` are the canonical local API listen settings.
+- `slack-mirror api serve` now defaults to those config values when `--bind` or `--port` are omitted.
+- `exports.root_dir` is the user-scoped bundle root for managed export artifacts.
+- `exports.local_base_url` is the preferred base URL for local reverse-proxied download links, intended for `http://slack.localhost`.
+- `exports.external_base_url` is the preferred base URL for externally published download links, intended for `https://slack.ecochran.dyndns.org`.
+
+Managed export URLs use this path contract:
+
+- `/exports/<export-id>/<filepath>`
+- future preview path: `/exports/<export-id>/<filepath>/preview`
+
+Current preview support behind the local API:
+- images: inline preview
+- PDFs: iframe preview
+- `.docx`: HTML preview through `mammoth`
+- text-like files (`text/*`, JSON, XML): escaped text preview
+- other content types: `PREVIEW_UNSUPPORTED`
+
+`<export-id>` is deterministic, URL-friendly, and human-readable. The current format is a bounded readable slug with a short stable hash suffix, for example:
+
+- `channel-day-default-general-2026-04-12-a1b2c3d4e5`
 
 ## Commands (scaffold)
 

@@ -35,6 +35,8 @@ python scripts/export_channel_day_docx.py --input-json exports/day.json --output
 python scripts/export_multi_day_docx.py --inputs exports/*.json --output-docx exports/daypack.docx
 python scripts/render_export_docx_fixtures.py --output-dir exports/docx-fixtures
 python scripts/validate_export_docx.py --input-docx exports/day.docx --json --fail-on-issues
+PYTHONPATH=. ./.venv/bin/python scripts/export_channel_day.py --config ~/.config/slack-mirror/config.yaml --db ~/.local/state/slack-mirror/slack_mirror.db --workspace default --channel general --day 2026-04-12 --managed-export --link-audience local
+slack-mirror api serve
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid
@@ -69,6 +71,10 @@ The current repo has:
   - tighter sender metadata alignment
   - attachment link/source blocks with compact type badges and human-readable type labels
   - safer link preference for public URLs/permalinks over brittle local filesystem links
+  - config-backed managed export bundles with deterministic export IDs and reverse-proxied `/exports/<export-id>/<filepath>` download URLs
+  - shared portable attachment links across HTML, PDF, and DOCX through emitted `public_url` / `download_url` fields
+  - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
+  - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - render-engine-compatible OOXML output that can be visually QA'd through the `docx-skill` render path
   - bounded appearance controls for font family, body size, margins, compactness, and accent color
   - a one-command fixture-artifact generator for canonical DOCX/PDF/PNG visual review outputs

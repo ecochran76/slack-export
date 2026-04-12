@@ -28,6 +28,14 @@ def wrap(text: str, width: int = 112) -> list[str]:
     return out
 
 
+def attachment_link(attachment: dict) -> str:
+    for key in ("public_url", "download_url", "permalink", "local_path"):
+        value = attachment.get(key) or ""
+        if value:
+            return str(value)
+    return ""
+
+
 def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachments: bool, attach_files: bool) -> None:
     c = canvas.Canvas(str(output_pdf), pagesize=letter)
     w, h = letter
@@ -130,7 +138,7 @@ def render_json_exports(json_paths: list[Path], output_pdf: Path, embed_attachme
             if atts:
                 line("  attachments:", 9, 11, x=x)
                 for a in atts:
-                    link = a.get("local_path") or a.get("permalink") or ""
+                    link = attachment_link(a)
                     name = a.get('name') or a.get('id') or 'attachment'
                     line(f"    - {name} {link}", 8, 10, x=x)
                     if link:

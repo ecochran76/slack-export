@@ -141,7 +141,19 @@ Current status:
   - tighter sender metadata alignment
   - portable attachment-type badges
   - safer attachment-link selection that prefers explicit public/download URLs or Slack permalinks and treats local mirror paths as descriptive references instead of primary hyperlinks
-- longer-term follow-up remains open for service-configured attachment URLs exposed over HTTP/HTTPS behind the live mirror deployment, so DOCX exports can point at stable reverse-proxied download endpoints
+- managed export bundling is now landed in `scripts/export_channel_day.py`, with:
+  - config-backed user-scoped export roots
+  - deterministic human-readable export IDs
+  - copied attachment bundle paths
+  - config-backed local/external `download_url` generation
+  - portable `public_url` emission for downstream renderers
+- the local API now serves bundle files under `/exports/<export-id>/<filepath>`
+- bounded preview routing is now landed under `/exports/<export-id>/<filepath>/preview` for:
+  - images
+  - PDFs
+  - `.docx` through lightweight `mammoth` HTML conversion
+  - text-like files
+- unsupported binary types now fail explicitly with `PREVIEW_UNSUPPORTED`
 - next likely slice is deeper OOXML primitive reuse or closure judgment, not more ad hoc render plumbing
 
 ## Definition Of Done

@@ -24,6 +24,38 @@ Features:
 - HTML thread styling (reply badge + connector line)
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
 
+Managed bundle mode:
+
+```bash
+PYTHONPATH=. ./.venv/bin/python scripts/export_channel_day.py \
+  --config ~/.config/slack-mirror/config.yaml \
+  --db ~/.local/state/slack-mirror/slack_mirror.db \
+  --workspace default \
+  --channel general \
+  --day 2026-04-12 \
+  --managed-export \
+  --link-audience local
+```
+
+Managed bundle behavior:
+- writes into `exports.root_dir/<export-id>/`
+- uses deterministic export IDs such as `channel-day-default-general-2026-04-12-a1b2c3d4e5`
+- copies local attachment files into the bundle under `attachments/...`
+- emits stable `download_url` and `public_url` values using:
+  - `exports.local_base_url` for local links
+  - `exports.external_base_url` for external links
+
+Download path contract:
+- `/exports/<export-id>/<filepath>`
+- preview path: `/exports/<export-id>/<filepath>/preview`
+
+Current preview support:
+- images: inline browser preview
+- PDFs: iframe browser preview
+- `.docx`: HTML preview through `mammoth`
+- text-like files (`text/*`, JSON, XML): escaped text preview
+- other content types: explicit `PREVIEW_UNSUPPORTED`
+
 ## 2) Render JSON export to DOCX
 
 ```bash
@@ -75,8 +107,12 @@ This produces a stable review bundle with:
 - rendered PDF/PNG review artifacts through the local `docx-skill` path when available
 
 Attachment URL contract:
-- the DOCX renderer already understands `public_url` and `download_url` attachment fields and prefers them over local mirror paths
-- current exports still mainly provide local mirror paths plus Slack permalinks
+- the DOCX and PDF renderers now understand `public_url` and `download_url` attachment fields and prefer them over local mirror paths
+- managed exports now emit `download_url` fields from config-backed base URLs when bundle mode is used
+- managed exports now emit the same stable URL under `public_url` as the portable attachment-link field for downstream renderers
+- the local API now serves bundle files under `/exports/<export-id>/<filepath>`
+- preview URLs are now implemented in a bounded way for images, PDFs, and text-like files
+- unsupported binary formats return `PREVIEW_UNSUPPORTED` instead of a broken browser experience
 - the intended long-term direction is service-configured HTTP/HTTPS download URLs behind the live mirror deployment, so rendered exports can link to stable reverse-proxied attachment endpoints instead of filesystem paths
 
 ## 3) Render JSON export to PDF

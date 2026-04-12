@@ -89,6 +89,7 @@ Current state:
 - the first implementation slice under `0008` is a bounded DOCX renderer over the existing channel/day JSON export artifact
 - the current `0008` quality pass is improving paragraph/run formatting and attachment presentation within that same renderer rather than adding a second export path
 - repeatable DOCX export review artifacts are now generated through a repo-local fixture script instead of one-off manual render commands
+- managed export bundles and API-served `/exports/<export-id>/<filepath>` download URLs are now part of the active export-quality baseline
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

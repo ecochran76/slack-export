@@ -5,6 +5,7 @@ from slack_mirror import __version__
 from slack_mirror.cli.main import (
     build_parser,
     cmd_release_check,
+    cmd_serve_api,
     cmd_serve_mcp,
     cmd_user_env_check_live,
     cmd_user_env_install,
@@ -173,6 +174,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.format, "man")
         self.assertEqual(args.output, "/tmp/slack-mirror.1")
         self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_api_serve_defaults_to_config_backed_values(self):
+        parser = build_parser()
+        args = parser.parse_args(["api", "serve"])
+        self.assertEqual(args.command, "api")
+        self.assertIsNone(args.bind)
+        self.assertIsNone(args.port)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_cmd_serve_api_uses_config_bind_and_port_when_omitted(self):
+        args = type("Args", (), {"bind": None, "port": None, "config": "/tmp/config.yaml"})
+        with patch("slack_mirror.core.config.load_config") as mock_load_config, patch(
+            "slack_mirror.service.api.run_api_server"
+        ) as mock_run_api:
+            mock_load_config.return_value = type(
+                "Config",
+                (),
+                {"get": staticmethod(lambda key, default=None: {"service": {"bind": "127.0.0.1", "port": 8787}}.get(key, default))},
+            )()
+
+            rc = cmd_serve_api(args)
+
+        self.assertEqual(rc, 0)
+        mock_run_api.assert_called_once_with(bind="127.0.0.1", port=8787, config_path="/tmp/config.yaml")
 
     def test_parse_search_keyword(self):
         parser = build_parser()

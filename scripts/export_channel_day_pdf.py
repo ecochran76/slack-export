@@ -29,6 +29,14 @@ def wrap(text: str, width: int = 110) -> list[str]:
     return out
 
 
+def attachment_link(attachment: dict) -> str:
+    for key in ("public_url", "download_url", "permalink", "local_path"):
+        value = attachment.get(key) or ""
+        if value:
+            return str(value)
+    return ""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Render exported channel-day JSON to PDF")
     ap.add_argument("--input-json", required=True)
@@ -141,7 +149,7 @@ def main() -> int:
         if atts:
             line("  attachments:", 9, 11, x=x)
             for a in atts:
-                link = a.get("local_path") or a.get("permalink") or ""
+                link = attachment_link(a)
                 name = a.get('name') or a.get('id') or 'attachment'
                 line(f"    - {name} {link}", 8, 10, x=x)
                 if link:
