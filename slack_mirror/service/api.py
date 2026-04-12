@@ -91,6 +91,12 @@ def _preview_html(path: Path, source_url: str) -> str:
         if not rendered:
             raise ValueError(f"Preview not supported for {content_type}")
         viewer = rendered
+    elif content_type == "text/html":
+        raw_html = path.read_text(encoding="utf-8", errors="replace")
+        viewer = (
+            f"<iframe sandbox=\"allow-same-origin\" srcdoc=\"{escape(raw_html, quote=True)}\" "
+            "style=\"width:100%;height:88vh;border:1px solid #d1d5db;border-radius:8px;background:#fff\"></iframe>"
+        )
     elif content_type.startswith("text/") or content_type in {"application/json", "application/xml"}:
         text = path.read_text(encoding="utf-8", errors="replace")
         viewer = (

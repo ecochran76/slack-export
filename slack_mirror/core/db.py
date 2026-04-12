@@ -700,9 +700,15 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
             ),
         )
 
-        if unchanged:
-            return
+    for file_obj in message.get("files", []) or []:
+        if not isinstance(file_obj, dict) or not file_obj.get("id"):
+            continue
+        upsert_file(conn, workspace_id, file_obj, local_path=None)
 
+    if unchanged:
+        return
+
+    with conn:
         # Incremental FTS maintenance for keyword search speed.
         conn.execute(
             """
@@ -834,8 +840,8 @@ def upsert_file(conn: sqlite3.Connection, workspace_id: int, file_obj: dict[str,
               title=excluded.title,
               mimetype=excluded.mimetype,
               size=excluded.size,
-              local_path=excluded.local_path,
-              checksum=excluded.checksum,
+              local_path=coalesce(excluded.local_path, files.local_path),
+              checksum=coalesce(excluded.checksum, files.checksum),
               raw_json=excluded.raw_json,
               updated_at=CURRENT_TIMESTAMP
             """,

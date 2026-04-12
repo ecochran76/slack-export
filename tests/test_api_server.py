@@ -196,6 +196,7 @@ class ApiServerTests(unittest.TestCase):
         (bundle_dir / "index.html").write_text("<html><body><h1>preview smoke</h1></body></html>", encoding="utf-8")
         (attachment_dir / "report.pdf").write_bytes(b"%PDF-1.4\n")
         (attachment_dir / "preview.txt").write_text("preview body\n", encoding="utf-8")
+        (attachment_dir / "email-preview.html").write_text("<div>Email preview body</div>", encoding="utf-8")
         (attachment_dir / "archive.bin").write_bytes(b"\x00\x01")
         docx_input = bundle_dir / "channel-day.json"
         docx_path = attachment_dir / "sample.docx"
@@ -330,6 +331,14 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertEqual(docx_preview.status_code, 200)
         self.assertIn("DOCX preview body", docx_preview.text)
+
+        html_preview = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/email-preview.html/preview",
+            timeout=5,
+        )
+        self.assertEqual(html_preview.status_code, 200)
+        self.assertIn("iframe", html_preview.text)
+        self.assertIn("Email preview body", html_preview.text)
         self.assertIn("<article", docx_preview.text)
 
         pptx_preview = requests.get(

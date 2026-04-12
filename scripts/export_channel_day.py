@@ -259,6 +259,33 @@ def _copy_attachment_into_bundle(local_path: str, bundle_dir: Path, attachment: 
     return str(relpath.as_posix()), str(dst)
 
 
+def _materialize_preview_attachment_into_bundle(bundle_dir: Path, attachment: dict) -> tuple[str, str] | tuple[None, None]:
+    preview_html = attachment.get("preview_html")
+    preview_text = attachment.get("preview_plain_text")
+    if isinstance(preview_html, str) and preview_html.strip():
+        content = (
+            "<!doctype html><html><head><meta charset='utf-8'>"
+            f"<title>{html.escape(str(attachment.get('name') or 'attachment'))}</title>"
+            "</head><body>"
+            f"{preview_html}"
+            "</body></html>"
+        )
+        suffix = ".html"
+    elif isinstance(preview_text, str) and preview_text.strip():
+        content = preview_text
+        suffix = ".txt"
+    else:
+        return None, None
+
+    stem = slugify(attachment.get("id") or attachment.get("name") or "attachment", max_length=24)
+    safe_name = slugify(Path(attachment.get("name") or "attachment").stem, max_length=40) or "attachment"
+    relpath = Path("attachments") / stem / f"{safe_name}{suffix}"
+    dst = bundle_dir / relpath
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(content, encoding="utf-8")
+    return str(relpath.as_posix()), str(dst)
+
+
 def extract_attachments(
     conn: sqlite3.Connection,
     ws_id: int,
@@ -291,6 +318,8 @@ def extract_attachments(
                 "mimetype": f.get("mimetype"),
                 "permalink": f.get("permalink") or f.get("url_private"),
                 "local_path": local_path,
+                "preview_html": f.get("preview"),
+                "preview_plain_text": f.get("preview_plain_text") or f.get("plain_text"),
             }
         )
         if bundle_dir and local_path:
@@ -298,6 +327,25 @@ def extract_attachments(
             if relpath:
                 out[-1]["export_relpath"] = relpath
                 out[-1]["export_path"] = exported_path
+                if base_urls and export_id:
+                    download_urls = build_export_urls(base_urls, export_id, relpath)
+                    preview_urls = build_export_urls(base_urls, export_id, relpath, preview=True)
+                    selected_download_url = select_export_url(download_urls, default_audience)
+                    selected_preview_url = select_export_url(preview_urls, default_audience)
+                    out[-1]["download_urls"] = download_urls
+                    out[-1]["preview_urls"] = preview_urls
+                    out[-1]["download_url"] = selected_download_url
+                    out[-1]["public_url"] = selected_download_url
+                    out[-1]["preview_url"] = selected_preview_url
+        elif bundle_dir:
+            relpath, exported_path = _materialize_preview_attachment_into_bundle(bundle_dir, out[-1])
+            if relpath:
+                out[-1]["export_relpath"] = relpath
+                out[-1]["export_path"] = exported_path
+                if relpath.endswith(".html") and not out[-1].get("mimetype"):
+                    out[-1]["mimetype"] = "text/html"
+                elif relpath.endswith(".txt") and not out[-1].get("mimetype"):
+                    out[-1]["mimetype"] = "text/plain"
                 if base_urls and export_id:
                     download_urls = build_export_urls(base_urls, export_id, relpath)
                     preview_urls = build_export_urls(base_urls, export_id, relpath, preview=True)
@@ -348,7 +396,14 @@ def render_html(
         ".att li{margin:0 0 8px}"
         ".att a{color:#0b57d0;text-decoration:underline}"
         ".att-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}"
-        ".thumb{width:3.5in;max-width:100%;height:auto;border:1px solid #d1d5db;border-radius:10px;margin-top:6px}"
+        ".thumb-button{display:inline-block;margin-top:6px;padding:0;border:none;background:transparent;cursor:zoom-in}"
+        ".thumb{width:min(4.5in,100%);max-width:100%;max-height:320px;height:auto;border:1px solid #d1d5db;border-radius:10px;display:block;object-fit:contain;background:#fff}"
+        ".lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.82);z-index:9999}"
+        ".lightbox.open{display:flex}"
+        ".lightbox-backdrop{position:absolute;inset:0}"
+        ".lightbox-frame{position:relative;z-index:1;max-width:min(96vw,1400px);max-height:92vh;display:flex;flex-direction:column;gap:10px}"
+        ".lightbox-close{align-self:flex-end;border:none;border-radius:999px;background:#fff;color:#0f172a;padding:6px 10px;font-weight:700;cursor:pointer}"
+        ".lightbox img{display:block;max-width:min(96vw,1400px);max-height:84vh;width:auto;height:auto;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.35);background:#fff}"
         "code{background:#eef2f7;padding:1px 4px;border-radius:4px}"
         "</style>"
         "</head><body>",
@@ -411,7 +466,14 @@ def render_html(
                 image_src = a.get("public_url") or a.get("download_url") or a.get("export_relpath") or a.get("local_path") or ""
                 thumb = ""
                 if image_src and mimetype.startswith("image/"):
-                    thumb = f"<br><img class='thumb' src='{html.escape(str(image_src))}' alt='{html.escape(a.get('name') or 'attachment')}' />"
+                    image_href = html.escape(str(image_src), quote=True)
+                    image_alt = html.escape(a.get("name") or "attachment")
+                    thumb = (
+                        "<br>"
+                        f"<button type='button' class='thumb-button' data-lightbox-src='{image_href}' data-lightbox-alt='{image_alt}'>"
+                        f"<img class='thumb' src='{image_href}' alt='{image_alt}' />"
+                        "</button>"
+                    )
                 name = html.escape(a.get("name") or "file")
                 href = html.escape(str(link)) if link else ""
                 label = f"<a href='{href}' target='_blank' rel='noopener'>{name}</a>" if href else name
@@ -442,7 +504,34 @@ def render_html(
             lines.append("</ul></div>")
         lines.append("</div></div>")
         previous_group_key = group_key
-    lines.append("</div></body></html>")
+    lines.extend(
+        [
+            "</div>",
+            "<div class='lightbox' id='image-lightbox' aria-hidden='true'>",
+            "<div class='lightbox-backdrop' data-lightbox-close='true'></div>",
+            "<div class='lightbox-frame'>",
+            "<button type='button' class='lightbox-close' data-lightbox-close='true'>Close</button>",
+            "<img id='image-lightbox-img' src='' alt='' />",
+            "</div>",
+            "</div>",
+            "<script>",
+            "(function(){",
+            "const lightbox=document.getElementById('image-lightbox');",
+            "const img=document.getElementById('image-lightbox-img');",
+            "if(!lightbox||!img)return;",
+            "const open=(src,alt)=>{img.src=src;img.alt=alt||'';lightbox.classList.add('open');lightbox.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';};",
+            "const close=()=>{lightbox.classList.remove('open');lightbox.setAttribute('aria-hidden','true');img.src='';img.alt='';document.body.style.overflow='';};",
+            "document.addEventListener('click',(event)=>{",
+            "const trigger=event.target.closest('[data-lightbox-src]');",
+            "if(trigger){event.preventDefault();open(trigger.getAttribute('data-lightbox-src')||'',trigger.getAttribute('data-lightbox-alt')||'');return;}",
+            "if(event.target.closest('[data-lightbox-close=\"true\"]')){event.preventDefault();close();}",
+            "});",
+            "document.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&lightbox.classList.contains('open'))close();});",
+            "})();",
+            "</script>",
+            "</body></html>",
+        ]
+    )
     return "\n".join(lines)
 
 

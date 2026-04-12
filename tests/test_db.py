@@ -45,15 +45,45 @@ class DbTests(unittest.TestCase):
             count = conn.execute("SELECT COUNT(*) AS c FROM messages").fetchone()["c"]
             self.assertEqual(count, 2)
 
+            upsert_message(
+                conn,
+                ws_id,
+                "C123",
+                {
+                    "ts": "300.00",
+                    "text": "email attachment",
+                    "user": "U1",
+                    "files": [
+                        {
+                            "id": "FEMBED1",
+                            "name": "Re: Golf Tee Request",
+                            "title": "Re: Golf Tee Request",
+                            "mimetype": "text/html",
+                            "filetype": "email",
+                            "mode": "email",
+                            "preview": "<div>Email preview body</div>",
+                        }
+                    ],
+                },
+            )
+            embedded = conn.execute(
+                "SELECT name, title, mimetype, local_path, raw_json FROM files WHERE workspace_id = ? AND file_id = ?",
+                (ws_id, "FEMBED1"),
+            ).fetchone()
+            self.assertIsNotNone(embedded)
+            self.assertEqual(embedded["mimetype"], "text/html")
+            self.assertIsNone(embedded["local_path"])
+            self.assertIn("Email preview body", embedded["raw_json"])
+
             roots = list_recent_thread_roots(conn, ws_id, "C123", min_ts="150")
             self.assertEqual(roots, ["200.00"])
 
             pending_jobs = conn.execute("SELECT COUNT(*) AS c FROM embedding_jobs WHERE status='pending'").fetchone()["c"]
-            self.assertEqual(pending_jobs, 2)
+            self.assertEqual(pending_jobs, 3)
 
             upsert_message(conn, ws_id, "C123", {"ts": "123.45", "text": "hello", "user": "U1"})
             pending_jobs = conn.execute("SELECT COUNT(*) AS c FROM embedding_jobs WHERE status='pending'").fetchone()["c"]
-            self.assertEqual(pending_jobs, 2)
+            self.assertEqual(pending_jobs, 3)
 
             upsert_message_embedding(
                 conn,
@@ -125,7 +155,7 @@ class DbTests(unittest.TestCase):
             upsert_canvas(conn, ws_id, {"id": "CV1", "title": "Canvas 1"}, local_path="cache/canvases/CV1.html")
             file_count = conn.execute("SELECT COUNT(*) AS c FROM files").fetchone()["c"]
             canvas_count = conn.execute("SELECT COUNT(*) AS c FROM canvases").fetchone()["c"]
-            self.assertEqual(file_count, 1)
+            self.assertEqual(file_count, 2)
             self.assertEqual(canvas_count, 1)
 
             derived_job_count = conn.execute("SELECT COUNT(*) AS c FROM derived_text_jobs WHERE status='pending'").fetchone()["c"]

@@ -27,6 +27,8 @@ Features:
 - consecutive messages from the same sender are visually grouped to reduce repeated avatar and metadata noise
 - HTML header includes code-style tenant and channel identifiers, and replies render thread IDs as code-style metadata
 - attachment rows keep the filename link but collapse long raw URLs into compact code-style file metadata plus a small preview link
+- image attachments render inline at a bounded size and open in an in-page lightbox instead of navigating away
+- Slack-native `email` attachments with embedded HTML previews are materialized into managed export bundles even when no binary file was downloaded locally
 - HTML attachment hyperlinks + image thumbnails (3.5in wide)
 
 Managed bundle mode:
