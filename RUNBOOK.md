@@ -1062,3 +1062,16 @@ This file is the dated turn log for planning and execution continuity.
   - no promise of pixel-perfect Office fidelity
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server tests.test_derived_text tests.test_exports -v`
+
+## Turn 73 | 2026-04-12
+
+- Extended the same lightweight export preview architecture to the OpenDocument office formats.
+- `.odt` preview now renders a bounded text summary.
+- `.odp` preview now renders slide-by-slide HTML summaries.
+- `.ods` preview now renders bounded sheet-table HTML summaries.
+- Kept the contract aligned with the existing office preview stance:
+  - no office-server dependency
+  - no edit surface
+  - deterministic extraction-first rendering
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_derived_text tests.test_exports -v`

@@ -92,6 +92,7 @@ Current state:
 - managed export bundles and API-served `/exports/<export-id>/<filepath>` download URLs are now part of the active export-quality baseline
 - the live service now exposes first-class export manifests through `/v1/exports` and `/v1/exports/<export-id>`, rebuilding configured local/external bundle URLs instead of leaving the published export contract entirely script-owned
 - bounded in-browser previews now cover `.docx`, `.pptx`, and `.xlsx` through lightweight conversion paths rather than a full office-server dependency
+- bounded in-browser previews now cover the OpenDocument office set as well (`.odt`, `.odp`, `.ods`) through the same lightweight extraction-first architecture
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

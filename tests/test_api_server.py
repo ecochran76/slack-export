@@ -200,6 +200,9 @@ class ApiServerTests(unittest.TestCase):
         docx_path = attachment_dir / "sample.docx"
         pptx_path = attachment_dir / "slides.pptx"
         xlsx_path = attachment_dir / "sheet.xlsx"
+        odt_path = attachment_dir / "brief.odt"
+        odp_path = attachment_dir / "slides.odp"
+        ods_path = attachment_dir / "sheet.ods"
         docx_input.write_text(
             json.dumps(
                 {
@@ -239,6 +242,21 @@ class ApiServerTests(unittest.TestCase):
             zf.writestr(
                 "xl/worksheets/sheet1.xml",
                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c t="s"><v>0</v></c><c t="inlineStr"><is><t>Projected pipeline</t></is></c><c><v>42</v></c></row></sheetData></worksheet>',
+            )
+        with zipfile.ZipFile(odt_path, "w") as zf:
+            zf.writestr(
+                "content.xml",
+                '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><office:text><text:p>OpenDocument board brief</text:p></office:text></office:body></office:document-content>',
+            )
+        with zipfile.ZipFile(odp_path, "w") as zf:
+            zf.writestr(
+                "content.xml",
+                '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><office:presentation><draw:page draw:name="Launch"><text:p>OpenDocument launch deck</text:p></draw:page></office:presentation></office:body></office:document-content>',
+            )
+        with zipfile.ZipFile(ods_path, "w") as zf:
+            zf.writestr(
+                "content.xml",
+                '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><office:spreadsheet><table:table table:name="Sheet A"><table:table-row><table:table-cell><text:p>OpenDocument revenue sheet</text:p></table:table-cell><table:table-cell><text:p>84</text:p></table:table-cell></table:table-row></table:table></office:spreadsheet></office:body></office:document-content>',
             )
 
         config_text = self.config_path.read_text(encoding="utf-8")
@@ -315,6 +333,32 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Revenue plan", xlsx_preview.text)
         self.assertIn("Projected pipeline", xlsx_preview.text)
 
+        odt_preview = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/brief.odt/preview",
+            timeout=5,
+        )
+        self.assertEqual(odt_preview.status_code, 200)
+        self.assertIn("OpenDocument text preview", odt_preview.text)
+        self.assertIn("OpenDocument board brief", odt_preview.text)
+
+        odp_preview = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/slides.odp/preview",
+            timeout=5,
+        )
+        self.assertEqual(odp_preview.status_code, 200)
+        self.assertIn("OpenDocument presentation preview", odp_preview.text)
+        self.assertIn("OpenDocument launch deck", odp_preview.text)
+        self.assertIn("Launch", odp_preview.text)
+
+        ods_preview = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/sheet.ods/preview",
+            timeout=5,
+        )
+        self.assertEqual(ods_preview.status_code, 200)
+        self.assertIn("OpenDocument spreadsheet preview", ods_preview.text)
+        self.assertIn("OpenDocument revenue sheet", ods_preview.text)
+        self.assertIn("84", ods_preview.text)
+
         unsupported = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/archive.bin/preview",
             timeout=5,
@@ -355,6 +399,18 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(
             file_map["attachments/incident/sheet.xlsx"]["preview_url"],
             f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/sheet.xlsx/preview",
+        )
+        self.assertEqual(
+            file_map["attachments/incident/brief.odt"]["preview_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/brief.odt/preview",
+        )
+        self.assertEqual(
+            file_map["attachments/incident/slides.odp"]["preview_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/slides.odp/preview",
+        )
+        self.assertEqual(
+            file_map["attachments/incident/sheet.ods"]["preview_url"],
+            f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}/attachments/incident/sheet.ods/preview",
         )
         self.assertIsNone(file_map["attachments/incident/archive.bin"]["preview_url"])
 

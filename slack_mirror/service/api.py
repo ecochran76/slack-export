@@ -81,10 +81,13 @@ def _preview_html(path: Path, source_url: str) -> str:
     elif content_type in {
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.presentation",
+        "application/vnd.oasis.opendocument.spreadsheet",
     }:
-        from slack_mirror.sync.derived_text import render_ooxml_preview_html
+        from slack_mirror.sync.derived_text import render_office_preview_html
 
-        rendered = render_ooxml_preview_html(path)
+        rendered = render_office_preview_html(path)
         if not rendered:
             raise ValueError(f"Preview not supported for {content_type}")
         viewer = rendered

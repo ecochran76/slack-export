@@ -85,6 +85,12 @@ _A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 _A_TAG_PREFIX = f"{{{_A_NS}}}"
 _SS_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _SS_TAG_PREFIX = f"{{{_SS_NS}}}"
+_ODF_TEXT_NS = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+_ODF_TABLE_NS = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+_ODF_DRAW_NS = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"
+_ODF_TEXT_TAG_PREFIX = f"{{{_ODF_TEXT_NS}}}"
+_ODF_TABLE_TAG_PREFIX = f"{{{_ODF_TABLE_NS}}}"
+_ODF_DRAW_TAG_PREFIX = f"{{{_ODF_DRAW_NS}}}"
 
 
 ExtractResult = tuple[str | None, dict]
@@ -466,6 +472,142 @@ def _extract_opendocument_text(path: Path) -> tuple[str | None, str | None]:
             return (extracted or None), extractor
     except (OSError, zipfile.BadZipFile):
         return None, extractor
+
+
+def _odf_text_tag(local_name: str) -> str:
+    return f"{_ODF_TEXT_TAG_PREFIX}{local_name}"
+
+
+def _odf_table_tag(local_name: str) -> str:
+    return f"{_ODF_TABLE_TAG_PREFIX}{local_name}"
+
+
+def _odf_draw_tag(local_name: str) -> str:
+    return f"{_ODF_DRAW_TAG_PREFIX}{local_name}"
+
+
+def _load_opendocument_content_root(path: Path):
+    try:
+        with zipfile.ZipFile(path) as zf:
+            if "content.xml" not in set(zf.namelist()):
+                return None
+            return ET.fromstring(zf.read("content.xml"))
+    except (OSError, zipfile.BadZipFile, ET.ParseError):
+        return None
+
+
+def _extract_odp_slides(path: Path) -> list[dict[str, Any]]:
+    root = _load_opendocument_content_root(path)
+    if root is None:
+        return []
+    slides: list[dict[str, Any]] = []
+    for index, page in enumerate(root.findall(f".//{_odf_draw_tag('page')}"), start=1):
+        parts: list[str] = []
+        page_name = page.get(_odf_draw_tag("name")) or page.get("name") or f"Slide {index}"
+        for node in page.iter():
+            if node.tag == _odf_text_tag("p") and node.text:
+                value = _normalize_text(node.text)
+                if value:
+                    parts.append(value)
+        merged = _normalize_text(" ".join(parts))
+        if merged:
+            slides.append({"index": index, "title": page_name, "text": merged})
+    return slides
+
+
+def _extract_ods_sheets(path: Path) -> list[dict[str, Any]]:
+    root = _load_opendocument_content_root(path)
+    if root is None:
+        return []
+    sheets: list[dict[str, Any]] = []
+    for index, table in enumerate(root.findall(f".//{_odf_table_tag('table')}"), start=1):
+        rows: list[list[str]] = []
+        title = table.get(_odf_table_tag("name")) or table.get("name") or f"Sheet {index}"
+        for row in table.findall(_odf_table_tag("table-row")):
+            values: list[str] = []
+            for cell in row.findall(_odf_table_tag("table-cell")):
+                repeat = cell.get(_odf_table_tag("number-columns-repeated")) or cell.get("number-columns-repeated")
+                multiplier = int(repeat) if repeat and repeat.isdigit() else 1
+                text_parts = []
+                for node in cell.iter():
+                    if node.tag == _odf_text_tag("p") and node.text:
+                        value = _normalize_text(node.text)
+                        if value:
+                            text_parts.append(value)
+                cell_value = _normalize_text(" ".join(text_parts))
+                for _ in range(multiplier):
+                    values.append(cell_value)
+            if any(v for v in values):
+                rows.append(values)
+        if rows:
+            sheets.append({"index": index, "title": title, "rows": rows})
+    return sheets
+
+
+def render_office_preview_html(path: Path) -> str | None:
+    suffix = path.suffix.lower()
+    if suffix == ".odt":
+        text, _ = _extract_opendocument_text(path)
+        if not text:
+            return None
+        paragraphs = "".join(
+            f"<p style=\"margin:0 0 12px;line-height:1.6\">{html.escape(part)}</p>"
+            for part in text.split("  ")
+            if part.strip()
+        ) or f"<p style=\"margin:0;line-height:1.6\">{html.escape(text)}</p>"
+        return (
+            "<article>"
+            "<header style=\"margin-bottom:16px\"><strong>OpenDocument text preview</strong></header>"
+            f"<section style=\"border:1px solid #d1d5db;border-radius:8px;padding:20px;background:#fff\">{paragraphs}</section>"
+            "</article>"
+        )
+    if suffix == ".odp":
+        slides = _extract_odp_slides(path)
+        if not slides:
+            return None
+        sections = []
+        for slide in slides:
+            lines = "<br>".join(html.escape(part) for part in str(slide["text"]).splitlines() if part.strip())
+            sections.append(
+                "<section style=\"border:1px solid #d1d5db;border-radius:8px;padding:16px;background:#fff;margin-bottom:16px\">"
+                f"<h2 style=\"margin:0 0 12px;font-size:18px\">{html.escape(str(slide['title']))}</h2>"
+                f"<div style=\"line-height:1.5\">{lines}</div>"
+                "</section>"
+            )
+        return (
+            "<article>"
+            "<header style=\"margin-bottom:16px\"><strong>OpenDocument presentation preview</strong></header>"
+            f"{''.join(sections)}"
+            "</article>"
+        )
+    if suffix == ".ods":
+        sheets = _extract_ods_sheets(path)
+        if not sheets:
+            return None
+        sections = []
+        for sheet in sheets:
+            rows = []
+            for row in sheet["rows"][:25]:
+                cells = "".join(
+                    f"<td style=\"border:1px solid #d1d5db;padding:6px 8px;vertical-align:top\">{html.escape(value or '')}</td>"
+                    for value in row
+                )
+                rows.append(f"<tr>{cells}</tr>")
+            sections.append(
+                "<section style=\"margin-bottom:20px\">"
+                f"<h2 style=\"margin:0 0 10px;font-size:18px\">{html.escape(str(sheet['title']))}</h2>"
+                "<div style=\"overflow:auto\">"
+                "<table style=\"border-collapse:collapse;min-width:320px;background:#fff\">"
+                f"{''.join(rows)}"
+                "</table></div></section>"
+            )
+        return (
+            "<article>"
+            "<header style=\"margin-bottom:16px\"><strong>OpenDocument spreadsheet preview</strong></header>"
+            f"{''.join(sections)}"
+            "</article>"
+        )
+    return render_ooxml_preview_html(path)
 
 
 def _extract_pdf_text(path: Path) -> str | None:

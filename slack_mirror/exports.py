@@ -135,6 +135,9 @@ def preview_supported_for_path(path: Path, *, content_type: str | None = None) -
         or detected == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         or detected == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         or detected == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        or detected == "application/vnd.oasis.opendocument.text"
+        or detected == "application/vnd.oasis.opendocument.presentation"
+        or detected == "application/vnd.oasis.opendocument.spreadsheet"
         or detected.startswith("text/")
         or detected in {"application/json", "application/xml"}
     )

@@ -78,6 +78,9 @@ Current preview support behind the local API:
 - `.docx`: HTML preview through `mammoth`
 - `.pptx`: slide-by-slide HTML summary through the repo's OOXML extraction path
 - `.xlsx`: sheet-table HTML summary through the repo's OOXML extraction path
+- `.odt`: HTML text summary through the repo's OpenDocument extraction path
+- `.odp`: slide-by-slide HTML summary through the repo's OpenDocument extraction path
+- `.ods`: sheet-table HTML summary through the repo's OpenDocument extraction path
 - text-like files (`text/*`, JSON, XML): escaped text preview
 - other content types: `PREVIEW_UNSUPPORTED`
 
