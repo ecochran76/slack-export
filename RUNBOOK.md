@@ -858,3 +858,22 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_export_docx -v`
   - `./.venv/bin/python -m unittest discover -s tests -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 57 | 2026-04-12
+
+- Added bounded appearance configurability to the DOCX export renderers instead of freezing one hardcoded look:
+  - `--font-family`
+  - `--font-size-pt`
+  - `--margin-in`
+  - `--compactness compact|cozy`
+  - `--accent-color`
+- Kept the contract narrow:
+  - no arbitrary theme schema
+  - no per-style manual overrides
+  - one shared style object for single-day and multi-day DOCX rendering
+- Added regression coverage in `tests/test_export_docx.py` for custom font, margin, size, spacing, and accent color output.
+- Rendered a configurable sample (`Aptos`, `11pt`, `1.25in`, `cozy`, purple accent) through the local `docx-skill` render path and confirmed it remained visually sane.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_export_docx -v`
+  - `./.venv/bin/python -m unittest discover -s tests -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

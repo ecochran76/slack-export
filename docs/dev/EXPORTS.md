@@ -32,6 +32,13 @@ python scripts/export_channel_day_docx.py \
   --output-docx exports/soylei-general-business-4-2022-06-10.docx
 ```
 
+Style flags:
+- `--font-family Aptos`
+- `--font-size-pt 11`
+- `--margin-in 1.25`
+- `--compactness cozy`
+- `--accent-color 8B5CF6`
+
 DOCX UX in the current baseline:
 - single channel/day JSON is the canonical input artifact
 - compact letter-page layout with 1in margins
@@ -44,6 +51,12 @@ DOCX UX in the current baseline:
 - attachment follow-up lines that distinguish local-only files from permalink-backed files
 - no second SQLite-querying DOCX path
 - package output is now compatible with the local LibreOffice render/QA path used by `docx-skill`
+- bounded appearance configuration is now supported for:
+  - font family
+  - body font size
+  - page margins
+  - compact vs cozy spacing
+  - accent color
 
 ## 3) Render JSON export to PDF
 

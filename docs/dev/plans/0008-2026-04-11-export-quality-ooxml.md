@@ -94,6 +94,12 @@ Current status:
   - sans-serif 10pt body text
   - compact header metadata
   - quieter human-readable attachment type labels
+- the renderer now supports bounded appearance configuration for:
+  - font family
+  - body font size
+  - page margins
+  - compact vs cozy spacing
+  - accent color
 
 ## Non-Goals
 
@@ -125,7 +131,8 @@ Current status:
 - structural DOCX export validation is now landed through `scripts/validate_export_docx.py`
 - the validator now includes a first bounded reuse of `docx-skill` package-validation ideas without importing the whole skill
 - renderer output is now compatible with the local LibreOffice render/vision QA path used by `docx-skill`
-- next likely slice is deeper fixture quality, appearance configurability, or more ambitious OOXML primitive reuse, not a second export ownership path
+- bounded appearance configurability is now landed without turning the renderer into a general theme engine
+- next likely slice is deeper fixture quality or more ambitious OOXML primitive reuse, not a second export ownership path
 
 ## Definition Of Done
 

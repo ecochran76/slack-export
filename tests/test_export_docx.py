@@ -187,6 +187,54 @@ class ExportDocxTests(unittest.TestCase):
             ]
             self.assertEqual(len(page_breaks), 1)
 
+    def test_render_channel_day_docx_applies_custom_style_options(self) -> None:
+        module = _load_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            input_json = tmp / "sample.json"
+            output_docx = tmp / "styled.docx"
+            self._write_sample_json(input_json, day="2026-04-11", channel="general", channel_id="C1")
+
+            docx_style = module._build_style(
+                font_family="Aptos",
+                body_font_size_pt=11,
+                margin_in=1.25,
+                compactness="cozy",
+                accent_color="8B5CF6",
+            )
+            module.render_channel_day_docx(input_json, output_docx, docx_style=docx_style)
+
+            with zipfile.ZipFile(output_docx, "r") as zf:
+                document = ET.fromstring(zf.read("word/document.xml"))
+                styles = ET.fromstring(zf.read("word/styles.xml"))
+                theme = zf.read("word/theme/theme1.xml").decode("utf-8")
+
+            pg_mar = document.find(f".//{{{W_NS}}}pgMar")
+            assert pg_mar is not None
+            self.assertEqual(pg_mar.get(f"{{{W_NS}}}left"), "1800")
+            self.assertEqual(pg_mar.get(f"{{{W_NS}}}right"), "1800")
+
+            normal_style = next(
+                style for style in styles.findall(f".//{{{W_NS}}}style")
+                if style.attrib.get(f"{{{W_NS}}}styleId") == "Normal"
+            )
+            rfonts = normal_style.find(f".//{{{W_NS}}}rFonts")
+            assert rfonts is not None
+            self.assertEqual(rfonts.get(f"{{{W_NS}}}ascii"), "Aptos")
+            size = normal_style.find(f".//{{{W_NS}}}sz")
+            assert size is not None
+            self.assertEqual(size.get(f"{{{W_NS}}}val"), "22")
+
+            message_body = next(
+                style for style in styles.findall(f".//{{{W_NS}}}style")
+                if style.attrib.get(f"{{{W_NS}}}styleId") == "MessageBody"
+            )
+            ind = message_body.find(f".//{{{W_NS}}}ind")
+            assert ind is not None
+            self.assertEqual(ind.get(f"{{{W_NS}}}left"), "240")
+
+            self.assertIn('srgbClr val="8B5CF6"', theme)
+
     def test_validate_export_docx_reports_expected_summary(self) -> None:
         module = _load_module()
         validator = _load_validator_module()
