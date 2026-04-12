@@ -111,7 +111,9 @@ Current status:
 
 - shipped through `scripts/export_channel_day_docx.py`
 - paragraph-style and attachment-presentation hardening is now landed in the same renderer
-- next likely slice is deeper fixture quality or bounded multi-day composition, not a second export ownership path
+- bounded multi-day composition is now landed through `scripts/export_multi_day_docx.py`
+- semantic daypack DOCX output now composes through the same JSON-based renderer path
+- next likely slice is deeper fixture quality or more ambitious OOXML primitive reuse, not a second export ownership path
 
 ## Definition Of Done
 

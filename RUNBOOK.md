@@ -797,3 +797,12 @@ This file is the dated turn log for planning and execution continuity.
   - local-only file sources
   - permalink-backed files
 - Extended `tests/test_export_docx.py` to lock in the style set and the richer attachment/source semantics.
+
+## Turn 53 | 2026-04-11
+
+- Added bounded multi-day DOCX composition on top of the existing channel/day JSON renderer.
+- Added `scripts/export_multi_day_docx.py` as the composition path for multiple channel/day JSON bundles.
+- Kept ownership explicit:
+  - single-day and multi-day DOCX output both build from the same JSON artifact
+  - semantic daypack DOCX output now composes through that same path instead of querying SQLite independently
+- Added regression coverage for page-break-based multi-day DOCX composition in `tests/test_export_docx.py`.

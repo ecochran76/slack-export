@@ -22,6 +22,45 @@ def _load_module():
 
 
 class ExportDocxTests(unittest.TestCase):
+    def _write_sample_json(self, path: Path, *, day: str, channel: str, channel_id: str, attachment_local: str | None = None) -> None:
+        payload = {
+            "workspace": "default",
+            "channel": channel,
+            "channel_id": channel_id,
+            "day": day,
+            "tz": "America/Chicago",
+            "messages": [
+                {
+                    "ts": "10.0",
+                    "human_ts": f"{day} 10:00:00 CDT",
+                    "user_id": "U1",
+                    "user_label": "Eric (U1)",
+                    "text": "Launch roadmap\nQ4 milestone",
+                    "thread_ts": None,
+                    "deleted": False,
+                    "attachments": [
+                        {
+                            "name": "incident.png",
+                            "mimetype": "image/png",
+                            "local_path": attachment_local,
+                            "permalink": None,
+                        }
+                    ] if attachment_local else [],
+                },
+                {
+                    "ts": "10.1",
+                    "human_ts": f"{day} 10:05:00 CDT",
+                    "user_id": "U2",
+                    "user_label": "Alicia (U2)",
+                    "text": "Reply detail",
+                    "thread_ts": "10.0",
+                    "deleted": False,
+                    "attachments": [],
+                },
+            ],
+        }
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
     def test_render_channel_day_docx_writes_expected_package_and_content(self) -> None:
         module = _load_module()
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -30,43 +69,13 @@ class ExportDocxTests(unittest.TestCase):
             output_docx = tmp / "sample.docx"
             attachment_path = tmp / "incident.png"
             attachment_path.write_bytes(b"png")
-            payload = {
-                "workspace": "default",
-                "channel": "general",
-                "channel_id": "C1",
-                "day": "2026-04-11",
-                "tz": "America/Chicago",
-                "messages": [
-                    {
-                        "ts": "10.0",
-                        "human_ts": "2026-04-11 10:00:00 CDT",
-                        "user_id": "U1",
-                        "user_label": "Eric (U1)",
-                        "text": "Launch roadmap\nQ4 milestone",
-                        "thread_ts": None,
-                        "deleted": False,
-                        "attachments": [
-                            {
-                                "name": "incident.png",
-                                "mimetype": "image/png",
-                                "local_path": str(attachment_path),
-                                "permalink": None,
-                            }
-                        ],
-                    },
-                    {
-                        "ts": "10.1",
-                        "human_ts": "2026-04-11 10:05:00 CDT",
-                        "user_id": "U2",
-                        "user_label": "Alicia (U2)",
-                        "text": "Reply detail",
-                        "thread_ts": "10.0",
-                        "deleted": False,
-                        "attachments": [],
-                    },
-                ],
-            }
-            input_json.write_text(json.dumps(payload), encoding="utf-8")
+            self._write_sample_json(
+                input_json,
+                day="2026-04-11",
+                channel="general",
+                channel_id="C1",
+                attachment_local=str(attachment_path),
+            )
 
             module.render_channel_day_docx(input_json, output_docx)
 
@@ -116,6 +125,36 @@ class ExportDocxTests(unittest.TestCase):
             ]
             self.assertEqual(len(hyperlink_rels), 1)
             self.assertTrue(hyperlink_rels[0].attrib.get("Target", "").startswith("file://"))
+
+    def test_render_multi_day_docx_combines_json_exports_with_page_breaks(self) -> None:
+        module = _load_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            first_json = tmp / "day1.json"
+            second_json = tmp / "day2.json"
+            output_docx = tmp / "combined.docx"
+            self._write_sample_json(first_json, day="2026-04-11", channel="general", channel_id="C1")
+            self._write_sample_json(second_json, day="2026-04-12", channel="alerts", channel_id="C2")
+
+            module.render_multi_day_docx([first_json, second_json], output_docx, package_title="Slack Export DOCX Package")
+
+            self.assertTrue(output_docx.exists())
+            with zipfile.ZipFile(output_docx, "r") as zf:
+                document = ET.fromstring(zf.read("word/document.xml"))
+
+            text_values = [elem.text or "" for elem in document.findall(f".//{{{W_NS}}}t")]
+            joined = "\n".join(text_values)
+            self.assertIn("Slack Export DOCX Package", joined)
+            self.assertIn("default / #general", joined)
+            self.assertIn("default / #alerts", joined)
+            self.assertIn("2026-04-11", joined)
+            self.assertIn("2026-04-12", joined)
+
+            page_breaks = [
+                br for br in document.findall(f".//{{{W_NS}}}br")
+                if br.get(f"{{{W_NS}}}type") == "page"
+            ]
+            self.assertEqual(len(page_breaks), 1)
 
 
 if __name__ == "__main__":

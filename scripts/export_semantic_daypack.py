@@ -53,6 +53,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=20)
     ap.add_argument("--outdir", default="exports/semantic-daypack")
     ap.add_argument("--output-pdf", default="exports/semantic-daypack.pdf")
+    ap.add_argument("--output-docx", default="", help="optional combined DOCX output path")
     ap.add_argument("--embed-attachments", action="store_true")
     ap.add_argument("--attach-files", action="store_true", help="attach source files directly into final PDF")
     args = ap.parse_args()
@@ -143,7 +144,22 @@ def main() -> int:
         combine_cmd.append("--attach-files")
     run(combine_cmd)
 
+    if args.output_docx:
+        combine_docx_cmd = [
+            ".venv/bin/python",
+            "scripts/export_multi_day_docx.py",
+            "--inputs",
+            *[str(p) for p in json_exports],
+            "--output-docx",
+            args.output_docx,
+            "--title",
+            f"Slack semantic daypack: {args.workspace}",
+        ]
+        run(combine_docx_cmd)
+
     print(f"Exported {len(json_exports)} day bundles -> {args.output_pdf}")
+    if args.output_docx:
+        print(f"Exported {len(json_exports)} day bundles -> {args.output_docx}")
     print("Bundles:")
     for p in json_exports:
         print(f"  - {p}")

@@ -70,13 +70,28 @@ PDF UX:
   --attach-files
 ```
 
-## 5) One-shot semantic search -> full-day exports -> combined PDF
+## 5) Combine multiple channel/day JSON exports into one DOCX
+
+```bash
+.venv/bin/python scripts/export_multi_day_docx.py \
+  --inputs exports/hit-days/*.json \
+  --output-docx exports/soylei-semantic-hits-daypack.docx \
+  --title "Slack Export DOCX Package"
+```
+
+DOCX UX in the current multi-day baseline:
+- builds from the same channel/day JSON artifact as the single-day DOCX renderer
+- inserts page breaks between bundled day/channel exports
+- preserves the same message, reply, and attachment block semantics
+
+## 6) One-shot semantic search -> full-day exports -> combined PDF/DOCX
 
 ```bash
 python scripts/export_semantic_daypack.py \
   --workspace soylei \
   --terms "asphalt emulsions" "pure asphalt" "hawkseale" \
   --output-pdf exports/soylei-semantic-hits-daypack-auto.pdf \
+  --output-docx exports/soylei-semantic-hits-daypack-auto.docx \
   --embed-attachments \
   --attach-files
 ```

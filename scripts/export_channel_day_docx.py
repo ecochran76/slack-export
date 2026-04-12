@@ -235,17 +235,23 @@ def _hyperlink_paragraph(
     return paragraph
 
 
-def _document_xml(data: dict, relationships: list[tuple[str, str]]) -> bytes:
-    document = ET.Element(w("document"))
-    body = ET.SubElement(document, w("body"))
+def _add_page_break(paragraph: ET.Element) -> None:
+    run = ET.SubElement(paragraph, w("r"))
+    br = ET.SubElement(run, w("br"))
+    br.set(w("type"), "page")
 
+
+def _append_export_block(
+    body: ET.Element,
+    data: dict,
+    relationships: list[tuple[str, str]],
+    next_rel_index: int,
+) -> int:
     title = f"{data.get('workspace')} / #{data.get('channel')}"
     body.append(_paragraph(title, style="Title", spacing_after=180))
     body.append(_paragraph(f"Day: {data.get('day')} ({data.get('tz')})", spacing_after=80))
     body.append(_paragraph(f"Channel ID: {data.get('channel_id')}", spacing_after=80))
     body.append(_paragraph(f"Messages exported: {len(data.get('messages', []))}", spacing_after=200))
-
-    next_rel_index = 1
 
     for msg in data.get("messages", []):
         is_reply = bool(msg.get("thread_ts")) and str(msg.get("thread_ts")) != str(msg.get("ts"))
@@ -298,6 +304,24 @@ def _document_xml(data: dict, relationships: list[tuple[str, str]]) -> bytes:
                     body.append(_paragraph("source: local file", style=item_style))
                 elif permalink:
                     body.append(_paragraph(f"permalink: {permalink}", style=item_style))
+    return next_rel_index
+
+
+def _document_xml_for_exports(data_items: list[dict], relationships: list[tuple[str, str]], *, package_title: str | None = None) -> bytes:
+    document = ET.Element(w("document"))
+    body = ET.SubElement(document, w("body"))
+    next_rel_index = 1
+    total = len(data_items)
+
+    if package_title:
+        body.append(_paragraph(package_title, style="Heading1", spacing_after=180))
+
+    for index, data in enumerate(data_items):
+        next_rel_index = _append_export_block(body, data, relationships, next_rel_index)
+        if index != total - 1:
+            page_break = _paragraph()
+            _add_page_break(page_break)
+            body.append(page_break)
 
     sect_pr = ET.SubElement(body, w("sectPr"))
     pg_sz = ET.SubElement(sect_pr, w("pgSz"))
@@ -315,6 +339,10 @@ def _document_xml(data: dict, relationships: list[tuple[str, str]]) -> bytes:
     }.items():
         pg_mar.set(w(key), value)
     return _serialize_xml(document)
+
+
+def _document_xml(data: dict, relationships: list[tuple[str, str]]) -> bytes:
+    return _document_xml_for_exports([data], relationships)
 
 
 def _document_rels_xml(relationships: list[tuple[str, str]]) -> bytes:
@@ -355,6 +383,26 @@ def render_channel_day_docx(input_json: Path, output_docx: Path) -> Path:
         "word/styles.xml": _styles_xml(),
     }
     parts["word/document.xml"] = _document_xml(data, relationships)
+    parts["word/_rels/document.xml.rels"] = _document_rels_xml(relationships)
+    with zipfile.ZipFile(output_docx, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for name, payload in parts.items():
+            zf.writestr(name, payload)
+    return output_docx
+
+
+def render_multi_day_docx(json_paths: list[Path], output_docx: Path, *, package_title: str | None = None) -> Path:
+    output_docx.parent.mkdir(parents=True, exist_ok=True)
+    data_items = [json.loads(path.read_text(encoding="utf-8")) for path in json_paths]
+    relationships: list[tuple[str, str]] = []
+    title = package_title or "Slack Export DOCX Package"
+    parts = {
+        "[Content_Types].xml": _content_types_xml(),
+        "_rels/.rels": _root_rels_xml(),
+        "docProps/core.xml": _core_props_xml(title),
+        "docProps/app.xml": _app_props_xml(),
+        "word/styles.xml": _styles_xml(),
+    }
+    parts["word/document.xml"] = _document_xml_for_exports(data_items, relationships, package_title=package_title)
     parts["word/_rels/document.xml.rels"] = _document_rels_xml(relationships)
     with zipfile.ZipFile(output_docx, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, payload in parts.items():
