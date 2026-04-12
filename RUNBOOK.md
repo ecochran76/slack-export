@@ -783,3 +783,17 @@ This file is the dated turn log for planning and execution continuity.
   - clickable attachment links for local files and permalinks
 - Added regression coverage in `tests/test_export_docx.py` for OOXML package structure, reply indentation, and hyperlink relationships.
 - Updated `docs/dev/EXPORTS.md`, `README.md`, and `ROADMAP.md` to reflect the new renderer.
+
+## Turn 52 | 2026-04-11
+
+- Tightened the initial DOCX renderer around presentation quality without changing the export ownership path.
+- Added explicit DOCX paragraph styles for:
+  - metadata
+  - reply metadata
+  - message body
+  - reply body
+  - attachment items
+- Improved attachment presentation so DOCX output now distinguishes:
+  - local-only file sources
+  - permalink-backed files
+- Extended `tests/test_export_docx.py` to lock in the style set and the richer attachment/source semantics.

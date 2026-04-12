@@ -87,6 +87,7 @@ Current state:
 - active follow-up scope is now narrowed again through `0008`, which is focused on export-quality OOXML work rather than reopening generic search modernization
 - the current `0008` decision is to make channel/day export the first DOCX-quality target, with multi-day and semantic daypack outputs composing on top of that same artifact
 - the first implementation slice under `0008` is a bounded DOCX renderer over the existing channel/day JSON export artifact
+- the current `0008` quality pass is improving paragraph/run formatting and attachment presentation within that same renderer rather than adding a second export path
 
 Legacy context:
 - `docs/dev/PHASE_E_SEMANTIC_SEARCH.md`

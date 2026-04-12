@@ -76,18 +76,61 @@ def _styles_xml() -> bytes:
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
     <w:name w:val="Normal"/>
     <w:qFormat/>
+    <w:pPr><w:spacing w:after="120"/></w:pPr>
+    <w:rPr><w:sz w:val="22"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Title">
     <w:name w:val="Title"/>
     <w:basedOn w:val="Normal"/>
     <w:qFormat/>
+    <w:pPr><w:spacing w:after="180"/></w:pPr>
     <w:rPr><w:b/><w:sz w:val="28"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading1">
     <w:name w:val="heading 1"/>
     <w:basedOn w:val="Normal"/>
     <w:qFormat/>
+    <w:pPr><w:spacing w:before="120" w:after="120"/></w:pPr>
     <w:rPr><w:b/><w:sz w:val="24"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Meta">
+    <w:name w:val="Meta"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:spacing w:before="80" w:after="20"/></w:pPr>
+    <w:rPr><w:sz w:val="20"/><w:color w:val="1F4E79"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="ReplyMeta">
+    <w:name w:val="Reply Meta"/>
+    <w:basedOn w:val="Meta"/>
+    <w:pPr><w:ind w:left="720"/><w:spacing w:before="120" w:after="20"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="MessageBody">
+    <w:name w:val="Message Body"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:ind w:left="240"/><w:spacing w:after="40"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="ReplyBody">
+    <w:name w:val="Reply Body"/>
+    <w:basedOn w:val="MessageBody"/>
+    <w:pPr><w:ind w:left="960"/><w:spacing w:after="40"/></w:pPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="AttachmentHeading">
+    <w:name w:val="Attachment Heading"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:ind w:left="240"/><w:spacing w:before="40" w:after="20"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="20"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="AttachmentItem">
+    <w:name w:val="Attachment Item"/>
+    <w:basedOn w:val="Normal"/>
+    <w:pPr><w:ind w:left="480"/><w:spacing w:after="20"/></w:pPr>
+    <w:rPr><w:sz w:val="20"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="AttachmentItemReply">
+    <w:name w:val="Attachment Item Reply"/>
+    <w:basedOn w:val="AttachmentItem"/>
+    <w:pPr><w:ind w:left="1200"/><w:spacing w:after="20"/></w:pPr>
+    <w:rPr><w:sz w:val="20"/></w:rPr>
   </w:style>
 </w:styles>
 """.encode("utf-8")
@@ -176,9 +219,10 @@ def _hyperlink_paragraph(
     url: str,
     rid: str,
     *,
+    style: str | None = None,
     indent_twips: int = 0,
 ) -> ET.Element:
-    paragraph = _paragraph(indent_twips=indent_twips)
+    paragraph = _paragraph(style=style, indent_twips=indent_twips)
     hyperlink = ET.SubElement(paragraph, w("hyperlink"))
     hyperlink.set(f"{{{R_NS}}}id", rid)
     run = ET.SubElement(hyperlink, w("r"))
@@ -206,7 +250,12 @@ def _document_xml(data: dict, relationships: list[tuple[str, str]]) -> bytes:
     for msg in data.get("messages", []):
         is_reply = bool(msg.get("thread_ts")) and str(msg.get("thread_ts")) != str(msg.get("ts"))
         indent = 720 if is_reply else 0
-        meta = _paragraph(indent_twips=indent, spacing_before=120, spacing_after=20)
+        meta = _paragraph(
+            style="ReplyMeta" if is_reply else "Meta",
+            indent_twips=indent if not is_reply else None,
+            spacing_before=120 if not is_reply else None,
+            spacing_after=20 if not is_reply else None,
+        )
         if is_reply:
             _add_text_run(meta, "[THREAD REPLY] ", bold=True, color="0F172A")
         _add_text_run(
@@ -222,24 +271,33 @@ def _document_xml(data: dict, relationships: list[tuple[str, str]]) -> bytes:
             _add_text_run(meta, "  deleted", preserve_space=True)
         body.append(meta)
 
-        body.append(_paragraph(msg.get("text") or "", indent_twips=indent + 240, spacing_after=40))
+        body.append(_paragraph(msg.get("text") or "", style="ReplyBody" if is_reply else "MessageBody"))
 
         attachments = msg.get("attachments") or []
         if attachments:
-            body.append(_paragraph("Attachments", indent_twips=indent + 240, spacing_before=40, spacing_after=20))
+            body.append(_paragraph("Attachments", style="AttachmentHeading", indent_twips=indent + 240))
             for att in attachments:
                 name = att.get("name") or att.get("id") or "attachment"
                 mimetype = att.get("mimetype") or ""
-                link = att.get("local_path") or att.get("permalink") or ""
+                local_path = att.get("local_path") or ""
+                permalink = att.get("permalink") or ""
+                link = local_path or permalink or ""
                 label = f"{name} ({mimetype})" if mimetype else name
+                item_style = "AttachmentItemReply" if is_reply else "AttachmentItem"
                 if link:
                     rid = _next_rid(next_rel_index)
                     next_rel_index += 1
                     target = f"file://{link}" if str(link).startswith("/") else str(link)
                     relationships.append((rid, target))
-                    body.append(_hyperlink_paragraph(label, target, rid, indent_twips=indent + 480))
+                    body.append(_hyperlink_paragraph(label, target, rid, style=item_style))
                 else:
-                    body.append(_paragraph(label, indent_twips=indent + 480))
+                    body.append(_paragraph(label, style=item_style))
+                if local_path and permalink:
+                    body.append(_paragraph(f"permalink: {permalink}", style=item_style))
+                elif local_path:
+                    body.append(_paragraph("source: local file", style=item_style))
+                elif permalink:
+                    body.append(_paragraph(f"permalink: {permalink}", style=item_style))
 
     sect_pr = ET.SubElement(body, w("sectPr"))
     pg_sz = ET.SubElement(sect_pr, w("pgSz"))

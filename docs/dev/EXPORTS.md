@@ -37,6 +37,8 @@ DOCX UX in the current baseline:
 - thread-reply labeling and indentation
 - speaker/timestamp metadata lines
 - clickable attachment links for local files or permalinks
+- explicit paragraph styles for metadata, message body, reply body, and attachment blocks
+- attachment follow-up lines that distinguish local-only files from permalink-backed files
 - no second SQLite-querying DOCX path
 
 ## 3) Render JSON export to PDF

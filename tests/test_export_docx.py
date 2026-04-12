@@ -81,6 +81,7 @@ class ExportDocxTests(unittest.TestCase):
 
                 document = ET.fromstring(zf.read("word/document.xml"))
                 rels = ET.fromstring(zf.read("word/_rels/document.xml.rels"))
+                styles = ET.fromstring(zf.read("word/styles.xml"))
 
             text_values = [elem.text or "" for elem in document.findall(f".//{{{W_NS}}}t")]
             joined = "\n".join(text_values)
@@ -90,9 +91,23 @@ class ExportDocxTests(unittest.TestCase):
             self.assertIn("[THREAD REPLY] ", joined)
             self.assertIn("Reply detail", joined)
             self.assertIn("incident.png (image/png)", joined)
+            self.assertIn("source: local file", joined)
 
-            indents = document.findall(f".//{{{W_NS}}}pPr/{{{W_NS}}}ind")
-            self.assertTrue(any(ind.get(f"{{{W_NS}}}left") == "720" for ind in indents))
+            paragraph_styles = [
+                style.get(f"{{{W_NS}}}val")
+                for style in document.findall(f".//{{{W_NS}}}pPr/{{{W_NS}}}pStyle")
+            ]
+            self.assertIn("ReplyMeta", paragraph_styles)
+            self.assertIn("ReplyBody", paragraph_styles)
+            self.assertIn("AttachmentItem", paragraph_styles)
+
+            style_ids = {style.attrib.get(f"{{{W_NS}}}styleId") for style in styles.findall(f".//{{{W_NS}}}style")}
+            self.assertIn("Meta", style_ids)
+            self.assertIn("ReplyMeta", style_ids)
+            self.assertIn("MessageBody", style_ids)
+            self.assertIn("ReplyBody", style_ids)
+            self.assertIn("AttachmentItem", style_ids)
+            self.assertIn("AttachmentItemReply", style_ids)
 
             hyperlink_rels = [
                 rel

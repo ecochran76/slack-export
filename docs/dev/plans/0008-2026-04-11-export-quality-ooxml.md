@@ -84,6 +84,7 @@ Current status:
 
 - the first bounded renderer target is channel/day DOCX output over the canonical JSON artifact
 - the first QA pass is package-structure and content-contract validation rather than visual polish
+- the current implementation pass now includes explicit paragraph styles and richer attachment/source presentation within the same bounded renderer
 
 ## Non-Goals
 
@@ -109,7 +110,8 @@ Current status:
 Current status:
 
 - shipped through `scripts/export_channel_day_docx.py`
-- next likely slice is fixture quality and richer formatting, not a second export ownership path
+- paragraph-style and attachment-presentation hardening is now landed in the same renderer
+- next likely slice is deeper fixture quality or bounded multi-day composition, not a second export ownership path
 
 ## Definition Of Done
 
