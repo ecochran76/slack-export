@@ -66,7 +66,7 @@ slack-mirror mirror reconcile-files --workspace default --auth-mode user --limit
 - skips rows that already have a real on-disk `local_path`
 - attempts bounded repair downloads into the normal cache layout
 - updates `files.local_path` / `checksum` only on real binary success
-- reports classified failure reasons such as `html_interstitial`, `not_found`, `forbidden`, and `timeout`
+- reports classified failure reasons such as `email_container`, `email_container_with_attachments`, `html_interstitial`, `not_found`, `forbidden`, and `timeout`
 
 Download path contract:
 - bundle HTML report: `/exports/<export-id>` or `/exports/<export-id>/`

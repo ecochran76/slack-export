@@ -243,6 +243,15 @@ def reconcile_file_downloads(
     failure_reasons: dict[str, int] = {}
     failed_files: list[dict[str, str]] = []
 
+    def classify_reconcile_failure(file_obj: dict[str, object], error: str | None) -> str:
+        base = classify_download_error(error)
+        mode = str(file_obj.get("mode") or "").strip().lower()
+        mimetype = str(file_obj.get("mimetype") or "").strip().lower()
+        attachment_count = int(file_obj.get("original_attachment_count") or 0)
+        if base == "html_interstitial" and mode == "email" and mimetype == "text/html":
+            return "email_container_with_attachments" if attachment_count > 0 else "email_container"
+        return base
+
     for row in rows:
         scanned += 1
         raw_json = row["raw_json"]
@@ -281,7 +290,7 @@ def reconcile_file_downloads(
             downloaded += 1
         else:
             failed += 1
-            reason = classify_download_error(checksum_or_error)
+            reason = classify_reconcile_failure(file_obj, checksum_or_error)
             failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
             failed_files.append(
                 {

@@ -1124,6 +1124,8 @@ This file is the dated turn log for planning and execution continuity.
 
 - Extended `mirror reconcile-files` with structured failure reporting and `--json` output.
 - Failure counts are now classified by reason, so bounded repair runs can distinguish cases like:
+  - `email_container`
+  - `email_container_with_attachments`
   - `html_interstitial`
   - `not_found`
   - `forbidden`
