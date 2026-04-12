@@ -138,7 +138,10 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             return parse_qs(urlparse(self.path).query)
 
         def _path(self) -> str:
-            return urlparse(self.path).path.rstrip("/") or "/"
+            raw = urlparse(self.path).path or "/"
+            if raw.startswith("/exports/"):
+                return raw
+            return raw.rstrip("/") or "/"
 
         def _workspace_status(self, workspace: str, query: dict[str, list[str]]) -> None:
             conn = service.connect()
@@ -196,6 +199,20 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     default_audience=audience,
                 )
                 _json_response(self, 200, {"ok": True, "export": payload})
+                return
+
+            m = re.fullmatch(r"/exports/([^/]+)/?", path)
+            if m:
+                export_id = m.group(1)
+                try:
+                    target = safe_export_path(export_root, export_id, "index.html")
+                except ValueError as exc:
+                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                    return
+                if not target.exists() or not target.is_file():
+                    _error_response(self, 404, "NOT_FOUND", f"Export report not found: {export_id}/index.html")
+                    return
+                _file_response(self, target)
                 return
 
             m = re.fullmatch(r"/exports/([^/]+)/(.+?)/preview", path)

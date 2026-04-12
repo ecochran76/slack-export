@@ -45,6 +45,7 @@ Managed bundle behavior:
 - uses `exports.local_base_url` and `exports.external_base_url` when configured, so one export bundle can serve both local and external consumers
 
 Download path contract:
+- bundle HTML report: `/exports/<export-id>` or `/exports/<export-id>/`
 - `/exports/<export-id>/<filepath>`
 - preview path: `/exports/<export-id>/<filepath>/preview`
 - API manifest paths:

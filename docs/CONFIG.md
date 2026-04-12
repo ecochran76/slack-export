@@ -67,6 +67,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 
 Managed export URLs use this path contract:
 
+- `/exports/<export-id>` serves the bundle HTML report
 - `/exports/<export-id>/<filepath>`
 - `/exports/<export-id>/<filepath>/preview`
 - `/v1/exports`

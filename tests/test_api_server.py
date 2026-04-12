@@ -193,6 +193,7 @@ class ApiServerTests(unittest.TestCase):
         bundle_dir = exports_root / "channel-day-default-general-2026-04-12-abc123"
         attachment_dir = bundle_dir / "attachments" / "incident"
         attachment_dir.mkdir(parents=True)
+        (bundle_dir / "index.html").write_text("<html><body><h1>preview smoke</h1></body></html>", encoding="utf-8")
         (attachment_dir / "report.pdf").write_bytes(b"%PDF-1.4\n")
         (attachment_dir / "preview.txt").write_text("preview body\n", encoding="utf-8")
         (attachment_dir / "archive.bin").write_bytes(b"\x00\x01")
@@ -289,6 +290,22 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(ok.headers["content-type"], "application/pdf")
         self.assertEqual(ok.content, b"%PDF-1.4\n")
+
+        bundle_report = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
+            timeout=5,
+        )
+        self.assertEqual(bundle_report.status_code, 200)
+        self.assertIn("text/html", bundle_report.headers["content-type"])
+        self.assertIn("<h1>preview smoke</h1>", bundle_report.text)
+
+        bundle_report_slash = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/",
+            timeout=5,
+        )
+        self.assertEqual(bundle_report_slash.status_code, 200)
+        self.assertIn("text/html", bundle_report_slash.headers["content-type"])
+        self.assertIn("<h1>preview smoke</h1>", bundle_report_slash.text)
 
         preview = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/report.pdf/preview",
