@@ -289,8 +289,10 @@ class ApiServerTests(unittest.TestCase):
         index_html = requests.get(f"{self.base_url}/runtime/reports", timeout=5)
         self.assertEqual(index_html.status_code, 200)
         self.assertIn("Slack Mirror Runtime Reports", index_html.text)
-        self.assertIn("/runtime/reports/morning-ops", index_html.text)
+        self.assertIn("/runtime/reports/latest", index_html.text)
         self.assertIn("/runtime/reports/morning-ops.latest.json", index_html.text)
+        self.assertIn("latest</span>", index_html.text)
+        self.assertIn("latest-row", index_html.text)
 
     def test_runtime_reports_endpoint_rejects_invalid_names(self):
         resp = requests.get(f"{self.base_url}/v1/runtime/reports/bad%20name", timeout=5)

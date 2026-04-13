@@ -1274,3 +1274,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 95 | 2026-04-13
+
+- Added visual latest-report emphasis on the `/runtime/reports` browser index.
+- The freshest snapshot row is now highlighted, badged, and linked through `/runtime/reports/latest`, while the named report routes remain unchanged.
+- Updated the API/runtime/install docs so the browser index behavior is explicit for operators.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

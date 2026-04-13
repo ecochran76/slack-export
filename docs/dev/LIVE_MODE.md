@@ -160,6 +160,8 @@ The local API also publishes the latest managed snapshots directly:
 - `GET /runtime/reports/{name}`
 - `GET /runtime/reports/latest`
 
+The browser index at `/runtime/reports` highlights the freshest snapshot and routes that row through the stable `/runtime/reports/latest` alias.
+
 Bounded recovery planner:
 
 ```bash
