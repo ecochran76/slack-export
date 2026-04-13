@@ -37,7 +37,11 @@ API:
 - `GET /runtime/reports/{name}.latest.md`
 - `GET /runtime/reports/{name}.latest.json`
 
-There is no MCP equivalent yet. This is an API-only operator convenience surface over the managed `runtime-reports/` state directory.
+MCP:
+
+- `runtime.report.latest`
+
+Named report browsing remains API-only. MCP now exposes the freshest managed runtime report manifest for the common “latest snapshot” case.
 
 Important fields for the JSON listing/detail routes:
 
@@ -49,6 +53,16 @@ Important fields for the JSON listing/detail routes:
 - `html_url`
 - `markdown_url`
 - `json_url`
+
+Important fields for `runtime.report.latest`:
+
+- `ok`
+- `report`
+  - `name`
+  - `base_url`
+  - `fetched_at`
+  - `status`
+  - `summary`
 
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
 `/runtime/reports` serves a simple HTML index over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`, plus header links for the latest HTML and latest manifest.

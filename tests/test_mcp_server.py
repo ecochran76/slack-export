@@ -82,6 +82,7 @@ class McpServerTests(unittest.TestCase):
         names = [tool["name"] for tool in tools["result"]["tools"]]
         self.assertIn("health", names)
         self.assertIn("runtime.status", names)
+        self.assertIn("runtime.report.latest", names)
         self.assertIn("runtime.live_validation", names)
         self.assertIn("search.corpus", names)
         self.assertIn("search.health", names)
@@ -271,6 +272,55 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"reconcile_workspaces"', text)
         self.assertIn('"name": "default"', text)
         mock_status.assert_called_once_with()
+
+    def test_runtime_report_latest_tool(self):
+        with patch.object(
+            self.server.service,
+            "latest_runtime_report",
+            return_value={
+                "name": "scheduled-runtime-report",
+                "status": "pass_with_warnings",
+                "summary": "Summary: PASS with warnings (1)",
+            },
+        ) as mock_latest:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 67,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "runtime.report.latest",
+                        "arguments": {},
+                    },
+                }
+            )
+        text = result["result"]["content"][0]["text"]
+        self.assertIn('"ok": true', text)
+        self.assertIn('"name": "scheduled-runtime-report"', text)
+        self.assertIn('"status": "pass_with_warnings"', text)
+        mock_latest.assert_called_once_with()
+
+    def test_runtime_report_latest_tool_handles_missing_reports(self):
+        with patch.object(
+            self.server.service,
+            "latest_runtime_report",
+            return_value=None,
+        ) as mock_latest:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 68,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "runtime.report.latest",
+                        "arguments": {},
+                    },
+                }
+            )
+        text = result["result"]["content"][0]["text"]
+        self.assertIn('"ok": false', text)
+        self.assertIn('"code": "NOT_FOUND"', text)
+        mock_latest.assert_called_once_with()
 
     def test_search_tools(self):
         with patch.object(

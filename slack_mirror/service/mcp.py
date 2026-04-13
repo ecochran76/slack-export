@@ -35,6 +35,11 @@ class SlackMirrorMcpServer:
             _tool("health", "Show service health summary", {"type": "object", "properties": {}, "additionalProperties": False}),
             _tool("runtime.status", "Show managed runtime status and latest reconcile summary", {"type": "object", "properties": {}, "additionalProperties": False}),
             _tool(
+                "runtime.report.latest",
+                "Show the latest managed runtime report manifest",
+                {"type": "object", "properties": {}, "additionalProperties": False},
+            ),
+            _tool(
                 "runtime.live_validation",
                 "Validate managed runtime or full live-service health",
                 {
@@ -232,6 +237,11 @@ class SlackMirrorMcpServer:
             return self._mcp_result({"ok": True})
         if name == "runtime.status":
             return self._mcp_result(self.service.runtime_status())
+        if name == "runtime.report.latest":
+            payload = self.service.latest_runtime_report()
+            if payload is None:
+                return self._mcp_result({"ok": False, "error": {"code": "NOT_FOUND", "message": "No runtime reports available"}})
+            return self._mcp_result({"ok": True, "report": payload})
         if name == "runtime.live_validation":
             return self._mcp_result(
                 self.service.validate_live_runtime(

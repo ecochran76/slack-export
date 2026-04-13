@@ -1292,3 +1292,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 97 | 2026-04-13
+
+- Added MCP parity for the common latest-runtime-report case through `runtime.report.latest`.
+- Kept named runtime report browsing API-only; the MCP addition is intentionally narrow and only exposes the freshest managed snapshot manifest.
+- Updated the transport contract docs so latest-report convenience is no longer browser/API-only.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_mcp_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
