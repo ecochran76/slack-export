@@ -10,6 +10,7 @@ from typing import Any
 
 from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
+from slack_mirror.exports import list_export_manifests, resolve_export_base_urls, resolve_export_root
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.frontend_auth import (
@@ -82,6 +83,14 @@ class RuntimeStatusResult:
 @dataclass(frozen=True)
 class RuntimeReportListResult:
     reports: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class LandingPageResult:
+    runtime_status: dict[str, Any]
+    latest_report: dict[str, Any] | None
+    reports: list[dict[str, Any]] = field(default_factory=list)
+    exports: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SlackMirrorAppService:
@@ -209,6 +218,23 @@ class SlackMirrorAppService:
     def latest_runtime_report(self) -> dict[str, Any] | None:
         reports = list_runtime_report_manifests(self.config.path)
         return reports[0] if reports else None
+
+    def landing_page_data(self, *, export_audience: str = "local") -> LandingPageResult:
+        runtime_status = self.runtime_status().__dict__
+        reports = list_runtime_report_manifests(self.config.path)
+        export_root = resolve_export_root(self.config)
+        export_base_urls = resolve_export_base_urls(self.config)
+        exports = list_export_manifests(
+            export_root,
+            base_urls=export_base_urls,
+            default_audience=export_audience,
+        )
+        return LandingPageResult(
+            runtime_status=runtime_status,
+            latest_report=reports[0] if reports else None,
+            reports=reports[:5],
+            exports=exports[:6],
+        )
 
     def frontend_auth_config(self) -> FrontendAuthConfig:
         return frontend_auth_config(self.config.data)

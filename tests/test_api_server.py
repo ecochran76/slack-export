@@ -355,6 +355,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(html_redirect.status_code, 303)
         self.assertIn("/login?next=%2Fruntime%2Freports", html_redirect.headers["location"])
 
+        root_redirect = requests.get(f"{base_url}/", timeout=5, allow_redirects=False)
+        self.assertEqual(root_redirect.status_code, 303)
+        self.assertEqual(root_redirect.headers["location"], "/login?next=%2F")
+
         export_redirect = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
             timeout=5,
@@ -385,6 +389,14 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(auth_session.status_code, 200)
         self.assertTrue(auth_session.json()["session"]["authenticated"])
         self.assertEqual(auth_session.json()["session"]["username"], "eric")
+
+        landing = session.get(f"{base_url}/", timeout=5)
+        self.assertEqual(landing.status_code, 200)
+        self.assertIn("Authenticated workspace home", landing.text)
+        self.assertIn("Signed in as <strong>Eric</strong>", landing.text)
+        self.assertIn("/runtime/reports/latest", landing.text)
+        self.assertIn("/exports/channel-day-default-general-2026-04-12-abc123", landing.text)
+        self.assertIn("/v1/exports", landing.text)
 
         allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
         self.assertEqual(allowed.status_code, 200)

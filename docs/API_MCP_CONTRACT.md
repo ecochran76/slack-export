@@ -35,6 +35,7 @@ API only:
 - `POST /auth/logout`
 - `GET /login`
 - `GET /register`
+- `GET /`
 
 Current semantics:
 
@@ -44,6 +45,7 @@ Current semantics:
   - unauthenticated HTML requests for protected routes redirect to `/login`
   - unauthenticated protected JSON requests fail with `AUTH_REQUIRED`
 - protected routes currently include:
+  - `/`
   - `/exports/*`
   - `/v1/exports*`
   - `/runtime/reports*`
@@ -70,6 +72,8 @@ Important fields for `/auth/session`, `/auth/register`, and `/auth/login`:
 - `session_id`
 - `auth_source`
 - `expires_at`
+
+`/` is the canonical browser landing page when frontend auth is enabled. It is an HTML-only authenticated view over the existing runtime-status, runtime-report, and export-manifest surfaces.
 
 ## Runtime Reports
 

@@ -297,6 +297,181 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
     )
 
 
+def _landing_page_html(
+    *,
+    auth_session: FrontendAuthSession,
+    runtime_status: dict[str, Any],
+    latest_report: dict[str, Any] | None,
+    reports: list[dict[str, Any]],
+    exports: list[dict[str, Any]],
+) -> str:
+    status_payload = runtime_status.get("status", {})
+    services = status_payload.get("services") or {}
+    reconcile_workspaces = status_payload.get("reconcile_workspaces") or []
+    services_active = sum(1 for state in services.values() if state == "active")
+    warnings = sum(int(item.get("warnings", 0) or 0) for item in reconcile_workspaces)
+    failures = sum(int(item.get("failed", 0) or 0) for item in reconcile_workspaces)
+    user_label = auth_session.display_name or auth_session.username or "Authenticated user"
+
+    def code(text: Any) -> str:
+        return f"<code>{escape(str(text))}</code>"
+
+    def badge(label: str, tone: str = "neutral") -> str:
+        return f"<span class='badge badge-{tone}'>{escape(label)}</span>"
+
+    health_badges = []
+    health_badges.append(badge("healthy" if runtime_status.get("ok") else "degraded", "ok" if runtime_status.get("ok") else "warn"))
+    if failures:
+        health_badges.append(badge(f"{failures} reconcile failed", "bad"))
+    elif warnings:
+        health_badges.append(badge(f"{warnings} reconcile warnings", "warn"))
+    else:
+        health_badges.append(badge("reconcile clean", "ok"))
+    latest_summary = escape(str((latest_report or {}).get("summary") or "No runtime snapshot published yet"))
+
+    report_items = []
+    for report in reports:
+        name = str(report.get("name") or "unknown")
+        report_items.append(
+            "<li class='list-row'>"
+            f"<div><a href=\"/runtime/reports/{escape(name, quote=True)}\">{escape(name)}</a> "
+            f"{badge(str(report.get('status') or 'unknown'), 'ok' if str(report.get('status') or '') == 'pass' else 'warn')}</div>"
+            f"<div class='meta'>{escape(str(report.get('summary') or ''))}</div>"
+            f"<div class='meta'>{code(report.get('fetched_at') or '')}</div>"
+            "</li>"
+        )
+    if not report_items:
+        report_items.append("<li class='empty'>No runtime reports yet.</li>")
+
+    export_items = []
+    for item in exports:
+        export_id = str(item.get("export_id") or "unknown")
+        workspace = str(item.get("workspace") or "unknown")
+        channel = str(item.get("channel") or item.get("channel_id") or "unknown")
+        export_items.append(
+            "<li class='list-row'>"
+            f"<div><a href=\"/exports/{escape(export_id, quote=True)}\">{escape(export_id)}</a></div>"
+            f"<div class='meta'>{badge(str(item.get('kind') or 'export'), 'neutral')} {code(workspace)} {code(channel)}</div>"
+            f"<div class='meta'>{escape(str(item.get('day') or ''))} · {int(item.get('attachment_count', 0) or 0)} attachments · {int(item.get('file_count', 0) or 0)} files</div>"
+            "</li>"
+        )
+    if not export_items:
+        export_items.append("<li class='empty'>No managed exports published yet.</li>")
+
+    reconcile_rows = []
+    for workspace in reconcile_workspaces:
+        name = str(workspace.get("name") or "unknown")
+        if workspace.get("state_present"):
+            age = workspace.get("age_seconds")
+            age_text = f"{int(age)}s ago" if age is not None else "age unknown"
+            reconcile_rows.append(
+                "<li class='list-row compact'>"
+                f"<div>{badge(name, 'neutral')} downloaded {code(workspace.get('downloaded', 0))} "
+                f"warnings {code(workspace.get('warnings', 0))} failed {code(workspace.get('failed', 0))}</div>"
+                f"<div class='meta'>{escape(age_text)}</div>"
+                "</li>"
+            )
+        else:
+            reconcile_rows.append(
+                "<li class='list-row compact'>"
+                f"<div>{badge(name, 'neutral')} no reconcile state yet</div>"
+                "</li>"
+            )
+    if not reconcile_rows:
+        reconcile_rows.append("<li class='empty'>No reconcile state available.</li>")
+
+    endpoint_rows = "".join(
+        [
+            f"<li class='list-row compact'><a href=\"/v1/runtime/status\">{code('/v1/runtime/status')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/v1/runtime/reports/latest\">{code('/v1/runtime/reports/latest')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/v1/exports\">{code('/v1/exports')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/auth/session\">{code('/auth/session')}</a></li>",
+        ]
+    )
+
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--accent-soft:#dfeafe;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--bad:#a12828;--bad-soft:#fde5e5;--shadow:0 14px 30px rgba(18,32,51,.08);}"
+        "*{box-sizing:border-box} body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:radial-gradient(circle at top right,#fff8ef 0,transparent 28%),linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        "a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}"
+        ".shell{max-width:1180px;margin:0 auto;padding:32px 20px 48px}"
+        ".hero{display:grid;grid-template-columns:2.2fr 1fr;gap:18px;margin-bottom:18px}"
+        ".card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}"
+        ".hero-card{padding:28px}"
+        ".eyebrow{display:inline-block;padding:6px 10px;border-radius:999px;background:#ebe4d8;color:#514739;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}"
+        "h1{margin:14px 0 10px;font-size:40px;line-height:1.05}"
+        ".lede{margin:0;color:var(--muted);font-size:16px;line-height:1.55;max-width:52rem}"
+        ".hero-actions,.top-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}"
+        ".btn{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700}"
+        ".btn.secondary{background:#f8f5ef;border-color:var(--line);color:var(--ink)}"
+        ".mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}"
+        ".metric{padding:14px;border-radius:16px;background:#f7f2ea;border:1px solid #e2d8ca}"
+        ".metric .label{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}"
+        ".metric .value{font-size:28px;font-weight:800;line-height:1.1}"
+        ".meta{color:var(--muted);font-size:13px;line-height:1.45}"
+        ".grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px}"
+        ".stack{display:grid;gap:18px}"
+        ".section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}"
+        "h2{margin:0;font-size:19px}"
+        "ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}"
+        ".list-row{padding:14px 16px;border:1px solid #e4ddd1;border-radius:16px;background:#fcfaf6}"
+        ".list-row.compact{padding:12px 14px}"
+        ".empty{padding:16px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
+        ".badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1;margin-right:6px}"
+        ".badge-neutral{background:#ece7dc;color:#514739}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}.badge-bad{background:var(--bad-soft);color:var(--bad)}"
+        "code{background:#efe7da;border:1px solid #dfd3c2;padding:2px 6px;border-radius:8px;font-size:12px}"
+        ".status-line{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}"
+        ".service-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}"
+        ".service-pill{padding:10px 12px;border-radius:14px;background:#f7f2ea;border:1px solid #e2d8ca}"
+        "@media (max-width: 900px){.hero,.grid{grid-template-columns:1fr}.mini-grid,.service-list{grid-template-columns:1fr 1fr}}"
+        "@media (max-width: 640px){.shell{padding:20px 14px 32px}h1{font-size:32px}.mini-grid,.service-list{grid-template-columns:1fr}}"
+        "</style></head><body><div class='shell'>"
+        "<div class='hero'>"
+        "<section class='card hero-card'>"
+        "<span class='eyebrow'>Slack Mirror</span>"
+        "<h1>Authenticated workspace home</h1>"
+        f"<p class='lede'>Signed in as <strong>{escape(user_label)}</strong>. Use this page as the browser entrypoint for runtime health, the freshest ops snapshot, and recent managed exports.</p>"
+        f"<div class='status-line'>{''.join(health_badges)}</div>"
+        "<div class='hero-actions'>"
+        "<a class='btn' href='/runtime/reports/latest'>Latest runtime snapshot</a>"
+        "<a class='btn secondary' href='/runtime/reports'>Runtime reports</a>"
+        "<a class='btn secondary' href='/v1/exports'>Export manifest API</a>"
+        "<a class='btn secondary' href='/logout'>Logout</a>"
+        "</div>"
+        "<div class='mini-grid'>"
+        f"<div class='metric'><span class='label'>Managed Services</span><span class='value'>{services_active}</span><div class='meta'>{len(services)} tracked service states</div></div>"
+        f"<div class='metric'><span class='label'>Published Reports</span><span class='value'>{len(reports)}</span><div class='meta'>latest summary: {latest_summary}</div></div>"
+        f"<div class='metric'><span class='label'>Recent Exports</span><span class='value'>{len(exports)}</span><div class='meta'>managed bundles visible from the current config</div></div>"
+        "</div>"
+        "</section>"
+        "<aside class='card'>"
+        "<div class='section-title'><h2>Runtime health</h2></div>"
+        f"<div class='meta'>wrappers present {code(status_payload.get('wrappers_present', False))} · api service present {code(status_payload.get('api_service_present', False))}</div>"
+        "<div class='service-list'>"
+        + "".join(
+            f"<div class='service-pill'><div>{code(name)}</div><div class='meta'>{escape(str(state))}</div></div>"
+            for name, state in sorted(services.items())
+        )
+        + "</div>"
+        "<div class='section-title' style='margin-top:18px'><h2>Reconcile state</h2></div>"
+        f"<ul>{''.join(reconcile_rows)}</ul>"
+        "</aside>"
+        "</div>"
+        "<div class='grid'>"
+        "<section class='card'><div class='section-title'><h2>Recent runtime reports</h2><a href='/runtime/reports'>open all</a></div>"
+        f"<ul>{''.join(report_items)}</ul></section>"
+        "<div class='stack'>"
+        "<section class='card'><div class='section-title'><h2>Recent exports</h2><a href='/v1/exports'>manifest</a></div>"
+        f"<ul>{''.join(export_items)}</ul></section>"
+        "<section class='card'><div class='section-title'><h2>Useful endpoints</h2></div>"
+        f"<ul>{endpoint_rows}</ul></section>"
+        "</div></div></div></body></html>"
+    )
+
+
 def _preview_html(path: Path, source_url: str) -> str:
     content_type, _ = mimetypes.guess_type(str(path))
     content_type = content_type or "application/octet-stream"
@@ -420,6 +595,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return False
             if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
                 return False
+            if path == "/":
+                return True
             if path.startswith("/v1/workspaces/") and path.endswith("/webhook"):
                 return False
             protected_prefixes = (
@@ -531,7 +708,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return
 
             if path == "/login":
-                next_path = str(query.get("next", ["/runtime/reports/latest"])[0] or "/runtime/reports/latest")
+                next_path = str(query.get("next", ["/"])[0] or "/")
                 error = str(query.get("error", [""])[0] or "").strip() or None
                 if auth_session.authenticated:
                     _redirect_response(self, next_path)
@@ -548,7 +725,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return
 
             if path == "/register":
-                next_path = str(query.get("next", ["/runtime/reports/latest"])[0] or "/runtime/reports/latest")
+                next_path = str(query.get("next", ["/"])[0] or "/")
                 error = str(query.get("error", [""])[0] or "").strip() or None
                 if auth_session.authenticated:
                     _redirect_response(self, next_path)
@@ -567,6 +744,21 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 self.send_header("location", "/login")
                 self.send_header("content-length", "0")
                 self.end_headers()
+                return
+
+            if path == "/":
+                payload = service.landing_page_data()
+                _html_response(
+                    self,
+                    200,
+                    _landing_page_html(
+                        auth_session=auth_session,
+                        runtime_status=payload.runtime_status,
+                        latest_report=payload.latest_report,
+                        reports=payload.reports,
+                        exports=payload.exports,
+                    ),
+                )
                 return
 
             if path == "/v1/workspaces":

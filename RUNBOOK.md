@@ -1327,3 +1327,19 @@ This file is the dated turn log for planning and execution continuity.
   - `auto` now prefers browser origin/referrer scheme, then reverse-proxy proto headers, and finally configured local/external host mapping
   - this keeps `http://slack.localhost` usable while allowing HTTPS ingress to receive `Secure` cookies
   - cooper local ingress now splits `.localhost` and external-host routing so the external-host path restores HTTPS-forwarded headers before handing the request to the app
+
+## Turn 99 | 2026-04-13
+
+- Added a real authenticated browser landing page at `/` instead of leaving the root path as a 404.
+- Kept the page thin over existing owned surfaces:
+  - runtime status
+  - runtime report manifests
+  - managed export manifests
+- Kept frontend-auth behavior coherent:
+  - anonymous `GET /` now redirects to `/login?next=%2F`
+  - authenticated users land on a compact browser home with quick links, runtime health, recent reports, and recent exports
+- Updated the repo docs so `/` is now part of the explicit browser contract, not an accidental implementation detail.
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
