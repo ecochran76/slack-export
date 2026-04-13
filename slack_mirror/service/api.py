@@ -244,10 +244,31 @@ def _frontend_login_html(*, next_path: str, error: str | None = None, can_regist
     )
 
 
-def _frontend_register_html(*, next_path: str, error: str | None = None) -> str:
+def _frontend_register_html(*, next_path: str, error: str | None = None, registration_allowlist: list[str] | tuple[str, ...] | None = None) -> str:
     error_html = ""
     if error:
         error_html = f"<p class='error'>{escape(error)}</p>"
+    normalized_allowlist = [str(item).strip() for item in (registration_allowlist or []) if str(item).strip()]
+    allowlist_panel = ""
+    username_label = "Username"
+    username_placeholder = ""
+    intro = "<p>Register a local account for the Slack Mirror browser surfaces.</p>"
+    if normalized_allowlist:
+        username_label = "Allowed email or username"
+        username_placeholder = normalized_allowlist[0]
+        allowlist_items = "".join(f"<li><code>{escape(item)}</code></li>" for item in normalized_allowlist)
+        noun = "identity" if len(normalized_allowlist) == 1 else "identities"
+        intro = (
+            "<p>Register a local account for the Slack Mirror browser surfaces. "
+            f"This install only allows self-registration for specific {noun}.</p>"
+        )
+        allowlist_panel = (
+            "<div class='policy'>"
+            "<strong>Allowed registration identities</strong>"
+            f"<ul>{allowlist_items}</ul>"
+            "<p class='meta policy-copy'>Use one of the exact values above in the field below.</p>"
+            "</div>"
+        )
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<title>Slack Mirror Register</title>"
@@ -260,14 +281,19 @@ def _frontend_register_html(*, next_path: str, error: str | None = None) -> str:
         "button{margin-top:18px;width:100%;padding:11px 14px;border:none;border-radius:10px;background:#0b57d0;color:#fff;font-weight:700;font-size:14px;cursor:pointer}"
         ".error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;padding:10px 12px;border-radius:10px}"
         ".meta{margin-top:14px;color:#475569;font-size:14px}"
+        ".policy{margin-top:14px;padding:12px 14px;border:1px solid #dbe2ea;border-radius:12px;background:#f8fafc}"
+        ".policy ul{margin:10px 0 0 18px;padding:0}"
+        ".policy li{margin:6px 0}"
+        ".policy-copy{margin-top:10px}"
         "</style></head><body>"
         "<div class='card'>"
         "<h1>Create access</h1>"
-        "<p>Register a local account for the Slack Mirror browser surfaces.</p>"
+        f"{intro}"
         f"{error_html}"
+        f"{allowlist_panel}"
         "<form id='register-form'>"
-        "<label for='username'>Username</label>"
-        "<input id='username' name='username' autocomplete='username' required />"
+        f"<label for='username'>{escape(username_label)}</label>"
+        f"<input id='username' name='username' autocomplete='username' placeholder=\"{escape(username_placeholder, quote=True)}\" required />"
         "<label for='display_name'>Display name</label>"
         "<input id='display_name' name='display_name' autocomplete='name' />"
         "<label for='password'>Password</label>"
@@ -921,7 +947,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 if not auth_config.enabled or not auth_config.allow_registration:
                     _error_response(self, 403, "REGISTRATION_DISABLED", "Registration is disabled")
                     return
-                _html_response(self, 200, _frontend_register_html(next_path=next_path, error=error))
+                _html_response(
+                    self,
+                    200,
+                    _frontend_register_html(
+                        next_path=next_path,
+                        error=error,
+                        registration_allowlist=list(auth_config.registration_allowlist),
+                    ),
+                )
                 return
 
             if path == "/logout":

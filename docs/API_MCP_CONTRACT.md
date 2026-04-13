@@ -100,6 +100,8 @@ Important fields for `/auth/sessions`:
 - current-user browser sessions
 - revoke actions backed by `POST /auth/sessions/{id}/revoke`
 
+`/register` remains the browser registration entrypoint, and now surfaces any configured frontend-auth registration allowlist directly in the page copy.
+
 ## Runtime Reports
 
 API:

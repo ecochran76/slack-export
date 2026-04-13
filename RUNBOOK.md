@@ -1403,3 +1403,16 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - live smoke on `http://slack.localhost/settings`
+
+## Turn 104 | 2026-04-13
+
+- Tightened the browser registration UX so `/register` now shows the live allowlist policy instead of presenting the identity field as an unconstrained generic username.
+- When `service.auth.registration_allowlist` is set, the register page now:
+  - labels the field as `Allowed email or username`
+  - lists the allowed identities
+  - tells the user to use one of those exact values
+- Kept the backend contract unchanged; this slice is presentation and operator clarity, not a new auth model.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - live smoke on `http://slack.localhost/register`

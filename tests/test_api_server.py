@@ -381,6 +381,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(login_page.status_code, 200)
         self.assertIn("Slack Mirror", login_page.text)
 
+        register_page = requests.get(f"{base_url}/register", timeout=5)
+        self.assertEqual(register_page.status_code, 200)
+        self.assertIn("Create access", register_page.text)
+        self.assertIn("Username", register_page.text)
+
         session = requests.Session()
         registered = session.post(
             f"{base_url}/auth/register",
@@ -632,6 +637,12 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertEqual(allowed.status_code, 201)
         self.assertEqual(allowed.json()["session"]["username"], "ecochran76@gmail.com")
+
+        register_page = requests.get(f"{base_url}/register", timeout=5)
+        self.assertEqual(register_page.status_code, 200)
+        self.assertIn("Allowed registration identities", register_page.text)
+        self.assertIn("Allowed email or username", register_page.text)
+        self.assertIn("ecochran76@gmail.com", register_page.text)
 
         denied = requests.post(
             f"{base_url}/auth/register",
