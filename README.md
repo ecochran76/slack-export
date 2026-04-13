@@ -84,6 +84,7 @@ The current repo has:
   - `mirror reconcile-files` now emits per-reason remediation hints in both plain output and `--json`
   - `mirror reconcile-files` now persists the last run outcome in local state and compares the current batch to the previous run in both plain output and `--json`, so operators can spot regressions instead of reading each batch in isolation
   - `user-env validate-live` and `user-env check-live` now surface the latest persisted reconcile-files evidence per workspace, and warn when the most recent repair batch recorded warnings or failures
+  - lightweight managed-runtime status is now queryable over CLI, API (`/v1/runtime/status`), and MCP (`runtime.status`), including the latest persisted reconcile summary per workspace
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server
