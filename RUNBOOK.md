@@ -1390,3 +1390,16 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/frontend_auth.py slack_mirror/service/app.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 103 | 2026-04-13
+
+- Added `/settings` as the first browser-facing consumer of the frontend-auth session-management seam.
+- Kept the page thin over existing owned surfaces:
+  - frontend-auth policy from `/auth/status`
+  - current-user sessions from `/auth/sessions`
+  - revocation through `POST /auth/sessions/<id>/revoke`
+- Wired the settings page into the authenticated landing page so browser users no longer need to hand-call auth JSON routes just to inspect policy or revoke sessions.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - live smoke on `http://slack.localhost/settings`

@@ -290,6 +290,124 @@ def _frontend_register_html(*, next_path: str, error: str | None = None) -> str:
     )
 
 
+def _frontend_settings_html(
+    *,
+    auth_session: FrontendAuthSession,
+    auth_status: dict[str, Any],
+    sessions: list[dict[str, Any]],
+) -> str:
+    user_label = auth_session.display_name or auth_session.username or "Authenticated user"
+    allowlist = auth_status.get("registration_allowlist") or []
+    registration_policy = "open" if auth_status.get("registration_open") and not allowlist else "allowlisted"
+    allowlist_html = (
+        "".join(f"<li><code>{escape(str(item))}</code></li>" for item in allowlist)
+        if allowlist
+        else "<li>No explicit allowlist.</li>"
+    )
+
+    session_rows = []
+    for item in sessions:
+        session_id = int(item.get("session_id", 0) or 0)
+        is_current = auth_session.session_id == session_id
+        is_active = bool(item.get("active"))
+        state_badge = (
+            "<span class='badge badge-ok'>current</span>"
+            if is_current and is_active
+            else "<span class='badge badge-ok'>active</span>"
+            if is_active
+            else "<span class='badge badge-warn'>inactive</span>"
+        )
+        revoke_control = (
+            f"<button class='danger' data-session-id='{session_id}'>"
+            + ("Sign out here" if is_current else "Revoke")
+            + "</button>"
+            if is_active
+            else "<span class='meta'>Already inactive</span>"
+        )
+        session_rows.append(
+            "<li class='session-row'>"
+            f"<div class='session-main'><div><strong>Session {session_id}</strong> {state_badge}</div>"
+            f"<div class='meta'>source <code>{escape(str(item.get('auth_source') or 'unknown'))}</code> · created <code>{escape(str(item.get('created_at') or ''))}</code></div>"
+            f"<div class='meta'>last seen <code>{escape(str(item.get('last_seen_at') or ''))}</code> · expires <code>{escape(str(item.get('expires_at') or ''))}</code></div></div>"
+            f"<div class='session-actions'>{revoke_control}</div>"
+            "</li>"
+        )
+    if not session_rows:
+        session_rows.append("<li class='empty'>No browser sessions found.</li>")
+
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror Settings</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--bad:#a12828;--bad-soft:#fde5e5;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--shadow:0 14px 30px rgba(18,32,51,.08);}"
+        "*{box-sizing:border-box}body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        ".shell{max-width:1080px;margin:0 auto;padding:28px 18px 40px}.top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}"
+        ".card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}"
+        ".grid{display:grid;grid-template-columns:1fr 1.3fr;gap:18px}.stack{display:grid;gap:18px}"
+        "h1{margin:8px 0 8px;font-size:34px}.eyebrow{display:inline-block;padding:6px 10px;border-radius:999px;background:#ebe4d8;color:#514739;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}"
+        "h2{margin:0 0 12px;font-size:19px}.meta{color:var(--muted);font-size:13px;line-height:1.45}"
+        "a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}"
+        ".btn{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700}"
+        ".btn.secondary{background:#f8f5ef;border-color:var(--line);color:var(--ink)}"
+        "ul{list-style:none;margin:0;padding:0;display:grid;gap:12px}.list-row,.session-row{padding:14px 16px;border:1px solid #e4ddd1;border-radius:16px;background:#fcfaf6}"
+        ".session-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.session-actions{display:flex;align-items:center}.empty{padding:16px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
+        ".badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1;margin-left:8px}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}"
+        "code{background:#efe7da;border:1px solid #dfd3c2;padding:2px 6px;border-radius:8px;font-size:12px}"
+        "button.danger{padding:10px 12px;border:none;border-radius:12px;background:var(--bad-soft);color:var(--bad);font-weight:700;cursor:pointer}"
+        ".status-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#ebe4d8;color:#514739;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}"
+        "#feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px;font-size:14px}.feedback-ok{display:block;background:var(--ok-soft);color:var(--ok)}.feedback-bad{display:block;background:var(--bad-soft);color:var(--bad)}"
+        "@media (max-width: 860px){.grid{grid-template-columns:1fr}.top,.session-row{flex-direction:column}.session-actions{width:100%}button.danger{width:100%}}"
+        "</style></head><body><div class='shell'>"
+        "<div class='top'>"
+        "<div><span class='eyebrow'>Slack Mirror</span>"
+        "<h1>Account settings</h1>"
+        f"<div class='meta'>Signed in as <strong>{escape(user_label)}</strong> · username <code>{escape(str(auth_session.username or ''))}</code></div></div>"
+        "<div style='display:flex;gap:10px;flex-wrap:wrap'>"
+        "<a class='btn secondary' href='/'>Home</a>"
+        "<a class='btn secondary' href='/runtime/reports'>Runtime reports</a>"
+        "<a class='btn' href='/logout'>Logout</a>"
+        "</div></div>"
+        "<div class='grid'>"
+        "<div class='stack'>"
+        "<section class='card'>"
+        "<h2>Registration policy</h2>"
+        f"<div class='meta'>Self-registration is <span class='status-chip'>{escape(registration_policy)}</span></div>"
+        f"<div class='meta' style='margin-top:10px'>open registration <code>{escape(str(bool(auth_status.get('registration_open'))))}</code> · allowlist count <code>{escape(str(auth_status.get('registration_allowlist_count') or 0))}</code></div>"
+        "<ul style='margin-top:14px'>"
+        f"{allowlist_html}"
+        "</ul>"
+        "</section>"
+        "<section class='card'>"
+        "<h2>Session API</h2>"
+        "<ul>"
+        "<li class='list-row'><a href='/auth/session'><code>/auth/session</code></a></li>"
+        "<li class='list-row'><a href='/auth/sessions'><code>/auth/sessions</code></a></li>"
+        "</ul>"
+        "</section>"
+        "</div>"
+        "<section class='card'>"
+        "<h2>Browser sessions</h2>"
+        "<div class='meta'>Revoke any active session owned by this account. Revoking the current session signs this browser out immediately.</div>"
+        "<div id='feedback'></div>"
+        f"<ul id='session-list' style='margin-top:14px'>{''.join(session_rows)}</ul>"
+        "</section>"
+        "</div>"
+        "<script>"
+        "const feedback=document.getElementById('feedback');"
+        "function showFeedback(message,isError){feedback.textContent=message;feedback.className=isError?'feedback-bad':'feedback-ok';}"
+        "for(const button of document.querySelectorAll('button[data-session-id]')){button.addEventListener('click',async()=>{"
+        "const sessionId=button.getAttribute('data-session-id');"
+        "button.disabled=true;"
+        "const resp=await fetch(`/auth/sessions/${sessionId}/revoke`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});"
+        "if(resp.ok){showFeedback(`Revoked session ${sessionId}.`,false);window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Revocation failed'}}));"
+        "showFeedback(data.error?.message||'Revocation failed',true);button.disabled=false;});}"
+        "</script>"
+        "</div></body></html>"
+    )
+
+
 def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
     header_links = ""
     if reports:
@@ -440,6 +558,7 @@ def _landing_page_html(
             f"<li class='list-row compact'><a href=\"/v1/exports\">{code('/v1/exports')}</a></li>",
             f"<li class='list-row compact'><a href=\"/auth/session\">{code('/auth/session')}</a></li>",
             f"<li class='list-row compact'><a href=\"/auth/sessions\">{code('/auth/sessions')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/settings\">{code('/settings')}</a></li>",
         ]
     )
 
@@ -492,6 +611,7 @@ def _landing_page_html(
         "<div class='hero-actions'>"
         "<a class='btn' href='/runtime/reports/latest'>Latest runtime snapshot</a>"
         "<a class='btn secondary' href='/runtime/reports'>Runtime reports</a>"
+        "<a class='btn secondary' href='/settings'>Settings</a>"
         "<a class='btn secondary' href='/v1/exports'>Export manifest API</a>"
         "<a class='btn secondary' href='/logout'>Logout</a>"
         "</div>"
@@ -649,7 +769,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return False
             if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
                 return False
-            if path == "/":
+            if path in {"/", "/settings"}:
                 return True
             if path.startswith("/v1/workspaces/") and path.endswith("/webhook"):
                 return False
@@ -825,6 +945,21 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         latest_report=payload.latest_report,
                         reports=payload.reports,
                         exports=payload.exports,
+                    ),
+                )
+                return
+
+            if path == "/settings":
+                conn = service.connect()
+                auth_status = service.frontend_auth_status(conn)
+                sessions = service.list_frontend_auth_sessions(conn, auth_session=auth_session)
+                _html_response(
+                    self,
+                    200,
+                    _frontend_settings_html(
+                        auth_session=auth_session,
+                        auth_status=auth_status,
+                        sessions=sessions,
                     ),
                 )
                 return

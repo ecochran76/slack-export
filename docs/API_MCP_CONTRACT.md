@@ -38,6 +38,7 @@ API only:
 - `GET /login`
 - `GET /register`
 - `GET /`
+- `GET /settings`
 
 Current semantics:
 
@@ -91,6 +92,13 @@ Important fields for `/auth/sessions`:
 - `expired`
 
 `/` is the canonical browser landing page when frontend auth is enabled. It is an HTML-only authenticated view over the existing runtime-status, runtime-report, and export-manifest surfaces.
+
+`/settings` is the browser-facing account/settings page for the same frontend-auth seam. It is an authenticated HTML view over:
+
+- current frontend-auth policy
+- registration allowlist state
+- current-user browser sessions
+- revoke actions backed by `POST /auth/sessions/{id}/revoke`
 
 ## Runtime Reports
 

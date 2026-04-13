@@ -25,6 +25,7 @@ Add a bounded local-auth baseline for browser-facing Slack Mirror surfaces:
   - `/register`
 - browser-facing export and runtime-report surfaces are now protected when frontend auth is enabled
 - the browser root `/` now serves an authenticated landing page over runtime status, runtime reports, and recent exports
+- `/settings` now serves a browser-facing account page over frontend-auth policy and current-user sessions
 - `cookie_secure_mode` is shipped, with live HTTPS ingress verified through the cooper reverse-proxy path
 - browser auth POST routes are now same-origin guarded through `Origin`/`Referer` validation
 - current-user session listing and per-session revocation are now shipped through the browser auth API
