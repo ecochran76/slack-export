@@ -8,6 +8,7 @@ It is not a full endpoint catalog. It captures the response shapes and semantics
 
 Current shared contract coverage:
 
+- runtime status
 - live runtime validation
 - corpus search
 - search readiness
@@ -20,6 +21,35 @@ Current shared contract coverage:
 - shared error envelope
 
 The local HTTP API and MCP server are both thin wrappers over `slack_mirror.service.app`. When these contracts change, they should change together.
+
+## Runtime Status
+
+API:
+
+- `GET /v1/runtime/status`
+
+This is the lightweight managed-runtime status surface. It is intended for dashboards, probes, and operator scripts that need runtime artifact/service presence plus the latest persisted reconcile summary, without running the full live validation gate.
+
+Important fields:
+
+- `ok`
+- `wrappers_present`
+- `api_service_present`
+- `config_present`
+- `db_present`
+- `cache_present`
+- `rollback_snapshot_present`
+- `services`
+- `reconcile_workspaces`
+  - `name`
+  - `state_present`
+  - `auth_mode`
+  - `iso_utc`
+  - `age_seconds`
+  - `attempted`
+  - `downloaded`
+  - `warnings`
+  - `failed`
 
 ## Live Validation
 

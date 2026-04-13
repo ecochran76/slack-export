@@ -13,7 +13,7 @@ from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_nam
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.processor import process_pending_events
-from slack_mirror.service.user_env import _build_live_validation_report, default_user_env_paths
+from slack_mirror.service.user_env import _build_live_validation_report, _build_status_report, _status_report_payload, default_user_env_paths
 from slack_mirror.search.corpus import search_corpus, search_corpus_multi
 
 
@@ -53,6 +53,19 @@ class LiveValidationResult:
     failure_codes: list[str] = field(default_factory=list)
     warning_codes: list[str] = field(default_factory=list)
     workspaces: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RuntimeStatusResult:
+    ok: bool
+    wrappers_present: bool
+    api_service_present: bool
+    config_present: bool
+    db_present: bool
+    cache_present: bool
+    rollback_snapshot_present: bool
+    services: dict[str, str] = field(default_factory=dict)
+    reconcile_workspaces: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SlackMirrorAppService:
@@ -124,6 +137,39 @@ class SlackMirrorAppService:
                 }
                 for workspace in report.workspaces
             ],
+        )
+
+    def runtime_status(self) -> RuntimeStatusResult:
+        default_paths = default_user_env_paths()
+        paths = replace(default_paths, config_path=self.config.path)
+        report = _build_status_report(paths=paths)
+        payload = _status_report_payload(report)
+        return RuntimeStatusResult(
+            ok=all(
+                [
+                    report.wrapper_present,
+                    report.api_wrapper_present,
+                    report.mcp_wrapper_present,
+                    report.api_service_present,
+                    report.config_present,
+                    report.db_present,
+                    report.cache_present,
+                ]
+            ),
+            wrappers_present=all(
+                [
+                    report.wrapper_present,
+                    report.api_wrapper_present,
+                    report.mcp_wrapper_present,
+                ]
+            ),
+            api_service_present=report.api_service_present,
+            config_present=report.config_present,
+            db_present=report.db_present,
+            cache_present=report.cache_present,
+            rollback_snapshot_present=report.rollback_snapshot_present,
+            services=payload["services"],
+            reconcile_workspaces=payload["reconcile_workspaces"],
         )
 
     def workspace_configs(self) -> list[dict[str, Any]]:

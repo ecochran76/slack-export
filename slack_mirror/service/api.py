@@ -184,6 +184,11 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 200 if payload.ok else 503, {"ok": payload.ok, "validation": payload.__dict__})
                 return
 
+            if path == "/v1/runtime/status":
+                payload = service.runtime_status()
+                _json_response(self, 200 if payload.ok else 503, {"ok": payload.ok, "status": payload.__dict__})
+                return
+
             if path == "/v1/exports":
                 audience = str(query.get("audience", ["local"])[0])
                 payload = list_export_manifests(export_root, base_urls=export_base_urls, default_audience=audience)

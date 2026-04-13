@@ -25,6 +25,7 @@ slack-mirror user-env validate-live --json
 slack-mirror --config ~/.config/slack-mirror/config.yaml mirror status --workspace default --healthy --enforce-stale
 slack-mirror user-env check-live
 slack-mirror user-env check-live --json
+slack-mirror user-env status --json
 slack-mirror user-env recover-live
 slack-mirror user-env recover-live --apply
 slack-mirror user-env rollback

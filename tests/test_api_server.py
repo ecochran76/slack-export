@@ -4,6 +4,7 @@ import threading
 import unittest
 from importlib import util as importlib_util
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import requests
@@ -187,6 +188,50 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(resp.json()["validation"]["failure_codes"], ["EVENT_ERRORS"])
             self.assertEqual(resp.json()["validation"]["workspaces"][0]["name"], "default")
             service.validate_live_runtime.assert_called_once_with(require_live_units=True)
+
+    def test_runtime_status_endpoint(self):
+        with patch(
+            "slack_mirror.service.api.get_app_service"
+        ) as mock_get_service:
+            service = mock_get_service.return_value
+            service.runtime_status.return_value = SimpleNamespace(
+                ok=True,
+                wrappers_present=True,
+                api_service_present=True,
+                config_present=True,
+                db_present=True,
+                cache_present=True,
+                rollback_snapshot_present=True,
+                services={"slack-mirror-api.service": "active"},
+                reconcile_workspaces=[
+                    {
+                        "name": "default",
+                        "state_present": True,
+                        "auth_mode": "user",
+                        "downloaded": 2,
+                        "warnings": 0,
+                        "failed": 0,
+                        "attempted": 2,
+                        "age_seconds": 12.0,
+                        "iso_utc": "2026-04-13T01:35:09+00:00",
+                    }
+                ],
+            )
+            server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self.addCleanup(server.shutdown)
+            self.addCleanup(server.server_close)
+            self.addCleanup(thread.join, 2)
+            base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+            resp = requests.get(f"{base_url}/v1/runtime/status", timeout=5)
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue(resp.json()["ok"])
+            self.assertTrue(resp.json()["status"]["wrappers_present"])
+            self.assertEqual(resp.json()["status"]["services"]["slack-mirror-api.service"], "active")
+            self.assertEqual(resp.json()["status"]["reconcile_workspaces"][0]["name"], "default")
+            service.runtime_status.assert_called_once_with()
 
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"

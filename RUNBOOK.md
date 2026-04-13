@@ -1191,3 +1191,11 @@ This file is the dated turn log for planning and execution continuity.
 - This gives lighter-weight dashboards and scripts access to repair-state evidence without invoking the full live validation gate.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env -v`
+
+## Turn 86 | 2026-04-12
+
+- Added API access to the lightweight managed-runtime status surface at `/v1/runtime/status`.
+- The route exposes wrapper/service presence plus the latest persisted reconcile summary per workspace, so external monitoring can read repair-state evidence without shelling into `user-env`.
+- Kept the transport thin by adding a small shared `runtime_status()` method in `slack_mirror.service.app` over the existing managed-runtime status builder.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_user_env -v`
