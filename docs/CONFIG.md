@@ -75,6 +75,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 - in `auto`, the service first trusts browser origin/referrer scheme, then reverse-proxy proto headers, and finally falls back to the configured local/external base-host mapping when deciding whether a request is HTTPS-backed.
 - the older `service.auth.cookie_secure` boolean is still accepted as a compatibility override, but `cookie_secure_mode` is the canonical setting.
 - when frontend auth is enabled, browser auth POST routes (`/auth/register`, `/auth/login`, `/auth/logout`) are same-origin only and require a matching `Origin` or `Referer` header.
+- per-user browser session inspection and revocation are available through `/auth/sessions` and `/auth/sessions/<id>/revoke`.
 - when frontend auth is enabled, protected HTML routes redirect unauthenticated browsers to `/login`, while protected JSON routes fail with `AUTH_REQUIRED`.
 - `exports.root_dir` is the user-scoped bundle root for managed export artifacts.
 - `exports.local_base_url` is the preferred base URL for local reverse-proxied download links, intended for `http://slack.localhost`.
@@ -91,6 +92,7 @@ Managed export URLs use this path contract:
 - `/v1/exports/<export-id>`
 - `/auth/status`
 - `/auth/session`
+- `/auth/sessions`
 - `/auth/register`
 - `/auth/login`
 - `/auth/logout`

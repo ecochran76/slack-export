@@ -439,6 +439,7 @@ def _landing_page_html(
             f"<li class='list-row compact'><a href=\"/v1/runtime/reports/latest\">{code('/v1/runtime/reports/latest')}</a></li>",
             f"<li class='list-row compact'><a href=\"/v1/exports\">{code('/v1/exports')}</a></li>",
             f"<li class='list-row compact'><a href=\"/auth/session\">{code('/auth/session')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/auth/sessions\">{code('/auth/sessions')}</a></li>",
         ]
     )
 
@@ -758,6 +759,20 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         },
                     },
                 )
+                return
+
+            if path == "/auth/sessions":
+                current_auth = self._frontend_auth_session()
+                if not current_auth.authenticated:
+                    _error_response(self, 401, "AUTH_REQUIRED", "Authentication required")
+                    return
+                conn = service.connect()
+                try:
+                    sessions = service.list_frontend_auth_sessions(conn, auth_session=current_auth)
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="auth.sessions.list")
+                    return
+                _json_response(self, 200, {"ok": True, "sessions": sessions})
                 return
 
             if path == "/login":
@@ -1125,7 +1140,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _error_response(self, 400, "BAD_REQUEST", f"Invalid JSON: {exc}")
                 return
 
-            if path in {"/auth/register", "/auth/login", "/auth/logout"}:
+            if path in {"/auth/register", "/auth/login", "/auth/logout"} or re.fullmatch(r"/auth/sessions/\d+/revoke", path):
                 csrf_error = _validate_same_origin_post(self, export_base_urls=export_base_urls)
                 if csrf_error:
                     _error_response(self, 403, "CSRF_FAILED", csrf_error)
@@ -1196,6 +1211,36 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 data = json.dumps({"ok": True, "signed_out": True}, indent=2).encode("utf-8")
                 self.send_response(200)
                 self._clear_frontend_auth_cookie()
+                self.send_header("content-type", "application/json")
+                self.send_header("content-length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
+            m = re.fullmatch(r"/auth/sessions/(\d+)/revoke", path)
+            if m:
+                current_auth = self._frontend_auth_session()
+                if not current_auth.authenticated:
+                    _error_response(self, 401, "AUTH_REQUIRED", "Authentication required")
+                    return
+                conn = service.connect()
+                session_id = int(m.group(1))
+                try:
+                    revoked = service.revoke_frontend_auth_session(
+                        conn,
+                        auth_session=current_auth,
+                        session_id=session_id,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="auth.sessions.revoke")
+                    return
+                if not revoked:
+                    _error_response(self, 404, "NOT_FOUND", f"Auth session not found: {session_id}")
+                    return
+                data = json.dumps({"ok": True, "revoked": True, "session_id": session_id}, indent=2).encode("utf-8")
+                self.send_response(200)
+                if current_auth.session_id == session_id:
+                    self._clear_frontend_auth_cookie()
                 self.send_header("content-type", "application/json")
                 self.send_header("content-length", str(len(data)))
                 self.end_headers()

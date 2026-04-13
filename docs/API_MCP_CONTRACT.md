@@ -30,9 +30,11 @@ API only:
 
 - `GET /auth/status`
 - `GET /auth/session`
+- `GET /auth/sessions`
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/logout`
+- `POST /auth/sessions/{id}/revoke`
 - `GET /login`
 - `GET /register`
 - `GET /`
@@ -44,7 +46,8 @@ Current semantics:
 - when frontend auth is enabled:
   - unauthenticated HTML requests for protected routes redirect to `/login`
   - unauthenticated protected JSON requests fail with `AUTH_REQUIRED`
-  - `POST /auth/register`, `POST /auth/login`, and `POST /auth/logout` require a same-origin `Origin` or `Referer` header and fail with `CSRF_FAILED` otherwise
+- `POST /auth/register`, `POST /auth/login`, and `POST /auth/logout` require a same-origin `Origin` or `Referer` header and fail with `CSRF_FAILED` otherwise
+- `POST /auth/sessions/{id}/revoke` follows the same same-origin browser rule and only operates on sessions owned by the authenticated user
 - protected routes currently include:
   - `/`
   - `/exports/*`
@@ -73,6 +76,17 @@ Important fields for `/auth/session`, `/auth/register`, and `/auth/login`:
 - `session_id`
 - `auth_source`
 - `expires_at`
+
+Important fields for `/auth/sessions`:
+
+- `session_id`
+- `auth_source`
+- `created_at`
+- `last_seen_at`
+- `expires_at`
+- `revoked_at`
+- `active`
+- `expired`
 
 `/` is the canonical browser landing page when frontend auth is enabled. It is an HTML-only authenticated view over the existing runtime-status, runtime-report, and export-manifest surfaces.
 

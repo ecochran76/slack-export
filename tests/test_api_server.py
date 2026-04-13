@@ -392,6 +392,13 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(auth_session.status_code, 200)
         self.assertTrue(auth_session.json()["session"]["authenticated"])
         self.assertEqual(auth_session.json()["session"]["username"], "eric")
+        current_session_id = auth_session.json()["session"]["session_id"]
+
+        sessions_listing = session.get(f"{base_url}/auth/sessions", timeout=5)
+        self.assertEqual(sessions_listing.status_code, 200)
+        self.assertTrue(sessions_listing.json()["ok"])
+        self.assertEqual(sessions_listing.json()["sessions"][0]["session_id"], current_session_id)
+        self.assertTrue(sessions_listing.json()["sessions"][0]["active"])
 
         landing = session.get(f"{base_url}/", timeout=5)
         self.assertEqual(landing.status_code, 200)
@@ -413,8 +420,22 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(allowed_api.status_code, 200)
         self.assertEqual(allowed_api.json()["report"]["name"], "morning-ops")
 
-        logout = session.post(f"{base_url}/auth/logout", json={}, headers={"origin": base_url}, timeout=5)
-        self.assertEqual(logout.status_code, 200)
+        missing_revoke = session.post(
+            f"{base_url}/auth/sessions/999999/revoke",
+            json={},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(missing_revoke.status_code, 404)
+
+        revoke_current = session.post(
+            f"{base_url}/auth/sessions/{current_session_id}/revoke",
+            json={},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(revoke_current.status_code, 200)
+        self.assertTrue(revoke_current.json()["revoked"])
         blocked_again = session.get(f"{base_url}/v1/runtime/reports/latest", timeout=5)
         self.assertEqual(blocked_again.status_code, 401)
 

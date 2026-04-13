@@ -247,3 +247,37 @@ def logout_frontend_user(conn, *, session_token: str | None) -> None:
     if not token:
         return
     db.revoke_auth_session(conn, token_hash=_session_token_hash(token))
+
+
+def list_frontend_auth_sessions(conn, *, user_id: int) -> list[dict[str, Any]]:
+    rows = db.list_auth_sessions_for_user(conn, user_id=user_id)
+    sessions: list[dict[str, Any]] = []
+    now = _utcnow()
+    for row in rows:
+        expires_at = str(row["expires_at"] or "").strip() or None
+        expired = False
+        if expires_at:
+            try:
+                expires_dt = datetime.fromisoformat(expires_at)
+                if expires_dt.tzinfo is None:
+                    expires_dt = expires_dt.replace(tzinfo=UTC)
+                expired = expires_dt <= now
+            except ValueError:
+                expired = False
+        sessions.append(
+            {
+                "session_id": int(row["id"]),
+                "auth_source": str(row["auth_source"] or "local_password"),
+                "created_at": str(row["created_at"] or ""),
+                "last_seen_at": str(row["last_seen_at"] or "") or None,
+                "expires_at": expires_at,
+                "revoked_at": str(row["revoked_at"] or "") or None,
+                "active": row["revoked_at"] is None and not expired,
+                "expired": expired,
+            }
+        )
+    return sessions
+
+
+def revoke_frontend_auth_session(conn, *, user_id: int, session_id: int) -> bool:
+    return db.revoke_auth_session_by_id_for_user(conn, user_id=user_id, session_id=session_id)

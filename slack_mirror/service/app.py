@@ -18,9 +18,11 @@ from slack_mirror.service.frontend_auth import (
     FrontendAuthIssueResult,
     FrontendAuthSession,
     frontend_auth_config,
+    list_frontend_auth_sessions,
     login_frontend_user,
     logout_frontend_user,
     register_frontend_user,
+    revoke_frontend_auth_session,
     resolve_frontend_auth_session,
 )
 from slack_mirror.service.processor import process_pending_events
@@ -301,6 +303,26 @@ class SlackMirrorAppService:
         if not self.frontend_auth_config().enabled:
             return
         logout_frontend_user(conn, session_token=session_token)
+
+    def list_frontend_auth_sessions(self, conn, *, auth_session: FrontendAuthSession) -> list[dict[str, Any]]:
+        if not self.frontend_auth_config().enabled:
+            raise ValueError("frontend auth is disabled")
+        if not auth_session.authenticated or auth_session.user_id is None:
+            raise ValueError("authentication required")
+        return list_frontend_auth_sessions(conn, user_id=int(auth_session.user_id))
+
+    def revoke_frontend_auth_session(
+        self,
+        conn,
+        *,
+        auth_session: FrontendAuthSession,
+        session_id: int,
+    ) -> bool:
+        if not self.frontend_auth_config().enabled:
+            raise ValueError("frontend auth is disabled")
+        if not auth_session.authenticated or auth_session.user_id is None:
+            raise ValueError("authentication required")
+        return revoke_frontend_auth_session(conn, user_id=int(auth_session.user_id), session_id=int(session_id))
 
     def workspace_configs(self) -> list[dict[str, Any]]:
         return self.config.get("workspaces", [])

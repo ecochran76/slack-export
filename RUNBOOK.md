@@ -1360,3 +1360,19 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 101 | 2026-04-13
+
+- Added bounded browser-session ergonomics on top of the local frontend-auth baseline:
+  - `GET /auth/sessions`
+  - `POST /auth/sessions/<id>/revoke`
+- Kept the surface narrow and ownership-safe:
+  - session listing is scoped to the authenticated user
+  - revocation only succeeds for sessions owned by that user
+  - revoking the current session clears the browser cookie as part of the same response
+- Kept the same-origin CSRF rule for the new revoke route instead of introducing a second browser-write policy.
+- Updated the auth docs and active `0009` plan so remaining work is now mostly UX and live-registration policy, not missing revocation plumbing.
+- Validation:
+  - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

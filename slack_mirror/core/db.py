@@ -413,6 +413,38 @@ def revoke_auth_session(conn: sqlite3.Connection, *, token_hash: str) -> None:
         )
 
 
+def list_auth_sessions_for_user(conn: sqlite3.Connection, *, user_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        """
+        SELECT
+          id,
+          user_id,
+          auth_source,
+          created_at,
+          last_seen_at,
+          expires_at,
+          revoked_at
+        FROM auth_sessions
+        WHERE user_id = ?
+        ORDER BY created_at DESC, id DESC
+        """,
+        (user_id,),
+    ).fetchall()
+
+
+def revoke_auth_session_by_id_for_user(conn: sqlite3.Connection, *, user_id: int, session_id: int) -> bool:
+    with conn:
+        cursor = conn.execute(
+            """
+            UPDATE auth_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE user_id = ? AND id = ? AND revoked_at IS NULL
+            """,
+            (user_id, session_id),
+        )
+    return int(cursor.rowcount or 0) > 0
+
+
 def upsert_user(conn: sqlite3.Connection, workspace_id: int, user: dict[str, Any]) -> None:
     profile = user.get("profile") or {}
     with conn:
