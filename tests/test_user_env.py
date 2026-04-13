@@ -8,6 +8,7 @@ import time
 from unittest.mock import patch
 
 from slack_mirror.service import user_env
+from slack_mirror.service import runtime_report_user_env
 from slack_mirror.service.runtime_heartbeat import write_heartbeat, write_reconcile_state
 
 
@@ -1441,6 +1442,55 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("STALE_MIRROR", report.warning_codes)
         self.assertEqual(report.workspaces[0].unexpected_empty_channels, 1)
         self.assertFalse(report.workspaces[0].stale_warning_suppressed)
+
+    def test_snapshot_runtime_report_writes_operator_summary(self):
+        output: list[str] = []
+        with patch(
+            "slack_mirror.service.runtime_report_user_env.write_runtime_report_snapshot",
+            return_value={
+                "name": "runtime-report",
+                "status": "pass",
+                "markdown_path": "/tmp/report.md",
+                "html_path": "/tmp/report.html",
+                "latest_markdown_path": "/tmp/runtime-report.latest.md",
+                "latest_html_path": "/tmp/runtime-report.latest.html",
+                "latest_json_path": "/tmp/runtime-report.latest.json",
+            },
+        ) as mock_snapshot:
+            rc = runtime_report_user_env.snapshot_runtime_report_user_env(
+                paths=self.paths,
+                out=output.append,
+            )
+        self.assertEqual(rc, 0)
+        mock_snapshot.assert_called_once()
+        joined = "\n".join(output)
+        self.assertIn("Runtime report snapshot", joined)
+        self.assertIn("/tmp/report.md", joined)
+        self.assertIn("/tmp/runtime-report.latest.json", joined)
+
+    def test_snapshot_runtime_report_json_outputs_machine_readable_payload(self):
+        output: list[str] = []
+        with patch(
+            "slack_mirror.service.runtime_report_user_env.write_runtime_report_snapshot",
+            return_value={
+                "name": "runtime-report",
+                "status": "pass",
+                "markdown_path": "/tmp/report.md",
+                "html_path": "/tmp/report.html",
+                "latest_markdown_path": "/tmp/runtime-report.latest.md",
+                "latest_html_path": "/tmp/runtime-report.latest.html",
+                "latest_json_path": "/tmp/runtime-report.latest.json",
+            },
+        ):
+            rc = runtime_report_user_env.snapshot_runtime_report_user_env(
+                paths=self.paths,
+                json_output=True,
+                out=output.append,
+            )
+        self.assertEqual(rc, 0)
+        payload = json.loads(output[0])
+        self.assertEqual(payload["name"], "runtime-report")
+        self.assertEqual(payload["status"], "pass")
 
 
 if __name__ == "__main__":

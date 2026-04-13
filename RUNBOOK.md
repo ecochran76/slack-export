@@ -1216,3 +1216,14 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_runtime_report tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 89 | 2026-04-13
+
+- Added `slack-mirror user-env snapshot-report` as the supported managed-runtime command for persisting runtime snapshots into `~/.local/state/slack-mirror/runtime-reports/`.
+- Promoted the runtime-report renderer into shared service code so the script and the managed snapshot command use the same report generation path.
+- Snapshot output now includes timestamped Markdown/HTML files plus stable `*.latest.md`, `*.latest.html`, and `*.latest.json` metadata files for review and handoff.
+- Updated the live-ops and install docs so operators have a stable snapshot path instead of relying on ad hoc `/tmp` output.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_runtime_report tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

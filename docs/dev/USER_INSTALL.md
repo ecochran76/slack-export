@@ -152,11 +152,14 @@ When managed config exists, it now also reports the latest persisted `mirror rec
 For a shareable runtime snapshot built from the managed API surfaces, use:
 
 ```bash
+slack-mirror user-env snapshot-report
+slack-mirror user-env snapshot-report --name morning-ops --json
 python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md
 python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html
 ```
 
-This consumes `/v1/runtime/status` and `/v1/runtime/live-validation` and is useful for periodic ops reports or review handoff.
+Both consume `/v1/runtime/status` and `/v1/runtime/live-validation` and are useful for periodic ops reports or review handoff.
+The supported `user-env snapshot-report` command writes into `~/.local/state/slack-mirror/runtime-reports/` with timestamped files plus stable `*.latest.*` copies.
 
 ## Combined Live Check
 

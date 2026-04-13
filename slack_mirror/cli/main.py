@@ -1636,7 +1636,7 @@ _slack_mirror_complete() {
   local api_sub="serve"
   local mcp_sub="serve"
   local release_sub="check"
-  local user_env_sub="install update rollback uninstall status validate-live check-live recover-live"
+  local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report"
   local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1793,7 +1793,7 @@ _slack_mirror() {
   api_sub=(serve)
   mcp_sub=(serve)
   release_sub=(check)
-  user_env_sub=(install update rollback uninstall status validate-live check-live recover-live)
+  user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report)
   mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -2014,6 +2014,17 @@ def cmd_user_env_recover_live(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import recover_live_user_env
 
     return recover_live_user_env(apply=bool(args.apply), json_output=bool(args.json))
+
+
+def cmd_user_env_snapshot_report(args: argparse.Namespace) -> int:
+    from slack_mirror.service.runtime_report_user_env import snapshot_runtime_report_user_env
+
+    return snapshot_runtime_report_user_env(
+        base_url=str(args.base_url),
+        name=str(args.name),
+        timeout=float(args.timeout),
+        json_output=bool(args.json),
+    )
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
@@ -2428,6 +2439,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_user_recover_live.add_argument("--apply", action="store_true", help="execute the safe remediations")
     p_user_recover_live.add_argument("--json", action="store_true", help="json output")
     p_user_recover_live.set_defaults(func=cmd_user_env_recover_live)
+    p_user_snapshot_report = user_env_sub.add_parser(
+        "snapshot-report",
+        help="write markdown and html runtime report snapshots into managed state",
+    )
+    p_user_snapshot_report.add_argument("--base-url", default="http://slack.localhost", help="base URL for the managed API")
+    p_user_snapshot_report.add_argument("--name", default="runtime-report", help="snapshot report name prefix")
+    p_user_snapshot_report.add_argument("--timeout", type=float, default=5.0, help="request timeout in seconds")
+    p_user_snapshot_report.add_argument("--json", action="store_true", help="json output")
+    p_user_snapshot_report.set_defaults(func=cmd_user_env_snapshot_report)
 
     version_parser = sub.add_parser("version", help="print the package version")
     version_parser.set_defaults(func=cmd_version)

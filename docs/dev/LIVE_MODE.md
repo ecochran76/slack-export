@@ -135,12 +135,20 @@ python scripts/render_runtime_report.py --base-url http://slack.localhost --form
 python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html
 ```
 
+Managed-state snapshots through the supported CLI:
+
+```bash
+slack-mirror user-env snapshot-report
+slack-mirror user-env snapshot-report --name morning-ops --json
+```
+
 The report script consumes:
 
 - `GET /v1/runtime/status`
 - `GET /v1/runtime/live-validation`
 
 Use it when you want a point-in-time operator report for review or handoff instead of a raw JSON payload.
+Use `user-env snapshot-report` when you want the same report persisted under the managed runtime state directory instead of an ad hoc `/tmp` path. Snapshots are written under `~/.local/state/slack-mirror/runtime-reports/` with timestamped files plus `*.latest.*` copies.
 
 Bounded recovery planner:
 
@@ -274,5 +282,7 @@ For shell automation, prefer:
 
 For human-shareable snapshots, prefer:
 
+- `slack-mirror user-env snapshot-report`
+- `slack-mirror user-env snapshot-report --name morning-ops --json`
 - `python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md`
 - `python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html`

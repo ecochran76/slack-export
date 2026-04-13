@@ -12,6 +12,7 @@ from slack_mirror.cli.main import (
     cmd_user_env_install,
     cmd_user_env_rollback,
     cmd_user_env_recover_live,
+    cmd_user_env_snapshot_report,
     cmd_user_env_status,
     cmd_user_env_uninstall,
     cmd_user_env_update,
@@ -153,6 +154,19 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.auth_mode, "user")
         self.assertEqual(args.limit, 25)
         self.assertEqual(args.cache_root, "./cache")
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_user_env_snapshot_report(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["user-env", "snapshot-report", "--base-url", "http://slack.localhost", "--name", "ops", "--timeout", "9", "--json"]
+        )
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "snapshot-report")
+        self.assertEqual(args.base_url, "http://slack.localhost")
+        self.assertEqual(args.name, "ops")
+        self.assertEqual(args.timeout, 9.0)
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
@@ -768,6 +782,18 @@ class CliTests(unittest.TestCase):
         args = parser.parse_args(["user-env", "recover-live", "--apply", "--json"])
         self.assertEqual(cmd_user_env_recover_live(args), 0)
         mock_recover.assert_called_once_with(apply=True, json_output=True)
+
+    @patch("slack_mirror.service.runtime_report_user_env.snapshot_runtime_report_user_env", return_value=0)
+    def test_user_env_snapshot_report_dispatches_to_service(self, mock_snapshot):
+        parser = build_parser()
+        args = parser.parse_args(["user-env", "snapshot-report", "--base-url", "http://slack.localhost", "--name", "ops", "--timeout", "7.5", "--json"])
+        self.assertEqual(cmd_user_env_snapshot_report(args), 0)
+        mock_snapshot.assert_called_once_with(
+            base_url="http://slack.localhost",
+            name="ops",
+            timeout=7.5,
+            json_output=True,
+        )
 
     @patch("slack_mirror.service.release.release_check", return_value=0)
     def test_release_check_dispatches_to_service(self, mock_release_check):

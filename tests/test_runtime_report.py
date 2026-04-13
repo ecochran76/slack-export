@@ -4,12 +4,14 @@ from importlib import util as importlib_util
 from pathlib import Path
 from unittest.mock import patch
 
+from slack_mirror.service import runtime_report
+
 
 RUNTIME_REPORT_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "render_runtime_report.py"
 
 
-def _load_runtime_report_module():
-    spec = importlib_util.spec_from_file_location("render_runtime_report", RUNTIME_REPORT_SCRIPT)
+def _load_runtime_report_script_module():
+    spec = importlib_util.spec_from_file_location("render_runtime_report_script", RUNTIME_REPORT_SCRIPT)
     module = importlib_util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -18,7 +20,7 @@ def _load_runtime_report_module():
 
 class RuntimeReportTests(unittest.TestCase):
     def setUp(self):
-        self.module = _load_runtime_report_module()
+        self.script_module = _load_runtime_report_script_module()
         self.runtime_status = {
             "ok": True,
             "status": {
@@ -83,7 +85,7 @@ class RuntimeReportTests(unittest.TestCase):
         }
 
     def test_render_runtime_report_markdown_includes_reconcile_summary(self):
-        report = self.module.render_runtime_report_markdown(
+        report = runtime_report.render_runtime_report_markdown(
             base_url="http://slack.localhost",
             fetched_at="2026-04-13T02:10:00+00:00",
             runtime_status=self.runtime_status,
@@ -95,7 +97,7 @@ class RuntimeReportTests(unittest.TestCase):
         self.assertIn("`STALE_MIRROR`", report)
 
     def test_render_runtime_report_html_includes_status_and_workspace_cards(self):
-        report = self.module.render_runtime_report_html(
+        report = runtime_report.render_runtime_report_html(
             base_url="http://slack.localhost",
             fetched_at="2026-04-13T02:10:00+00:00",
             runtime_status=self.runtime_status,
@@ -114,8 +116,8 @@ class RuntimeReportTests(unittest.TestCase):
             self.assertEqual(timeout, 7.5)
             return payloads.pop(0)
 
-        with patch.object(self.module, "_fetch_json", side_effect=fake_fetch) as mock_fetch:
-            report = self.module.build_report(
+        with patch.object(runtime_report, "_fetch_json", side_effect=fake_fetch) as mock_fetch:
+            report = runtime_report.build_report(
                 base_url="http://slack.localhost",
                 output_format="markdown",
                 timeout=7.5,
@@ -123,15 +125,47 @@ class RuntimeReportTests(unittest.TestCase):
         self.assertIn("Slack Mirror Runtime Report", report)
         self.assertEqual(mock_fetch.call_count, 2)
 
-    def test_main_writes_output_file(self):
+    def test_write_runtime_report_snapshot_writes_timestamped_and_latest_outputs(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            config_path = root / "config.yaml"
+            db_path = root / "state" / "slack_mirror.db"
+            config_path.write_text(
+                "\n".join(["version: 1", "storage:", f"  db_path: {db_path}", ""]),
+                encoding="utf-8",
+            )
+            with patch.object(
+                runtime_report,
+                "build_report_payload",
+                return_value={
+                    "base_url": "http://slack.localhost",
+                    "fetched_at": "2026-04-13T12:00:00+00:00",
+                    "runtime_status": self.runtime_status,
+                    "live_validation": self.live_validation,
+                },
+            ):
+                result = runtime_report.write_runtime_report_snapshot(
+                    config_path=str(config_path),
+                    base_url="http://slack.localhost",
+                    name="ops snapshot",
+                    timeout=5.0,
+                )
+            self.assertEqual(result["name"], "ops-snapshot")
+            self.assertTrue(Path(result["markdown_path"]).exists())
+            self.assertTrue(Path(result["html_path"]).exists())
+            self.assertTrue(Path(result["latest_markdown_path"]).exists())
+            self.assertTrue(Path(result["latest_html_path"]).exists())
+            self.assertTrue(Path(result["latest_json_path"]).exists())
+
+    def test_script_main_writes_output_file(self):
         with tempfile.TemporaryDirectory() as td:
             output = Path(td) / "runtime-report.md"
             with patch.object(
-                self.module,
+                self.script_module,
                 "build_report",
                 return_value="# report\n",
             ), patch("sys.argv", ["render_runtime_report.py", "--output", str(output)]):
-                rc = self.module.main()
+                rc = self.script_module.main()
             self.assertEqual(rc, 0)
             self.assertEqual(output.read_text(encoding="utf-8"), "# report\n")
 

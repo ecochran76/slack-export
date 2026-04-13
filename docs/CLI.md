@@ -815,7 +815,7 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 
 ```
 usage: slack-mirror user-env [-h]
-                             {install,update,rollback,uninstall,status,validate-live,check-live,recover-live}
+                             {install,update,rollback,uninstall,status,validate-live,check-live,recover-live,snapshot-report}
                              ...
 ```
 
@@ -828,6 +828,7 @@ usage: slack-mirror user-env [-h]
 - `install`
 - `recover-live`
 - `rollback`
+- `snapshot-report`
 - `status`
 - `uninstall`
 - `update`
@@ -872,6 +873,23 @@ usage: slack-mirror user-env recover-live [-h] [--apply] [--json]
 ```
 usage: slack-mirror user-env rollback [-h]
 ```
+
+
+### `slack-mirror user-env snapshot-report`
+**Usage**
+
+```
+usage: slack-mirror user-env snapshot-report [-h] [--base-url BASE_URL]
+                                             [--name NAME] [--timeout TIMEOUT]
+                                             [--json]
+```
+
+**Options**
+
+- `--base-url` — base URL for the managed API; default: `http://slack.localhost`
+- `--name` — snapshot report name prefix; default: `runtime-report`
+- `--timeout` — request timeout in seconds; default: `5.0`
+- `--json` — json output
 
 
 ### `slack-mirror user-env status`
