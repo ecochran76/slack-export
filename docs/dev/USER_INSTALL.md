@@ -147,6 +147,7 @@ The script is a compatibility shim that delegates to `slack-mirror user-env`.
 
 Shows wrapper/API/MCP/API service/config/db presence and current live-mode service status.
 It also shows whether a rollback snapshot is currently available.
+When managed config exists, it now also reports the latest persisted `mirror reconcile-files` summary per workspace, including whether a reconcile state file exists and the last recorded `downloaded` / `warnings` / `failed` counts.
 
 ## Combined Live Check
 

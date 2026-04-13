@@ -290,10 +290,39 @@ class UserEnvTests(unittest.TestCase):
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
-        self.paths.config_path.write_text("cfg\n", encoding="utf-8")
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n",
+            encoding="utf-8",
+        )
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)
         (self.paths.state_dir / "slack_mirror.db").write_text("db\n", encoding="utf-8")
         self.paths.cache_dir.mkdir(parents=True, exist_ok=True)
+        write_reconcile_state(
+            str(self.paths.config_path),
+            workspace="default",
+            auth_mode="user",
+            result={
+                "scanned": 10,
+                "attempted": 2,
+                "downloaded": 2,
+                "downloaded_binary": 2,
+                "materialized_email_containers": 0,
+                "materialized_email_containers_with_asset_failures": 0,
+                "skipped": 8,
+                "failed": 0,
+                "warnings": 0,
+                "warning_reasons": {},
+                "warning_hints": {},
+                "warning_files": [],
+                "failure_reasons": {},
+                "failure_hints": {},
+                "failed_files": [],
+            },
+        )
         output = []
 
         def runner(args, check=False, text=False, env=None, capture_output=False):
@@ -309,6 +338,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("API svc:", rendered)
         self.assertIn("status: present", rendered)
         self.assertIn("svc-a", rendered)
+        self.assertIn("Reconcile state:", rendered)
+        self.assertIn("default: downloaded=2 warnings=0 failed=0", rendered)
 
     def test_status_json_reports_machine_readable_presence(self):
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
@@ -318,10 +349,40 @@ class UserEnvTests(unittest.TestCase):
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
-        self.paths.config_path.write_text("cfg\n", encoding="utf-8")
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "  - name: soylei\n",
+            encoding="utf-8",
+        )
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)
         (self.paths.state_dir / "slack_mirror.db").write_text("db\n", encoding="utf-8")
         self.paths.cache_dir.mkdir(parents=True, exist_ok=True)
+        write_reconcile_state(
+            str(self.paths.config_path),
+            workspace="default",
+            auth_mode="user",
+            result={
+                "scanned": 10,
+                "attempted": 2,
+                "downloaded": 2,
+                "downloaded_binary": 1,
+                "materialized_email_containers": 1,
+                "materialized_email_containers_with_asset_failures": 0,
+                "skipped": 8,
+                "failed": 0,
+                "warnings": 0,
+                "warning_reasons": {},
+                "warning_hints": {},
+                "warning_files": [],
+                "failure_reasons": {},
+                "failure_hints": {},
+                "failed_files": [],
+            },
+        )
         output = []
 
         def runner(args, check=False, text=False, env=None, capture_output=False):
@@ -345,6 +406,11 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(payload["api_service_present"])
         self.assertFalse(payload["rollback_snapshot_present"])
         self.assertEqual(payload["services"]["slack-mirror-api.service"], "active")
+        self.assertEqual(payload["reconcile_workspaces"][0]["name"], "default")
+        self.assertTrue(payload["reconcile_workspaces"][0]["state_present"])
+        self.assertEqual(payload["reconcile_workspaces"][0]["downloaded"], 2)
+        self.assertEqual(payload["reconcile_workspaces"][1]["name"], "soylei")
+        self.assertFalse(payload["reconcile_workspaces"][1]["state_present"])
 
     def test_validate_live_passes_for_supported_runtime_contract(self):
         current_ts = str(time.time())

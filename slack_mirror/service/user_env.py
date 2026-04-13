@@ -107,6 +107,7 @@ class UserEnvStatusReport:
     db_present: bool
     cache_present: bool
     services: dict[str, str]
+    reconcile_workspaces: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -914,6 +915,7 @@ def _build_status_report(
     runner: RunFn = subprocess.run,
 ) -> UserEnvStatusReport:
     target = paths or default_user_env_paths()
+    reconcile_workspaces: list[dict[str, Any]] = []
     service_units = [
         "slack-mirror-api.service",
         *sorted(path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.service")),
@@ -921,6 +923,49 @@ def _build_status_report(
     states: dict[str, str] = {}
     for unit_name in dict.fromkeys(service_units):
         states[unit_name] = _systemctl_state(runner, unit_name)
+    if target.config_path.exists():
+        try:
+            cfg = _load_managed_config(target)
+            for ws in [ws for ws in cfg.get("workspaces", []) if ws.get("name") and ws.get("enabled", True)]:
+                name = str(ws.get("name"))
+                reconcile_state = load_reconcile_state(target.config_path, workspace=name, auth_mode="user")
+                if reconcile_state:
+                    age_seconds: float | None = None
+                    reconcile_ts = reconcile_state.get("ts")
+                    if reconcile_ts is not None:
+                        try:
+                            age_seconds = max(0.0, time.time() - float(reconcile_ts))
+                        except (TypeError, ValueError):
+                            age_seconds = None
+                    reconcile_workspaces.append(
+                        {
+                            "name": name,
+                            "auth_mode": "user",
+                            "state_present": True,
+                            "iso_utc": str(reconcile_state.get("iso_utc") or "") or None,
+                            "age_seconds": age_seconds,
+                            "attempted": int(reconcile_state.get("attempted") or 0),
+                            "downloaded": int(reconcile_state.get("downloaded") or 0),
+                            "warnings": int(reconcile_state.get("warnings") or 0),
+                            "failed": int(reconcile_state.get("failed") or 0),
+                        }
+                    )
+                else:
+                    reconcile_workspaces.append(
+                        {
+                            "name": name,
+                            "auth_mode": None,
+                            "state_present": False,
+                            "iso_utc": None,
+                            "age_seconds": None,
+                            "attempted": 0,
+                            "downloaded": 0,
+                            "warnings": 0,
+                            "failed": 0,
+                        }
+                    )
+        except Exception:
+            pass
     return UserEnvStatusReport(
         wrapper_present=target.wrapper_path.exists(),
         api_wrapper_present=target.api_wrapper_path.exists(),
@@ -931,6 +976,7 @@ def _build_status_report(
         db_present=(target.state_dir / "slack_mirror.db").exists(),
         cache_present=target.cache_dir.exists(),
         services=states,
+        reconcile_workspaces=reconcile_workspaces,
     )
 
 
@@ -945,6 +991,7 @@ def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
         "db_present": report.db_present,
         "cache_present": report.cache_present,
         "services": report.services,
+        "reconcile_workspaces": report.reconcile_workspaces,
     }
 
 
@@ -1404,6 +1451,19 @@ def status_user_env(
     )
     stdout = (completed.stdout or "").strip()
     out(stdout if stdout else "  status: unavailable")
+    if report.reconcile_workspaces:
+        out("Reconcile state:")
+        for item in report.reconcile_workspaces:
+            if not item["state_present"]:
+                out(f"  {item['name']}: missing")
+                continue
+            age_fragment = ""
+            if item["age_seconds"] is not None:
+                age_fragment = f", age={int(item['age_seconds'])}s"
+            out(
+                f"  {item['name']}: downloaded={item['downloaded']} warnings={item['warnings']} "
+                f"failed={item['failed']}{age_fragment}"
+            )
     return 0
 
 

@@ -1184,3 +1184,10 @@ This file is the dated turn log for planning and execution continuity.
 - This keeps hosted-file repair regressions visible in the normal managed-runtime operator path without turning reconcile history into a new hard health gate.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env -v`
+
+## Turn 85 | 2026-04-12
+
+- `user-env status` now exposes the latest persisted `mirror reconcile-files` summary per workspace in both plain output and `--json`.
+- This gives lighter-weight dashboards and scripts access to repair-state evidence without invoking the full live validation gate.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env -v`

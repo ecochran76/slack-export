@@ -122,6 +122,12 @@ Machine-readable smoke gate:
 slack-mirror user-env check-live --json
 ```
 
+Lightweight managed-runtime status, including the latest persisted reconcile summary per workspace when available:
+
+```bash
+slack-mirror user-env status --json
+```
+
 Bounded recovery planner:
 
 ```bash
