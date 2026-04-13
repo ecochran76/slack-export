@@ -1343,3 +1343,20 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 100 | 2026-04-13
+
+- Tightened the browser auth baseline with same-origin CSRF protection for:
+  - `/auth/register`
+  - `/auth/login`
+  - `/auth/logout`
+- The auth POST routes now require a matching `Origin` or `Referer` header and fail with `CSRF_FAILED` on cross-origin or headerless requests.
+- Kept the hardening bounded:
+  - no separate CSRF token store
+  - no new frontend state model
+  - no changes to non-browser API routes
+- Updated the browser-auth docs and the active `0009` plan so the remaining work is now session ergonomics and registration policy, not first-pass CSRF posture.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

@@ -95,18 +95,24 @@ def _set_cookie_headers(
         handler.send_header("set-cookie", morsel.OutputString())
 
 
-def _request_is_secure(handler: BaseHTTPRequestHandler, *, export_base_urls: dict[str, str] | None = None) -> bool:
+def _request_is_secure(
+    handler: BaseHTTPRequestHandler,
+    *,
+    export_base_urls: dict[str, str] | None = None,
+    include_browser_headers: bool = True,
+) -> bool:
     forwarded_proto = str(handler.headers.get("x-forwarded-proto", "")).split(",", 1)[0].strip().lower()
     if forwarded_proto:
         return forwarded_proto == "https"
 
-    for header_name in ("origin", "referer"):
-        header_value = str(handler.headers.get(header_name, "")).split(",", 1)[0].strip()
-        if not header_value:
-            continue
-        parsed_header = urlparse(header_value)
-        if parsed_header.scheme in {"http", "https"}:
-            return parsed_header.scheme == "https"
+    if include_browser_headers:
+        for header_name in ("origin", "referer"):
+            header_value = str(handler.headers.get(header_name, "")).split(",", 1)[0].strip()
+            if not header_value:
+                continue
+            parsed_header = urlparse(header_value)
+            if parsed_header.scheme in {"http", "https"}:
+                return parsed_header.scheme == "https"
 
     forwarded = str(handler.headers.get("forwarded", "")).strip()
     forwarded_host = ""
@@ -141,6 +147,53 @@ def _request_is_secure(handler: BaseHTTPRequestHandler, *, export_base_urls: dic
                 if parsed.hostname and candidate_hostname == parsed.hostname.lower():
                     return parsed.scheme.lower() == "https"
     return False
+
+
+def _origin_from_header_value(value: str) -> str | None:
+    raw = str(value or "").split(",", 1)[0].strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+
+
+def _allowed_request_origins(
+    handler: BaseHTTPRequestHandler,
+    *,
+    export_base_urls: dict[str, str] | None = None,
+) -> set[str]:
+    allowed: set[str] = set()
+    if export_base_urls:
+        for base_url in export_base_urls.values():
+            parsed = urlparse(base_url)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                allowed.add(f"{parsed.scheme.lower()}://{parsed.netloc.lower()}")
+    host = str(handler.headers.get("host", "")).split(",", 1)[0].strip().lower()
+    if host:
+        scheme = (
+            "https"
+            if _request_is_secure(handler, export_base_urls=export_base_urls, include_browser_headers=False)
+            else "http"
+        )
+        allowed.add(f"{scheme}://{host}")
+    return allowed
+
+
+def _validate_same_origin_post(
+    handler: BaseHTTPRequestHandler,
+    *,
+    export_base_urls: dict[str, str] | None = None,
+) -> str | None:
+    observed_origin = _origin_from_header_value(handler.headers.get("origin", "")) or _origin_from_header_value(
+        handler.headers.get("referer", "")
+    )
+    if not observed_origin:
+        return "Missing Origin or Referer header"
+    if observed_origin not in _allowed_request_origins(handler, export_base_urls=export_base_urls):
+        return f"Cross-origin POST not allowed from {observed_origin}"
+    return None
 
 
 def _frontend_login_html(*, next_path: str, error: str | None = None, can_register: bool) -> str:
@@ -1071,6 +1124,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             except json.JSONDecodeError as exc:
                 _error_response(self, 400, "BAD_REQUEST", f"Invalid JSON: {exc}")
                 return
+
+            if path in {"/auth/register", "/auth/login", "/auth/logout"}:
+                csrf_error = _validate_same_origin_post(self, export_base_urls=export_base_urls)
+                if csrf_error:
+                    _error_response(self, 403, "CSRF_FAILED", csrf_error)
+                    return
 
             if path == "/auth/register":
                 conn = service.connect()

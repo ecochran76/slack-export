@@ -330,6 +330,8 @@ class ApiServerTests(unittest.TestCase):
             self.config_path.read_text(encoding="utf-8")
             + "\n".join(
                 [
+                    "exports:",
+                    "  external_base_url: https://slack.ecochran.dyndns.org",
                     "service:",
                     "  auth:",
                     "    enabled: true",
@@ -379,6 +381,7 @@ class ApiServerTests(unittest.TestCase):
         registered = session.post(
             f"{base_url}/auth/register",
             json={"username": "eric", "display_name": "Eric", "password": "correct-horse-123"},
+            headers={"origin": base_url},
             timeout=5,
         )
         self.assertEqual(registered.status_code, 201)
@@ -410,16 +413,35 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(allowed_api.status_code, 200)
         self.assertEqual(allowed_api.json()["report"]["name"], "morning-ops")
 
-        logout = session.post(f"{base_url}/auth/logout", json={}, timeout=5)
+        logout = session.post(f"{base_url}/auth/logout", json={}, headers={"origin": base_url}, timeout=5)
         self.assertEqual(logout.status_code, 200)
         blocked_again = session.get(f"{base_url}/v1/runtime/reports/latest", timeout=5)
         self.assertEqual(blocked_again.status_code, 401)
+
+        bad_origin_register = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "mallory", "display_name": "Mallory", "password": "correct-horse-123"},
+            headers={"origin": "https://evil.example"},
+            timeout=5,
+        )
+        self.assertEqual(bad_origin_register.status_code, 403)
+        self.assertEqual(bad_origin_register.json()["error"]["code"], "CSRF_FAILED")
+
+        missing_origin_login = requests.post(
+            f"{base_url}/auth/login",
+            json={"username": "eric", "password": "correct-horse-123"},
+            timeout=5,
+        )
+        self.assertEqual(missing_origin_login.status_code, 403)
+        self.assertEqual(missing_origin_login.json()["error"]["code"], "CSRF_FAILED")
 
     def test_frontend_auth_cookie_secure_mode_auto_uses_forwarded_proto(self):
         self.config_path.write_text(
             self.config_path.read_text(encoding="utf-8")
             + "\n".join(
                 [
+                    "exports:",
+                    "  external_base_url: https://slack.ecochran.dyndns.org",
                     "service:",
                     "  auth:",
                     "    enabled: true",
@@ -441,6 +463,7 @@ class ApiServerTests(unittest.TestCase):
         insecure = requests.post(
             f"{base_url}/auth/register",
             json={"username": "local-user", "display_name": "Local User", "password": "correct-horse-123"},
+            headers={"origin": base_url},
             timeout=5,
         )
         self.assertEqual(insecure.status_code, 201)
@@ -449,7 +472,7 @@ class ApiServerTests(unittest.TestCase):
         secure = requests.post(
             f"{base_url}/auth/register",
             json={"username": "remote-user", "display_name": "Remote User", "password": "correct-horse-123"},
-            headers={"x-forwarded-proto": "https"},
+            headers={"x-forwarded-proto": "https", "origin": base_url.replace("http://", "https://")},
             timeout=5,
         )
         self.assertEqual(secure.status_code, 201)
@@ -484,7 +507,7 @@ class ApiServerTests(unittest.TestCase):
         local_host = requests.post(
             f"{base_url}/auth/register",
             json={"username": "forwarded-local-user", "display_name": "Forwarded Local User", "password": "correct-horse-123"},
-            headers={"x-forwarded-host": "slack.localhost"},
+            headers={"x-forwarded-host": "slack.localhost", "origin": "http://slack.localhost"},
             timeout=5,
         )
         self.assertEqual(local_host.status_code, 201)
@@ -493,7 +516,7 @@ class ApiServerTests(unittest.TestCase):
         external_host = requests.post(
             f"{base_url}/auth/register",
             json={"username": "forwarded-external-user", "display_name": "Forwarded External User", "password": "correct-horse-123"},
-            headers={"x-forwarded-host": "slack.ecochran.dyndns.org"},
+            headers={"x-forwarded-host": "slack.ecochran.dyndns.org", "origin": "https://slack.ecochran.dyndns.org"},
             timeout=5,
         )
         self.assertEqual(external_host.status_code, 201)
@@ -504,6 +527,8 @@ class ApiServerTests(unittest.TestCase):
             self.config_path.read_text(encoding="utf-8")
             + "\n".join(
                 [
+                    "exports:",
+                    "  external_base_url: https://slack.ecochran.dyndns.org",
                     "service:",
                     "  auth:",
                     "    enabled: true",
@@ -525,7 +550,7 @@ class ApiServerTests(unittest.TestCase):
         insecure = requests.post(
             f"{base_url}/auth/register",
             json={"username": "origin-http-user", "display_name": "Origin HTTP User", "password": "correct-horse-123"},
-            headers={"origin": "http://slack.localhost"},
+            headers={"origin": base_url},
             timeout=5,
         )
         self.assertEqual(insecure.status_code, 201)

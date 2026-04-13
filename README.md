@@ -96,6 +96,7 @@ The current repo has:
 - the local API now supports a bounded local-password browser-auth baseline for `/runtime/reports*` and `/exports*`, with login/register HTML pages and cookie-backed sessions modeled on the lighter parts of the `../litscout` hosted auth seam
 - frontend auth cookie policy is now request-aware, so browser-origin HTTPS ingress can use `Secure` cookies without breaking the local `http://slack.localhost` path
 - the browser root `/` is now an authenticated landing page over existing runtime-status, runtime-report, and export-manifest data, instead of a dead 404
+- browser auth POST routes now enforce same-origin `Origin`/`Referer` checks, so login, registration, and logout are intentionally browser-local rather than general cross-origin API endpoints
   - the managed user-env install now also provisions `slack-mirror-runtime-report.timer`, which runs `user-env snapshot-report` hourly into the same managed state directory
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server

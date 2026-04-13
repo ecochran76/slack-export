@@ -44,6 +44,7 @@ Current semantics:
 - when frontend auth is enabled:
   - unauthenticated HTML requests for protected routes redirect to `/login`
   - unauthenticated protected JSON requests fail with `AUTH_REQUIRED`
+  - `POST /auth/register`, `POST /auth/login`, and `POST /auth/logout` require a same-origin `Origin` or `Referer` header and fail with `CSRF_FAILED` otherwise
 - protected routes currently include:
   - `/`
   - `/exports/*`
