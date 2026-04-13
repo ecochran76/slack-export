@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
@@ -9,6 +10,11 @@ from typing import Any
 import requests
 
 from slack_mirror.core.config import load_config
+
+
+RUNTIME_REPORT_RETENTION_MAX_SNAPSHOTS = 24
+RUNTIME_REPORT_RETENTION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60
+_SNAPSHOT_STEM_RE = re.compile(r"^(?P<name>.+)-(?P<stamp>\d{8}T\d{6}Z)$")
 
 
 def _db_path_from_config(config_path: str | None) -> Path:
@@ -20,6 +26,61 @@ def _db_path_from_config(config_path: str | None) -> Path:
 def runtime_report_dir_for_config(config_path: str | None) -> Path:
     db_path = _db_path_from_config(config_path)
     return db_path.parent / "runtime-reports"
+
+
+def _parse_snapshot_timestamp(path: Path, *, expected_name: str) -> datetime | None:
+    if path.suffix not in {".md", ".html"}:
+        return None
+    match = _SNAPSHOT_STEM_RE.match(path.stem)
+    if not match or match.group("name") != expected_name:
+        return None
+    try:
+        return datetime.strptime(match.group("stamp"), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def _prune_runtime_report_snapshots(
+    *,
+    report_dir: Path,
+    name: str,
+    now: datetime,
+    keep_count: int = RUNTIME_REPORT_RETENTION_MAX_SNAPSHOTS,
+    max_age_seconds: int = RUNTIME_REPORT_RETENTION_MAX_AGE_SECONDS,
+) -> dict[str, Any]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for path in report_dir.iterdir():
+        stamp_dt = _parse_snapshot_timestamp(path, expected_name=name)
+        if stamp_dt is None:
+            continue
+        record = grouped.setdefault(
+            path.stem,
+            {
+                "stamp_dt": stamp_dt,
+                "paths": [],
+            },
+        )
+        record["paths"].append(path)
+
+    ordered = sorted(grouped.values(), key=lambda item: item["stamp_dt"], reverse=True)
+    pruned_paths: list[str] = []
+    kept = 0
+    for item in ordered:
+        age_seconds = (now - item["stamp_dt"]).total_seconds()
+        should_keep = kept < keep_count and age_seconds <= max_age_seconds
+        if should_keep:
+            kept += 1
+            continue
+        for path in item["paths"]:
+            path.unlink(missing_ok=True)
+            pruned_paths.append(str(path))
+    return {
+        "kept_snapshot_sets": kept,
+        "pruned_snapshot_sets": max(0, len(ordered) - kept),
+        "pruned_paths": sorted(pruned_paths),
+        "retention_max_snapshots": keep_count,
+        "retention_max_age_seconds": max_age_seconds,
+    }
 
 
 def _fetch_json(url: str, *, timeout: float) -> dict[str, Any]:
@@ -259,7 +320,8 @@ def write_runtime_report_snapshot(
     html = render_runtime_report_html(**payload)
     report_dir = runtime_report_dir_for_config(config_path)
     report_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    now = datetime.now(timezone.utc)
+    stamp = now.strftime("%Y%m%dT%H%M%SZ")
     stem = f"{safe_name}-{stamp}"
     markdown_path = report_dir / f"{stem}.md"
     html_path = report_dir / f"{stem}.html"
@@ -281,6 +343,8 @@ def write_runtime_report_snapshot(
         "latest_markdown_path": str(latest_markdown_path),
         "latest_html_path": str(latest_html_path),
     }
+    retention = _prune_runtime_report_snapshots(report_dir=report_dir, name=safe_name, now=now)
+    metadata.update(retention)
     latest_json_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return {
         **metadata,

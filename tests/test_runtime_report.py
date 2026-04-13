@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from importlib import util as importlib_util
 from pathlib import Path
 from unittest.mock import patch
@@ -156,6 +157,70 @@ class RuntimeReportTests(unittest.TestCase):
             self.assertTrue(Path(result["latest_markdown_path"]).exists())
             self.assertTrue(Path(result["latest_html_path"]).exists())
             self.assertTrue(Path(result["latest_json_path"]).exists())
+            self.assertEqual(result["kept_snapshot_sets"], 1)
+            self.assertEqual(result["pruned_snapshot_sets"], 0)
+            self.assertEqual(result["pruned_paths"], [])
+
+    def test_write_runtime_report_snapshot_prunes_old_timestamped_outputs_for_same_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            config_path = root / "config.yaml"
+            db_path = root / "state" / "slack_mirror.db"
+            config_path.write_text(
+                "\n".join(["version: 1", "storage:", f"  db_path: {db_path}", ""]),
+                encoding="utf-8",
+            )
+            report_dir = db_path.parent / "runtime-reports"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            old_md = report_dir / "ops-20260301T000000Z.md"
+            old_html = report_dir / "ops-20260301T000000Z.html"
+            recent_md = report_dir / "ops-20260412T120000Z.md"
+            recent_html = report_dir / "ops-20260412T120000Z.html"
+            other_md = report_dir / "another-20260301T000000Z.md"
+            old_md.write_text("old", encoding="utf-8")
+            old_html.write_text("old", encoding="utf-8")
+            recent_md.write_text("recent", encoding="utf-8")
+            recent_html.write_text("recent", encoding="utf-8")
+            other_md.write_text("other", encoding="utf-8")
+            with patch.object(
+                runtime_report,
+                "build_report_payload",
+                return_value={
+                    "base_url": "http://slack.localhost",
+                    "fetched_at": "2026-04-13T12:00:00+00:00",
+                    "runtime_status": self.runtime_status,
+                    "live_validation": self.live_validation,
+                },
+            ), patch.object(
+                runtime_report,
+                "RUNTIME_REPORT_RETENTION_MAX_SNAPSHOTS",
+                2,
+            ), patch.object(
+                runtime_report,
+                "RUNTIME_REPORT_RETENTION_MAX_AGE_SECONDS",
+                24 * 60 * 60,
+            ), patch(
+                "slack_mirror.service.runtime_report.datetime"
+            ) as mock_datetime:
+                real_datetime = datetime
+                mock_datetime.now.return_value = real_datetime(2026, 4, 13, 12, 0, 0, tzinfo=timezone.utc)
+                mock_datetime.strptime.side_effect = real_datetime.strptime
+                result = runtime_report.write_runtime_report_snapshot(
+                    config_path=str(config_path),
+                    base_url="http://slack.localhost",
+                    name="ops",
+                    timeout=5.0,
+                )
+            self.assertFalse(old_md.exists())
+            self.assertFalse(old_html.exists())
+            self.assertTrue(recent_md.exists())
+            self.assertTrue(recent_html.exists())
+            self.assertTrue(other_md.exists())
+            self.assertEqual(result["pruned_snapshot_sets"], 1)
+            self.assertEqual(
+                sorted(Path(path).name for path in result["pruned_paths"]),
+                ["ops-20260301T000000Z.html", "ops-20260301T000000Z.md"],
+            )
 
     def test_script_main_writes_output_file(self):
         with tempfile.TemporaryDirectory() as td:

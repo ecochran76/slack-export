@@ -1238,3 +1238,12 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_runtime_report tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 91 | 2026-04-13
+
+- Added bounded retention to the managed runtime-report snapshot writer under `runtime-reports/`.
+- Timestamped Markdown/HTML snapshot pairs are now pruned automatically by age and count, while stable `*.latest.*` handoff files are preserved.
+- Updated the live/install docs so operators know the retention contract instead of assuming timestamped snapshots accumulate forever.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_runtime_report -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
