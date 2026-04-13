@@ -149,6 +149,15 @@ Shows wrapper/API/MCP/API service/config/db presence and current live-mode servi
 It also shows whether a rollback snapshot is currently available.
 When managed config exists, it now also reports the latest persisted `mirror reconcile-files` summary per workspace, including whether a reconcile state file exists and the last recorded `downloaded` / `warnings` / `failed` counts.
 
+For a shareable runtime snapshot built from the managed API surfaces, use:
+
+```bash
+python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md
+python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html
+```
+
+This consumes `/v1/runtime/status` and `/v1/runtime/live-validation` and is useful for periodic ops reports or review handoff.
+
 ## Combined Live Check
 
 Supported product entrypoint:

@@ -26,6 +26,8 @@ slack-mirror --config ~/.config/slack-mirror/config.yaml mirror status --workspa
 slack-mirror user-env check-live
 slack-mirror user-env check-live --json
 slack-mirror user-env status --json
+python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md
+python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html
 slack-mirror user-env recover-live
 slack-mirror user-env recover-live --apply
 slack-mirror user-env rollback
@@ -85,6 +87,7 @@ The current repo has:
   - `mirror reconcile-files` now persists the last run outcome in local state and compares the current batch to the previous run in both plain output and `--json`, so operators can spot regressions instead of reading each batch in isolation
   - `user-env validate-live` and `user-env check-live` now surface the latest persisted reconcile-files evidence per workspace, and warn when the most recent repair batch recorded warnings or failures
   - lightweight managed-runtime status is now queryable over CLI, API (`/v1/runtime/status`), and MCP (`runtime.status`), including the latest persisted reconcile summary per workspace
+  - `scripts/render_runtime_report.py` now consumes `/v1/runtime/status` and `/v1/runtime/live-validation` to generate shareable Markdown or HTML runtime snapshots for ops review
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server

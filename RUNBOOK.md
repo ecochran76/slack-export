@@ -1206,3 +1206,13 @@ This file is the dated turn log for planning and execution continuity.
 - This keeps CLI, API, and MCP aligned on the same persisted reconcile evidence instead of making agents special-case one transport.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_mcp_server tests.test_api_server tests.test_user_env -v`
+
+## Turn 88 | 2026-04-13
+
+- Added `scripts/render_runtime_report.py` as a generated runtime-report consumer over `/v1/runtime/status` and `/v1/runtime/live-validation`.
+- The report renders either Markdown or HTML for point-in-time ops snapshots and review handoff, instead of forcing operators to work directly from raw JSON.
+- Tightened the shared `validate_live_runtime()` service payload so API callers now receive the same reconcile and stale-suppression workspace fields already present in the underlying live-validation report.
+- Updated the runtime and install docs so the new report script is part of the supported operator workflow.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_runtime_report tests.test_app_service tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

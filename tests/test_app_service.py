@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from slack_mirror.core.db import connect, enqueue_derived_text_job, get_workspace_by_name, mark_derived_text_job_status, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
@@ -43,6 +44,51 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["name"], "default")
         self.assertEqual(workspace_id, int(rows[0]["id"]))
+
+    def test_validate_live_runtime_includes_reconcile_fields(self):
+        report = SimpleNamespace(
+            ok=True,
+            status="pass",
+            summary="Summary: PASS",
+            exit_code=0,
+            failure_count=0,
+            warning_count=0,
+            failure_codes=[],
+            warning_codes=[],
+            failures=[],
+            warnings=[],
+            workspaces=[
+                SimpleNamespace(
+                    name="default",
+                    event_errors=0,
+                    embedding_errors=0,
+                    event_pending=0,
+                    embedding_pending=0,
+                    stale_channels=5,
+                    stale_warning_suppressed=True,
+                    active_recent_channels=2,
+                    shell_like_zero_message_channels=1,
+                    unexpected_empty_channels=0,
+                    reconcile_state_present=True,
+                    reconcile_state_age_seconds=12.0,
+                    reconcile_auth_mode="user",
+                    reconcile_iso_utc="2026-04-13T02:00:00+00:00",
+                    reconcile_attempted=2,
+                    reconcile_downloaded=2,
+                    reconcile_warnings=0,
+                    reconcile_failed=0,
+                    failure_codes=[],
+                    warning_codes=[],
+                )
+            ],
+        )
+        with patch("slack_mirror.service.app._build_live_validation_report", return_value=report):
+            result = self.service.validate_live_runtime(require_live_units=True)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.workspaces[0]["name"], "default")
+        self.assertTrue(result.workspaces[0]["reconcile_state_present"])
+        self.assertEqual(result.workspaces[0]["reconcile_downloaded"], 2)
+        self.assertEqual(result.workspaces[0]["reconcile_failed"], 0)
 
     def test_get_workspace_status_and_process_pending_events(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

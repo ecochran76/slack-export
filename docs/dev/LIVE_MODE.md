@@ -128,6 +128,20 @@ Lightweight managed-runtime status, including the latest persisted reconcile sum
 slack-mirror user-env status --json
 ```
 
+Shareable runtime snapshots over the local API:
+
+```bash
+python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md
+python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html
+```
+
+The report script consumes:
+
+- `GET /v1/runtime/status`
+- `GET /v1/runtime/live-validation`
+
+Use it when you want a point-in-time operator report for review or handoff instead of a raw JSON payload.
+
 Bounded recovery planner:
 
 ```bash
@@ -257,3 +271,8 @@ For shell automation, prefer:
 - `slack-mirror user-env validate-live --json`
 - `slack-mirror user-env check-live --json`
 - `slack-mirror user-env recover-live --json`
+
+For human-shareable snapshots, prefer:
+
+- `python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md`
+- `python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html`

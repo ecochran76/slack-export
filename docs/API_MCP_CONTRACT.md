@@ -83,6 +83,19 @@ Both return the same shared validation payload with:
   - `embedding_errors`
   - `event_pending`
   - `embedding_pending`
+  - `stale_channels`
+  - `stale_warning_suppressed`
+  - `active_recent_channels`
+  - `shell_like_zero_message_channels`
+  - `unexpected_empty_channels`
+  - `reconcile_state_present`
+  - `reconcile_state_age_seconds`
+  - `reconcile_auth_mode`
+  - `reconcile_iso_utc`
+  - `reconcile_attempted`
+  - `reconcile_downloaded`
+  - `reconcile_warnings`
+  - `reconcile_failed`
   - `failure_codes`
   - `warning_codes`
 
