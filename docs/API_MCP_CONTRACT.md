@@ -28,6 +28,10 @@ API:
 
 - `GET /v1/runtime/status`
 
+MCP:
+
+- `runtime.status`
+
 This is the lightweight managed-runtime status surface. It is intended for dashboards, probes, and operator scripts that need runtime artifact/service presence plus the latest persisted reconcile summary, without running the full live validation gate.
 
 Important fields:

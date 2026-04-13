@@ -1199,3 +1199,10 @@ This file is the dated turn log for planning and execution continuity.
 - Kept the transport thin by adding a small shared `runtime_status()` method in `slack_mirror.service.app` over the existing managed-runtime status builder.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server tests.test_user_env -v`
+
+## Turn 87 | 2026-04-12
+
+- Added MCP parity for the lightweight managed-runtime status surface through `runtime.status`.
+- This keeps CLI, API, and MCP aligned on the same persisted reconcile evidence instead of making agents special-case one transport.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_mcp_server tests.test_api_server tests.test_user_env -v`

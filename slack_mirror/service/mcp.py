@@ -33,6 +33,7 @@ class SlackMirrorMcpServer:
     def tools(self) -> list[dict[str, Any]]:
         return [
             _tool("health", "Show service health summary", {"type": "object", "properties": {}, "additionalProperties": False}),
+            _tool("runtime.status", "Show managed runtime status and latest reconcile summary", {"type": "object", "properties": {}, "additionalProperties": False}),
             _tool(
                 "runtime.live_validation",
                 "Validate managed runtime or full live-service health",
@@ -229,6 +230,8 @@ class SlackMirrorMcpServer:
 
         if name == "health":
             return self._mcp_result({"ok": True})
+        if name == "runtime.status":
+            return self._mcp_result(self.service.runtime_status())
         if name == "runtime.live_validation":
             return self._mcp_result(
                 self.service.validate_live_runtime(

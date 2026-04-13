@@ -81,6 +81,7 @@ class McpServerTests(unittest.TestCase):
         tools = self.server.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
         names = [tool["name"] for tool in tools["result"]["tools"]]
         self.assertIn("health", names)
+        self.assertIn("runtime.status", names)
         self.assertIn("runtime.live_validation", names)
         self.assertIn("search.corpus", names)
         self.assertIn("search.health", names)
@@ -228,6 +229,48 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"summary": "Summary: PASS"', text)
         self.assertIn('"workspaces"', text)
         mock_validate.assert_called_once_with(require_live_units=False)
+
+    def test_runtime_status_tool(self):
+        with patch.object(
+            self.server.service,
+            "runtime_status",
+            return_value={
+                "ok": True,
+                "wrappers_present": True,
+                "api_service_present": True,
+                "config_present": True,
+                "db_present": True,
+                "cache_present": True,
+                "rollback_snapshot_present": True,
+                "services": {"slack-mirror-api.service": "active"},
+                "reconcile_workspaces": [
+                    {
+                        "name": "default",
+                        "state_present": True,
+                        "auth_mode": "user",
+                        "downloaded": 2,
+                        "warnings": 0,
+                        "failed": 0,
+                    }
+                ],
+            },
+        ) as mock_status:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 66,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "runtime.status",
+                        "arguments": {},
+                    },
+                }
+            )
+        text = result["result"]["content"][0]["text"]
+        self.assertIn('"wrappers_present": true', text)
+        self.assertIn('"reconcile_workspaces"', text)
+        self.assertIn('"name": "default"', text)
+        mock_status.assert_called_once_with()
 
     def test_search_tools(self):
         with patch.object(
