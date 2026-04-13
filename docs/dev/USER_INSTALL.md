@@ -169,6 +169,8 @@ This is the one-command operator smoke check. It combines:
 
 Use this when you want one pass/fail gate for unattended installs and release smoke checks.
 
+`check-live` now also includes the latest persisted `mirror reconcile-files` evidence inside its validation payload, so file-repair regressions show up in the same operator surface as the rest of the managed runtime health checks.
+
 ## Live Recovery
 
 Supported product entrypoint:
@@ -232,6 +234,7 @@ Stale mirrored channels older than the built-in freshness window are now warning
 Use `mirror status --classify-access` to distinguish inactive-but-mirrored channels from actual ingest regressions.
 When full live validation sees active recent channels and no unexpected empty public/private channels, it suppresses `STALE_MIRROR` entirely instead of emitting a low-value warning.
 The narrower install/update validation gate still treats stale mirror freshness as a warning because live workspace units are not provisioned there.
+When a persisted `mirror reconcile-files` state file exists for a workspace, validation also reports the last reconcile batch summary and warns if that batch recorded repair warnings or failures. This keeps hosted-file repair drift visible without turning reconcile history into a hard live-health failure.
 
 The command emits stable issue classes such as:
 

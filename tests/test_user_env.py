@@ -8,7 +8,7 @@ import time
 from unittest.mock import patch
 
 from slack_mirror.service import user_env
-from slack_mirror.service.runtime_heartbeat import write_heartbeat
+from slack_mirror.service.runtime_heartbeat import write_heartbeat, write_reconcile_state
 
 
 class UserEnvTests(unittest.TestCase):
@@ -386,6 +386,28 @@ class UserEnvTests(unittest.TestCase):
         )
         conn.close()
         write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        write_reconcile_state(
+            str(self.paths.config_path),
+            workspace="default",
+            auth_mode="user",
+            result={
+                "scanned": 10,
+                "attempted": 2,
+                "downloaded": 2,
+                "downloaded_binary": 1,
+                "materialized_email_containers": 1,
+                "materialized_email_containers_with_asset_failures": 0,
+                "skipped": 8,
+                "failed": 0,
+                "warnings": 0,
+                "warning_reasons": {},
+                "warning_hints": {},
+                "warning_files": [],
+                "failure_reasons": {},
+                "failure_hints": {},
+                "failed_files": [],
+            },
+        )
         output = []
 
         def runner(args, check=False, text=False, env=None, capture_output=False):
@@ -403,6 +425,7 @@ class UserEnvTests(unittest.TestCase):
         rendered = "\n".join(output)
         self.assertIn("Summary: PASS", rendered)
         self.assertIn("workspace default synced into DB", rendered)
+        self.assertIn("workspace default last reconcile-files (downloaded=2, warnings=0, failed=0", rendered)
         self.assertNotIn("Recovery:", rendered)
 
         report = user_env._build_live_validation_report(paths=self.paths, runner=runner, require_live_units=True)
@@ -412,6 +435,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(report.warning_codes, [])
         self.assertEqual(report.workspaces[0].name, "default")
         self.assertEqual(report.workspaces[0].event_pending, 0)
+        self.assertTrue(report.workspaces[0].reconcile_state_present)
+        self.assertEqual(report.workspaces[0].reconcile_downloaded, 2)
 
     def test_validate_live_json_reports_machine_readable_failures(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
@@ -461,6 +486,92 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(payload["status"], "fail")
         self.assertIn("OUTBOUND_TOKEN_MISSING", payload["failure_codes"])
         self.assertEqual(payload["workspaces"][0]["name"], "default")
+
+    def test_validate_live_warns_when_last_reconcile_failed(self):
+        current_ts = str(time.time())
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n"
+            "    user_token: xoxp-read\n"
+            "    outbound_user_token: xoxp-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'done');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.close()
+        write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        write_reconcile_state(
+            str(self.paths.config_path),
+            workspace="default",
+            auth_mode="user",
+            result={
+                "scanned": 10,
+                "attempted": 2,
+                "downloaded": 1,
+                "downloaded_binary": 1,
+                "materialized_email_containers": 0,
+                "materialized_email_containers_with_asset_failures": 0,
+                "skipped": 8,
+                "failed": 1,
+                "warnings": 0,
+                "warning_reasons": {},
+                "warning_hints": {},
+                "warning_files": [],
+                "failure_reasons": {"forbidden": 1},
+                "failure_hints": {"forbidden": "reauth"},
+                "failed_files": [{"file_id": "F1", "reason": "forbidden", "error": "403"}],
+            },
+        )
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            unit = args[-1]
+            stdout = "active\n" if unit in {
+                "slack-mirror-api.service",
+                "slack-mirror-webhooks-default.service",
+                "slack-mirror-daemon-default.service",
+            } else "inactive\n"
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+        rc = user_env.validate_live_user_env(paths=self.paths, runner=runner, out=output.append)
+
+        self.assertEqual(rc, 0)
+        rendered = "\n".join(output)
+        self.assertIn("WARN  [RECONCILE_REPAIR_FAILURES] workspace default last reconcile-files run had 1 failures", rendered)
+        self.assertIn("Summary: PASS with warnings (1)", rendered)
+        payload = user_env._live_validation_report_payload(
+            user_env._build_live_validation_report(paths=self.paths, runner=runner, require_live_units=True)
+        )
+        self.assertEqual(payload["status"], "pass_with_warnings")
+        self.assertIn("RECONCILE_REPAIR_FAILURES", payload["warning_codes"])
+        self.assertEqual(payload["workspaces"][0]["reconcile_failed"], 1)
 
     def test_check_live_fails_when_managed_wrappers_are_missing(self):
         current_ts = str(time.time())

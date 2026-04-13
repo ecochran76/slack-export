@@ -82,6 +82,7 @@ The current repo has:
   - `mirror reconcile-files` also reports partial email-container localization warnings when the HTML body is repaired but some inline assets remain missing
   - `mirror reconcile-files` now emits per-reason remediation hints in both plain output and `--json`
   - `mirror reconcile-files` now persists the last run outcome in local state and compares the current batch to the previous run in both plain output and `--json`, so operators can spot regressions instead of reading each batch in isolation
+  - `user-env validate-live` and `user-env check-live` now surface the latest persisted reconcile-files evidence per workspace, and warn when the most recent repair batch recorded warnings or failures
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server

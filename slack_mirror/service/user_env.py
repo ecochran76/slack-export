@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from slack_mirror.core.config import load_config
-from slack_mirror.service.runtime_heartbeat import heartbeat_path_for_config
+from slack_mirror.service.runtime_heartbeat import heartbeat_path_for_config, load_reconcile_state
 
 
 RunFn = Callable[..., subprocess.CompletedProcess]
@@ -68,6 +68,14 @@ class LiveValidationWorkspace:
     unexpected_empty_channels: int
     stale_channels: int
     stale_warning_suppressed: bool
+    reconcile_state_present: bool
+    reconcile_state_age_seconds: float | None
+    reconcile_auth_mode: str | None
+    reconcile_iso_utc: str | None
+    reconcile_attempted: int
+    reconcile_downloaded: int
+    reconcile_warnings: int
+    reconcile_failed: int
     failure_codes: list[str]
     warning_codes: list[str]
 
@@ -697,6 +705,14 @@ def _build_live_validation_report(
                     unexpected_empty_channels=0,
                     stale_channels=0,
                     stale_warning_suppressed=False,
+                    reconcile_state_present=False,
+                    reconcile_state_age_seconds=None,
+                    reconcile_auth_mode=None,
+                    reconcile_iso_utc=None,
+                    reconcile_attempted=0,
+                    reconcile_downloaded=0,
+                    reconcile_warnings=0,
+                    reconcile_failed=0,
                     failure_codes=ws_failures,
                     warning_codes=ws_warnings,
                 )
@@ -722,6 +738,45 @@ def _build_live_validation_report(
                 "shell_like_zero_message_channels": 0,
                 "unexpected_empty_channels": 0,
             }
+
+        reconcile_state = load_reconcile_state(target.config_path, workspace=name, auth_mode="user")
+        reconcile_state_present = reconcile_state is not None
+        reconcile_state_age_seconds: float | None = None
+        reconcile_iso_utc: str | None = None
+        reconcile_attempted = 0
+        reconcile_downloaded = 0
+        reconcile_warnings = 0
+        reconcile_failed = 0
+        if reconcile_state:
+            reconcile_ts = reconcile_state.get("ts")
+            if reconcile_ts is not None:
+                try:
+                    reconcile_state_age_seconds = max(0.0, time.time() - float(reconcile_ts))
+                except (TypeError, ValueError):
+                    reconcile_state_age_seconds = None
+            reconcile_iso_utc = str(reconcile_state.get("iso_utc") or "") or None
+            reconcile_attempted = int(reconcile_state.get("attempted") or 0)
+            reconcile_downloaded = int(reconcile_state.get("downloaded") or 0)
+            reconcile_warnings = int(reconcile_state.get("warnings") or 0)
+            reconcile_failed = int(reconcile_state.get("failed") or 0)
+            if reconcile_failed:
+                ws_warn(
+                    "RECONCILE_REPAIR_FAILURES",
+                    f"workspace {name} last reconcile-files run had {reconcile_failed} failures",
+                    (
+                        f"inspect `{target.state_dir / 'reconcile-state' / f'reconcile-files-{name}-user.json'}` "
+                        f"or rerun `slack-mirror --config {target.config_path} mirror reconcile-files --workspace {name} --auth-mode user --json`"
+                    ),
+                )
+            elif reconcile_warnings:
+                ws_warn(
+                    "RECONCILE_REPAIR_WARNINGS",
+                    f"workspace {name} last reconcile-files run had {reconcile_warnings} warnings",
+                    (
+                        f"inspect `{target.state_dir / 'reconcile-state' / f'reconcile-files-{name}-user.json'}` "
+                        f"or rerun `slack-mirror --config {target.config_path} mirror reconcile-files --workspace {name} --auth-mode user --json`"
+                    ),
+                )
 
         if event_errors:
             handler = ws_fail if require_live_units else ws_warn
@@ -792,6 +847,14 @@ def _build_live_validation_report(
                 unexpected_empty_channels=access_summary["unexpected_empty_channels"],
                 stale_channels=stale_channels,
                 stale_warning_suppressed=stale_warning_suppressed,
+                reconcile_state_present=reconcile_state_present,
+                reconcile_state_age_seconds=reconcile_state_age_seconds,
+                reconcile_auth_mode="user" if reconcile_state_present else None,
+                reconcile_iso_utc=reconcile_iso_utc,
+                reconcile_attempted=reconcile_attempted,
+                reconcile_downloaded=reconcile_downloaded,
+                reconcile_warnings=reconcile_warnings,
+                reconcile_failed=reconcile_failed,
                 failure_codes=ws_failures,
                 warning_codes=ws_warnings,
             )
@@ -929,6 +992,14 @@ def _live_validation_report_payload(report: LiveValidationReport) -> dict[str, A
                 "unexpected_empty_channels": workspace.unexpected_empty_channels,
                 "stale_channels": workspace.stale_channels,
                 "stale_warning_suppressed": workspace.stale_warning_suppressed,
+                "reconcile_state_present": workspace.reconcile_state_present,
+                "reconcile_state_age_seconds": workspace.reconcile_state_age_seconds,
+                "reconcile_auth_mode": workspace.reconcile_auth_mode,
+                "reconcile_iso_utc": workspace.reconcile_iso_utc,
+                "reconcile_attempted": workspace.reconcile_attempted,
+                "reconcile_downloaded": workspace.reconcile_downloaded,
+                "reconcile_warnings": workspace.reconcile_warnings,
+                "reconcile_failed": workspace.reconcile_failed,
                 "failure_codes": workspace.failure_codes,
                 "warning_codes": workspace.warning_codes,
             }
@@ -1401,6 +1472,16 @@ def validate_live_user_env(
                 f"workspace {workspace.name} stale mirror evidence suppressed "
                 f"({workspace.stale_channels} stale, {workspace.active_recent_channels} active_recent, "
                 f"{workspace.unexpected_empty_channels} unexpected_empty)"
+            )
+        if workspace.reconcile_state_present:
+            age_fragment = ""
+            if workspace.reconcile_state_age_seconds is not None:
+                age_fragment = f", age={int(workspace.reconcile_state_age_seconds)}s"
+            out(
+                "OK    "
+                f"workspace {workspace.name} last reconcile-files "
+                f"(downloaded={workspace.reconcile_downloaded}, warnings={workspace.reconcile_warnings}, "
+                f"failed={workspace.reconcile_failed}{age_fragment})"
             )
 
     for issue in report.failures:

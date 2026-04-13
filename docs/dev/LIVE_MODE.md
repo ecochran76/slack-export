@@ -213,6 +213,8 @@ Warnings:
 - `EVENT_PENDING`
 - `EMBEDDING_PENDING`
 - `STALE_MIRROR`
+- `RECONCILE_REPAIR_WARNINGS`
+- `RECONCILE_REPAIR_FAILURES`
 
 Live-mode hard failures also include:
 
@@ -227,6 +229,13 @@ In full live validation, queue error rows fail immediately, and sustained pendin
 
 Stale-channel counts remain warnings. They are useful for spotting coverage gaps, but they are not by themselves proof that a live mirror is failing.
 Warnings do not fail validation, but they mean the topology is healthy while some queued work still needs operator attention.
+
+`validate-live` now also surfaces the last persisted `mirror reconcile-files` result per workspace when one exists. That gives operators a compact summary of the most recent repair batch without rerunning reconciliation. If the last repair batch recorded warnings or failures, validation emits:
+
+- `RECONCILE_REPAIR_WARNINGS`
+- `RECONCILE_REPAIR_FAILURES`
+
+These stay in the warning class. They are intended to expose file-repair regressions, not to redefine the core live-service health gate.
 
 `slack-mirror user-env recover-live` intentionally auto-remediates only the safe restart class:
 

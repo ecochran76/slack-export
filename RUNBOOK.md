@@ -1176,3 +1176,11 @@ This file is the dated turn log for planning and execution continuity.
 - This keeps reconcile repair batches auditable over time without adding a new database ownership path.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_cli -v`
+
+## Turn 84 | 2026-04-12
+
+- `user-env validate-live` and `user-env check-live` now surface the last persisted `mirror reconcile-files` result per workspace when that state exists.
+- The live-health payload now carries reconcile evidence fields, and validation emits warning-class operator signals when the most recent reconcile batch recorded warnings or failures.
+- This keeps hosted-file repair regressions visible in the normal managed-runtime operator path without turning reconcile history into a new hard health gate.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env -v`
