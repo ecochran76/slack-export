@@ -1142,3 +1142,12 @@ This file is the dated turn log for planning and execution continuity.
 - Managed export bundle copying now preserves those companion email asset directories, so repaired email artifacts remain self-contained when published under `/exports/<export-id>`.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_backfill tests.test_export_channel_day -v`
+
+## Turn 80 | 2026-04-12
+
+- Tightened `mirror reconcile-files` operator reporting so successful repairs are split into:
+  - ordinary binary downloads
+  - materialized Slack-for-Gmail email containers
+- This keeps the command output honest about what kind of recovery actually happened, especially after the new `mode=email` remediation path landed.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`

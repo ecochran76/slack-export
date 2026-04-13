@@ -238,7 +238,15 @@ class CliTests(unittest.TestCase):
             return_value=7,
         ), patch(
             "slack_mirror.sync.backfill.reconcile_file_downloads",
-            return_value={"scanned": 100, "attempted": 25, "downloaded": 20, "skipped": 70, "failed": 5},
+            return_value={
+                "scanned": 100,
+                "attempted": 25,
+                "downloaded": 20,
+                "downloaded_binary": 14,
+                "materialized_email_containers": 6,
+                "skipped": 70,
+                "failed": 5,
+            },
         ) as mock_reconcile, patch("builtins.print") as mock_print:
             rc = cmd_mirror_reconcile_files(args)
 
@@ -251,7 +259,7 @@ class CliTests(unittest.TestCase):
             limit=25,
         )
         mock_print.assert_called_once_with(
-            "Reconcile complete workspace=default scanned=100 attempted=25 downloaded=20 skipped=70 failed=5"
+            "Reconcile complete workspace=default scanned=100 attempted=25 downloaded=20 downloaded_binary=14 materialized_email_containers=6 skipped=70 failed=5"
         )
 
     def test_cmd_mirror_reconcile_files_json_reports_failure_reasons(self):
@@ -283,6 +291,8 @@ class CliTests(unittest.TestCase):
                 "scanned": 100,
                 "attempted": 25,
                 "downloaded": 20,
+                "downloaded_binary": 14,
+                "materialized_email_containers": 6,
                 "skipped": 70,
                 "failed": 5,
                 "failure_reasons": {"html_interstitial": 3, "not_found": 2},

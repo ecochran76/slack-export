@@ -67,6 +67,7 @@ slack-mirror mirror reconcile-files --workspace default --auth-mode user --limit
 - attempts bounded repair downloads into the normal cache layout
 - for Slack-for-Gmail `mode=email` containers, materializes the email body as local HTML and rewrites inline `files-email-priv` assets into a sibling local asset directory when those assets are token-downloadable
 - updates `files.local_path` / `checksum` only on real binary success
+- reports separate success counters for ordinary binary downloads versus `mode=email` HTML materialization
 - reports classified failure reasons such as `email_container`, `email_container_with_attachments`, `html_interstitial`, `not_found`, `forbidden`, and `timeout`
 
 Download path contract:

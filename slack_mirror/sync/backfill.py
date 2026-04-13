@@ -330,6 +330,8 @@ def reconcile_file_downloads(
     scanned = 0
     attempted = 0
     downloaded = 0
+    downloaded_binary = 0
+    materialized_email_containers = 0
     skipped = 0
     failed = 0
     failure_reasons: dict[str, int] = {}
@@ -390,6 +392,10 @@ def reconcile_file_downloads(
         if ok and checksum_or_error and local_path:
             update_file_download(conn, workspace_id, str(file_obj.get("id") or row["file_id"]), local_path, checksum_or_error)
             downloaded += 1
+            if mode == "email" and mimetype == "text/html":
+                materialized_email_containers += 1
+            else:
+                downloaded_binary += 1
         else:
             failed += 1
             reason = classify_reconcile_failure(file_obj, checksum_or_error)
@@ -407,6 +413,8 @@ def reconcile_file_downloads(
         "scanned": scanned,
         "attempted": attempted,
         "downloaded": downloaded,
+        "downloaded_binary": downloaded_binary,
+        "materialized_email_containers": materialized_email_containers,
         "skipped": skipped,
         "failed": failed,
         "failure_reasons": failure_reasons,

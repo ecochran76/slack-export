@@ -156,6 +156,8 @@ class BackfillTests(unittest.TestCase):
 
             self.assertEqual(result["attempted"], 1)
             self.assertEqual(result["downloaded"], 1)
+            self.assertEqual(result["downloaded_binary"], 1)
+            self.assertEqual(result["materialized_email_containers"], 0)
             self.assertEqual(result["failure_reasons"], {})
             self.assertEqual(result["failed_files"], [])
             mock_download.assert_called_once_with(
@@ -253,6 +255,8 @@ class BackfillTests(unittest.TestCase):
                 )
 
             self.assertEqual(result["failed"], 1)
+            self.assertEqual(result["downloaded_binary"], 0)
+            self.assertEqual(result["materialized_email_containers"], 0)
             self.assertEqual(result["failure_reasons"], {"html_interstitial": 1})
             self.assertEqual(result["failed_files"][0]["file_id"], "F999")
             self.assertEqual(result["failed_files"][0]["reason"], "html_interstitial")
@@ -297,6 +301,8 @@ class BackfillTests(unittest.TestCase):
                 )
 
             self.assertEqual(result["failed"], 1)
+            self.assertEqual(result["downloaded_binary"], 0)
+            self.assertEqual(result["materialized_email_containers"], 0)
             self.assertEqual(result["failure_reasons"], {"email_container_with_attachments": 1})
             self.assertEqual(result["failed_files"][0]["reason"], "email_container_with_attachments")
 
@@ -344,6 +350,8 @@ class BackfillTests(unittest.TestCase):
                 )
 
             self.assertEqual(result["downloaded"], 1)
+            self.assertEqual(result["downloaded_binary"], 0)
+            self.assertEqual(result["materialized_email_containers"], 1)
             self.assertEqual(result["failed"], 0)
             mock_download.assert_not_called()
             mock_get.assert_called_once()
