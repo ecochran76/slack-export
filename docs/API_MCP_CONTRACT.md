@@ -51,7 +51,7 @@ Important fields for the JSON listing/detail routes:
 - `json_url`
 
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
-`/runtime/reports` serves a simple HTML index over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`.
+`/runtime/reports` serves a simple HTML index over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`, plus header links for the latest HTML and latest manifest.
 `/runtime/reports/latest` serves the freshest available HTML snapshot regardless of its snapshot name, and `/v1/runtime/reports/latest` returns the matching manifest.
 
 ## Runtime Status

@@ -54,7 +54,14 @@ def _html_response(handler: BaseHTTPRequestHandler, status: int, body: str) -> N
 
 
 def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
+    header_links = ""
     if reports:
+        header_links = (
+            "<div class='latest-links'>"
+            "<a href=\"/runtime/reports/latest\">open latest</a> "
+            "<a href=\"/v1/runtime/reports/latest\">latest manifest</a>"
+            "</div>"
+        )
         rows_parts: list[str] = []
         for index, report in enumerate(reports):
             is_latest = index == 0
@@ -86,6 +93,8 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
         "body{font-family:Arial,sans-serif;margin:24px;background:#f8fafc;color:#0f172a}"
         "h1{margin:0 0 12px}"
         "p{line-height:1.5}"
+        ".latest-links{margin:0 0 16px}"
+        ".latest-links a{margin-right:12px;font-weight:600}"
         "table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden}"
         "th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}"
         "th{background:#e2e8f0}"
@@ -98,6 +107,7 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
         "</style></head><body>"
         "<h1>Slack Mirror Runtime Reports</h1>"
         "<p>Latest managed runtime snapshots published by <code>user-env snapshot-report</code>. The newest report is highlighted and linked through the stable <code>/runtime/reports/latest</code> alias.</p>"
+        f"{header_links}"
         f"{table}"
         "</body></html>"
     )

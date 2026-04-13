@@ -1283,3 +1283,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 96 | 2026-04-13
+
+- Added header-level quick links on the `/runtime/reports` browser index for the latest HTML view and latest manifest.
+- Kept the table and route model unchanged; this is only a faster operator jump path to the freshest managed snapshot.
+- Updated the API/runtime/install docs so the new header links are part of the explicit browser contract.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

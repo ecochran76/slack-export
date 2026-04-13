@@ -165,7 +165,7 @@ python scripts/render_runtime_report.py --base-url http://slack.localhost --form
 Both consume `/v1/runtime/status` and `/v1/runtime/live-validation` and are useful for periodic ops reports or review handoff.
 The supported `user-env snapshot-report` command writes into `~/.local/state/slack-mirror/runtime-reports/` with timestamped files plus stable `*.latest.*` copies. Older timestamped snapshots are pruned automatically; the managed retention policy keeps the most recent 24 snapshot sets or 14 days of history, whichever is smaller.
 That same managed snapshot path is also maintained automatically by `slack-mirror-runtime-report.timer`.
-The latest managed snapshots are also readable through the local API at `/v1/runtime/reports`, `/v1/runtime/reports/{name}`, `/v1/runtime/reports/latest`, `/runtime/reports`, `/runtime/reports/{name}`, and `/runtime/reports/latest`. The browser index highlights the freshest snapshot and links it through the stable latest alias.
+The latest managed snapshots are also readable through the local API at `/v1/runtime/reports`, `/v1/runtime/reports/{name}`, `/v1/runtime/reports/latest`, `/runtime/reports`, `/runtime/reports/{name}`, and `/runtime/reports/latest`. The browser index highlights the freshest snapshot, links it through the stable latest alias, and exposes header links for the latest HTML and latest manifest.
 
 ## Combined Live Check
 

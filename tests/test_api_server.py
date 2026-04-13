@@ -290,6 +290,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(index_html.status_code, 200)
         self.assertIn("Slack Mirror Runtime Reports", index_html.text)
         self.assertIn("/runtime/reports/latest", index_html.text)
+        self.assertIn("/v1/runtime/reports/latest", index_html.text)
         self.assertIn("/runtime/reports/morning-ops.latest.json", index_html.text)
         self.assertIn("latest</span>", index_html.text)
         self.assertIn("latest-row", index_html.text)
