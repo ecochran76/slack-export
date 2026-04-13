@@ -71,6 +71,7 @@ slack-mirror mirror reconcile-files --workspace default --auth-mode user --limit
 - reports warning-side partial-repair signals when an email container body is repaired but some inline assets could not be localized, via `email_container_inline_assets_partial`
 - reports classified failure reasons such as `email_container`, `email_container_with_attachments`, `html_interstitial`, `not_found`, `forbidden`, and `timeout`
 - plain output and `--json` now include remediation hints for each warning/failure reason so operators can see the next step without consulting the code
+- persists the last reconcile outcome under the managed state directory and includes previous-run comparison data in both plain output and `--json`
 
 Download path contract:
 - bundle HTML report: `/exports/<export-id>` or `/exports/<export-id>/`

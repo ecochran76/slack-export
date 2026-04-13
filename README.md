@@ -81,6 +81,7 @@ The current repo has:
   - `mirror reconcile-files` now reports separate counts for repaired ordinary binaries versus repaired Slack-for-Gmail email containers, so operators can tell what kind of recovery actually occurred
   - `mirror reconcile-files` also reports partial email-container localization warnings when the HTML body is repaired but some inline assets remain missing
   - `mirror reconcile-files` now emits per-reason remediation hints in both plain output and `--json`
+  - `mirror reconcile-files` now persists the last run outcome in local state and compares the current batch to the previous run in both plain output and `--json`, so operators can spot regressions instead of reading each batch in isolation
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server

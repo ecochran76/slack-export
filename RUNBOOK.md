@@ -1168,3 +1168,11 @@ This file is the dated turn log for planning and execution continuity.
 - Both plain output and `--json` now include per-reason next-step guidance, so operators do not need to infer what `html_interstitial`, `email_container_with_attachments`, or `email_container_inline_assets_partial` mean from the code.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`
+
+## Turn 83 | 2026-04-12
+
+- `mirror reconcile-files` now persists the last run outcome in a local state file alongside other runtime-managed state.
+- Plain output now shows a compact previous-run comparison, and `--json` now includes both the previous persisted payload and a computed delta block.
+- This keeps reconcile repair batches auditable over time without adding a new database ownership path.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_cli -v`

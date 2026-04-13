@@ -237,6 +237,21 @@ class CliTests(unittest.TestCase):
             "slack_mirror.cli.main.upsert_workspace",
             return_value=7,
         ), patch(
+            "slack_mirror.service.runtime_heartbeat.load_reconcile_state",
+            return_value={
+                "iso_utc": "2026-04-12T00:00:00+00:00",
+                "downloaded": 18,
+                "warnings": 1,
+                "failed": 6,
+                "attempted": 25,
+                "downloaded_binary": 13,
+                "materialized_email_containers": 5,
+                "materialized_email_containers_with_asset_failures": 1,
+            },
+        ) as mock_load_state, patch(
+            "slack_mirror.service.runtime_heartbeat.write_reconcile_state",
+            return_value="/tmp/reconcile-files-default-user.json",
+        ), patch(
             "slack_mirror.sync.backfill.reconcile_file_downloads",
             return_value={
                 "scanned": 100,
@@ -257,6 +272,7 @@ class CliTests(unittest.TestCase):
             rc = cmd_mirror_reconcile_files(args)
 
         self.assertEqual(rc, 0)
+        mock_load_state.assert_called_once_with("/tmp/config.yaml", workspace="default", auth_mode="user")
         mock_reconcile.assert_called_once_with(
             token="xoxp-test-token",
             workspace_id=7,
@@ -270,9 +286,13 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(
             mock_print.call_args_list[1].args[0],
+            "Previous run: at=2026-04-12T00:00:00+00:00 downloaded=18 warnings=1 failed=6 delta_downloaded=+2 delta_warnings=+1 delta_failed=-1",
+        )
+        self.assertEqual(
+            mock_print.call_args_list[2].args[0],
             "Warning reasons: email_container_inline_assets_partial=2",
         )
-        self.assertIn("Warning hints: email_container_inline_assets_partial:", mock_print.call_args_list[2].args[0])
+        self.assertIn("Warning hints: email_container_inline_assets_partial:", mock_print.call_args_list[3].args[0])
 
     def test_cmd_mirror_reconcile_files_json_reports_failure_reasons(self):
         args = type(
@@ -298,6 +318,21 @@ class CliTests(unittest.TestCase):
             "slack_mirror.cli.main.upsert_workspace",
             return_value=7,
         ), patch(
+            "slack_mirror.service.runtime_heartbeat.load_reconcile_state",
+            return_value={
+                "iso_utc": "2026-04-12T00:00:00+00:00",
+                "downloaded": 18,
+                "warnings": 1,
+                "failed": 6,
+                "attempted": 25,
+                "downloaded_binary": 13,
+                "materialized_email_containers": 5,
+                "materialized_email_containers_with_asset_failures": 1,
+            },
+        ), patch(
+            "slack_mirror.service.runtime_heartbeat.write_reconcile_state",
+            return_value="/tmp/reconcile-files-default-user.json",
+        ), patch(
             "slack_mirror.sync.backfill.reconcile_file_downloads",
             return_value={
                 "scanned": 100,
@@ -322,6 +357,10 @@ class CliTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         printed = mock_print.call_args[0][0]
         self.assertIn('"workspace": "default"', printed)
+        self.assertIn('"auth_mode": "user"', printed)
+        self.assertIn('"state_path": "/tmp/reconcile-files-default-user.json"', printed)
+        self.assertIn('"previous_run"', printed)
+        self.assertIn('"delta_from_previous"', printed)
         self.assertIn('"warning_reasons"', printed)
         self.assertIn('"warning_hints"', printed)
         self.assertIn('"email_container_inline_assets_partial": 2', printed)

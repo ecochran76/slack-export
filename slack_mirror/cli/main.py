@@ -229,6 +229,7 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
 
 def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
     from slack_mirror.sync.backfill import reconcile_file_downloads
+    from slack_mirror.service.runtime_heartbeat import load_reconcile_state, write_reconcile_state
 
     db_path = _db_path_from_config(args.config)
     conn = connect(db_path)
@@ -251,6 +252,7 @@ def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
     )
 
     cache_root = args.cache_root or _cache_root_from_config(args.config)
+    previous = load_reconcile_state(args.config, workspace=ws_cfg.get("name"), auth_mode=auth_mode)
     counts = reconcile_file_downloads(
         token=token,
         workspace_id=workspace_id,
@@ -258,8 +260,35 @@ def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
         cache_root=cache_root,
         limit=args.limit,
     )
+    deltas = {}
+    if previous:
+        for key in (
+            "attempted",
+            "downloaded",
+            "downloaded_binary",
+            "materialized_email_containers",
+            "materialized_email_containers_with_asset_failures",
+            "warnings",
+            "failed",
+        ):
+            deltas[key] = int(counts.get(key, 0)) - int(previous.get(key, 0))
+    state_path = write_reconcile_state(
+        args.config,
+        workspace=ws_cfg.get("name"),
+        auth_mode=auth_mode,
+        result=counts,
+    )
     if getattr(args, "json", False):
-        print(json.dumps({"workspace": ws_cfg.get("name"), **counts}, indent=2))
+        payload = {
+            "workspace": ws_cfg.get("name"),
+            "auth_mode": auth_mode,
+            "state_path": str(state_path),
+            **counts,
+        }
+        if previous:
+            payload["previous_run"] = previous
+            payload["delta_from_previous"] = deltas
+        print(json.dumps(payload, indent=2))
         return 0
     print(
         "Reconcile complete "
@@ -270,6 +299,17 @@ def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
         f"warnings={counts.get('warnings', 0)} "
         f"skipped={counts['skipped']} failed={counts['failed']}"
     )
+    if previous:
+        print(
+            "Previous run: "
+            f"at={previous.get('iso_utc', 'unknown')} "
+            f"downloaded={int(previous.get('downloaded', 0))} "
+            f"warnings={int(previous.get('warnings', 0))} "
+            f"failed={int(previous.get('failed', 0))} "
+            f"delta_downloaded={deltas.get('downloaded', 0):+d} "
+            f"delta_warnings={deltas.get('warnings', 0):+d} "
+            f"delta_failed={deltas.get('failed', 0):+d}"
+        )
     if counts.get("warning_reasons"):
         print(
             "Warning reasons: "
