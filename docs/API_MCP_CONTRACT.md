@@ -56,7 +56,7 @@ Important fields for `/auth/status`:
 - `enabled`
 - `allow_registration`
 - `cookie_name`
-- `cookie_secure`
+- `cookie_secure_mode`
 - `session_days`
 - `user_count`
 - `registration_open`

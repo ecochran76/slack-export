@@ -20,7 +20,7 @@ class FrontendAuthConfig:
     enabled: bool
     allow_registration: bool
     cookie_name: str
-    cookie_secure: bool
+    cookie_secure_mode: str
     session_days: int
 
 
@@ -53,6 +53,14 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
     service_cfg = raw_config.get("service") or {}
     auth_cfg = service_cfg.get("auth") or {}
     cookie_name = str(auth_cfg.get("cookie_name") or HOSTED_AUTH_COOKIE_NAME).strip() or HOSTED_AUTH_COOKIE_NAME
+    secure_mode = str(auth_cfg.get("cookie_secure_mode") or "").strip().lower()
+    if not secure_mode:
+        if "cookie_secure" in auth_cfg:
+            secure_mode = "always" if _parse_bool(auth_cfg.get("cookie_secure"), False) else "never"
+        else:
+            secure_mode = "auto"
+    if secure_mode not in {"auto", "always", "never"}:
+        secure_mode = "auto"
     session_days_value = auth_cfg.get("session_days", HOSTED_AUTH_SESSION_DAYS)
     try:
         session_days = max(1, int(session_days_value))
@@ -62,7 +70,7 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
         enabled=_parse_bool(auth_cfg.get("enabled"), False),
         allow_registration=_parse_bool(auth_cfg.get("allow_registration"), True),
         cookie_name=cookie_name,
-        cookie_secure=_parse_bool(auth_cfg.get("cookie_secure"), False),
+        cookie_secure_mode=secure_mode,
         session_days=session_days,
     )
 

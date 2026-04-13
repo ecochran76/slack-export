@@ -222,7 +222,7 @@ class SlackMirrorAppService:
             "enabled": cfg.enabled,
             "allow_registration": cfg.allow_registration,
             "cookie_name": cfg.cookie_name,
-            "cookie_secure": cfg.cookie_secure,
+            "cookie_secure_mode": cfg.cookie_secure_mode,
             "session_days": cfg.session_days,
             "user_count": user_count,
             "registration_open": cfg.enabled and cfg.allow_registration,

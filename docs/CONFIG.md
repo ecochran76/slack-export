@@ -18,7 +18,7 @@ service:
     enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
     allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
     cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
-    cookie_secure: ${SLACK_MIRROR_AUTH_COOKIE_SECURE:-false}
+    cookie_secure_mode: ${SLACK_MIRROR_AUTH_COOKIE_SECURE_MODE:-auto}
     session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}
 exports:
   root_dir: ${SLACK_MIRROR_EXPORT_ROOT:-~/.local/share/slack-mirror/exports}
@@ -67,7 +67,13 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `slack-mirror api serve` now defaults to those config values when `--bind` or `--port` are omitted.
 - `service.auth.enabled` turns on the local browser-auth baseline for published runtime-report and export surfaces.
 - `service.auth.allow_registration` controls whether new local frontend users can self-register through `/register`.
-- `service.auth.cookie_name`, `service.auth.cookie_secure`, and `service.auth.session_days` control the browser session cookie contract.
+- `service.auth.cookie_name`, `service.auth.cookie_secure_mode`, and `service.auth.session_days` control the browser session cookie contract.
+- `service.auth.cookie_secure_mode` accepts:
+  - `auto` — mark cookies `Secure` only for HTTPS requests
+  - `always` — always mark cookies `Secure`
+  - `never` — never mark cookies `Secure`
+- in `auto`, the service first trusts browser origin/referrer scheme, then reverse-proxy proto headers, and finally falls back to the configured local/external base-host mapping when deciding whether a request is HTTPS-backed.
+- the older `service.auth.cookie_secure` boolean is still accepted as a compatibility override, but `cookie_secure_mode` is the canonical setting.
 - when frontend auth is enabled, protected HTML routes redirect unauthenticated browsers to `/login`, while protected JSON routes fail with `AUTH_REQUIRED`.
 - `exports.root_dir` is the user-scoped bundle root for managed export artifacts.
 - `exports.local_base_url` is the preferred base URL for local reverse-proxied download links, intended for `http://slack.localhost`.

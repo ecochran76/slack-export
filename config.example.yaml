@@ -11,7 +11,7 @@ service:
     enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
     allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
     cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
-    cookie_secure: ${SLACK_MIRROR_AUTH_COOKIE_SECURE:-false}
+    cookie_secure_mode: ${SLACK_MIRROR_AUTH_COOKIE_SECURE_MODE:-auto}
     session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}
 
 exports:

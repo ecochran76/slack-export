@@ -94,6 +94,7 @@ The current repo has:
   - the local API now publishes the latest managed runtime snapshots through `/v1/runtime/reports`, `/v1/runtime/reports/<name>`, `/v1/runtime/reports/latest`, a browser index at `/runtime/reports`, and direct HTML at `/runtime/reports/<name>` or `/runtime/reports/latest`, with the freshest snapshot highlighted on the index and header links for the latest HTML and manifest
   - MCP now exposes the freshest managed runtime snapshot manifest through `runtime.report.latest`
   - the local API now supports a bounded local-password browser-auth baseline for `/runtime/reports*` and `/exports*`, with login/register HTML pages and cookie-backed sessions modeled on the lighter parts of the `../litscout` hosted auth seam
+  - frontend auth cookie policy is now request-aware, so browser-origin HTTPS ingress can use `Secure` cookies without breaking the local `http://slack.localhost` path
   - the managed user-env install now also provisions `slack-mirror-runtime-report.timer`, which runs `user-env snapshot-report` hourly into the same managed state directory
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server

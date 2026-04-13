@@ -1321,3 +1321,9 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/app.py slack_mirror/service/frontend_auth.py slack_mirror/core/db.py tests/test_api_server.py tests/test_frontend_auth.py`
   - `./.venv/bin/python -m unittest tests.test_api_server tests.test_frontend_auth -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+- Follow-up hardening in the same slice:
+  - replaced the single global cookie-secure boolean with `cookie_secure_mode`
+  - `auto` now prefers browser origin/referrer scheme, then reverse-proxy proto headers, and finally configured local/external host mapping
+  - this keeps `http://slack.localhost` usable while allowing HTTPS ingress to receive `Secure` cookies
+  - cooper local ingress now splits `.localhost` and external-host routing so the external-host path restores HTTPS-forwarded headers before handing the request to the app

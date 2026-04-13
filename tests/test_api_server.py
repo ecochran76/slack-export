@@ -334,7 +334,7 @@ class ApiServerTests(unittest.TestCase):
                     "  auth:",
                     "    enabled: true",
                     "    allow_registration: true",
-                    "    cookie_secure: false",
+                    "    cookie_secure_mode: never",
                     "exports:",
                     f"  root_dir: {exports_root}",
                     "  local_base_url: http://slack.localhost",
@@ -402,6 +402,131 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(logout.status_code, 200)
         blocked_again = session.get(f"{base_url}/v1/runtime/reports/latest", timeout=5)
         self.assertEqual(blocked_again.status_code, 401)
+
+    def test_frontend_auth_cookie_secure_mode_auto_uses_forwarded_proto(self):
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    cookie_secure_mode: auto",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        insecure = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "local-user", "display_name": "Local User", "password": "correct-horse-123"},
+            timeout=5,
+        )
+        self.assertEqual(insecure.status_code, 201)
+        self.assertNotIn("Secure", insecure.headers.get("set-cookie", ""))
+
+        secure = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "remote-user", "display_name": "Remote User", "password": "correct-horse-123"},
+            headers={"x-forwarded-proto": "https"},
+            timeout=5,
+        )
+        self.assertEqual(secure.status_code, 201)
+        self.assertIn("Secure", secure.headers.get("set-cookie", ""))
+
+    def test_frontend_auth_cookie_secure_mode_auto_uses_forwarded_host_mapping(self):
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "exports:",
+                    "  local_base_url: http://slack.localhost",
+                    "  external_base_url: https://slack.ecochran.dyndns.org",
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    cookie_secure_mode: auto",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        local_host = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "forwarded-local-user", "display_name": "Forwarded Local User", "password": "correct-horse-123"},
+            headers={"x-forwarded-host": "slack.localhost"},
+            timeout=5,
+        )
+        self.assertEqual(local_host.status_code, 201)
+        self.assertNotIn("Secure", local_host.headers.get("set-cookie", ""))
+
+        external_host = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "forwarded-external-user", "display_name": "Forwarded External User", "password": "correct-horse-123"},
+            headers={"x-forwarded-host": "slack.ecochran.dyndns.org"},
+            timeout=5,
+        )
+        self.assertEqual(external_host.status_code, 201)
+        self.assertIn("Secure", external_host.headers.get("set-cookie", ""))
+
+    def test_frontend_auth_cookie_secure_mode_auto_uses_origin_scheme(self):
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    cookie_secure_mode: auto",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        insecure = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "origin-http-user", "display_name": "Origin HTTP User", "password": "correct-horse-123"},
+            headers={"origin": "http://slack.localhost"},
+            timeout=5,
+        )
+        self.assertEqual(insecure.status_code, 201)
+        self.assertNotIn("Secure", insecure.headers.get("set-cookie", ""))
+
+        secure = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "origin-https-user", "display_name": "Origin HTTPS User", "password": "correct-horse-123"},
+            headers={"origin": "https://slack.ecochran.dyndns.org"},
+            timeout=5,
+        )
+        self.assertEqual(secure.status_code, 201)
+        self.assertIn("Secure", secure.headers.get("set-cookie", ""))
 
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"

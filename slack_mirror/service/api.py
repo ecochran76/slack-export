@@ -95,6 +95,54 @@ def _set_cookie_headers(
         handler.send_header("set-cookie", morsel.OutputString())
 
 
+def _request_is_secure(handler: BaseHTTPRequestHandler, *, export_base_urls: dict[str, str] | None = None) -> bool:
+    forwarded_proto = str(handler.headers.get("x-forwarded-proto", "")).split(",", 1)[0].strip().lower()
+    if forwarded_proto:
+        return forwarded_proto == "https"
+
+    for header_name in ("origin", "referer"):
+        header_value = str(handler.headers.get(header_name, "")).split(",", 1)[0].strip()
+        if not header_value:
+            continue
+        parsed_header = urlparse(header_value)
+        if parsed_header.scheme in {"http", "https"}:
+            return parsed_header.scheme == "https"
+
+    forwarded = str(handler.headers.get("forwarded", "")).strip()
+    forwarded_host = ""
+    if forwarded:
+        proto_match = re.search(r"(?:^|[;,\s])proto=(https?)", forwarded, flags=re.IGNORECASE)
+        if proto_match:
+            return proto_match.group(1).lower() == "https"
+        host_match = re.search(r"(?:^|[;,\s])host=\"?([^;,\"]+)\"?", forwarded, flags=re.IGNORECASE)
+        if host_match:
+            forwarded_host = host_match.group(1).strip().lower()
+
+    forwarded_port = str(handler.headers.get("x-forwarded-port", "")).split(",", 1)[0].strip()
+    if forwarded_port == "443":
+        return True
+    forwarded_ssl = str(handler.headers.get("x-forwarded-ssl", "")).split(",", 1)[0].strip().lower()
+    if forwarded_ssl in {"on", "true", "1"}:
+        return True
+
+    hosts_to_check = [
+        str(handler.headers.get("host", "")).strip().lower(),
+        str(handler.headers.get("x-forwarded-host", "")).split(",", 1)[0].strip().lower(),
+        str(handler.headers.get("x-original-host", "")).split(",", 1)[0].strip().lower(),
+        forwarded_host,
+    ]
+    if export_base_urls:
+        for candidate_host in hosts_to_check:
+            if not candidate_host:
+                continue
+            candidate_hostname = candidate_host.split(":", 1)[0]
+            for base_url in export_base_urls.values():
+                parsed = urlparse(base_url)
+                if parsed.hostname and candidate_hostname == parsed.hostname.lower():
+                    return parsed.scheme.lower() == "https"
+    return False
+
+
 def _frontend_login_html(*, next_path: str, error: str | None = None, can_register: bool) -> str:
     error_html = ""
     if error:
@@ -398,21 +446,35 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             return None
 
         def _issue_frontend_auth_cookie(self, *, session_token: str) -> None:
+            secure = (
+                True
+                if auth_config.cookie_secure_mode == "always"
+                else False
+                if auth_config.cookie_secure_mode == "never"
+                else _request_is_secure(self, export_base_urls=export_base_urls)
+            )
             _set_cookie_headers(
                 self,
                 key=auth_config.cookie_name,
                 value=session_token,
                 max_age=auth_config.session_days * 24 * 60 * 60,
-                secure=auth_config.cookie_secure,
+                secure=secure,
             )
 
         def _clear_frontend_auth_cookie(self) -> None:
+            secure = (
+                True
+                if auth_config.cookie_secure_mode == "always"
+                else False
+                if auth_config.cookie_secure_mode == "never"
+                else _request_is_secure(self, export_base_urls=export_base_urls)
+            )
             _set_cookie_headers(
                 self,
                 key=auth_config.cookie_name,
                 value="",
                 max_age=0,
-                secure=auth_config.cookie_secure,
+                secure=secure,
             )
 
         def _workspace_status(self, workspace: str, query: dict[str, list[str]]) -> None:
