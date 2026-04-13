@@ -197,7 +197,7 @@ def _materialize_email_container(
     token: str,
     cache_root: str,
     file_obj: dict[str, object],
-) -> tuple[bool, str | None, str | None]:
+) -> tuple[bool, str | None, str | None, dict[str, int] | None]:
     preview_html = file_obj.get("preview") or file_obj.get("simplified_html")
     plain_text = file_obj.get("preview_plain_text") or file_obj.get("plain_text")
     if isinstance(preview_html, str) and preview_html.strip():
@@ -205,16 +205,20 @@ def _materialize_email_container(
     elif isinstance(plain_text, str) and plain_text.strip():
         body = f"<pre>{html.escape(str(plain_text))}</pre>"
     else:
-        return False, None, "email container missing preview content"
+        return False, None, "email container missing preview content", None
 
     html_path = _planned_email_path(cache_root=cache_root, file_obj=file_obj)
     if html_path is None:
-        return False, None, "email container missing file id"
+        return False, None, "email container missing file id", None
     html_path.parent.mkdir(parents=True, exist_ok=True)
 
+    asset_total = 0
+    asset_downloaded = 0
+    asset_failed = 0
     parser = _EmailAssetUrlParser()
     parser.feed(body)
     if parser.urls:
+        asset_total = len(parser.urls)
         asset_dir = html_path.parent / f"{html_path.stem}_assets"
         asset_dir.mkdir(parents=True, exist_ok=True)
         for index, url in enumerate(parser.urls, start=1):
@@ -224,7 +228,11 @@ def _materialize_email_container(
             try:
                 if _download_email_inline_asset(url=url, token=token, dest=asset_dest):
                     body = body.replace(url, f"{asset_dir.name}/{asset_dest.name}")
+                    asset_downloaded += 1
+                else:
+                    asset_failed += 1
             except Exception:
+                asset_failed += 1
                 continue
 
     title = str(file_obj.get("title") or file_obj.get("name") or file_obj.get("id") or "email")
@@ -236,7 +244,16 @@ def _materialize_email_container(
         "</body></html>",
         encoding="utf-8",
     )
-    return True, str(html_path), sha256_file(html_path)
+    return (
+        True,
+        str(html_path),
+        sha256_file(html_path),
+        {
+            "asset_total": asset_total,
+            "asset_downloaded": asset_downloaded,
+            "asset_failed": asset_failed,
+        },
+    )
 
 
 def backfill_files_and_canvases(
@@ -332,10 +349,14 @@ def reconcile_file_downloads(
     downloaded = 0
     downloaded_binary = 0
     materialized_email_containers = 0
+    materialized_email_containers_with_asset_failures = 0
     skipped = 0
     failed = 0
     failure_reasons: dict[str, int] = {}
     failed_files: list[dict[str, str]] = []
+    warnings = 0
+    warning_reasons: dict[str, int] = {}
+    warning_files: list[dict[str, object]] = []
 
     def classify_reconcile_failure(file_obj: dict[str, object], error: str | None) -> str:
         base = classify_download_error(error)
@@ -374,8 +395,9 @@ def reconcile_file_downloads(
         attempted += 1
         mode = str(file_obj.get("mode") or "").strip().lower()
         mimetype = str(file_obj.get("mimetype") or "").strip().lower()
+        materialize_stats: dict[str, int] | None = None
         if mode == "email" and mimetype == "text/html":
-            ok, local_path, checksum_or_error = _materialize_email_container(
+            ok, local_path, checksum_or_error, materialize_stats = _materialize_email_container(
                 token=token,
                 cache_root=cache_root,
                 file_obj=file_obj,
@@ -394,6 +416,21 @@ def reconcile_file_downloads(
             downloaded += 1
             if mode == "email" and mimetype == "text/html":
                 materialized_email_containers += 1
+                if materialize_stats and int(materialize_stats.get("asset_failed") or 0) > 0:
+                    materialized_email_containers_with_asset_failures += 1
+                    warnings += 1
+                    reason = "email_container_inline_assets_partial"
+                    warning_reasons[reason] = warning_reasons.get(reason, 0) + 1
+                    warning_files.append(
+                        {
+                            "file_id": str(file_obj.get("id") or row["file_id"]),
+                            "name": str(file_obj.get("name") or file_obj.get("title") or row["file_id"]),
+                            "reason": reason,
+                            "asset_total": int(materialize_stats.get("asset_total") or 0),
+                            "asset_downloaded": int(materialize_stats.get("asset_downloaded") or 0),
+                            "asset_failed": int(materialize_stats.get("asset_failed") or 0),
+                        }
+                    )
             else:
                 downloaded_binary += 1
         else:
@@ -415,8 +452,12 @@ def reconcile_file_downloads(
         "downloaded": downloaded,
         "downloaded_binary": downloaded_binary,
         "materialized_email_containers": materialized_email_containers,
+        "materialized_email_containers_with_asset_failures": materialized_email_containers_with_asset_failures,
         "skipped": skipped,
         "failed": failed,
+        "warnings": warnings,
+        "warning_reasons": warning_reasons,
+        "warning_files": warning_files,
         "failure_reasons": failure_reasons,
         "failed_files": failed_files,
     }

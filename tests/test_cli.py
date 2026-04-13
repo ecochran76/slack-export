@@ -244,7 +244,11 @@ class CliTests(unittest.TestCase):
                 "downloaded": 20,
                 "downloaded_binary": 14,
                 "materialized_email_containers": 6,
+                "materialized_email_containers_with_asset_failures": 2,
                 "skipped": 70,
+                "warnings": 2,
+                "warning_reasons": {"email_container_inline_assets_partial": 2},
+                "warning_files": [],
                 "failed": 5,
             },
         ) as mock_reconcile, patch("builtins.print") as mock_print:
@@ -258,8 +262,13 @@ class CliTests(unittest.TestCase):
             cache_root="./cache-test",
             limit=25,
         )
-        mock_print.assert_called_once_with(
-            "Reconcile complete workspace=default scanned=100 attempted=25 downloaded=20 downloaded_binary=14 materialized_email_containers=6 skipped=70 failed=5"
+        self.assertEqual(
+            mock_print.call_args_list[0].args[0],
+            "Reconcile complete workspace=default scanned=100 attempted=25 downloaded=20 downloaded_binary=14 materialized_email_containers=6 materialized_email_containers_with_asset_failures=2 warnings=2 skipped=70 failed=5",
+        )
+        self.assertEqual(
+            mock_print.call_args_list[1].args[0],
+            "Warning reasons: email_container_inline_assets_partial=2",
         )
 
     def test_cmd_mirror_reconcile_files_json_reports_failure_reasons(self):
@@ -293,7 +302,11 @@ class CliTests(unittest.TestCase):
                 "downloaded": 20,
                 "downloaded_binary": 14,
                 "materialized_email_containers": 6,
+                "materialized_email_containers_with_asset_failures": 2,
                 "skipped": 70,
+                "warnings": 2,
+                "warning_reasons": {"email_container_inline_assets_partial": 2},
+                "warning_files": [{"file_id": "F2", "reason": "email_container_inline_assets_partial", "asset_total": 2, "asset_downloaded": 1, "asset_failed": 1}],
                 "failed": 5,
                 "failure_reasons": {"html_interstitial": 3, "not_found": 2},
                 "failed_files": [{"file_id": "F1", "reason": "html_interstitial", "error": "bad"}],
@@ -304,6 +317,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         printed = mock_print.call_args[0][0]
         self.assertIn('"workspace": "default"', printed)
+        self.assertIn('"warning_reasons"', printed)
+        self.assertIn('"email_container_inline_assets_partial": 2', printed)
         self.assertIn('"failure_reasons"', printed)
         self.assertIn('"html_interstitial": 3', printed)
 

@@ -266,8 +266,15 @@ def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
         f"workspace={ws_cfg.get('name')} scanned={counts['scanned']} attempted={counts['attempted']} "
         f"downloaded={counts['downloaded']} downloaded_binary={counts.get('downloaded_binary', 0)} "
         f"materialized_email_containers={counts.get('materialized_email_containers', 0)} "
+        f"materialized_email_containers_with_asset_failures={counts.get('materialized_email_containers_with_asset_failures', 0)} "
+        f"warnings={counts.get('warnings', 0)} "
         f"skipped={counts['skipped']} failed={counts['failed']}"
     )
+    if counts.get("warning_reasons"):
+        print(
+            "Warning reasons: "
+            + ", ".join(f"{name}={count}" for name, count in sorted(counts["warning_reasons"].items()))
+        )
     if counts.get("failure_reasons"):
         print(
             "Failure reasons: "

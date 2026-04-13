@@ -1151,3 +1151,13 @@ This file is the dated turn log for planning and execution continuity.
 - This keeps the command output honest about what kind of recovery actually happened, especially after the new `mode=email` remediation path landed.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`
+
+## Turn 81 | 2026-04-12
+
+- Added warning-side parity for Slack-for-Gmail email-container repair.
+- `mirror reconcile-files` now distinguishes:
+  - full email-container materialization
+  - partial email-container materialization where the HTML body was repaired but one or more inline assets could not be localized
+- Partial email repair now surfaces as `email_container_inline_assets_partial` in warning output instead of disappearing into the success bucket or being misreported as a hard failure.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`

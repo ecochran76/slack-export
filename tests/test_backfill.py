@@ -158,6 +158,10 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["downloaded"], 1)
             self.assertEqual(result["downloaded_binary"], 1)
             self.assertEqual(result["materialized_email_containers"], 0)
+            self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
+            self.assertEqual(result["warnings"], 0)
+            self.assertEqual(result["warning_reasons"], {})
+            self.assertEqual(result["warning_files"], [])
             self.assertEqual(result["failure_reasons"], {})
             self.assertEqual(result["failed_files"], [])
             mock_download.assert_called_once_with(
@@ -257,6 +261,8 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["failed"], 1)
             self.assertEqual(result["downloaded_binary"], 0)
             self.assertEqual(result["materialized_email_containers"], 0)
+            self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
+            self.assertEqual(result["warnings"], 0)
             self.assertEqual(result["failure_reasons"], {"html_interstitial": 1})
             self.assertEqual(result["failed_files"][0]["file_id"], "F999")
             self.assertEqual(result["failed_files"][0]["reason"], "html_interstitial")
@@ -303,6 +309,8 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["failed"], 1)
             self.assertEqual(result["downloaded_binary"], 0)
             self.assertEqual(result["materialized_email_containers"], 0)
+            self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
+            self.assertEqual(result["warnings"], 0)
             self.assertEqual(result["failure_reasons"], {"email_container_with_attachments": 1})
             self.assertEqual(result["failed_files"][0]["reason"], "email_container_with_attachments")
 
@@ -352,6 +360,10 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["downloaded"], 1)
             self.assertEqual(result["downloaded_binary"], 0)
             self.assertEqual(result["materialized_email_containers"], 1)
+            self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
+            self.assertEqual(result["warnings"], 0)
+            self.assertEqual(result["warning_reasons"], {})
+            self.assertEqual(result["warning_files"], [])
             self.assertEqual(result["failed"], 0)
             mock_download.assert_not_called()
             mock_get.assert_called_once()
@@ -367,6 +379,64 @@ class BackfillTests(unittest.TestCase):
             self.assertIn(f"{local_path.stem}_assets/image001.jpg", html_text)
             asset_path = local_path.parent / f"{local_path.stem}_assets" / "image001.jpg"
             self.assertTrue(asset_path.exists())
+
+    def test_reconcile_file_downloads_warns_when_email_assets_are_partial(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            cache_root = Path(td) / "cache"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, size, local_path, checksum, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ws_id,
+                    "FEMAIL",
+                    "Re: Example",
+                    "Re: Example",
+                    "text/html",
+                    12,
+                    None,
+                    None,
+                    '{"id":"FEMAIL","name":"Re: Example","title":"Re: Example","mimetype":"text/html","mode":"email","preview":"<div><img src=\\"https://files-origin.slack.com/files-email-priv/T123-FEMAIL-abc/image001.jpg\\"><img src=\\"https://files-origin.slack.com/files-email-priv/T123-FEMAIL-abc/image002.jpg\\"></div>","url_private_download":"https://files.slack.test/FEMAIL/download"}',
+                ),
+            )
+            conn.commit()
+
+            def fake_get(url, headers=None, timeout=60):
+                if url.endswith("image001.jpg"):
+                    return _FakeResponse(b"jpegbytes", content_type="image/jpeg")
+                raise RuntimeError("403 forbidden")
+
+            with (
+                patch("slack_mirror.sync.backfill.download_with_retries") as mock_download,
+                patch("slack_mirror.sync.backfill.requests.get", side_effect=fake_get) as mock_get,
+            ):
+                result = reconcile_file_downloads(
+                    token="xoxp-test",
+                    workspace_id=ws_id,
+                    conn=conn,
+                    cache_root=str(cache_root),
+                    limit=10,
+                )
+
+            self.assertEqual(result["downloaded"], 1)
+            self.assertEqual(result["materialized_email_containers"], 1)
+            self.assertEqual(result["materialized_email_containers_with_asset_failures"], 1)
+            self.assertEqual(result["warnings"], 1)
+            self.assertEqual(result["warning_reasons"], {"email_container_inline_assets_partial": 1})
+            self.assertEqual(result["warning_files"][0]["reason"], "email_container_inline_assets_partial")
+            self.assertEqual(result["warning_files"][0]["asset_total"], 2)
+            self.assertEqual(result["warning_files"][0]["asset_downloaded"], 1)
+            self.assertEqual(result["warning_files"][0]["asset_failed"], 1)
+            self.assertEqual(result["failed"], 0)
+            mock_download.assert_not_called()
+            self.assertEqual(mock_get.call_count, 2)
 
 
 if __name__ == "__main__":
