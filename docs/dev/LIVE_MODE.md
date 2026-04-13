@@ -155,8 +155,10 @@ The local API also publishes the latest managed snapshots directly:
 
 - `GET /v1/runtime/reports`
 - `GET /v1/runtime/reports/{name}`
+- `GET /v1/runtime/reports/latest`
 - `GET /runtime/reports`
 - `GET /runtime/reports/{name}`
+- `GET /runtime/reports/latest`
 
 Bounded recovery planner:
 

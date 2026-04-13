@@ -29,8 +29,10 @@ API:
 
 - `GET /v1/runtime/reports`
 - `GET /v1/runtime/reports/{name}`
+- `GET /v1/runtime/reports/latest`
 - `GET /runtime/reports`
 - `GET /runtime/reports/{name}`
+- `GET /runtime/reports/latest`
 - `GET /runtime/reports/{name}.latest.html`
 - `GET /runtime/reports/{name}.latest.md`
 - `GET /runtime/reports/{name}.latest.json`
@@ -50,6 +52,7 @@ Important fields for the JSON listing/detail routes:
 
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
 `/runtime/reports` serves a simple HTML index over the currently available managed snapshots.
+`/runtime/reports/latest` serves the freshest available HTML snapshot regardless of its snapshot name, and `/v1/runtime/reports/latest` returns the matching manifest.
 
 ## Runtime Status
 

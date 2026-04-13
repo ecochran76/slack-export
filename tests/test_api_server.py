@@ -269,10 +269,18 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(detail.json()["report"]["name"], "morning-ops")
         self.assertEqual(detail.json()["report"]["html_url"], "/runtime/reports/morning-ops")
 
+        latest_detail = requests.get(f"{self.base_url}/v1/runtime/reports/latest", timeout=5)
+        self.assertEqual(latest_detail.status_code, 200)
+        self.assertEqual(latest_detail.json()["report"]["name"], "morning-ops")
+
         latest_html = requests.get(f"{self.base_url}/runtime/reports/morning-ops", timeout=5)
         self.assertEqual(latest_html.status_code, 200)
         self.assertIn("runtime report", latest_html.text)
         self.assertIn("text/html", latest_html.headers["content-type"])
+
+        latest_alias_html = requests.get(f"{self.base_url}/runtime/reports/latest", timeout=5)
+        self.assertEqual(latest_alias_html.status_code, 200)
+        self.assertIn("runtime report", latest_alias_html.text)
 
         latest_json = requests.get(f"{self.base_url}/runtime/reports/morning-ops.latest.json", timeout=5)
         self.assertEqual(latest_json.status_code, 200)

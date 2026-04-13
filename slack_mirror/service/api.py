@@ -249,10 +249,31 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 200, {"ok": True, "reports": reports})
                 return
 
+            if path == "/v1/runtime/reports/latest":
+                payload = service.latest_runtime_report()
+                if payload is None:
+                    _error_response(self, 404, "NOT_FOUND", "No runtime reports available")
+                    return
+                _json_response(self, 200, {"ok": True, "report": {**payload, **runtime_report_links(str(payload.get('name') or ''))}})
+                return
+
             if path == "/runtime/reports":
                 payload = service.list_runtime_reports()
                 reports = [{**item, **runtime_report_links(str(item.get("name") or ""))} for item in payload.reports]
                 _html_response(self, 200, _runtime_reports_index_html(reports))
+                return
+
+            if path == "/runtime/reports/latest":
+                payload = service.latest_runtime_report()
+                if payload is None:
+                    _error_response(self, 404, "NOT_FOUND", "No runtime reports available")
+                    return
+                safe_name = _safe_runtime_report_name(str(payload.get("name") or ""))
+                target = runtime_report_dir / f"{safe_name}.latest.html"
+                if not target.exists() or not target.is_file():
+                    _error_response(self, 404, "NOT_FOUND", f"Runtime report not found: {safe_name}")
+                    return
+                _file_response(self, target)
                 return
 
             m = re.fullmatch(r"/v1/runtime/reports/([^/]+)", path)

@@ -196,6 +196,10 @@ class SlackMirrorAppService:
     def get_runtime_report(self, name: str) -> dict[str, Any] | None:
         return get_runtime_report_manifest(self.config.path, name)
 
+    def latest_runtime_report(self) -> dict[str, Any] | None:
+        reports = list_runtime_report_manifests(self.config.path)
+        return reports[0] if reports else None
+
     def workspace_configs(self) -> list[dict[str, Any]]:
         return self.config.get("workspaces", [])
 
