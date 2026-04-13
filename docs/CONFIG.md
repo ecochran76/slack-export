@@ -14,6 +14,12 @@ storage:
 service:
   bind: ${SLACK_MIRROR_BIND:-127.0.0.1}
   port: ${SLACK_MIRROR_PORT:-8787}
+  auth:
+    enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
+    allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
+    cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
+    cookie_secure: ${SLACK_MIRROR_AUTH_COOKIE_SECURE:-false}
+    session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}
 exports:
   root_dir: ${SLACK_MIRROR_EXPORT_ROOT:-~/.local/share/slack-mirror/exports}
   local_base_url: ${SLACK_MIRROR_EXPORT_LOCAL_BASE_URL:-http://slack.localhost}
@@ -59,6 +65,10 @@ For automation, prefer passing an explicit `--config` path anyway.
 
 - `service.bind` and `service.port` are the canonical local API listen settings.
 - `slack-mirror api serve` now defaults to those config values when `--bind` or `--port` are omitted.
+- `service.auth.enabled` turns on the local browser-auth baseline for published runtime-report and export surfaces.
+- `service.auth.allow_registration` controls whether new local frontend users can self-register through `/register`.
+- `service.auth.cookie_name`, `service.auth.cookie_secure`, and `service.auth.session_days` control the browser session cookie contract.
+- when frontend auth is enabled, protected HTML routes redirect unauthenticated browsers to `/login`, while protected JSON routes fail with `AUTH_REQUIRED`.
 - `exports.root_dir` is the user-scoped bundle root for managed export artifacts.
 - `exports.local_base_url` is the preferred base URL for local reverse-proxied download links, intended for `http://slack.localhost`.
 - `exports.external_base_url` is the preferred base URL for externally published download links, intended for `https://slack.ecochran.dyndns.org`.
@@ -72,6 +82,13 @@ Managed export URLs use this path contract:
 - `/exports/<export-id>/<filepath>/preview`
 - `/v1/exports`
 - `/v1/exports/<export-id>`
+- `/auth/status`
+- `/auth/session`
+- `/auth/register`
+- `/auth/login`
+- `/auth/logout`
+- `/login`
+- `/register`
 
 Current preview support behind the local API:
 - images: inline preview

@@ -7,6 +7,12 @@ storage:
 service:
   bind: ${SLACK_MIRROR_BIND:-127.0.0.1}
   port: ${SLACK_MIRROR_PORT:-8787}
+  auth:
+    enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
+    allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
+    cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
+    cookie_secure: ${SLACK_MIRROR_AUTH_COOKIE_SECURE:-false}
+    session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}
 
 exports:
   root_dir: ${SLACK_MIRROR_EXPORT_ROOT:-~/.local/share/slack-mirror/exports}

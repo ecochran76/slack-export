@@ -248,6 +248,171 @@ def get_workspace_by_name(conn: sqlite3.Connection, name: str) -> sqlite3.Row | 
     ).fetchone()
 
 
+def normalize_auth_username(username: str) -> str:
+    normalized = re.sub(r"[^a-z0-9._-]+", "-", str(username or "").strip().casefold()).strip("-.")
+    return normalized
+
+
+def count_auth_users(conn: sqlite3.Connection) -> int:
+    row = conn.execute("SELECT COUNT(*) AS count FROM auth_users").fetchone()
+    return int(row["count"]) if row else 0
+
+
+def get_auth_user_by_username(conn: sqlite3.Connection, username: str) -> sqlite3.Row | None:
+    normalized = normalize_auth_username(username)
+    return conn.execute(
+        """
+        SELECT id, username, display_name, created_at, updated_at
+        FROM auth_users
+        WHERE username = ?
+        """,
+        (normalized,),
+    ).fetchone()
+
+
+def get_auth_user_by_id(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        """
+        SELECT id, username, display_name, created_at, updated_at
+        FROM auth_users
+        WHERE id = ?
+        """,
+        (user_id,),
+    ).fetchone()
+
+
+def create_auth_user(
+    conn: sqlite3.Connection,
+    *,
+    username: str,
+    display_name: str | None = None,
+) -> sqlite3.Row:
+    normalized = normalize_auth_username(username)
+    if not normalized:
+        raise ValueError("username is required")
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO auth_users(username, display_name)
+            VALUES (?, ?)
+            """,
+            (normalized, (display_name or "").strip() or None),
+        )
+    row = get_auth_user_by_username(conn, normalized)
+    if row is None:
+        raise RuntimeError("failed to create auth user")
+    return row
+
+
+def get_auth_local_credential(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        """
+        SELECT user_id, password_hash, password_salt, password_iterations, created_at, updated_at
+        FROM auth_local_credentials
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    ).fetchone()
+
+
+def upsert_auth_local_credential(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    password_hash: str,
+    password_salt: str,
+    password_iterations: int,
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO auth_local_credentials(user_id, password_hash, password_salt, password_iterations)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+              password_hash=excluded.password_hash,
+              password_salt=excluded.password_salt,
+              password_iterations=excluded.password_iterations,
+              updated_at=CURRENT_TIMESTAMP
+            """,
+            (user_id, password_hash, password_salt, int(password_iterations)),
+        )
+
+
+def create_auth_session(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    token_hash: str,
+    auth_source: str,
+    expires_at: str,
+) -> sqlite3.Row:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO auth_sessions(user_id, token_hash, auth_source, last_seen_at, expires_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+            """,
+            (user_id, token_hash, auth_source, expires_at),
+        )
+    row = conn.execute(
+        """
+        SELECT id, user_id, token_hash, auth_source, created_at, last_seen_at, expires_at, revoked_at
+        FROM auth_sessions
+        WHERE token_hash = ?
+        """,
+        (token_hash,),
+    ).fetchone()
+    if row is None:
+        raise RuntimeError("failed to create auth session")
+    return row
+
+
+def get_auth_session_by_token_hash(conn: sqlite3.Connection, token_hash: str) -> sqlite3.Row | None:
+    return conn.execute(
+        """
+        SELECT
+          s.id,
+          s.user_id,
+          s.token_hash,
+          s.auth_source,
+          s.created_at,
+          s.last_seen_at,
+          s.expires_at,
+          s.revoked_at,
+          u.username,
+          u.display_name
+        FROM auth_sessions s
+        JOIN auth_users u ON u.id = s.user_id
+        WHERE s.token_hash = ?
+        """,
+        (token_hash,),
+    ).fetchone()
+
+
+def touch_auth_session(conn: sqlite3.Connection, *, token_hash: str) -> None:
+    with conn:
+        conn.execute(
+            """
+            UPDATE auth_sessions
+            SET last_seen_at = CURRENT_TIMESTAMP
+            WHERE token_hash = ? AND revoked_at IS NULL
+            """,
+            (token_hash,),
+        )
+
+
+def revoke_auth_session(conn: sqlite3.Connection, *, token_hash: str) -> None:
+    with conn:
+        conn.execute(
+            """
+            UPDATE auth_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE token_hash = ? AND revoked_at IS NULL
+            """,
+            (token_hash,),
+        )
+
+
 def upsert_user(conn: sqlite3.Connection, workspace_id: int, user: dict[str, Any]) -> None:
     profile = user.get("profile") or {}
     with conn:

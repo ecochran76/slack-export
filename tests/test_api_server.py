@@ -301,6 +301,108 @@ class ApiServerTests(unittest.TestCase):
         missing = requests.get(f"{self.base_url}/runtime/reports/bad%20name", timeout=5)
         self.assertEqual(missing.status_code, 400)
 
+    def test_frontend_auth_protects_runtime_reports_and_supports_local_login(self):
+        report_dir = self.db_path.parent / "runtime-reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        exports_root = self.root / "exports-root"
+        bundle_dir = exports_root / "channel-day-default-general-2026-04-12-abc123"
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        (bundle_dir / "index.html").write_text("<html><body><h1>protected export</h1></body></html>", encoding="utf-8")
+        (report_dir / "morning-ops.latest.html").write_text("<html><body>runtime report</body></html>", encoding="utf-8")
+        (report_dir / "morning-ops.latest.md").write_text("# runtime report\n", encoding="utf-8")
+        (report_dir / "morning-ops.latest.json").write_text(
+            json.dumps(
+                {
+                    "name": "morning-ops",
+                    "base_url": "http://slack.localhost",
+                    "fetched_at": "2026-04-13T12:00:00+00:00",
+                    "status": "pass",
+                    "summary": "Summary: PASS",
+                    "latest_markdown_path": str(report_dir / "morning-ops.latest.md"),
+                    "latest_html_path": str(report_dir / "morning-ops.latest.html"),
+                    "latest_json_path": str(report_dir / "morning-ops.latest.json"),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    cookie_secure: false",
+                    "exports:",
+                    f"  root_dir: {exports_root}",
+                    "  local_base_url: http://slack.localhost",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        html_redirect = requests.get(f"{base_url}/runtime/reports", timeout=5, allow_redirects=False)
+        self.assertEqual(html_redirect.status_code, 303)
+        self.assertIn("/login?next=%2Fruntime%2Freports", html_redirect.headers["location"])
+
+        export_redirect = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
+            timeout=5,
+            allow_redirects=False,
+        )
+        self.assertEqual(export_redirect.status_code, 303)
+        self.assertIn("/login?next=%2Fexports%2Fchannel-day-default-general-2026-04-12-abc123", export_redirect.headers["location"])
+
+        api_blocked = requests.get(f"{base_url}/v1/runtime/reports", timeout=5)
+        self.assertEqual(api_blocked.status_code, 401)
+        self.assertEqual(api_blocked.json()["error"]["code"], "AUTH_REQUIRED")
+
+        login_page = requests.get(f"{base_url}/login", timeout=5)
+        self.assertEqual(login_page.status_code, 200)
+        self.assertIn("Slack Mirror", login_page.text)
+
+        session = requests.Session()
+        registered = session.post(
+            f"{base_url}/auth/register",
+            json={"username": "eric", "display_name": "Eric", "password": "correct-horse-123"},
+            timeout=5,
+        )
+        self.assertEqual(registered.status_code, 201)
+        self.assertTrue(registered.json()["session"]["authenticated"])
+        self.assertEqual(registered.json()["session"]["username"], "eric")
+
+        auth_session = session.get(f"{base_url}/auth/session", timeout=5)
+        self.assertEqual(auth_session.status_code, 200)
+        self.assertTrue(auth_session.json()["session"]["authenticated"])
+        self.assertEqual(auth_session.json()["session"]["username"], "eric")
+
+        allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
+        self.assertEqual(allowed.status_code, 200)
+        self.assertIn("runtime report", allowed.text)
+
+        allowed_export = session.get(f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123", timeout=5)
+        self.assertEqual(allowed_export.status_code, 200)
+        self.assertIn("protected export", allowed_export.text)
+
+        allowed_api = session.get(f"{base_url}/v1/runtime/reports/latest", timeout=5)
+        self.assertEqual(allowed_api.status_code, 200)
+        self.assertEqual(allowed_api.json()["report"]["name"], "morning-ops")
+
+        logout = session.post(f"{base_url}/auth/logout", json={}, timeout=5)
+        self.assertEqual(logout.status_code, 200)
+        blocked_again = session.get(f"{base_url}/v1/runtime/reports/latest", timeout=5)
+        self.assertEqual(blocked_again.status_code, 401)
+
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"
         bundle_dir = exports_root / "channel-day-default-general-2026-04-12-abc123"

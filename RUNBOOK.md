@@ -1301,3 +1301,23 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_mcp_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 98 | 2026-04-13
+
+- Reopened `P02` narrowly through `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md` for browser-surface auth hardening.
+- Added a bounded local-password frontend-auth baseline modeled on the lighter parts of `../litscout`:
+  - auth users, credentials, and sessions now live in the canonical SQLite DB
+  - browser sessions are cookie-backed
+  - `/auth/status`, `/auth/session`, `/auth/register`, `/auth/login`, and `/auth/logout` are now real
+  - `/login` and `/register` now exist as minimal HTML entry pages
+- Protected browser-facing export/runtime-report surfaces when frontend auth is enabled:
+  - unauthenticated HTML requests redirect to `/login`
+  - unauthenticated protected JSON requests fail with `AUTH_REQUIRED`
+- Kept the scope intentionally narrow:
+  - health and non-browser ingress paths remain outside this gate
+  - no provider/OAuth auth was added in this first slice
+- Updated `README.md`, `docs/CONFIG.md`, and `docs/API_MCP_CONTRACT.md` so the config and route contract are explicit.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/app.py slack_mirror/service/frontend_auth.py slack_mirror/core/db.py tests/test_api_server.py tests/test_frontend_auth.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server tests.test_frontend_auth -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

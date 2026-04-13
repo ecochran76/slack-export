@@ -34,13 +34,14 @@ Legacy context:
 
 ## P02 | Service Surfaces
 
-Status: CLOSED
+Status: OPEN
 
 Purpose:
 - define and harden the shared application boundary for CLI, API, MCP, and skills
 
 Actionable plans:
 - `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
+- `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md`
 
 Current state:
 - shared application-service layer exists
@@ -48,7 +49,7 @@ Current state:
 - MCP server exists
 - shared machine-readable success and error contracts are documented and enforced across service, API, and MCP
 - outbound write, listener, and live-validation semantics now run through one explicit shared boundary
-- the baseline service-surface lane is closed; future surface work should open narrower follow-up plans instead of keeping `P02` generically open
+- the baseline service-surface lane remains closed through `0003`, but `P02` is reopened narrowly through `0009` for local frontend-auth hardening on browser-facing routes without reopening broad surface design
 
 Legacy context:
 - retained through the dated runbook and prior local planning notes when needed for archaeology

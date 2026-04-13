@@ -8,6 +8,7 @@ It is not a full endpoint catalog. It captures the response shapes and semantics
 
 Current shared contract coverage:
 
+- frontend auth
 - runtime status
 - live runtime validation
 - runtime report listing
@@ -22,6 +23,53 @@ Current shared contract coverage:
 - shared error envelope
 
 The local HTTP API and MCP server are both thin wrappers over `slack_mirror.service.app`. When these contracts change, they should change together.
+
+## Frontend Auth
+
+API only:
+
+- `GET /auth/status`
+- `GET /auth/session`
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /login`
+- `GET /register`
+
+Current semantics:
+
+- this is a bounded local-password baseline for browser-facing surfaces
+- MCP has no equivalent today
+- when frontend auth is enabled:
+  - unauthenticated HTML requests for protected routes redirect to `/login`
+  - unauthenticated protected JSON requests fail with `AUTH_REQUIRED`
+- protected routes currently include:
+  - `/exports/*`
+  - `/v1/exports*`
+  - `/runtime/reports*`
+  - `/v1/runtime/reports*`
+  - `/v1/runtime/status`
+  - `/v1/runtime/live-validation`
+
+Important fields for `/auth/status`:
+
+- `enabled`
+- `allow_registration`
+- `cookie_name`
+- `cookie_secure`
+- `session_days`
+- `user_count`
+- `registration_open`
+
+Important fields for `/auth/session`, `/auth/register`, and `/auth/login`:
+
+- `authenticated`
+- `user_id`
+- `username`
+- `display_name`
+- `session_id`
+- `auth_source`
+- `expires_at`
 
 ## Runtime Reports
 

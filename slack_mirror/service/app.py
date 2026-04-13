@@ -12,6 +12,16 @@ from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
+from slack_mirror.service.frontend_auth import (
+    FrontendAuthConfig,
+    FrontendAuthIssueResult,
+    FrontendAuthSession,
+    frontend_auth_config,
+    login_frontend_user,
+    logout_frontend_user,
+    register_frontend_user,
+    resolve_frontend_auth_session,
+)
 from slack_mirror.service.processor import process_pending_events
 from slack_mirror.service.user_env import _build_live_validation_report, _build_status_report, _status_report_payload, default_user_env_paths
 from slack_mirror.service.runtime_report import get_runtime_report_manifest, list_runtime_report_manifests
@@ -199,6 +209,72 @@ class SlackMirrorAppService:
     def latest_runtime_report(self) -> dict[str, Any] | None:
         reports = list_runtime_report_manifests(self.config.path)
         return reports[0] if reports else None
+
+    def frontend_auth_config(self) -> FrontendAuthConfig:
+        return frontend_auth_config(self.config.data)
+
+    def frontend_auth_status(self, conn) -> dict[str, Any]:
+        cfg = self.frontend_auth_config()
+        from slack_mirror.core.db import count_auth_users
+
+        user_count = count_auth_users(conn)
+        return {
+            "enabled": cfg.enabled,
+            "allow_registration": cfg.allow_registration,
+            "cookie_name": cfg.cookie_name,
+            "cookie_secure": cfg.cookie_secure,
+            "session_days": cfg.session_days,
+            "user_count": user_count,
+            "registration_open": cfg.enabled and cfg.allow_registration,
+        }
+
+    def frontend_auth_session(self, conn, *, session_token: str | None) -> FrontendAuthSession:
+        if not self.frontend_auth_config().enabled:
+            return FrontendAuthSession(authenticated=False, auth_source="disabled")
+        return resolve_frontend_auth_session(conn, session_token=session_token)
+
+    def register_frontend_user(
+        self,
+        conn,
+        *,
+        username: str,
+        password: str,
+        display_name: str | None = None,
+    ) -> FrontendAuthIssueResult:
+        cfg = self.frontend_auth_config()
+        if not cfg.enabled:
+            raise ValueError("frontend auth is disabled")
+        if not cfg.allow_registration:
+            raise ValueError("registration is disabled")
+        return register_frontend_user(
+            conn,
+            username=username,
+            password=password,
+            display_name=display_name,
+            session_days=cfg.session_days,
+        )
+
+    def login_frontend_user(
+        self,
+        conn,
+        *,
+        username: str,
+        password: str,
+    ) -> FrontendAuthIssueResult:
+        cfg = self.frontend_auth_config()
+        if not cfg.enabled:
+            raise ValueError("frontend auth is disabled")
+        return login_frontend_user(
+            conn,
+            username=username,
+            password=password,
+            session_days=cfg.session_days,
+        )
+
+    def logout_frontend_user(self, conn, *, session_token: str | None) -> None:
+        if not self.frontend_auth_config().enabled:
+            return
+        logout_frontend_user(conn, session_token=session_token)
 
     def workspace_configs(self) -> list[dict[str, Any]]:
         return self.config.get("workspaces", [])
