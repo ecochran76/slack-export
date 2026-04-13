@@ -380,6 +380,7 @@ class ApiServerTests(unittest.TestCase):
         login_page = requests.get(f"{base_url}/login", timeout=5)
         self.assertEqual(login_page.status_code, 200)
         self.assertIn("Slack Mirror", login_page.text)
+        self.assertIn("Email or username", login_page.text)
 
         register_page = requests.get(f"{base_url}/register", timeout=5)
         self.assertEqual(register_page.status_code, 200)

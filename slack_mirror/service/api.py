@@ -221,7 +221,7 @@ def _frontend_login_html(*, next_path: str, error: str | None = None, can_regist
         "<p>Sign in to access published exports and runtime reports.</p>"
         f"{error_html}"
         "<form id='login-form'>"
-        "<label for='username'>Username</label>"
+        "<label for='username'>Email or username</label>"
         "<input id='username' name='username' autocomplete='username' required />"
         "<label for='password'>Password</label>"
         "<input id='password' name='password' type='password' autocomplete='current-password' required />"

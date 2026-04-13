@@ -102,6 +102,8 @@ Important fields for `/auth/sessions`:
 
 `/register` remains the browser registration entrypoint, and now surfaces any configured frontend-auth registration allowlist directly in the page copy.
 
+`/login` now uses the same identity language and labels the sign-in field as `Email or username`.
+
 ## Runtime Reports
 
 API:

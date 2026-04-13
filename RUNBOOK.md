@@ -1416,3 +1416,12 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - live smoke on `http://slack.localhost/register`
+
+## Turn 105 | 2026-04-13
+
+- Tightened login UX parity so `/login` now labels the identity field as `Email or username`, matching the allowlisted registration language already shown on `/register`.
+- Kept this slice deliberately narrow: copy and browser contract only, with no backend auth-model changes.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - live smoke on `http://slack.localhost/login`
