@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from slack_mirror.core import db
 from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
 from slack_mirror.exports import list_export_manifests, resolve_export_base_urls, resolve_export_root
@@ -249,6 +250,8 @@ class SlackMirrorAppService:
         return {
             "enabled": cfg.enabled,
             "allow_registration": cfg.allow_registration,
+            "registration_allowlist": list(cfg.registration_allowlist),
+            "registration_allowlist_count": len(cfg.registration_allowlist),
             "cookie_name": cfg.cookie_name,
             "cookie_secure_mode": cfg.cookie_secure_mode,
             "session_days": cfg.session_days,
@@ -274,9 +277,12 @@ class SlackMirrorAppService:
             raise ValueError("frontend auth is disabled")
         if not cfg.allow_registration:
             raise ValueError("registration is disabled")
+        normalized_username = db.normalize_auth_username(username)
+        if cfg.registration_allowlist and normalized_username not in set(cfg.registration_allowlist):
+            raise ValueError("registration is restricted for this username")
         return register_frontend_user(
             conn,
-            username=username,
+            username=normalized_username,
             password=password,
             display_name=display_name,
             session_days=cfg.session_days,

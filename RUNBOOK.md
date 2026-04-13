@@ -1376,3 +1376,17 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 102 | 2026-04-13
+
+- Added an explicit frontend-auth registration allowlist so self-registration can be limited to specific normalized usernames instead of remaining fully open whenever `allow_registration` is true.
+- The new config field is `service.auth.registration_allowlist`, and it accepts email-style usernames such as `ecochran76@gmail.com`.
+- Kept the policy narrow:
+  - login behavior is unchanged for existing local users
+  - registration still uses the current local username/password model
+  - the allowlist only constrains who may create new local accounts
+- Updated the active `0009` plan and auth/config docs so the new registration-policy seam is part of the documented browser-auth contract.
+- Validation:
+  - `python -m py_compile slack_mirror/service/frontend_auth.py slack_mirror/service/app.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

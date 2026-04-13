@@ -98,6 +98,7 @@ The current repo has:
 - the browser root `/` is now an authenticated landing page over existing runtime-status, runtime-report, and export-manifest data, instead of a dead 404
 - browser auth POST routes now enforce same-origin `Origin`/`Referer` checks, so login, registration, and logout are intentionally browser-local rather than general cross-origin API endpoints
 - frontend auth now exposes current-user session listing and per-session revocation through `/auth/sessions` and `/auth/sessions/<id>/revoke`
+- frontend auth registration can now be restricted to an explicit allowlist of normalized usernames, including email-style usernames such as `ecochran76@gmail.com`
   - the managed user-env install now also provisions `slack-mirror-runtime-report.timer`, which runs `user-env snapshot-report` hourly into the same managed state directory
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server

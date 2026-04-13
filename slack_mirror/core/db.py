@@ -249,7 +249,7 @@ def get_workspace_by_name(conn: sqlite3.Connection, name: str) -> sqlite3.Row | 
 
 
 def normalize_auth_username(username: str) -> str:
-    normalized = re.sub(r"[^a-z0-9._-]+", "-", str(username or "").strip().casefold()).strip("-.")
+    normalized = re.sub(r"[^a-z0-9@._+-]+", "-", str(username or "").strip().casefold()).strip("-.@+")
     return normalized
 
 

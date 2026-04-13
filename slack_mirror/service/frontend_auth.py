@@ -19,6 +19,7 @@ HOSTED_AUTH_SESSION_DAYS = 30
 class FrontendAuthConfig:
     enabled: bool
     allow_registration: bool
+    registration_allowlist: tuple[str, ...]
     cookie_name: str
     cookie_secure_mode: str
     session_days: int
@@ -49,6 +50,24 @@ def _parse_bool(value: Any, default: bool) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _parse_registration_allowlist(value: Any) -> tuple[str, ...]:
+    candidates: list[str] = []
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        candidates = [part.strip() for part in value.split(",")]
+    elif isinstance(value, (list, tuple, set)):
+        candidates = [str(part).strip() for part in value]
+    else:
+        candidates = [str(value).strip()]
+    normalized = []
+    for candidate in candidates:
+        cleaned = db.normalize_auth_username(candidate)
+        if cleaned and cleaned not in normalized:
+            normalized.append(cleaned)
+    return tuple(normalized)
+
+
 def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
     service_cfg = raw_config.get("service") or {}
     auth_cfg = service_cfg.get("auth") or {}
@@ -69,6 +88,7 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
     return FrontendAuthConfig(
         enabled=_parse_bool(auth_cfg.get("enabled"), False),
         allow_registration=_parse_bool(auth_cfg.get("allow_registration"), True),
+        registration_allowlist=_parse_registration_allowlist(auth_cfg.get("registration_allowlist")),
         cookie_name=cookie_name,
         cookie_secure_mode=secure_mode,
         session_days=session_days,

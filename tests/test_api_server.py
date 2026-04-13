@@ -586,6 +586,50 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(secure.status_code, 201)
         self.assertIn("Secure", secure.headers.get("set-cookie", ""))
 
+    def test_frontend_auth_registration_allowlist_restricts_usernames(self):
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    registration_allowlist:",
+                    "      - ecochran76@gmail.com",
+                    "    cookie_secure_mode: never",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        allowed = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "ecochran76@gmail.com", "display_name": "Eric", "password": "correct-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(allowed.status_code, 201)
+        self.assertEqual(allowed.json()["session"]["username"], "ecochran76@gmail.com")
+
+        denied = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "mallory@example.com", "display_name": "Mallory", "password": "correct-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(denied.status_code, 400)
+        self.assertEqual(denied.json()["error"]["code"], "INVALID_REQUEST")
+        self.assertIn("restricted", denied.json()["error"]["message"])
+
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"
         bundle_dir = exports_root / "channel-day-default-general-2026-04-12-abc123"

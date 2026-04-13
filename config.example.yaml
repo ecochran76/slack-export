@@ -10,6 +10,7 @@ service:
   auth:
     enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
     allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
+    registration_allowlist: ${SLACK_MIRROR_AUTH_REGISTRATION_ALLOWLIST:-}
     cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
     cookie_secure_mode: ${SLACK_MIRROR_AUTH_COOKIE_SECURE_MODE:-auto}
     session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}

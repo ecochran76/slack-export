@@ -17,6 +17,7 @@ service:
   auth:
     enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
     allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
+    registration_allowlist: ${SLACK_MIRROR_AUTH_REGISTRATION_ALLOWLIST:-}
     cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
     cookie_secure_mode: ${SLACK_MIRROR_AUTH_COOKIE_SECURE_MODE:-auto}
     session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}
@@ -67,6 +68,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `slack-mirror api serve` now defaults to those config values when `--bind` or `--port` are omitted.
 - `service.auth.enabled` turns on the local browser-auth baseline for published runtime-report and export surfaces.
 - `service.auth.allow_registration` controls whether new local frontend users can self-register through `/register`.
+- `service.auth.registration_allowlist` optionally restricts self-registration to specific normalized usernames, including email-style usernames such as `ecochran76@gmail.com`.
 - `service.auth.cookie_name`, `service.auth.cookie_secure_mode`, and `service.auth.session_days` control the browser session cookie contract.
 - `service.auth.cookie_secure_mode` accepts:
   - `auto` — mark cookies `Secure` only for HTTPS requests

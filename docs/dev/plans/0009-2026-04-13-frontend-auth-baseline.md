@@ -28,6 +28,7 @@ Add a bounded local-auth baseline for browser-facing Slack Mirror surfaces:
 - `cookie_secure_mode` is shipped, with live HTTPS ingress verified through the cooper reverse-proxy path
 - browser auth POST routes are now same-origin guarded through `Origin`/`Referer` validation
 - current-user session listing and per-session revocation are now shipped through the browser auth API
+- self-registration can now be restricted to an explicit allowlist of normalized usernames, including email-style usernames
 - the correct scope remains narrower than `../litscout`:
   - keep the local-password plus cookie-session shape
   - do not import a broader hosted product/account/subscription model
@@ -36,7 +37,7 @@ Add a bounded local-auth baseline for browser-facing Slack Mirror surfaces:
 
 - tighten browser-session hardening:
   - session presentation and revocation UX beyond the raw JSON/auth API contract
-- decide whether registration should remain open by default for live installs
+- decide whether allowlisted self-registration should remain enabled by default for live installs
 - add any further browser polish without expanding into a full hosted app shell
 
 ## Parallel Tracks
@@ -61,7 +62,7 @@ Add a bounded local-auth baseline for browser-facing Slack Mirror surfaces:
 
 ## Acceptance Criteria
 
-- a local user can register and sign in through the browser
+- an allowed local user can register and sign in through the browser
 - protected browser/report/export routes require a valid auth session
 - unauthenticated HTML requests redirect to `/login`
 - unauthenticated protected JSON requests fail with a stable auth error
