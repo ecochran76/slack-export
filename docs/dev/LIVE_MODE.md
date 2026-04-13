@@ -142,6 +142,8 @@ slack-mirror user-env snapshot-report
 slack-mirror user-env snapshot-report --name morning-ops --json
 ```
 
+The managed user runtime also installs `slack-mirror-runtime-report.timer`, which runs the same snapshot flow hourly. The default scheduled snapshot name is `scheduled-runtime-report`.
+
 The report script consumes:
 
 - `GET /v1/runtime/status`
@@ -286,3 +288,8 @@ For human-shareable snapshots, prefer:
 - `slack-mirror user-env snapshot-report --name morning-ops --json`
 - `python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md`
 - `python scripts/render_runtime_report.py --base-url http://slack.localhost --format html --output /tmp/slack-mirror-runtime-report.html`
+
+For scheduled snapshots, inspect:
+
+- `systemctl --user status slack-mirror-runtime-report.timer`
+- `systemctl --user list-timers 'slack-mirror-runtime-report.timer' --all`

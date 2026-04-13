@@ -91,6 +91,7 @@ The current repo has:
   - lightweight managed-runtime status is now queryable over CLI, API (`/v1/runtime/status`), and MCP (`runtime.status`), including the latest persisted reconcile summary per workspace
   - `scripts/render_runtime_report.py` now consumes `/v1/runtime/status` and `/v1/runtime/live-validation` to generate shareable Markdown or HTML runtime snapshots for ops review
   - `user-env snapshot-report` now writes Markdown and HTML runtime snapshots into the managed state directory under `runtime-reports/`, alongside stable `*.latest.*` copies for review or handoff
+  - the managed user-env install now also provisions `slack-mirror-runtime-report.timer`, which runs `user-env snapshot-report` hourly into the same managed state directory
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server
   - lightweight `.pptx` and `.xlsx` browser previews through the repo's OOXML extraction layer, without requiring a full office server

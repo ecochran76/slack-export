@@ -107,14 +107,19 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(self.paths.api_wrapper_path.exists())
         self.assertTrue(self.paths.mcp_wrapper_path.exists())
         self.assertTrue(self.paths.api_service_path.exists())
+        self.assertTrue(self.paths.snapshot_service_path.exists())
+        self.assertTrue(self.paths.snapshot_timer_path.exists())
         self.assertIn('"api" "serve"', self.paths.api_wrapper_path.read_text(encoding="utf-8"))
         self.assertIn('"mcp" "serve"', self.paths.mcp_wrapper_path.read_text(encoding="utf-8"))
         self.assertIn("ExecStart=", self.paths.api_service_path.read_text(encoding="utf-8"))
+        self.assertIn("snapshot-report", self.paths.snapshot_service_path.read_text(encoding="utf-8"))
+        self.assertIn("OnUnitActiveSec=1h", self.paths.snapshot_timer_path.read_text(encoding="utf-8"))
         self.assertTrue(self.paths.config_path.exists())
         self.assertTrue((self.paths.config_dir / "config.example.latest.yaml").exists())
         self.assertTrue(any(call["args"][-2:] == ["mirror", "init"] for call in calls))
         self.assertTrue(any(call["args"][-2:] == ["workspaces", "sync-config"] for call in calls))
         self.assertTrue(any(call["args"][:4] == ["systemctl", "--user", "enable", "--now"] for call in calls))
+        self.assertTrue(any(call["args"][-1] == "slack-mirror-runtime-report.timer" for call in calls if call["args"][:4] == ["systemctl", "--user", "enable", "--now"]))
 
     def test_install_preserves_existing_config(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
@@ -159,6 +164,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(self.paths.backup_app_dir.exists())
         self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "old snapshot\n")
         self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "repo snapshot\n")
+        self.assertTrue(self.paths.snapshot_service_path.exists())
+        self.assertTrue(self.paths.snapshot_timer_path.exists())
 
     def test_rollback_restores_previous_snapshot_and_preserves_state(self):
         current_ts = str(time.time())
@@ -206,6 +213,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "current snapshot\n")
         self.assertTrue(db_path.exists())
         self.assertTrue(any(call["args"][:3] == ["systemctl", "--user", "restart"] for call in calls))
+        self.assertTrue(self.paths.snapshot_service_path.exists())
+        self.assertTrue(self.paths.snapshot_timer_path.exists())
 
     def test_rollback_requires_previous_snapshot(self):
         _, runner = self._runner()
@@ -243,6 +252,8 @@ class UserEnvTests(unittest.TestCase):
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         self.paths.app_dir.mkdir(parents=True, exist_ok=True)
         self.paths.venv_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
@@ -260,6 +271,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertFalse(self.paths.api_wrapper_path.exists())
         self.assertFalse(self.paths.mcp_wrapper_path.exists())
         self.assertFalse(self.paths.api_service_path.exists())
+        self.assertFalse(self.paths.snapshot_service_path.exists())
+        self.assertFalse(self.paths.snapshot_timer_path.exists())
         self.assertFalse(self.paths.app_dir.exists())
         self.assertFalse(self.paths.venv_dir.exists())
         self.assertTrue(self.paths.config_path.exists())
@@ -290,6 +303,9 @@ class UserEnvTests(unittest.TestCase):
     def test_status_reports_expected_presence_flags(self):
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.snapshot_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
             "version: 1\n"
@@ -337,6 +353,8 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("API:", rendered)
         self.assertIn("MCP:", rendered)
         self.assertIn("API svc:", rendered)
+        self.assertIn("Rpt svc:", rendered)
+        self.assertIn("Rpt tmr:", rendered)
         self.assertIn("status: present", rendered)
         self.assertIn("svc-a", rendered)
         self.assertIn("Reconcile state:", rendered)
@@ -349,6 +367,8 @@ class UserEnvTests(unittest.TestCase):
         self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
         self.paths.config_path.write_text(
             "version: 1\n"
@@ -407,6 +427,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(payload["api_service_present"])
         self.assertFalse(payload["rollback_snapshot_present"])
         self.assertEqual(payload["services"]["slack-mirror-api.service"], "active")
+        self.assertEqual(payload["services"]["slack-mirror-runtime-report.timer"], "inactive")
         self.assertEqual(payload["reconcile_workspaces"][0]["name"], "default")
         self.assertTrue(payload["reconcile_workspaces"][0]["state_present"])
         self.assertEqual(payload["reconcile_workspaces"][0]["downloaded"], 2)

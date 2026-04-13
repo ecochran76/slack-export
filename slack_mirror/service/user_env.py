@@ -44,6 +44,8 @@ class UserEnvPaths:
     api_wrapper_path: Path
     mcp_wrapper_path: Path
     api_service_path: Path
+    snapshot_service_path: Path
+    snapshot_timer_path: Path
 
 
 @dataclass(frozen=True)
@@ -185,6 +187,8 @@ def default_user_env_paths(
         api_wrapper_path=bin_dir / "slack-mirror-api",
         mcp_wrapper_path=bin_dir / "slack-mirror-mcp",
         api_service_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-api.service",
+        snapshot_service_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-runtime-report.service",
+        snapshot_timer_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-runtime-report.timer",
     )
 
 
@@ -377,6 +381,38 @@ def _write_api_service(paths: UserEnvPaths) -> None:
     )
     paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
     paths.api_service_path.write_text(content, encoding="utf-8")
+
+
+def _write_snapshot_report_units(paths: UserEnvPaths) -> None:
+    service_content = (
+        "[Unit]\n"
+        "Description=Slack Mirror Runtime Report Snapshot\n"
+        "After=network-online.target slack-mirror-api.service\n"
+        "Wants=network-online.target\n"
+        "\n"
+        "[Service]\n"
+        "Type=oneshot\n"
+        f"ExecStart={paths.wrapper_path} user-env snapshot-report --name scheduled-runtime-report\n"
+        "\n"
+        "[Install]\n"
+        "WantedBy=default.target\n"
+    )
+    timer_content = (
+        "[Unit]\n"
+        "Description=Slack Mirror Runtime Report Snapshot Timer\n"
+        "\n"
+        "[Timer]\n"
+        "OnBootSec=5m\n"
+        "OnUnitActiveSec=1h\n"
+        "Persistent=true\n"
+        "Unit=slack-mirror-runtime-report.service\n"
+        "\n"
+        "[Install]\n"
+        "WantedBy=timers.target\n"
+    )
+    paths.snapshot_service_path.parent.mkdir(parents=True, exist_ok=True)
+    paths.snapshot_service_path.write_text(service_content, encoding="utf-8")
+    paths.snapshot_timer_path.write_text(timer_content, encoding="utf-8")
 
 
 def _user_unit_path(paths: UserEnvPaths, unit_name: str) -> Path:
@@ -916,10 +952,13 @@ def _build_status_report(
 ) -> UserEnvStatusReport:
     target = paths or default_user_env_paths()
     reconcile_workspaces: list[dict[str, Any]] = []
-    service_units = [
-        "slack-mirror-api.service",
-        *sorted(path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.service")),
-    ]
+    service_units = sorted(
+        {
+            "slack-mirror-api.service",
+            *[path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.service")],
+            *[path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.timer")],
+        }
+    )
     states: dict[str, str] = {}
     for unit_name in dict.fromkeys(service_units):
         states[unit_name] = _systemctl_state(runner, unit_name)
@@ -1274,9 +1313,11 @@ def install_user_env(
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
     _write_api_service(target)
+    _write_snapshot_report_units(target)
     _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-api.service"], check=False, text=True)
+    runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
     validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
     if validation_rc != 0:
@@ -1316,9 +1357,11 @@ def update_user_env(
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
     _write_api_service(target)
+    _write_snapshot_report_units(target)
     _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
+    runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
     validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
     if validation_rc != 0:
@@ -1354,8 +1397,10 @@ def rollback_user_env(
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
     _write_api_service(target)
+    _write_snapshot_report_units(target)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
+    runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
     validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
     if validation_rc != 0:
@@ -1380,6 +1425,8 @@ def uninstall_user_env(
         "slack-mirror-events.service",
         "slack-mirror-embeddings.service",
         "slack-mirror-api.service",
+        "slack-mirror-runtime-report.service",
+        "slack-mirror-runtime-report.timer",
     ]
     runner(["systemctl", "--user", "disable", "--now", *legacy_units], check=False, text=True)
     for unit_name in legacy_units:
@@ -1394,6 +1441,10 @@ def uninstall_user_env(
             wrapper.unlink()
     if target.api_service_path.exists():
         target.api_service_path.unlink()
+    if target.snapshot_service_path.exists():
+        target.snapshot_service_path.unlink()
+    if target.snapshot_timer_path.exists():
+        target.snapshot_timer_path.unlink()
     if target.app_dir.exists():
         shutil.rmtree(target.app_dir)
     if target.backup_app_dir.exists():
@@ -1434,6 +1485,10 @@ def status_user_env(
     out("  status: present" if target.mcp_wrapper_path.exists() else "  status: missing")
     out(f"API svc:  {target.api_service_path}")
     out("  status: present" if target.api_service_path.exists() else "  status: missing")
+    out(f"Rpt svc:  {target.snapshot_service_path}")
+    out("  status: present" if target.snapshot_service_path.exists() else "  status: missing")
+    out(f"Rpt tmr:  {target.snapshot_timer_path}")
+    out("  status: present" if target.snapshot_timer_path.exists() else "  status: missing")
     out(f"Rollback: {target.backup_app_dir}")
     out("  status: present" if target.backup_app_dir.exists() else "  status: missing")
     out(f"Config:   {target.config_path}")
@@ -1444,7 +1499,7 @@ def status_user_env(
     out("  status: present" if target.cache_dir.exists() else "  status: missing")
     out("Services:")
     completed = runner(
-        ["systemctl", "--user", "--no-pager", "--full", "list-units", "slack-mirror*.service", "--all", "--plain"],
+        ["systemctl", "--user", "--no-pager", "--full", "list-units", "slack-mirror*", "--all", "--plain"],
         check=False,
         text=True,
         capture_output=True,

@@ -1227,3 +1227,14 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_runtime_report tests.test_user_env tests.test_cli -v`
   - `./.venv/bin/python scripts/check_generated_docs.py`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 90 | 2026-04-13
+
+- Added managed `slack-mirror-runtime-report.service` and `slack-mirror-runtime-report.timer` units to the user-env install lifecycle.
+- Install, update, and rollback now write the runtime-report units and enable the timer so scheduled snapshots continue without manual operator setup.
+- `user-env status` now shows the managed runtime-report service and timer paths, and the status surface now includes timer units in the reported `services` map.
+- Updated the live/install docs so the scheduled snapshot contract is explicit and operators know where to inspect the timer.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_runtime_report tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

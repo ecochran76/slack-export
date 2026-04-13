@@ -15,11 +15,14 @@ This installs `slack-mirror` into an isolated user-owned runtime that is indepen
 - API launcher: `~/.local/bin/slack-mirror-api`
 - MCP launcher: `~/.local/bin/slack-mirror-mcp`
 - API service: `~/.config/systemd/user/slack-mirror-api.service`
+- Runtime report service: `~/.config/systemd/user/slack-mirror-runtime-report.service`
+- Runtime report timer: `~/.config/systemd/user/slack-mirror-runtime-report.timer`
 
 The wrapper injects env vars for DB/cache and always points to the user config path.
 The API launcher runs `slack-mirror api serve` with the managed config.
 The MCP launcher runs `slack-mirror mcp serve` with the managed config.
 The API service runs the API launcher under `systemd --user`.
+The runtime report timer runs `slack-mirror-user user-env snapshot-report --name scheduled-runtime-report` hourly under `systemd --user`.
 
 ## Install
 
@@ -74,6 +77,7 @@ Update preserves:
 - previous managed app snapshot at `~/.local/share/slack-mirror/app.previous`
 - managed launchers are refreshed in place
 - `slack-mirror-api.service` is restarted in place
+- `slack-mirror-runtime-report.timer` is refreshed and re-enabled in place
 - managed-runtime validation is rerun automatically after the update
 
 It also saves the latest template to:
@@ -160,6 +164,7 @@ python scripts/render_runtime_report.py --base-url http://slack.localhost --form
 
 Both consume `/v1/runtime/status` and `/v1/runtime/live-validation` and are useful for periodic ops reports or review handoff.
 The supported `user-env snapshot-report` command writes into `~/.local/state/slack-mirror/runtime-reports/` with timestamped files plus stable `*.latest.*` copies.
+That same managed snapshot path is also maintained automatically by `slack-mirror-runtime-report.timer`.
 
 ## Combined Live Check
 
