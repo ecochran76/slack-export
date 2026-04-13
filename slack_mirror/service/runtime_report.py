@@ -15,6 +15,7 @@ from slack_mirror.core.config import load_config
 RUNTIME_REPORT_RETENTION_MAX_SNAPSHOTS = 24
 RUNTIME_REPORT_RETENTION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60
 _SNAPSHOT_STEM_RE = re.compile(r"^(?P<name>.+)-(?P<stamp>\d{8}T\d{6}Z)$")
+_REPORT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def _db_path_from_config(config_path: str | None) -> Path:
@@ -26,6 +27,46 @@ def _db_path_from_config(config_path: str | None) -> Path:
 def runtime_report_dir_for_config(config_path: str | None) -> Path:
     db_path = _db_path_from_config(config_path)
     return db_path.parent / "runtime-reports"
+
+
+def _safe_runtime_report_name(name: str) -> str:
+    value = str(name or "").strip()
+    if not value or not _REPORT_NAME_RE.fullmatch(value):
+        raise ValueError(f"Invalid runtime report name: {name}")
+    return value
+
+
+def list_runtime_report_manifests(config_path: str | None) -> list[dict[str, Any]]:
+    report_dir = runtime_report_dir_for_config(config_path)
+    if not report_dir.exists():
+        return []
+    manifests: list[dict[str, Any]] = []
+    for path in sorted(report_dir.glob("*.latest.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        name = str(payload.get("name") or "").strip()
+        if not name:
+            continue
+        manifests.append(payload)
+    manifests.sort(key=lambda item: str(item.get("fetched_at") or ""), reverse=True)
+    return manifests
+
+
+def get_runtime_report_manifest(config_path: str | None, name: str) -> dict[str, Any] | None:
+    safe_name = _safe_runtime_report_name(name)
+    report_dir = runtime_report_dir_for_config(config_path)
+    path = report_dir / f"{safe_name}.latest.json"
+    if not path.exists() or not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if str(payload.get("name") or "") != safe_name:
+        return None
+    return payload
 
 
 def _parse_snapshot_timestamp(path: Path, *, expected_name: str) -> datetime | None:

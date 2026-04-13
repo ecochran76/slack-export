@@ -10,6 +10,7 @@ Current shared contract coverage:
 
 - runtime status
 - live runtime validation
+- runtime report listing
 - corpus search
 - search readiness
 - search health
@@ -21,6 +22,32 @@ Current shared contract coverage:
 - shared error envelope
 
 The local HTTP API and MCP server are both thin wrappers over `slack_mirror.service.app`. When these contracts change, they should change together.
+
+## Runtime Reports
+
+API:
+
+- `GET /v1/runtime/reports`
+- `GET /v1/runtime/reports/{name}`
+- `GET /runtime/reports/{name}`
+- `GET /runtime/reports/{name}.latest.html`
+- `GET /runtime/reports/{name}.latest.md`
+- `GET /runtime/reports/{name}.latest.json`
+
+There is no MCP equivalent yet. This is an API-only operator convenience surface over the managed `runtime-reports/` state directory.
+
+Important fields for the JSON listing/detail routes:
+
+- `name`
+- `base_url`
+- `fetched_at`
+- `status`
+- `summary`
+- `html_url`
+- `markdown_url`
+- `json_url`
+
+`/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
 
 ## Runtime Status
 

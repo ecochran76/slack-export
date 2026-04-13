@@ -151,6 +151,11 @@ The report script consumes:
 
 Use it when you want a point-in-time operator report for review or handoff instead of a raw JSON payload.
 Use `user-env snapshot-report` when you want the same report persisted under the managed runtime state directory instead of an ad hoc `/tmp` path. Snapshots are written under `~/.local/state/slack-mirror/runtime-reports/` with timestamped files plus `*.latest.*` copies. Older timestamped snapshots are pruned automatically; the managed retention policy keeps the most recent 24 snapshot sets or 14 days of history, whichever is smaller.
+The local API also publishes the latest managed snapshots directly:
+
+- `GET /v1/runtime/reports`
+- `GET /v1/runtime/reports/{name}`
+- `GET /runtime/reports/{name}`
 
 Bounded recovery planner:
 

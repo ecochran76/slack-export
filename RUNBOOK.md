@@ -1247,3 +1247,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_runtime_report -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 92 | 2026-04-13
+
+- Added API publication for managed runtime snapshots through `/v1/runtime/reports`, `/v1/runtime/reports/{name}`, and direct latest HTML/MD/JSON serving under `/runtime/reports/`.
+- Kept the existing `runtime-reports/` state directory canonical; this slice only adds browse/open paths over the existing managed snapshot artifacts.
+- Updated the API/runtime/install docs so operators can open the latest report over `slack.localhost` instead of reading files from state manually.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

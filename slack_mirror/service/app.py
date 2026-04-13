@@ -14,6 +14,7 @@ from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.processor import process_pending_events
 from slack_mirror.service.user_env import _build_live_validation_report, _build_status_report, _status_report_payload, default_user_env_paths
+from slack_mirror.service.runtime_report import get_runtime_report_manifest, list_runtime_report_manifests
 from slack_mirror.search.corpus import search_corpus, search_corpus_multi
 
 
@@ -66,6 +67,11 @@ class RuntimeStatusResult:
     rollback_snapshot_present: bool
     services: dict[str, str] = field(default_factory=dict)
     reconcile_workspaces: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RuntimeReportListResult:
+    reports: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SlackMirrorAppService:
@@ -183,6 +189,12 @@ class SlackMirrorAppService:
             services=payload["services"],
             reconcile_workspaces=payload["reconcile_workspaces"],
         )
+
+    def list_runtime_reports(self) -> RuntimeReportListResult:
+        return RuntimeReportListResult(reports=list_runtime_report_manifests(self.config.path))
+
+    def get_runtime_report(self, name: str) -> dict[str, Any] | None:
+        return get_runtime_report_manifest(self.config.path, name)
 
     def workspace_configs(self) -> list[dict[str, Any]]:
         return self.config.get("workspaces", [])

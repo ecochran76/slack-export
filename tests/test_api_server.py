@@ -233,6 +233,57 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(resp.json()["status"]["reconcile_workspaces"][0]["name"], "default")
             service.runtime_status.assert_called_once_with()
 
+    def test_runtime_reports_endpoints(self):
+        report_dir = self.db_path.parent / "runtime-reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        (report_dir / "morning-ops.latest.html").write_text("<html><body>runtime report</body></html>", encoding="utf-8")
+        (report_dir / "morning-ops.latest.md").write_text("# runtime report\n", encoding="utf-8")
+        (report_dir / "morning-ops.latest.json").write_text(
+            json.dumps(
+                {
+                    "name": "morning-ops",
+                    "base_url": "http://slack.localhost",
+                    "fetched_at": "2026-04-13T12:00:00+00:00",
+                    "status": "pass",
+                    "summary": "Summary: PASS",
+                    "markdown_path": str(report_dir / "morning-ops-20260413T120000Z.md"),
+                    "html_path": str(report_dir / "morning-ops-20260413T120000Z.html"),
+                    "latest_markdown_path": str(report_dir / "morning-ops.latest.md"),
+                    "latest_html_path": str(report_dir / "morning-ops.latest.html"),
+                    "latest_json_path": str(report_dir / "morning-ops.latest.json"),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        listing = requests.get(f"{self.base_url}/v1/runtime/reports", timeout=5)
+        self.assertEqual(listing.status_code, 200)
+        self.assertTrue(listing.json()["ok"])
+        self.assertEqual(listing.json()["reports"][0]["name"], "morning-ops")
+        self.assertEqual(listing.json()["reports"][0]["html_url"], "/runtime/reports/morning-ops")
+        self.assertEqual(listing.json()["reports"][0]["markdown_url"], "/runtime/reports/morning-ops.latest.md")
+        self.assertEqual(listing.json()["reports"][0]["json_url"], "/runtime/reports/morning-ops.latest.json")
+
+        detail = requests.get(f"{self.base_url}/v1/runtime/reports/morning-ops", timeout=5)
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["report"]["name"], "morning-ops")
+        self.assertEqual(detail.json()["report"]["html_url"], "/runtime/reports/morning-ops")
+
+        latest_html = requests.get(f"{self.base_url}/runtime/reports/morning-ops", timeout=5)
+        self.assertEqual(latest_html.status_code, 200)
+        self.assertIn("runtime report", latest_html.text)
+        self.assertIn("text/html", latest_html.headers["content-type"])
+
+        latest_json = requests.get(f"{self.base_url}/runtime/reports/morning-ops.latest.json", timeout=5)
+        self.assertEqual(latest_json.status_code, 200)
+        self.assertEqual(latest_json.json()["name"], "morning-ops")
+
+    def test_runtime_reports_endpoint_rejects_invalid_names(self):
+        resp = requests.get(f"{self.base_url}/v1/runtime/reports/bad%20name", timeout=5)
+        self.assertEqual(resp.status_code, 400)
+        missing = requests.get(f"{self.base_url}/runtime/reports/bad%20name", timeout=5)
+        self.assertEqual(missing.status_code, 400)
+
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"
         bundle_dir = exports_root / "channel-day-default-general-2026-04-12-abc123"

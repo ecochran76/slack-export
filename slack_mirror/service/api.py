@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse
 
 from slack_mirror.core.config import load_config
 from slack_mirror.exports import build_export_manifest, list_export_manifests, resolve_export_base_urls, resolve_export_root, safe_export_path
+from slack_mirror.service.runtime_report import runtime_report_dir_for_config, _safe_runtime_report_name
 from slack_mirror.service.errors import map_service_error
 from slack_mirror.service.app import get_app_service
 
@@ -138,6 +139,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
     config = load_config(config_path)
     export_root = resolve_export_root(config)
     export_base_urls = resolve_export_base_urls(config)
+    runtime_report_dir = runtime_report_dir_for_config(config_path)
+
+    def runtime_report_links(name: str) -> dict[str, str]:
+        safe_name = _safe_runtime_report_name(name)
+        return {
+            "html_url": f"/runtime/reports/{safe_name}",
+            "markdown_url": f"/runtime/reports/{safe_name}.latest.md",
+            "json_url": f"/runtime/reports/{safe_name}.latest.json",
+        }
 
     class Handler(BaseHTTPRequestHandler):
         def _query(self) -> dict[str, list[str]]:
@@ -187,6 +197,54 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             if path == "/v1/runtime/status":
                 payload = service.runtime_status()
                 _json_response(self, 200 if payload.ok else 503, {"ok": payload.ok, "status": payload.__dict__})
+                return
+
+            if path == "/v1/runtime/reports":
+                payload = service.list_runtime_reports()
+                reports = [{**item, **runtime_report_links(str(item.get("name") or ""))} for item in payload.reports]
+                _json_response(self, 200, {"ok": True, "reports": reports})
+                return
+
+            m = re.fullmatch(r"/v1/runtime/reports/([^/]+)", path)
+            if m:
+                try:
+                    payload = service.get_runtime_report(m.group(1))
+                except ValueError as exc:
+                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                    return
+                if payload is None:
+                    _error_response(self, 404, "NOT_FOUND", f"Runtime report not found: {m.group(1)}")
+                    return
+                _json_response(self, 200, {"ok": True, "report": {**payload, **runtime_report_links(str(payload.get('name') or ''))}})
+                return
+
+            m = re.fullmatch(r"/runtime/reports/([^/]+)\.latest\.(html|md|json)", path)
+            if m:
+                try:
+                    safe_name = _safe_runtime_report_name(m.group(1))
+                except ValueError as exc:
+                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                    return
+                suffix = m.group(2)
+                target = runtime_report_dir / f"{safe_name}.latest.{suffix}"
+                if not target.exists() or not target.is_file():
+                    _error_response(self, 404, "NOT_FOUND", f"Runtime report file not found: {safe_name}.latest.{suffix}")
+                    return
+                _file_response(self, target)
+                return
+
+            m = re.fullmatch(r"/runtime/reports/([^/]+)", path)
+            if m:
+                try:
+                    safe_name = _safe_runtime_report_name(m.group(1))
+                except ValueError as exc:
+                    _error_response(self, 400, "BAD_REQUEST", str(exc))
+                    return
+                target = runtime_report_dir / f"{safe_name}.latest.html"
+                if not target.exists() or not target.is_file():
+                    _error_response(self, 404, "NOT_FOUND", f"Runtime report not found: {safe_name}")
+                    return
+                _file_response(self, target)
                 return
 
             if path == "/v1/exports":
