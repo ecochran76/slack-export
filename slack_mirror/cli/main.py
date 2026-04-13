@@ -275,10 +275,20 @@ def cmd_mirror_reconcile_files(args: argparse.Namespace) -> int:
             "Warning reasons: "
             + ", ".join(f"{name}={count}" for name, count in sorted(counts["warning_reasons"].items()))
         )
+    if counts.get("warning_hints"):
+        print(
+            "Warning hints: "
+            + " | ".join(f"{name}: {hint}" for name, hint in sorted(counts["warning_hints"].items()))
+        )
     if counts.get("failure_reasons"):
         print(
             "Failure reasons: "
             + ", ".join(f"{name}={count}" for name, count in sorted(counts["failure_reasons"].items()))
+        )
+    if counts.get("failure_hints"):
+        print(
+            "Failure hints: "
+            + " | ".join(f"{name}: {hint}" for name, hint in sorted(counts["failure_hints"].items()))
         )
     return 0
 

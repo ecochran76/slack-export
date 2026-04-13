@@ -161,8 +161,10 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
             self.assertEqual(result["warnings"], 0)
             self.assertEqual(result["warning_reasons"], {})
+            self.assertEqual(result["warning_hints"], {})
             self.assertEqual(result["warning_files"], [])
             self.assertEqual(result["failure_reasons"], {})
+            self.assertEqual(result["failure_hints"], {})
             self.assertEqual(result["failed_files"], [])
             mock_download.assert_called_once_with(
                 "https://files.slack.test/F123/download/image.png",
@@ -264,6 +266,7 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
             self.assertEqual(result["warnings"], 0)
             self.assertEqual(result["failure_reasons"], {"html_interstitial": 1})
+            self.assertIn("html_interstitial", result["failure_hints"])
             self.assertEqual(result["failed_files"][0]["file_id"], "F999")
             self.assertEqual(result["failed_files"][0]["reason"], "html_interstitial")
 
@@ -312,6 +315,7 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
             self.assertEqual(result["warnings"], 0)
             self.assertEqual(result["failure_reasons"], {"email_container_with_attachments": 1})
+            self.assertIn("email_container_with_attachments", result["failure_hints"])
             self.assertEqual(result["failed_files"][0]["reason"], "email_container_with_attachments")
 
     def test_reconcile_file_downloads_materializes_email_container_and_inline_assets(self):
@@ -363,6 +367,7 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["materialized_email_containers_with_asset_failures"], 0)
             self.assertEqual(result["warnings"], 0)
             self.assertEqual(result["warning_reasons"], {})
+            self.assertEqual(result["warning_hints"], {})
             self.assertEqual(result["warning_files"], [])
             self.assertEqual(result["failed"], 0)
             mock_download.assert_not_called()
@@ -430,6 +435,7 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(result["materialized_email_containers_with_asset_failures"], 1)
             self.assertEqual(result["warnings"], 1)
             self.assertEqual(result["warning_reasons"], {"email_container_inline_assets_partial": 1})
+            self.assertIn("email_container_inline_assets_partial", result["warning_hints"])
             self.assertEqual(result["warning_files"][0]["reason"], "email_container_inline_assets_partial")
             self.assertEqual(result["warning_files"][0]["asset_total"], 2)
             self.assertEqual(result["warning_files"][0]["asset_downloaded"], 1)

@@ -43,6 +43,28 @@ class _EmailAssetUrlParser(HTMLParser):
                 self.urls.append(value)
 
 
+RECONCILE_FAILURE_HINTS = {
+    "email_container": "Email container cannot be binary-downloaded; use the materialized local HTML artifact or regenerate after preview metadata refresh.",
+    "email_container_with_attachments": "Email container still needs preview-based repair; rerun reconcile-files after metadata refresh or inspect the file via files.info.",
+    "html_interstitial": "Slack returned HTML instead of file bytes; verify token scopes and whether the file is actually downloadable via API.",
+    "not_found": "Slack reported 404; verify the file still exists and the mirrored metadata is current.",
+    "forbidden": "Slack reported 403; verify token scopes and workspace/user access to the file.",
+    "unauthorized": "Slack reported 401; verify the configured token is valid for this workspace.",
+    "rate_limited": "Slack rate limited the download; retry later or reduce the reconcile batch size.",
+    "timeout": "The file download timed out; retry later or inspect network/connectivity conditions.",
+    "tls_error": "TLS/certificate negotiation failed; inspect local trust store and outbound HTTPS path.",
+    "network_error": "The download failed on the network path; inspect connectivity, DNS, and proxy settings.",
+    "missing_scope": "The token is missing the needed Slack scope; reissue it with file-read access.",
+    "file_not_found": "Slack says the file cannot be found; refresh metadata or inspect whether the object is an email/document container.",
+    "download_error": "Inspect the reported error text and the file metadata to determine whether this needs token repair or a specialized recovery path.",
+    "unknown_error": "Inspect the reported error text and file metadata; this case is not yet classified.",
+}
+
+RECONCILE_WARNING_HINTS = {
+    "email_container_inline_assets_partial": "The email body was repaired but some inline assets were not downloadable; inspect the warning file rows and decide whether partial HTML is acceptable.",
+}
+
+
 def backfill_users_and_channels(*, token: str, workspace_id: int, conn) -> dict[str, int]:
     api = SlackApiClient(token)
 
@@ -457,7 +479,17 @@ def reconcile_file_downloads(
         "failed": failed,
         "warnings": warnings,
         "warning_reasons": warning_reasons,
+        "warning_hints": {
+            reason: RECONCILE_WARNING_HINTS[reason]
+            for reason in sorted(warning_reasons)
+            if reason in RECONCILE_WARNING_HINTS
+        },
         "warning_files": warning_files,
         "failure_reasons": failure_reasons,
+        "failure_hints": {
+            reason: RECONCILE_FAILURE_HINTS[reason]
+            for reason in sorted(failure_reasons)
+            if reason in RECONCILE_FAILURE_HINTS
+        },
         "failed_files": failed_files,
     }

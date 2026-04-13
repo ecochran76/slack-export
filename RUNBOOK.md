@@ -1161,3 +1161,10 @@ This file is the dated turn log for planning and execution continuity.
 - Partial email repair now surfaces as `email_container_inline_assets_partial` in warning output instead of disappearing into the success bucket or being misreported as a hard failure.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`
+
+## Turn 82 | 2026-04-12
+
+- Added remediation hints to `mirror reconcile-files` warning/failure reporting.
+- Both plain output and `--json` now include per-reason next-step guidance, so operators do not need to infer what `html_interstitial`, `email_container_with_attachments`, or `email_container_inline_assets_partial` mean from the code.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_backfill tests.test_cli tests.test_downloads tests.test_export_channel_day -v`

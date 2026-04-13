@@ -248,8 +248,10 @@ class CliTests(unittest.TestCase):
                 "skipped": 70,
                 "warnings": 2,
                 "warning_reasons": {"email_container_inline_assets_partial": 2},
+                "warning_hints": {"email_container_inline_assets_partial": "The email body was repaired but some inline assets were not downloadable; inspect the warning file rows and decide whether partial HTML is acceptable."},
                 "warning_files": [],
                 "failed": 5,
+                "failure_hints": {},
             },
         ) as mock_reconcile, patch("builtins.print") as mock_print:
             rc = cmd_mirror_reconcile_files(args)
@@ -270,6 +272,7 @@ class CliTests(unittest.TestCase):
             mock_print.call_args_list[1].args[0],
             "Warning reasons: email_container_inline_assets_partial=2",
         )
+        self.assertIn("Warning hints: email_container_inline_assets_partial:", mock_print.call_args_list[2].args[0])
 
     def test_cmd_mirror_reconcile_files_json_reports_failure_reasons(self):
         args = type(
@@ -306,9 +309,11 @@ class CliTests(unittest.TestCase):
                 "skipped": 70,
                 "warnings": 2,
                 "warning_reasons": {"email_container_inline_assets_partial": 2},
+                "warning_hints": {"email_container_inline_assets_partial": "The email body was repaired but some inline assets were not downloadable; inspect the warning file rows and decide whether partial HTML is acceptable."},
                 "warning_files": [{"file_id": "F2", "reason": "email_container_inline_assets_partial", "asset_total": 2, "asset_downloaded": 1, "asset_failed": 1}],
                 "failed": 5,
                 "failure_reasons": {"html_interstitial": 3, "not_found": 2},
+                "failure_hints": {"html_interstitial": "Slack returned HTML instead of file bytes; verify token scopes and whether the file is actually downloadable via API."},
                 "failed_files": [{"file_id": "F1", "reason": "html_interstitial", "error": "bad"}],
             },
         ), patch("builtins.print") as mock_print:
@@ -318,8 +323,10 @@ class CliTests(unittest.TestCase):
         printed = mock_print.call_args[0][0]
         self.assertIn('"workspace": "default"', printed)
         self.assertIn('"warning_reasons"', printed)
+        self.assertIn('"warning_hints"', printed)
         self.assertIn('"email_container_inline_assets_partial": 2', printed)
         self.assertIn('"failure_reasons"', printed)
+        self.assertIn('"failure_hints"', printed)
         self.assertIn('"html_interstitial": 3', printed)
 
     def test_parse_search_keyword(self):
