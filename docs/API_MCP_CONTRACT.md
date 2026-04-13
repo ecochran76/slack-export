@@ -29,6 +29,7 @@ API:
 
 - `GET /v1/runtime/reports`
 - `GET /v1/runtime/reports/{name}`
+- `GET /runtime/reports`
 - `GET /runtime/reports/{name}`
 - `GET /runtime/reports/{name}.latest.html`
 - `GET /runtime/reports/{name}.latest.md`
@@ -48,6 +49,7 @@ Important fields for the JSON listing/detail routes:
 - `json_url`
 
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
+`/runtime/reports` serves a simple HTML index over the currently available managed snapshots.
 
 ## Runtime Status
 

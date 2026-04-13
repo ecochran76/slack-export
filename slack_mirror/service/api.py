@@ -53,6 +53,50 @@ def _html_response(handler: BaseHTTPRequestHandler, status: int, body: str) -> N
     handler.wfile.write(data)
 
 
+def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
+    if reports:
+        rows = "".join(
+            (
+                "<tr>"
+                f"<td><a href=\"{escape(str(report['html_url']), quote=True)}\">{escape(str(report.get('name') or 'unknown'))}</a></td>"
+                f"<td>{escape(str(report.get('status') or 'unknown'))}</td>"
+                f"<td>{escape(str(report.get('summary') or ''))}</td>"
+                f"<td><code>{escape(str(report.get('fetched_at') or ''))}</code></td>"
+                f"<td><a href=\"{escape(str(report['markdown_url']), quote=True)}\">md</a> "
+                f"<a href=\"{escape(str(report['json_url']), quote=True)}\">json</a></td>"
+                "</tr>"
+            )
+            for report in reports
+        )
+        table = (
+            "<table><thead><tr><th>Name</th><th>Status</th><th>Summary</th><th>Fetched</th><th>Links</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table>"
+        )
+    else:
+        table = "<p>No managed runtime reports are available yet.</p>"
+
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror Runtime Reports</title>"
+        "<style>"
+        "body{font-family:Arial,sans-serif;margin:24px;background:#f8fafc;color:#0f172a}"
+        "h1{margin:0 0 12px}"
+        "p{line-height:1.5}"
+        "table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden}"
+        "th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}"
+        "th{background:#e2e8f0}"
+        "tr:last-child td{border-bottom:none}"
+        "a{color:#0b57d0;text-decoration:none}"
+        "a:hover{text-decoration:underline}"
+        "code{background:#e2e8f0;padding:1px 5px;border-radius:6px}"
+        "</style></head><body>"
+        "<h1>Slack Mirror Runtime Reports</h1>"
+        "<p>Latest managed runtime snapshots published by <code>user-env snapshot-report</code>.</p>"
+        f"{table}"
+        "</body></html>"
+    )
+
+
 def _preview_html(path: Path, source_url: str) -> str:
     content_type, _ = mimetypes.guess_type(str(path))
     content_type = content_type or "application/octet-stream"
@@ -203,6 +247,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 payload = service.list_runtime_reports()
                 reports = [{**item, **runtime_report_links(str(item.get("name") or ""))} for item in payload.reports]
                 _json_response(self, 200, {"ok": True, "reports": reports})
+                return
+
+            if path == "/runtime/reports":
+                payload = service.list_runtime_reports()
+                reports = [{**item, **runtime_report_links(str(item.get("name") or ""))} for item in payload.reports]
+                _html_response(self, 200, _runtime_reports_index_html(reports))
                 return
 
             m = re.fullmatch(r"/v1/runtime/reports/([^/]+)", path)
