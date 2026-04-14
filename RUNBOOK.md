@@ -1839,3 +1839,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/manage_policy.py --repo-root /home/ecochran76/workspace.local/slack-export adopt --json`
   - `git status --short`
+
+## Turn 143 | 2026-04-14
+
+- Opened and closed `0045-2026-04-14-agents-thin-entrypoint.md` as a narrow `P01` governance slice.
+- Thinned `AGENTS.md` back to a repo-local routing file now that the retained durable policy modules are stable.
+- Kept repo-specific startup rules, planning nuance, architecture ownership, doc update expectations, scoped commit guidance, and default lane hints local in `AGENTS.md`.
+- Removed duplicated durable policy prose for git hygiene, parallel execution mechanics, validation, closeout, and policy re-read triggers because those rules already live in the retained policy files.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
