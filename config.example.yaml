@@ -9,7 +9,7 @@ service:
   port: ${SLACK_MIRROR_PORT:-8787}
   auth:
     enabled: ${SLACK_MIRROR_AUTH_ENABLED:-false}
-    allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-true}
+    allow_registration: ${SLACK_MIRROR_AUTH_ALLOW_REGISTRATION:-false}
     registration_allowlist: ${SLACK_MIRROR_AUTH_REGISTRATION_ALLOWLIST:-}
     cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
     cookie_secure_mode: ${SLACK_MIRROR_AUTH_COOKIE_SECURE_MODE:-auto}

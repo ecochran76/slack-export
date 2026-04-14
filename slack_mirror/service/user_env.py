@@ -25,6 +25,14 @@ LIVE_STALE_HOURS = 24.0
 LIVE_DAEMON_HEARTBEAT_STALE_SECONDS = 10 * 60
 
 
+def _config_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class UserEnvPaths:
     repo_root: Path
@@ -579,6 +587,11 @@ def _build_live_validation_report(
         )
 
     db_path = Path(str(cfg.get("storage", {}).get("db_path", target.state_dir / "slack_mirror.db"))).expanduser()
+    auth_cfg = (cfg.get("service", {}) or {}).get("auth", {}) or {}
+    auth_enabled = _config_bool(auth_cfg.get("enabled"), False)
+    auth_allow_registration = _config_bool(auth_cfg.get("allow_registration"), True)
+    auth_registration_allowlist = auth_cfg.get("registration_allowlist") or []
+    external_base_url = str((cfg.get("exports", {}) or {}).get("external_base_url") or "").strip()
     if not db_path.exists():
         fail(
             "DB_MISSING",
@@ -619,6 +632,18 @@ def _build_live_validation_report(
             "API_UNIT_INACTIVE",
             f"{api_unit} state={api_state}",
             f"run `systemctl --user restart {api_unit}` and inspect `journalctl --user -u {api_unit} -n 50`",
+        )
+
+    if auth_enabled and auth_allow_registration and external_base_url:
+        allowlisted = bool(auth_registration_allowlist)
+        registration_mode = "allowlisted" if allowlisted else "open"
+        warn(
+            "AUTH_REGISTRATION_EXTERNAL",
+            (
+                f"frontend auth self-registration is {registration_mode} while external publishing is configured "
+                f"({external_base_url})"
+            ),
+            "disable `service.auth.allow_registration` after initial bootstrap unless ongoing browser self-registration is intentional",
         )
 
     try:

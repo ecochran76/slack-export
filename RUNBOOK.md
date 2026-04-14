@@ -1482,3 +1482,12 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 111 | 2026-04-13
+
+- Opened and closed `0013-2026-04-13-frontend-auth-live-defaults.md` as a narrow `P02` child slice.
+- Tightened the shipped config template so browser self-registration now defaults to off for new installs.
+- Added a live-validation warning for externally exposed installs that explicitly keep browser self-registration enabled.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_user_env -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
