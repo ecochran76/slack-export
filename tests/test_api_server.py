@@ -1219,8 +1219,13 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Create channel-day export", exports_index.text)
         self.assertIn("create-export-button", exports_index.text)
         self.assertIn(bundle_dir.name, exports_index.text)
-        self.assertIn(f"data-export-rename='{bundle_dir.name}'", exports_index.text)
+        self.assertIn(f"data-export-rename-toggle='{bundle_dir.name}'", exports_index.text)
+        self.assertIn(f"export-rename-row-{bundle_dir.name}", exports_index.text)
+        self.assertIn(f"export-rename-input-{bundle_dir.name}", exports_index.text)
+        self.assertIn(f"data-export-rename-save='{bundle_dir.name}'", exports_index.text)
+        self.assertIn(f"data-export-rename-cancel='{bundle_dir.name}'", exports_index.text)
         self.assertIn(f"data-export-delete='{bundle_dir.name}'", exports_index.text)
+        self.assertNotIn("window.prompt('Rename export bundle'", exports_index.text)
 
         external_manifest = requests.get(
             f"{base_url}/v1/exports/{bundle_dir.name}",

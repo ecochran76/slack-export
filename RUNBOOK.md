@@ -1578,3 +1578,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 117 | 2026-04-13
+
+- Opened and closed `0020-2026-04-13-frontend-export-inline-rename.md` as a narrow `P02` child slice.
+- Replaced the last prompt-driven export-manager control with inline export rename on `/exports`.
+- Kept the implementation thin over the existing export rename API route instead of inventing a separate browser-only mutation path.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

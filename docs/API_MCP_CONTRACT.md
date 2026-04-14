@@ -141,6 +141,7 @@ Browser manager behavior on `/exports`:
 - workspace and channel choices come from the existing mirrored-state API, not raw free-text entry
 - the page now includes browser-side channel filtering for larger workspaces
 - filtering stays bounded to the already-loaded valid channel list and does not introduce a separate search contract
+- export rename is now an inline row action instead of a prompt dialog
 
 MCP:
 
