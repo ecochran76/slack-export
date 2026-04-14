@@ -1743,3 +1743,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 133 | 2026-04-14
+
+- Opened and closed `0036-2026-04-14-frontend-create-accessibility-focus.md` as a narrow `P02` child slice.
+- Added focus movement to the first invalid create field on `/runtime/reports` and `/exports`.
+- Wired create inputs to the local error region with `aria-describedby` and marked those error blocks as polite live regions.
+- Kept the existing API validation and create contracts unchanged; this slice only improves keyboard and screen-reader guidance on the existing create flows.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
