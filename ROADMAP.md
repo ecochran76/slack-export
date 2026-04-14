@@ -71,6 +71,7 @@ Actionable plans:
 - `docs/dev/plans/0036-2026-04-14-frontend-create-accessibility-focus.md`
 - `docs/dev/plans/0037-2026-04-14-frontend-field-level-create-errors.md`
 - `docs/dev/plans/0038-2026-04-14-frontend-create-helper-consolidation.md`
+- `docs/dev/plans/0039-2026-04-14-frontend-row-state-chips.md`
 
 Current state:
 - shared application-service layer exists
@@ -196,6 +197,10 @@ Current state:
   - one shared server-side renderer for report/export create-field helper JS
   - preserved browser helper names and behavior on both create forms
   - bounded maintainability cleanup without changing the browser contract
+- the narrow row-state-chips follow-up is now shipped through `0039`, including:
+  - compact per-row outcome chips on report and export rows
+  - positive `saved` state after successful rename
+  - negative `error` state after failed rename/delete attempts
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

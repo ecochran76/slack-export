@@ -132,6 +132,7 @@ The current repo has:
 - browser create forms on `/runtime/reports` and `/exports` now block obviously invalid submissions before the request is sent
 - browser create forms now also highlight the specific invalid input before submission, focus the first invalid field, and expose the local error region through `aria-describedby`
 - browser create forms now also show field-local helper and error text, so validation guidance lands next to the relevant input instead of only in the shared form banner
+- browser manager rows now expose compact per-row outcome chips for recent inline mutation results, so rename/save failures are easier to scan without relying only on the page banner
   - the managed user-env install now also provisions `slack-mirror-runtime-report.timer`, which runs `user-env snapshot-report` hourly into the same managed state directory
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server

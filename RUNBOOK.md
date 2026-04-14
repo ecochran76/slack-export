@@ -1775,3 +1775,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 136 | 2026-04-14
+
+- Opened and closed `0039-2026-04-14-frontend-row-state-chips.md` as a narrow `P02` child slice.
+- Added compact per-row outcome chips on `/runtime/reports` and `/exports` for recent inline mutation results.
+- Kept the API and overall mutation flow unchanged; this slice only improves scanability of row-local outcomes in the browser managers.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
