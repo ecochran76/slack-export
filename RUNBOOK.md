@@ -1534,3 +1534,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/exports.py slack_mirror/service/runtime_report.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_exports.py tests/test_runtime_report.py tests/test_app_service.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_exports tests.test_runtime_report tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 113 | 2026-04-13
+
+- Opened and closed `0016-2026-04-13-frontend-report-export-manager.md` as a narrow `P02` child slice.
+- Upgraded `/runtime/reports` from a read-only browser index into a report manager with create/rename/delete controls.
+- Added `/exports` as a browser export manager for bounded channel-day export create plus rename/delete.
+- Updated the landing page so the primary browser export link now points to `/exports` instead of only the raw manifest API.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

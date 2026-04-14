@@ -509,6 +509,7 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
             row_class = " class='latest-row'" if is_latest else ""
             latest_badge = " <span class='badge'>latest</span>" if is_latest else ""
             html_href = "/runtime/reports/latest" if is_latest else str(report["html_url"])
+            safe_name = escape(str(report.get("name") or "unknown"), quote=True)
             rows_parts.append(
                 f"<tr{row_class}>"
                 f"<td><a href=\"{escape(html_href, quote=True)}\">{escape(str(report.get('name') or 'unknown'))}</a>{latest_badge}</td>"
@@ -517,11 +518,15 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
                 f"<td><code>{escape(str(report.get('fetched_at') or ''))}</code></td>"
                 f"<td><a href=\"{escape(str(report['markdown_url']), quote=True)}\">md</a> "
                 f"<a href=\"{escape(str(report['json_url']), quote=True)}\">json</a></td>"
+                "<td>"
+                f"<button class='action-button' data-report-rename='{safe_name}'>rename</button> "
+                f"<button class='action-button danger' data-report-delete='{safe_name}'>delete</button>"
+                "</td>"
                 "</tr>"
             )
         rows = "".join(rows_parts)
         table = (
-            "<table><thead><tr><th>Name</th><th>Status</th><th>Summary</th><th>Fetched</th><th>Links</th></tr></thead>"
+            "<table><thead><tr><th>Name</th><th>Status</th><th>Summary</th><th>Fetched</th><th>Links</th><th>Actions</th></tr></thead>"
             f"<tbody>{rows}</tbody></table>"
         )
     else:
@@ -530,10 +535,20 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<title>Slack Mirror Runtime Reports</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<style>"
         "body{font-family:Arial,sans-serif;margin:24px;background:#f8fafc;color:#0f172a}"
         "h1{margin:0 0 12px}"
         "p{line-height:1.5}"
+        ".layout{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:18px;align-items:start}"
+        ".panel{background:#fff;border:1px solid #dbe2ea;border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.06)}"
+        ".panel h2{margin:0 0 12px;font-size:18px}"
+        ".feedback{display:none;margin:0 0 16px;padding:10px 12px;border-radius:10px;font-size:14px}"
+        ".feedback.show{display:block}.feedback.ok{background:#ecfdf3;border:1px solid #b7ebc6;color:#166534}.feedback.bad{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}"
+        "label{display:block;margin:12px 0 6px;font-weight:600}"
+        "input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}"
+        ".submit-button,.action-button{padding:9px 12px;border-radius:10px;border:1px solid #b7c9ee;background:#edf4ff;color:#0b57d0;font-weight:700;cursor:pointer}"
+        ".action-button{padding:7px 10px;font-size:12px}.action-button.danger{background:#fff1f2;border-color:#fecdd3;color:#be123c}"
         ".latest-links{margin:0 0 16px}"
         ".latest-links a{margin-right:12px;font-weight:600}"
         "table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden}"
@@ -545,11 +560,156 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
         "a{color:#0b57d0;text-decoration:none}"
         "a:hover{text-decoration:underline}"
         "code{background:#e2e8f0;padding:1px 5px;border-radius:6px}"
+        "@media (max-width:900px){.layout{grid-template-columns:1fr}}"
         "</style></head><body>"
         "<h1>Slack Mirror Runtime Reports</h1>"
         "<p>Latest managed runtime snapshots published by <code>user-env snapshot-report</code>. The newest report is highlighted and linked through the stable <code>/runtime/reports/latest</code> alias.</p>"
+        "<div id='report-feedback' class='feedback' role='status' aria-live='polite'></div>"
+        "<div class='layout'>"
+        "<section class='panel'>"
+        "<h2>Create runtime report</h2>"
+        "<label for='report-name'>Report name</label>"
+        "<input id='report-name' placeholder='ops-snapshot' />"
+        "<label for='report-base-url'>Base URL</label>"
+        "<input id='report-base-url' placeholder='http://slack.localhost' />"
+        "<label for='report-timeout'>Timeout seconds</label>"
+        "<input id='report-timeout' type='number' step='0.1' value='5' />"
+        "<button id='create-report-button' class='submit-button'>Create runtime report</button>"
+        "</section>"
+        "<section>"
         f"{header_links}"
         f"{table}"
+        "</section>"
+        "</div>"
+        "<script>"
+        "const reportFeedback=document.getElementById('report-feedback');"
+        "function setReportFeedback(message,isError){reportFeedback.textContent=message;reportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
+        "document.getElementById('report-base-url').value=window.location.origin;"
+        "document.getElementById('create-report-button').addEventListener('click',async()=>{"
+        "const name=document.getElementById('report-name').value.trim();"
+        "const baseUrl=document.getElementById('report-base-url').value.trim()||window.location.origin;"
+        "const timeout=Number(document.getElementById('report-timeout').value||'5');"
+        "const resp=await fetch('/v1/runtime/reports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,base_url:baseUrl,timeout})});"
+        "if(resp.ok){window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));setReportFeedback(data.error?.message||'Create failed',true);"
+        "});"
+        "for(const button of document.querySelectorAll('[data-report-rename]')){button.addEventListener('click',async()=>{"
+        "const current=button.getAttribute('data-report-rename');"
+        "const next=window.prompt('Rename runtime report',current);"
+        "if(!next||next===current)return;"
+        "const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:next})});"
+        "if(resp.ok){window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setReportFeedback(data.error?.message||'Rename failed',true);"
+        "});}"
+        "for(const button of document.querySelectorAll('[data-report-delete]')){button.addEventListener('click',async()=>{"
+        "const name=button.getAttribute('data-report-delete');"
+        "if(!window.confirm(`Delete runtime report ${name}?`))return;"
+        "const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(name)}`,{method:'DELETE'});"
+        "if(resp.ok){window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setReportFeedback(data.error?.message||'Delete failed',true);"
+        "});}"
+        "</script>"
+        "</body></html>"
+    )
+
+
+def _exports_index_html(exports: list[dict[str, Any]]) -> str:
+    rows_parts: list[str] = []
+    for item in exports:
+        export_id = str(item.get("export_id") or "unknown")
+        safe_export_id = escape(export_id, quote=True)
+        workspace = escape(str(item.get("workspace") or "unknown"))
+        channel = escape(str(item.get("channel") or item.get("channel_id") or "unknown"))
+        rows_parts.append(
+            "<tr>"
+            f"<td><a href=\"/exports/{safe_export_id}\">{escape(export_id)}</a></td>"
+            f"<td><code>{workspace}</code> <code>{channel}</code></td>"
+            f"<td>{escape(str(item.get('day') or ''))}</td>"
+            f"<td>{int(item.get('attachment_count', 0) or 0)} attachments · {int(item.get('file_count', 0) or 0)} files</td>"
+            f"<td><a href=\"/v1/exports/{safe_export_id}\">manifest</a></td>"
+            "<td>"
+            f"<button class='action-button' data-export-rename='{safe_export_id}'>rename</button> "
+            f"<button class='action-button danger' data-export-delete='{safe_export_id}'>delete</button>"
+            "</td>"
+            "</tr>"
+        )
+    table = (
+        "<table><thead><tr><th>Export</th><th>Scope</th><th>Day</th><th>Files</th><th>Links</th><th>Actions</th></tr></thead>"
+        f"<tbody>{''.join(rows_parts) if rows_parts else '<tr><td colspan=\"6\">No managed exports published yet.</td></tr>'}</tbody></table>"
+    )
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror Exports</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        "body{font-family:Arial,sans-serif;margin:24px;background:#f8fafc;color:#0f172a}"
+        "h1{margin:0 0 12px}"
+        "p{line-height:1.5}"
+        ".layout{display:grid;grid-template-columns:minmax(320px,430px) 1fr;gap:18px;align-items:start}"
+        ".panel{background:#fff;border:1px solid #dbe2ea;border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.06)}"
+        ".panel h2{margin:0 0 12px;font-size:18px}"
+        ".feedback{display:none;margin:0 0 16px;padding:10px 12px;border-radius:10px;font-size:14px}"
+        ".feedback.show{display:block}.feedback.ok{background:#ecfdf3;border:1px solid #b7ebc6;color:#166534}.feedback.bad{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}"
+        "label{display:block;margin:12px 0 6px;font-weight:600}"
+        "input,select{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}"
+        ".submit-button,.action-button{padding:9px 12px;border-radius:10px;border:1px solid #b7c9ee;background:#edf4ff;color:#0b57d0;font-weight:700;cursor:pointer}"
+        ".action-button{padding:7px 10px;font-size:12px}.action-button.danger{background:#fff1f2;border-color:#fecdd3;color:#be123c}"
+        "table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden}"
+        "th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}"
+        "th{background:#e2e8f0}"
+        "tr:last-child td{border-bottom:none}"
+        "a{color:#0b57d0;text-decoration:none}"
+        "a:hover{text-decoration:underline}"
+        "code{background:#e2e8f0;padding:1px 5px;border-radius:6px}"
+        "@media (max-width:900px){.layout{grid-template-columns:1fr}}"
+        "</style></head><body>"
+        "<h1>Slack Mirror Exports</h1>"
+        "<p>Create and manage published channel-day export bundles from the browser. This page is intentionally bounded to the existing managed export contract.</p>"
+        "<div id='export-feedback' class='feedback' role='status' aria-live='polite'></div>"
+        "<div class='layout'>"
+        "<section class='panel'>"
+        "<h2>Create channel-day export</h2>"
+        "<label for='export-workspace'>Workspace</label>"
+        "<input id='export-workspace' placeholder='default' />"
+        "<label for='export-channel'>Channel</label>"
+        "<input id='export-channel' placeholder='general' />"
+        "<label for='export-day'>Day</label>"
+        "<input id='export-day' type='date' />"
+        "<label for='export-tz'>Timezone</label>"
+        "<input id='export-tz' value='America/Chicago' />"
+        "<label for='export-audience'>Audience</label>"
+        "<select id='export-audience'><option value='local'>local</option><option value='external'>external</option></select>"
+        "<label for='export-id'>Optional export id</label>"
+        "<input id='export-id' placeholder='channel-day-default-general-2026-04-13-abc123' />"
+        "<button id='create-export-button' class='submit-button'>Create channel-day export</button>"
+        "</section>"
+        f"<section>{table}</section>"
+        "</div>"
+        "<script>"
+        "const exportFeedback=document.getElementById('export-feedback');"
+        "function setExportFeedback(message,isError){exportFeedback.textContent=message;exportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
+        "document.getElementById('create-export-button').addEventListener('click',async()=>{"
+        "const payload={kind:'channel-day',workspace:document.getElementById('export-workspace').value.trim(),channel:document.getElementById('export-channel').value.trim(),day:document.getElementById('export-day').value.trim(),tz:document.getElementById('export-tz').value.trim()||'America/Chicago',audience:document.getElementById('export-audience').value,export_id:document.getElementById('export-id').value.trim()||undefined};"
+        "const resp=await fetch('/v1/exports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});"
+        "if(resp.ok){window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));setExportFeedback(data.error?.message||'Create failed',true);"
+        "});"
+        "for(const button of document.querySelectorAll('[data-export-rename]')){button.addEventListener('click',async()=>{"
+        "const current=button.getAttribute('data-export-rename');"
+        "const next=window.prompt('Rename export bundle',current);"
+        "if(!next||next===current)return;"
+        "const resp=await fetch(`/v1/exports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({export_id:next,audience:'local'})});"
+        "if(resp.ok){window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setExportFeedback(data.error?.message||'Rename failed',true);"
+        "});}"
+        "for(const button of document.querySelectorAll('[data-export-delete]')){button.addEventListener('click',async()=>{"
+        "const exportId=button.getAttribute('data-export-delete');"
+        "if(!window.confirm(`Delete export ${exportId}?`))return;"
+        "const resp=await fetch(`/v1/exports/${encodeURIComponent(exportId)}`,{method:'DELETE'});"
+        "if(resp.ok){window.location.reload();return;}"
+        "const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setExportFeedback(data.error?.message||'Delete failed',true);"
+        "});}"
+        "</script>"
         "</body></html>"
     )
 
@@ -641,6 +801,7 @@ def _landing_page_html(
         [
             f"<li class='list-row compact'><a href=\"/v1/runtime/status\">{code('/v1/runtime/status')}</a></li>",
             f"<li class='list-row compact'><a href=\"/v1/runtime/reports/latest\">{code('/v1/runtime/reports/latest')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/exports\">{code('/exports')}</a></li>",
             f"<li class='list-row compact'><a href=\"/v1/exports\">{code('/v1/exports')}</a></li>",
             f"<li class='list-row compact'><a href=\"/auth/session\">{code('/auth/session')}</a></li>",
             f"<li class='list-row compact'><a href=\"/auth/sessions\">{code('/auth/sessions')}</a></li>",
@@ -698,6 +859,7 @@ def _landing_page_html(
         "<a class='btn' href='/runtime/reports/latest'>Latest runtime snapshot</a>"
         "<a class='btn secondary' href='/runtime/reports'>Runtime reports</a>"
         "<a class='btn secondary' href='/settings'>Settings</a>"
+        "<a class='btn secondary' href='/exports'>Exports</a>"
         "<a class='btn secondary' href='/v1/exports'>Export manifest API</a>"
         "<a class='btn secondary' href='/logout'>Logout</a>"
         "</div>"
@@ -724,7 +886,7 @@ def _landing_page_html(
         "<section class='card'><div class='section-title'><h2>Recent runtime reports</h2><a href='/runtime/reports'>open all</a></div>"
         f"<ul>{''.join(report_items)}</ul></section>"
         "<div class='stack'>"
-        "<section class='card'><div class='section-title'><h2>Recent exports</h2><a href='/v1/exports'>manifest</a></div>"
+        "<section class='card'><div class='section-title'><h2>Recent exports</h2><a href='/exports'>open all</a></div>"
         f"<ul>{''.join(export_items)}</ul></section>"
         "<section class='card'><div class='section-title'><h2>Useful endpoints</h2></div>"
         f"<ul>{endpoint_rows}</ul></section>"
@@ -1155,6 +1317,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 audience = str(query.get("audience", ["local"])[0])
                 payload = list_export_manifests(export_root, base_urls=export_base_urls, default_audience=audience)
                 _json_response(self, 200, {"ok": True, "exports": payload})
+                return
+
+            if path == "/exports":
+                audience = str(query.get("audience", ["local"])[0])
+                payload = list_export_manifests(export_root, base_urls=export_base_urls, default_audience=audience)
+                _html_response(self, 200, _exports_index_html(payload))
                 return
 
             m = re.fullmatch(r"/v1/exports/([^/]+)", path)

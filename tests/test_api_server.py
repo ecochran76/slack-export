@@ -290,6 +290,10 @@ class ApiServerTests(unittest.TestCase):
         index_html = requests.get(f"{self.base_url}/runtime/reports", timeout=5)
         self.assertEqual(index_html.status_code, 200)
         self.assertIn("Slack Mirror Runtime Reports", index_html.text)
+        self.assertIn("Create runtime report", index_html.text)
+        self.assertIn("create-report-button", index_html.text)
+        self.assertIn("data-report-rename='morning-ops'", index_html.text)
+        self.assertIn("data-report-delete='morning-ops'", index_html.text)
         self.assertIn("/runtime/reports/latest", index_html.text)
         self.assertIn("/v1/runtime/reports/latest", index_html.text)
         self.assertIn("/runtime/reports/morning-ops.latest.json", index_html.text)
@@ -1156,6 +1160,15 @@ class ApiServerTests(unittest.TestCase):
             exports.json()["exports"][0]["bundle_url"],
             f"http://slack.localhost/exports/{bundle_dir.name}",
         )
+
+        exports_index = requests.get(f"{base_url}/exports", timeout=5)
+        self.assertEqual(exports_index.status_code, 200)
+        self.assertIn("Slack Mirror Exports", exports_index.text)
+        self.assertIn("Create channel-day export", exports_index.text)
+        self.assertIn("create-export-button", exports_index.text)
+        self.assertIn(bundle_dir.name, exports_index.text)
+        self.assertIn(f"data-export-rename='{bundle_dir.name}'", exports_index.text)
+        self.assertIn(f"data-export-delete='{bundle_dir.name}'", exports_index.text)
 
         external_manifest = requests.get(
             f"{base_url}/v1/exports/{bundle_dir.name}",

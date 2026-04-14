@@ -48,6 +48,7 @@ Actionable plans:
 - `docs/dev/plans/0013-2026-04-13-frontend-auth-live-defaults.md`
 - `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md`
 - `docs/dev/plans/0015-2026-04-13-report-export-crud.md`
+- `docs/dev/plans/0016-2026-04-13-frontend-report-export-manager.md`
 
 Current state:
 - shared application-service layer exists
@@ -81,6 +82,10 @@ Current state:
   - runtime report create, rename, and delete through the shared service/API boundary
   - managed channel-day export create, rename, and delete through the shared service/API boundary
   - filesystem-owned rename/delete helpers that keep report/export manifests coherent after lifecycle operations
+- the narrow browser management follow-up is now shipped through `0016`, including:
+  - browser management controls on `/runtime/reports`
+  - a browser export manager at `/exports`
+  - landing-page links that point to the browser management surfaces instead of only the raw manifest APIs
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
