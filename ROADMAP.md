@@ -64,6 +64,7 @@ Actionable plans:
 - `docs/dev/plans/0029-2026-04-14-frontend-inline-mutation-busy-state.md`
 - `docs/dev/plans/0030-2026-04-14-frontend-inline-create-busy-state.md`
 - `docs/dev/plans/0031-2026-04-14-frontend-busy-labels.md`
+- `docs/dev/plans/0032-2026-04-14-frontend-row-local-errors.md`
 
 Current state:
 - shared application-service layer exists
@@ -161,6 +162,10 @@ Current state:
   - explicit `creating…` labels while report/export create requests are in flight
   - explicit `saving…` and `deleting…` labels while inline row mutations are in flight
   - automatic restoration of the original control labels after the request completes
+- the narrow row-local error follow-up is now shipped through `0032`, including:
+  - per-row inline error slots for report and export rename/delete failures
+  - automatic clearing of stale row-local errors when operators retry or cancel
+  - preservation of the existing page-level feedback banner as secondary context
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
