@@ -494,8 +494,23 @@ def _frontend_settings_html(
     )
 
 
-def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
+def _runtime_reports_index_html(
+    reports: list[dict[str, Any]],
+    *,
+    base_url_choices: list[dict[str, str]] | None = None,
+) -> str:
     header_links = ""
+    options_parts: list[str] = []
+    for choice in base_url_choices or []:
+        audience = str(choice.get("audience") or "configured")
+        base_url = str(choice.get("base_url") or "").strip()
+        if not base_url:
+            continue
+        options_parts.append(
+            f"<option value=\"{escape(base_url, quote=True)}\">{escape(audience)} · {escape(base_url)}</option>"
+        )
+    if not options_parts:
+        options_parts.append("<option value=''>Current browser origin</option>")
     if reports:
         header_links = (
             "<div class='latest-links'>"
@@ -508,19 +523,25 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
             is_latest = index == 0
             row_class = " class='latest-row'" if is_latest else ""
             latest_badge = " <span class='badge'>latest</span>" if is_latest else ""
+            name = str(report.get("name") or "unknown")
             html_href = "/runtime/reports/latest" if is_latest else str(report["html_url"])
-            safe_name = escape(str(report.get("name") or "unknown"), quote=True)
+            safe_name = escape(name, quote=True)
             rows_parts.append(
                 f"<tr{row_class}>"
-                f"<td><a href=\"{escape(html_href, quote=True)}\">{escape(str(report.get('name') or 'unknown'))}</a>{latest_badge}</td>"
+                f"<td><a href=\"{escape(html_href, quote=True)}\">{escape(name)}</a>{latest_badge}</td>"
                 f"<td>{escape(str(report.get('status') or 'unknown'))}</td>"
                 f"<td>{escape(str(report.get('summary') or ''))}</td>"
                 f"<td><code>{escape(str(report.get('fetched_at') or ''))}</code></td>"
                 f"<td><a href=\"{escape(str(report['markdown_url']), quote=True)}\">md</a> "
                 f"<a href=\"{escape(str(report['json_url']), quote=True)}\">json</a></td>"
                 "<td>"
-                f"<button class='action-button' data-report-rename='{safe_name}'>rename</button> "
+                f"<button class='action-button' data-report-rename-toggle='{safe_name}'>rename</button> "
                 f"<button class='action-button danger' data-report-delete='{safe_name}'>delete</button>"
+                f"<div class='rename-row' id='rename-row-{safe_name}' hidden>"
+                f"<input class='inline-input' id='rename-input-{safe_name}' value=\"{escape(name, quote=True)}\" aria-label='Rename {escape(name, quote=True)}' />"
+                f"<button class='action-button' data-report-rename-save='{safe_name}'>save</button> "
+                f"<button class='action-button secondary' data-report-rename-cancel='{safe_name}'>cancel</button>"
+                "</div>"
                 "</td>"
                 "</tr>"
             )
@@ -546,9 +567,13 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
         ".feedback{display:none;margin:0 0 16px;padding:10px 12px;border-radius:10px;font-size:14px}"
         ".feedback.show{display:block}.feedback.ok{background:#ecfdf3;border:1px solid #b7ebc6;color:#166534}.feedback.bad{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}"
         "label{display:block;margin:12px 0 6px;font-weight:600}"
-        "input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}"
+        "input,select{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff}"
         ".submit-button,.action-button{padding:9px 12px;border-radius:10px;border:1px solid #b7c9ee;background:#edf4ff;color:#0b57d0;font-weight:700;cursor:pointer}"
-        ".action-button{padding:7px 10px;font-size:12px}.action-button.danger{background:#fff1f2;border-color:#fecdd3;color:#be123c}"
+        ".action-button{padding:7px 10px;font-size:12px}.action-button.secondary{background:#fff;border-color:#cbd5e1;color:#334155}.action-button.danger{background:#fff1f2;border-color:#fecdd3;color:#be123c}"
+        ".preset-row,.rename-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}"
+        ".preset-chip{padding:7px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-weight:600;cursor:pointer}"
+        ".inline-input{min-width:220px;flex:1}"
+        ".hint{margin:8px 0 0;color:#475569;font-size:13px}"
         ".latest-links{margin:0 0 16px}"
         ".latest-links a{margin-right:12px;font-weight:600}"
         "table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden}"
@@ -570,8 +595,15 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
         "<h2>Create runtime report</h2>"
         "<label for='report-name'>Report name</label>"
         "<input id='report-name' placeholder='ops-snapshot' />"
-        "<label for='report-base-url'>Base URL</label>"
-        "<input id='report-base-url' placeholder='http://slack.localhost' />"
+        "<div class='preset-row'>"
+        "<button type='button' class='preset-chip' data-report-name-preset='morning-ops'>morning-ops</button>"
+        "<button type='button' class='preset-chip' data-report-name-preset='daily-ops'>daily-ops</button>"
+        "<button type='button' class='preset-chip' data-report-name-preset='scheduled-runtime-report'>scheduled-runtime-report</button>"
+        "<button type='button' class='preset-chip' id='timestamped-report-name'>timestamped</button>"
+        "</div>"
+        "<label for='report-base-url-select'>Base URL</label>"
+        f"<select id='report-base-url-select'>{''.join(options_parts)}</select>"
+        "<p class='hint'>Choose one of the configured publish origins for this snapshot.</p>"
         "<label for='report-timeout'>Timeout seconds</label>"
         "<input id='report-timeout' type='number' step='0.1' value='5' />"
         "<button id='create-report-button' class='submit-button'>Create runtime report</button>"
@@ -584,19 +616,30 @@ def _runtime_reports_index_html(reports: list[dict[str, Any]]) -> str:
         "<script>"
         "const reportFeedback=document.getElementById('report-feedback');"
         "function setReportFeedback(message,isError){reportFeedback.textContent=message;reportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
-        "document.getElementById('report-base-url').value=window.location.origin;"
+        "function timestampedReportName(){const now=new Date();const pad=(v)=>String(v).padStart(2,'0');return `ops-${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;}"
+        "const reportNameInput=document.getElementById('report-name');"
+        "if(!reportNameInput.value.trim())reportNameInput.value=timestampedReportName();"
+        "for(const button of document.querySelectorAll('[data-report-name-preset]')){button.addEventListener('click',()=>{reportNameInput.value=button.getAttribute('data-report-name-preset')||'';reportNameInput.focus();});}"
+        "document.getElementById('timestamped-report-name').addEventListener('click',()=>{reportNameInput.value=timestampedReportName();reportNameInput.focus();});"
+        "const baseUrlSelect=document.getElementById('report-base-url-select');"
+        "if(baseUrlSelect && !baseUrlSelect.value){baseUrlSelect.value=window.location.origin;}"
         "document.getElementById('create-report-button').addEventListener('click',async()=>{"
-        "const name=document.getElementById('report-name').value.trim();"
-        "const baseUrl=document.getElementById('report-base-url').value.trim()||window.location.origin;"
+        "const name=reportNameInput.value.trim();"
+        "const baseUrl=(baseUrlSelect?.value||'').trim()||window.location.origin;"
         "const timeout=Number(document.getElementById('report-timeout').value||'5');"
         "const resp=await fetch('/v1/runtime/reports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,base_url:baseUrl,timeout})});"
         "if(resp.ok){window.location.reload();return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));setReportFeedback(data.error?.message||'Create failed',true);"
         "});"
-        "for(const button of document.querySelectorAll('[data-report-rename]')){button.addEventListener('click',async()=>{"
-        "const current=button.getAttribute('data-report-rename');"
-        "const next=window.prompt('Rename runtime report',current);"
-        "if(!next||next===current)return;"
+        "function toggleRenameRow(name,show){const row=document.getElementById(`rename-row-${name}`);if(row)row.hidden=!show;}"
+        "for(const button of document.querySelectorAll('[data-report-rename-toggle]')){button.addEventListener('click',()=>{const current=button.getAttribute('data-report-rename-toggle');if(!current)return;toggleRenameRow(current,true);const input=document.getElementById(`rename-input-${current}`);if(input){input.focus();input.select();}});}"
+        "for(const button of document.querySelectorAll('[data-report-rename-cancel]')){button.addEventListener('click',()=>{const current=button.getAttribute('data-report-rename-cancel');if(!current)return;toggleRenameRow(current,false);const input=document.getElementById(`rename-input-${current}`);if(input)input.value=current;});}"
+        "for(const button of document.querySelectorAll('[data-report-rename-save]')){button.addEventListener('click',async()=>{"
+        "const current=button.getAttribute('data-report-rename-save');"
+        "if(!current)return;"
+        "const input=document.getElementById(`rename-input-${current}`);"
+        "const next=(input?.value||'').trim();"
+        "if(!next||next===current){toggleRenameRow(current,false);return;}"
         "const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:next})});"
         "if(resp.ok){window.location.reload();return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setReportFeedback(data.error?.message||'Rename failed',true);"
@@ -1279,7 +1322,11 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             if path == "/runtime/reports":
                 payload = service.list_runtime_reports()
                 reports = [{**item, **runtime_report_links(str(item.get("name") or ""))} for item in payload.reports]
-                _html_response(self, 200, _runtime_reports_index_html(reports))
+                _html_response(
+                    self,
+                    200,
+                    _runtime_reports_index_html(reports, base_url_choices=payload.base_url_choices),
+                )
                 return
 
             if path == "/runtime/reports/latest":

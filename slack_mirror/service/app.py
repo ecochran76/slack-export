@@ -103,6 +103,7 @@ class RuntimeStatusResult:
 @dataclass(frozen=True)
 class RuntimeReportListResult:
     reports: list[dict[str, Any]] = field(default_factory=list)
+    base_url_choices: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -230,7 +231,15 @@ class SlackMirrorAppService:
         )
 
     def list_runtime_reports(self) -> RuntimeReportListResult:
-        return RuntimeReportListResult(reports=list_runtime_report_manifests(self.config.path))
+        base_url_choices = [
+            {"audience": audience, "base_url": base_url}
+            for audience, base_url in resolve_export_base_urls(self.config).items()
+            if str(base_url).strip()
+        ]
+        return RuntimeReportListResult(
+            reports=list_runtime_report_manifests(self.config.path),
+            base_url_choices=base_url_choices,
+        )
 
     def get_runtime_report(self, name: str) -> dict[str, Any] | None:
         return get_runtime_report_manifest(self.config.path, name)

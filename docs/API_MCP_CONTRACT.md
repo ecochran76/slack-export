@@ -130,6 +130,12 @@ API:
 - `GET /runtime/reports/{name}.latest.md`
 - `GET /runtime/reports/{name}.latest.json`
 
+Browser manager behavior on `/runtime/reports`:
+
+- report creation uses configured publish-origin choices instead of a raw base-URL text field
+- the page exposes guided name presets plus a timestamped default
+- rename is an inline row action, not a prompt dialog
+
 MCP:
 
 - `runtime.report.latest`

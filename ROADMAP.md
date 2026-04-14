@@ -50,6 +50,7 @@ Actionable plans:
 - `docs/dev/plans/0015-2026-04-13-report-export-crud.md`
 - `docs/dev/plans/0016-2026-04-13-frontend-report-export-manager.md`
 - `docs/dev/plans/0017-2026-04-13-frontend-export-choice-picker.md`
+- `docs/dev/plans/0018-2026-04-13-frontend-report-choice-presets.md`
 
 Current state:
 - shared application-service layer exists
@@ -91,6 +92,10 @@ Current state:
   - a shared API surface for valid mirrored channel choices per workspace
   - dependent workspace/channel selectors on `/exports`
   - latest-mirrored-day defaults on export creation when channel activity exists
+- the narrow report-choice presets follow-up is now shipped through `0018`, including:
+  - configured base-URL choices on `/runtime/reports`
+  - guided report-name presets plus a timestamped default
+  - inline runtime-report rename instead of prompt-driven browser dialogs
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

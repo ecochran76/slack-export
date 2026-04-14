@@ -46,6 +46,9 @@ class ApiServerTests(unittest.TestCase):
                     "    team_id: T456",
                     "    token: xoxb-soylei-token",
                     "    user_token: xoxp-soylei-token",
+                    "exports:",
+                    "  local_base_url: http://slack.localhost",
+                    "  external_base_url: https://slack.example.test",
                     "",
                 ]
             ),
@@ -326,13 +329,22 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Slack Mirror Runtime Reports", index_html.text)
         self.assertIn("Create runtime report", index_html.text)
         self.assertIn("create-report-button", index_html.text)
-        self.assertIn("data-report-rename='morning-ops'", index_html.text)
+        self.assertIn("report-base-url-select", index_html.text)
+        self.assertIn("http://slack.localhost", index_html.text)
+        self.assertIn("https://slack.example.test", index_html.text)
+        self.assertIn("data-report-name-preset='morning-ops'", index_html.text)
+        self.assertIn("timestamped-report-name", index_html.text)
+        self.assertIn("data-report-rename-toggle='morning-ops'", index_html.text)
+        self.assertIn("rename-row-morning-ops", index_html.text)
+        self.assertIn("rename-input-morning-ops", index_html.text)
         self.assertIn("data-report-delete='morning-ops'", index_html.text)
         self.assertIn("/runtime/reports/latest", index_html.text)
         self.assertIn("/v1/runtime/reports/latest", index_html.text)
         self.assertIn("/runtime/reports/morning-ops.latest.json", index_html.text)
         self.assertIn("latest</span>", index_html.text)
         self.assertIn("latest-row", index_html.text)
+        self.assertIn("data-report-rename-save='morning-ops'", index_html.text)
+        self.assertIn("data-report-rename-cancel='morning-ops'", index_html.text)
 
     def test_runtime_reports_endpoint_rejects_invalid_names(self):
         resp = requests.get(f"{self.base_url}/v1/runtime/reports/bad%20name", timeout=5)

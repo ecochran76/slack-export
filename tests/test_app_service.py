@@ -30,6 +30,9 @@ class AppServiceTests(unittest.TestCase):
                     "    team_id: T456",
                     "    token: xoxb-soylei-token",
                     "    user_token: xoxp-soylei-token",
+                    "exports:",
+                    "  local_base_url: http://slack.localhost",
+                    "  external_base_url: https://slack.example.test",
                     "",
                 ]
             ),
@@ -148,6 +151,16 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(rows[0]["message_count"], 1)
         self.assertEqual(rows[0]["latest_message_day"], "2024-04-11")
         self.assertEqual(rows[1]["channel_class"], "im")
+
+    def test_list_runtime_reports_includes_base_url_choices(self):
+        payload = self.service.list_runtime_reports()
+        self.assertEqual(
+            payload.base_url_choices,
+            [
+                {"audience": "local", "base_url": "http://slack.localhost"},
+                {"audience": "external", "base_url": "https://slack.example.test"},
+            ],
+        )
 
     def test_get_workspace_status_and_process_pending_events(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

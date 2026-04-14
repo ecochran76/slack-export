@@ -1556,3 +1556,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 115 | 2026-04-13
+
+- Opened and closed `0018-2026-04-13-frontend-report-choice-presets.md` as a narrow `P02` child slice.
+- Replaced the weakest part of `/runtime/reports` by removing raw base-URL entry and browser prompt rename flows.
+- Runtime-report creation now uses configured publish-origin choices plus guided name presets and a timestamped default.
+- Runtime-report rename now happens inline on each report row instead of through `window.prompt()`.
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
