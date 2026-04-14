@@ -57,6 +57,7 @@ Actionable plans:
 - `docs/dev/plans/0022-2026-04-13-frontend-report-inline-mutation-state.md`
 - `docs/dev/plans/0023-2026-04-14-frontend-report-inline-create.md`
 - `docs/dev/plans/0024-2026-04-14-frontend-export-inline-create.md`
+- `docs/dev/plans/0025-2026-04-14-frontend-inline-manager-helper-consolidation.md`
 
 Current state:
 - shared application-service layer exists
@@ -126,6 +127,10 @@ Current state:
   - inline row insertion after successful export creation
   - create success feedback without forcing a full page reload
   - continued inline rename/delete behavior for newly inserted export rows
+- the narrow inline-manager-helper consolidation follow-up is now shipped through `0025`, including:
+  - one shared browser-side row-action binder for inline rename/delete behavior
+  - preserved inline behavior on both `/runtime/reports` and `/exports`
+  - bounded maintainability cleanup without changing the operator contract
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

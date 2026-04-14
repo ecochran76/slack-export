@@ -354,11 +354,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("data-report-rename-cancel='morning-ops'", index_html.text)
         self.assertIn("insertCreatedReport(", index_html.text)
         self.assertIn("reportRowHtml(", index_html.text)
+        self.assertIn("bindInlineManagerActions(", index_html.text)
         self.assertIn("Created runtime report", index_html.text)
         self.assertIn("applyReportRename(", index_html.text)
         self.assertIn("removeReportRow(", index_html.text)
-        self.assertIn("Renamed runtime report", index_html.text)
-        self.assertIn("Deleted runtime report", index_html.text)
+        self.assertIn("itemLabel:'runtime report'", index_html.text)
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
             index_html.text,
@@ -1249,7 +1249,9 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn(f"id='export-row-{bundle_dir.name}'", exports_index.text)
         self.assertIn("insertCreatedExport(", exports_index.text)
         self.assertIn("exportRowHtml(", exports_index.text)
+        self.assertIn("bindInlineManagerActions(", exports_index.text)
         self.assertIn("Created export", exports_index.text)
+        self.assertIn("itemLabel:'export'", exports_index.text)
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
             exports_index.text,
