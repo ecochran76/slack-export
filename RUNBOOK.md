@@ -1849,3 +1849,13 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 144 | 2026-04-14
+
+- Opened and closed `0046-2026-04-14-policy-module-localization.md` as a narrow `P01` governance slice.
+- Localized `0002-policy-upgrade-management.md` and `0003-policy-adoption-feedback-loop.md` to the workflow this repo actually uses.
+- Replaced generic references to release channels, pinned bundles, notes directories, and harvest plumbing with the repo's real durable artifact model: bounded plans plus matching `RUNBOOK.md` entries.
+- Kept the shared-policy intent intact while removing wording that would otherwise imply repo behaviors this workspace does not use.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`

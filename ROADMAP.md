@@ -28,6 +28,7 @@ Actionable plans:
 - `docs/dev/plans/0043-2026-04-14-legacy-runbook-retirement.md`
 - `docs/dev/plans/0044-2026-04-14-policy-surface-fit-trim.md`
 - `docs/dev/plans/0045-2026-04-14-agents-thin-entrypoint.md`
+- `docs/dev/plans/0046-2026-04-14-policy-module-localization.md`
 
 Current state:
 - supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
@@ -39,6 +40,7 @@ Current state:
 - shared durable repo policy is now adopted under `docs/dev/policies/`, with `AGENTS.md` acting as the repo-local policy-loading entrypoint
 - the adopted policy surface is now intentionally trimmed to the modules this repo actually uses, instead of keeping the entire generic selector recommendation as dead weight
 - `AGENTS.md` is now thinned back to a repo-local routing surface instead of duplicating large portions of the retained durable policy body
+- the remaining retained policy modules are now localized to this repo's actual upgrade and feedback workflow instead of generic shared-library defaults
 - the legacy `docs/dev/RUNBOOK.md` continuity log has been retired from canonical authority and preserved under `docs/dev/legacy/` so selector-based policy audits no longer see duplicate runbook authorities
 - the coordinating platform-foundation lane is closed; remaining work proceeds through narrower lanes such as `P02` and future bounded child plans when needed
 
