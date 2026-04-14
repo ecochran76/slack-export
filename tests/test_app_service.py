@@ -127,6 +127,28 @@ class AppServiceTests(unittest.TestCase):
         self.assertIn("--channel", invoked)
         self.assertIn("general", invoked)
 
+    def test_list_workspace_channels_returns_valid_choices(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_channel(self.conn, workspace_id, {"id": "D123", "user": "U123", "is_im": True})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {
+                "ts": "1712870400.000100",
+                "user": "U1",
+                "text": "hello",
+                "channel": "C123",
+            },
+        )
+        rows = self.service.list_workspace_channels(self.conn, workspace="default")
+        self.assertEqual(rows[0]["name"], "general")
+        self.assertEqual(rows[0]["channel_class"], "public")
+        self.assertEqual(rows[0]["message_count"], 1)
+        self.assertEqual(rows[0]["latest_message_day"], "2024-04-11")
+        self.assertEqual(rows[1]["channel_class"], "im")
+
     def test_get_workspace_status_and_process_pending_events(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
         upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})

@@ -146,6 +146,40 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertIn("summary", status.json())
 
+    def test_workspace_channels_endpoint_and_exports_picker_ui(self):
+        service = get_app_service(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+
+        from slack_mirror.core.db import upsert_channel, upsert_message
+
+        upsert_channel(conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_message(
+            conn,
+            workspace_id,
+            "C123",
+            {
+                "ts": "1712870400.000100",
+                "user": "U1",
+                "text": "hello",
+                "channel": "C123",
+            },
+        )
+
+        channels = requests.get(f"{self.base_url}/v1/workspaces/default/channels", timeout=5)
+        self.assertEqual(channels.status_code, 200)
+        self.assertTrue(channels.json()["ok"])
+        self.assertEqual(channels.json()["channels"][0]["name"], "general")
+        self.assertEqual(channels.json()["channels"][0]["latest_message_day"], "2024-04-11")
+
+        exports_index = requests.get(f"{self.base_url}/exports", timeout=5)
+        self.assertEqual(exports_index.status_code, 200)
+        self.assertIn("export-workspace", exports_index.text)
+        self.assertIn("export-channel", exports_index.text)
+        self.assertIn("/v1/workspaces", exports_index.text)
+        self.assertIn("/channels", exports_index.text)
+        self.assertIn("Loading workspaces", exports_index.text)
+
     def test_runtime_live_validation_endpoint(self):
         with patch(
             "slack_mirror.service.api.get_app_service"

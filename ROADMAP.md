@@ -49,6 +49,7 @@ Actionable plans:
 - `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md`
 - `docs/dev/plans/0015-2026-04-13-report-export-crud.md`
 - `docs/dev/plans/0016-2026-04-13-frontend-report-export-manager.md`
+- `docs/dev/plans/0017-2026-04-13-frontend-export-choice-picker.md`
 
 Current state:
 - shared application-service layer exists
@@ -86,6 +87,10 @@ Current state:
   - browser management controls on `/runtime/reports`
   - a browser export manager at `/exports`
   - landing-page links that point to the browser management surfaces instead of only the raw manifest APIs
+- the narrow export-choice picker follow-up is now shipped through `0017`, including:
+  - a shared API surface for valid mirrored channel choices per workspace
+  - dependent workspace/channel selectors on `/exports`
+  - latest-mirrored-day defaults on export creation when channel activity exists
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

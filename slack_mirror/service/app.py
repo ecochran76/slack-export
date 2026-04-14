@@ -626,6 +626,53 @@ class SlackMirrorAppService:
     def list_workspaces(self, conn) -> list[dict[str, Any]]:
         return [dict(row) for row in list_workspaces(conn)]
 
+    def list_workspace_channels(self, conn, *, workspace: str) -> list[dict[str, Any]]:
+        workspace_id = self.workspace_id(conn, workspace)
+        rows = conn.execute(
+            """
+            SELECT
+              c.channel_id,
+              c.name,
+              CASE
+                WHEN c.is_im = 1 THEN 'im'
+                WHEN c.is_mpim = 1 THEN 'mpim'
+                WHEN c.is_private = 1 THEN 'private'
+                ELSE 'public'
+              END AS channel_class,
+              COUNT(m.ts) AS message_count,
+              MAX(CAST(m.ts AS REAL)) AS latest_message_ts
+            FROM channels c
+            LEFT JOIN messages m
+              ON m.workspace_id = c.workspace_id
+             AND m.channel_id = c.channel_id
+             AND m.deleted = 0
+            WHERE c.workspace_id = ?
+            GROUP BY c.channel_id, c.name, c.is_im, c.is_mpim, c.is_private
+            ORDER BY
+              CASE WHEN MAX(CAST(m.ts AS REAL)) IS NULL THEN 1 ELSE 0 END,
+              MAX(CAST(m.ts AS REAL)) DESC,
+              lower(COALESCE(c.name, c.channel_id)) ASC
+            """,
+            (workspace_id,),
+        ).fetchall()
+        payload: list[dict[str, Any]] = []
+        for row in rows:
+            latest_ts = row["latest_message_ts"]
+            latest_message_day = None
+            if latest_ts is not None:
+                latest_message_day = time.strftime("%Y-%m-%d", time.gmtime(float(latest_ts)))
+            payload.append(
+                {
+                    "channel_id": str(row["channel_id"]),
+                    "name": str(row["name"] or row["channel_id"]),
+                    "channel_class": str(row["channel_class"]),
+                    "message_count": int(row["message_count"] or 0),
+                    "latest_message_ts": None if latest_ts is None else str(latest_ts),
+                    "latest_message_day": latest_message_day,
+                }
+            )
+        return payload
+
     def enabled_workspace_names(self) -> list[str]:
         names: list[str] = []
         for ws in self.workspace_configs():

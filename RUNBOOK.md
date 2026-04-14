@@ -1545,3 +1545,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 114 | 2026-04-13
+
+- Opened and closed `0017-2026-04-13-frontend-export-choice-picker.md` as a narrow `P02` child slice.
+- Added `/v1/workspaces/{workspace}/channels` as the shared browser-facing source of valid mirrored channel choices.
+- Replaced the raw free-text workspace/channel fields on `/exports` with dependent selectors populated from current mirror state.
+- Defaulted the export day field from the selected channel's latest mirrored day when available.
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

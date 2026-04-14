@@ -191,6 +191,7 @@ Important fields for `runtime.report.latest`:
 
 API:
 
+- `GET /v1/workspaces/{workspace}/channels`
 - `GET /v1/exports`
 - `GET /v1/exports/{export_id}`
 - `POST /v1/exports`
@@ -202,6 +203,7 @@ API:
 
 Current semantics:
 
+- `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
 - `POST /v1/exports` is intentionally bounded to `kind=channel-day`
 - export updates are intentionally bounded to rename only
 - the API remains a thin wrapper over the existing managed bundle ownership in `slack_mirror.exports`
@@ -217,6 +219,15 @@ Important fields for export listing/detail routes:
 - `bundle_url`
 - `attachment_count`
 - `files`
+
+Important fields for `GET /v1/workspaces/{workspace}/channels`:
+
+- `channel_id`
+- `name`
+- `channel_class`
+- `message_count`
+- `latest_message_ts`
+- `latest_message_day`
 
 Create semantics for `POST /v1/exports`:
 
@@ -249,7 +260,7 @@ Delete semantics for `DELETE /v1/exports/{export_id}`:
   - `deleted`
   - `export_id`
 
-`/exports` now serves a browser management page over the managed export bundles, with bounded channel-day create plus rename/delete controls backed by the same export CRUD API routes.
+`/exports` now serves a browser management page over the managed export bundles, with bounded channel-day create plus rename/delete controls backed by the same export CRUD API routes. The create form now uses dependent workspace/channel selectors populated from `/v1/workspaces/{workspace}/channels` instead of raw free-text channel entry.
 
 ## Runtime Status
 

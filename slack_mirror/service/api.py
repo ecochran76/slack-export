@@ -670,9 +670,10 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "<section class='panel'>"
         "<h2>Create channel-day export</h2>"
         "<label for='export-workspace'>Workspace</label>"
-        "<input id='export-workspace' placeholder='default' />"
+        "<select id='export-workspace'><option value=''>Loading workspaces…</option></select>"
         "<label for='export-channel'>Channel</label>"
-        "<input id='export-channel' placeholder='general' />"
+        "<select id='export-channel' disabled><option value=''>Choose a workspace first</option></select>"
+        "<div id='export-channel-meta' class='meta' style='margin-top:8px'>Select a workspace to load valid channel choices.</div>"
         "<label for='export-day'>Day</label>"
         "<input id='export-day' type='date' />"
         "<label for='export-tz'>Timezone</label>"
@@ -687,9 +688,19 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "</div>"
         "<script>"
         "const exportFeedback=document.getElementById('export-feedback');"
+        "const workspaceSelect=document.getElementById('export-workspace');"
+        "const channelSelect=document.getElementById('export-channel');"
+        "const channelMeta=document.getElementById('export-channel-meta');"
+        "const dayInput=document.getElementById('export-day');"
+        "let workspaceChannels=[];"
         "function setExportFeedback(message,isError){exportFeedback.textContent=message;exportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
+        "function renderChannelOptions(channels){workspaceChannels=channels;channelSelect.innerHTML='';if(!channels.length){channelSelect.disabled=true;channelSelect.innerHTML='<option value=\"\">No mirrored channels available</option>';channelMeta.textContent='No mirrored channels were found for this workspace.';return;}channelSelect.disabled=false;channelSelect.innerHTML='<option value=\"\">Choose a channel…</option>'+channels.map((item)=>`<option value=\"${item.name}\">${item.name} · ${item.channel_class} · ${item.message_count} msgs</option>`).join('');channelMeta.textContent='Choose a valid mirrored channel for export creation.';}"
+        "async function loadChannels(workspace){channelSelect.disabled=true;channelSelect.innerHTML='<option value=\"\">Loading channels…</option>';channelMeta.textContent='Loading mirrored channels…';const resp=await fetch(`/v1/workspaces/${encodeURIComponent(workspace)}/channels`);if(!resp.ok){const data=await resp.json().catch(()=>({error:{message:'Failed to load channels'}}));setExportFeedback(data.error?.message||'Failed to load channels',true);renderChannelOptions([]);return;}const data=await resp.json();renderChannelOptions(data.channels||[]);}"
+        "async function loadWorkspaces(){const resp=await fetch('/v1/workspaces');if(!resp.ok){const data=await resp.json().catch(()=>({error:{message:'Failed to load workspaces'}}));setExportFeedback(data.error?.message||'Failed to load workspaces',true);workspaceSelect.innerHTML='<option value=\"\">Unable to load workspaces</option>';return;}const data=await resp.json();const workspaces=data.workspaces||[];workspaceSelect.innerHTML='<option value=\"\">Choose a workspace…</option>'+workspaces.map((item)=>`<option value=\"${item.name}\">${item.name}</option>`).join('');if(workspaces.length){workspaceSelect.value=workspaces[0].name;await loadChannels(workspaces[0].name);}}"
+        "workspaceSelect.addEventListener('change',async()=>{const workspace=workspaceSelect.value.trim();dayInput.value='';if(!workspace){renderChannelOptions([]);return;}await loadChannels(workspace);});"
+        "channelSelect.addEventListener('change',()=>{const selected=workspaceChannels.find((item)=>item.name===channelSelect.value);if(!selected){channelMeta.textContent='Choose a valid mirrored channel for export creation.';return;}channelMeta.textContent=`${selected.channel_class} · ${selected.message_count} messages mirrored${selected.latest_message_day?` · latest day ${selected.latest_message_day}`:''}`;if(selected.latest_message_day){dayInput.value=selected.latest_message_day;}});"
         "document.getElementById('create-export-button').addEventListener('click',async()=>{"
-        "const payload={kind:'channel-day',workspace:document.getElementById('export-workspace').value.trim(),channel:document.getElementById('export-channel').value.trim(),day:document.getElementById('export-day').value.trim(),tz:document.getElementById('export-tz').value.trim()||'America/Chicago',audience:document.getElementById('export-audience').value,export_id:document.getElementById('export-id').value.trim()||undefined};"
+        "const payload={kind:'channel-day',workspace:workspaceSelect.value.trim(),channel:channelSelect.value.trim(),day:dayInput.value.trim(),tz:document.getElementById('export-tz').value.trim()||'America/Chicago',audience:document.getElementById('export-audience').value,export_id:document.getElementById('export-id').value.trim()||undefined};"
         "const resp=await fetch('/v1/exports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});"
         "if(resp.ok){window.location.reload();return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));setExportFeedback(data.error?.message||'Create failed',true);"
@@ -709,6 +720,7 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "if(resp.ok){window.location.reload();return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setExportFeedback(data.error?.message||'Delete failed',true);"
         "});}"
+        "loadWorkspaces();"
         "</script>"
         "</body></html>"
     )
@@ -1024,6 +1036,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             protected_prefixes = (
                 "/exports",
                 "/v1/exports",
+                "/v1/workspaces",
                 "/runtime/reports",
                 "/v1/runtime/reports",
                 "/v1/runtime/status",
@@ -1225,6 +1238,17 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             if path == "/v1/workspaces":
                 conn = service.connect()
                 _json_response(self, 200, {"ok": True, "workspaces": service.list_workspaces(conn)})
+                return
+
+            m = re.fullmatch(r"/v1/workspaces/([^/]+)/channels", path)
+            if m:
+                conn = service.connect()
+                try:
+                    payload = service.list_workspace_channels(conn, workspace=m.group(1))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="workspaces.channels.list")
+                    return
+                _json_response(self, 200, {"ok": True, "channels": payload})
                 return
 
             if path == "/v1/runtime/live-validation":
