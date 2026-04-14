@@ -42,6 +42,7 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
 - `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md`
+- `docs/dev/plans/0010-2026-04-13-frontend-auth-hardening.md`
 
 Current state:
 - shared application-service layer exists
@@ -55,6 +56,9 @@ Current state:
   - authenticated landing and settings pages
   - current-user session listing and revocation
   - same-origin browser write protection
+- the narrow auth-hardening follow-up is now shipped through `0010`, including:
+  - registration-status semantics that distinguish open, allowlisted, and closed registration
+  - bounded failed-login throttling at the shared service/API boundary
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

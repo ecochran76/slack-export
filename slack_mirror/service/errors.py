@@ -5,6 +5,13 @@ from dataclasses import dataclass
 from typing import Any
 
 
+class RateLimitError(ValueError):
+    def __init__(self, message: str, *, retry_after_seconds: int, details: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.retry_after_seconds = int(max(1, retry_after_seconds))
+        self.details = dict(details or {})
+
+
 @dataclass(frozen=True)
 class ServiceError:
     code: str
@@ -26,6 +33,20 @@ class ServiceError:
 def map_service_error(exc: Exception, **details: Any) -> ServiceError:
     message = str(exc)
     merged_details = {key: value for key, value in details.items() if value is not None}
+
+    if isinstance(exc, RateLimitError):
+        return ServiceError(
+            "RATE_LIMITED",
+            message,
+            429,
+            -32029,
+            True,
+            {
+                **merged_details,
+                "retry_after_seconds": exc.retry_after_seconds,
+                **exc.details,
+            },
+        )
 
     if isinstance(exc, KeyError):
         field = str(exc).strip("'\"")

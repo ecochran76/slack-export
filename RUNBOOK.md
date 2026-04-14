@@ -1450,3 +1450,14 @@ This file is the dated turn log for planning and execution continuity.
 - Any future auth or browser-surface work should reopen as a new narrow child plan instead of extending `0009`.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 108 | 2026-04-13
+
+- Opened and closed `0010-2026-04-13-frontend-auth-hardening.md` as a narrow `P02` child slice.
+- Tightened `/auth/status` so allowlisted registration is no longer reported as fully open registration.
+- Added bounded failed-login throttling at the shared frontend-auth boundary with config-backed window and threshold controls.
+- The login throttle now returns a stable `429 RATE_LIMITED` error with retry metadata instead of only repeating generic invalid-credential errors.
+- Validation:
+  - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/errors.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

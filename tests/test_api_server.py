@@ -654,6 +654,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(allowed.status_code, 201)
         self.assertEqual(allowed.json()["session"]["username"], "ecochran76@gmail.com")
 
+        auth_status = requests.get(f"{base_url}/auth/status", timeout=5)
+        self.assertEqual(auth_status.status_code, 200)
+        self.assertEqual(auth_status.json()["auth"]["registration_mode"], "allowlisted")
+        self.assertFalse(auth_status.json()["auth"]["registration_open"])
+
         register_page = requests.get(f"{base_url}/register", timeout=5)
         self.assertEqual(register_page.status_code, 200)
         self.assertIn("Allowed registration identities", register_page.text)
@@ -669,6 +674,74 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(denied.status_code, 400)
         self.assertEqual(denied.json()["error"]["code"], "INVALID_REQUEST")
         self.assertIn("restricted", denied.json()["error"]["message"])
+
+    def test_frontend_auth_login_rate_limit_enforced(self):
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    cookie_secure_mode: never",
+                    "    login_attempt_window_seconds: 3600",
+                    "    login_attempt_max_failures: 2",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        registered = requests.post(
+            f"{base_url}/auth/register",
+            json={"username": "eric", "display_name": "Eric", "password": "correct-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(registered.status_code, 201)
+
+        first_bad = requests.post(
+            f"{base_url}/auth/login",
+            json={"username": "eric", "password": "wrong-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(first_bad.status_code, 400)
+        self.assertEqual(first_bad.json()["error"]["code"], "INVALID_REQUEST")
+
+        second_bad = requests.post(
+            f"{base_url}/auth/login",
+            json={"username": "eric", "password": "wrong-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(second_bad.status_code, 429)
+        self.assertEqual(second_bad.json()["error"]["code"], "RATE_LIMITED")
+        self.assertGreaterEqual(second_bad.json()["error"]["details"]["retry_after_seconds"], 1)
+        self.assertEqual(second_bad.json()["error"]["details"]["attempt_limit"], 2)
+        self.assertEqual(second_bad.json()["error"]["details"]["window_seconds"], 3600)
+
+        blocked_good = requests.post(
+            f"{base_url}/auth/login",
+            json={"username": "eric", "password": "correct-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(blocked_good.status_code, 429)
+        self.assertEqual(blocked_good.json()["error"]["code"], "RATE_LIMITED")
+
+        auth_status = requests.get(f"{base_url}/auth/status", timeout=5)
+        self.assertEqual(auth_status.status_code, 200)
+        self.assertEqual(auth_status.json()["auth"]["login_attempt_window_seconds"], 3600)
+        self.assertEqual(auth_status.json()["auth"]["login_attempt_max_failures"], 2)
 
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"

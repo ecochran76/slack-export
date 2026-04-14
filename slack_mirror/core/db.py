@@ -445,6 +445,79 @@ def revoke_auth_session_by_id_for_user(conn: sqlite3.Connection, *, user_id: int
     return int(cursor.rowcount or 0) > 0
 
 
+def record_auth_login_attempt(
+    conn: sqlite3.Connection,
+    *,
+    username: str,
+    success: bool,
+    remote_addr: str | None = None,
+) -> None:
+    normalized = normalize_auth_username(username)
+    if not normalized:
+        return
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO auth_login_attempts(username, remote_addr, success)
+            VALUES (?, ?, ?)
+            """,
+            (normalized, (remote_addr or "").strip() or None, 1 if success else 0),
+        )
+
+
+def count_recent_failed_auth_login_attempts(
+    conn: sqlite3.Connection,
+    *,
+    username: str,
+    since_iso: str,
+) -> int:
+    normalized = normalize_auth_username(username)
+    if not normalized:
+        return 0
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM auth_login_attempts
+        WHERE username = ?
+          AND success = 0
+          AND attempted_at >= ?
+        """,
+        (normalized, since_iso),
+    ).fetchone()
+    return int(row["count"]) if row else 0
+
+
+def oldest_recent_failed_auth_login_attempt(
+    conn: sqlite3.Connection,
+    *,
+    username: str,
+    since_iso: str,
+) -> sqlite3.Row | None:
+    normalized = normalize_auth_username(username)
+    if not normalized:
+        return None
+    return conn.execute(
+        """
+        SELECT id, username, remote_addr, success, attempted_at
+        FROM auth_login_attempts
+        WHERE username = ?
+          AND success = 0
+          AND attempted_at >= ?
+        ORDER BY attempted_at ASC, id ASC
+        LIMIT 1
+        """,
+        (normalized, since_iso),
+    ).fetchone()
+
+
+def clear_auth_login_attempts(conn: sqlite3.Connection, *, username: str) -> None:
+    normalized = normalize_auth_username(username)
+    if not normalized:
+        return
+    with conn:
+        conn.execute("DELETE FROM auth_login_attempts WHERE username = ?", (normalized,))
+
+
 def upsert_user(conn: sqlite3.Connection, workspace_id: int, user: dict[str, Any]) -> None:
     profile = user.get("profile") or {}
     with conn:

@@ -252,11 +252,20 @@ class SlackMirrorAppService:
             "allow_registration": cfg.allow_registration,
             "registration_allowlist": list(cfg.registration_allowlist),
             "registration_allowlist_count": len(cfg.registration_allowlist),
+            "registration_mode": (
+                "closed"
+                if not cfg.enabled or not cfg.allow_registration
+                else "allowlisted"
+                if cfg.registration_allowlist
+                else "open"
+            ),
             "cookie_name": cfg.cookie_name,
             "cookie_secure_mode": cfg.cookie_secure_mode,
             "session_days": cfg.session_days,
+            "login_attempt_window_seconds": cfg.login_attempt_window_seconds,
+            "login_attempt_max_failures": cfg.login_attempt_max_failures,
             "user_count": user_count,
-            "registration_open": cfg.enabled and cfg.allow_registration,
+            "registration_open": cfg.enabled and cfg.allow_registration and not cfg.registration_allowlist,
         }
 
     def frontend_auth_session(self, conn, *, session_token: str | None) -> FrontendAuthSession:
@@ -294,6 +303,7 @@ class SlackMirrorAppService:
         *,
         username: str,
         password: str,
+        remote_addr: str | None = None,
     ) -> FrontendAuthIssueResult:
         cfg = self.frontend_auth_config()
         if not cfg.enabled:
@@ -303,6 +313,9 @@ class SlackMirrorAppService:
             username=username,
             password=password,
             session_days=cfg.session_days,
+            remote_addr=remote_addr,
+            login_attempt_window_seconds=cfg.login_attempt_window_seconds,
+            login_attempt_max_failures=cfg.login_attempt_max_failures,
         )
 
     def logout_frontend_user(self, conn, *, session_token: str | None) -> None:

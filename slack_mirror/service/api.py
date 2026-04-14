@@ -1382,6 +1382,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         conn,
                         username=str(body.get("username") or ""),
                         password=str(body.get("password") or ""),
+                        remote_addr=self.client_address[0] if self.client_address else None,
                     )
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, operation="auth.login")

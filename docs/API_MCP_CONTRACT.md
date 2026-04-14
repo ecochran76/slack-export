@@ -49,6 +49,7 @@ Current semantics:
   - unauthenticated protected JSON requests fail with `AUTH_REQUIRED`
 - `POST /auth/register`, `POST /auth/login`, and `POST /auth/logout` require a same-origin `Origin` or `Referer` header and fail with `CSRF_FAILED` otherwise
 - `POST /auth/sessions/{id}/revoke` follows the same same-origin browser rule and only operates on sessions owned by the authenticated user
+- `POST /auth/login` is subject to a bounded failed-login throttle and returns `429 RATE_LIMITED` with retry metadata when the configured threshold is exceeded
 - protected routes currently include:
   - `/`
   - `/exports/*`
@@ -64,9 +65,12 @@ Important fields for `/auth/status`:
 - `allow_registration`
 - `registration_allowlist`
 - `registration_allowlist_count`
+- `registration_mode`
 - `cookie_name`
 - `cookie_secure_mode`
 - `session_days`
+- `login_attempt_window_seconds`
+- `login_attempt_max_failures`
 - `user_count`
 - `registration_open`
 

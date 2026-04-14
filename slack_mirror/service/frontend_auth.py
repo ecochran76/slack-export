@@ -9,10 +9,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from slack_mirror.core import db
+from slack_mirror.service.errors import RateLimitError
 
 HOSTED_AUTH_COOKIE_NAME = "slack_mirror_hosted_session"
 PASSWORD_HASH_ITERATIONS = 600_000
 HOSTED_AUTH_SESSION_DAYS = 30
+HOSTED_AUTH_LOGIN_ATTEMPT_WINDOW_SECONDS = 900
+HOSTED_AUTH_LOGIN_ATTEMPT_MAX_FAILURES = 5
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,8 @@ class FrontendAuthConfig:
     cookie_name: str
     cookie_secure_mode: str
     session_days: int
+    login_attempt_window_seconds: int
+    login_attempt_max_failures: int
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,16 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
         session_days = max(1, int(session_days_value))
     except (TypeError, ValueError):
         session_days = HOSTED_AUTH_SESSION_DAYS
+    login_attempt_window_value = auth_cfg.get("login_attempt_window_seconds", HOSTED_AUTH_LOGIN_ATTEMPT_WINDOW_SECONDS)
+    try:
+        login_attempt_window_seconds = max(60, int(login_attempt_window_value))
+    except (TypeError, ValueError):
+        login_attempt_window_seconds = HOSTED_AUTH_LOGIN_ATTEMPT_WINDOW_SECONDS
+    login_attempt_max_failures_value = auth_cfg.get("login_attempt_max_failures", HOSTED_AUTH_LOGIN_ATTEMPT_MAX_FAILURES)
+    try:
+        login_attempt_max_failures = max(1, int(login_attempt_max_failures_value))
+    except (TypeError, ValueError):
+        login_attempt_max_failures = HOSTED_AUTH_LOGIN_ATTEMPT_MAX_FAILURES
     return FrontendAuthConfig(
         enabled=_parse_bool(auth_cfg.get("enabled"), False),
         allow_registration=_parse_bool(auth_cfg.get("allow_registration"), True),
@@ -92,6 +107,8 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
         cookie_name=cookie_name,
         cookie_secure_mode=secure_mode,
         session_days=session_days,
+        login_attempt_window_seconds=login_attempt_window_seconds,
+        login_attempt_max_failures=login_attempt_max_failures,
     )
 
 
@@ -130,8 +147,57 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def _parse_iso_datetime(value: str) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    normalized = raw.replace(" ", "T")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
 def _session_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _login_attempt_window_start(*, now: datetime, window_seconds: int) -> str:
+    return (now - timedelta(seconds=max(60, int(window_seconds)))).isoformat(sep=" ")
+
+
+def _raise_if_login_rate_limited(
+    conn,
+    *,
+    username: str,
+    window_seconds: int,
+    max_failures: int,
+) -> None:
+    normalized = _normalize_username(username)
+    if not normalized:
+        return
+    now = _utcnow()
+    window_start = _login_attempt_window_start(now=now, window_seconds=window_seconds)
+    failures = db.count_recent_failed_auth_login_attempts(conn, username=normalized, since_iso=window_start)
+    if failures < max_failures:
+        return
+    oldest = db.oldest_recent_failed_auth_login_attempt(conn, username=normalized, since_iso=window_start)
+    oldest_attempt = _parse_iso_datetime(str(oldest["attempted_at"])) if oldest else None
+    retry_after_seconds = max(1, int(window_seconds))
+    if oldest_attempt is not None:
+        retry_after_seconds = max(1, int((oldest_attempt + timedelta(seconds=window_seconds) - now).total_seconds()))
+    raise RateLimitError(
+        "too many failed login attempts; try again later",
+        retry_after_seconds=retry_after_seconds,
+        details={
+            "username": normalized,
+            "attempt_limit": int(max_failures),
+            "window_seconds": int(window_seconds),
+        },
+    )
 
 
 def issue_frontend_auth_session(
@@ -204,13 +270,36 @@ def login_frontend_user(
     username: str,
     password: str,
     session_days: int,
+    remote_addr: str | None = None,
+    login_attempt_window_seconds: int = HOSTED_AUTH_LOGIN_ATTEMPT_WINDOW_SECONDS,
+    login_attempt_max_failures: int = HOSTED_AUTH_LOGIN_ATTEMPT_MAX_FAILURES,
 ) -> FrontendAuthIssueResult:
     normalized = _normalize_username(username)
+    _raise_if_login_rate_limited(
+        conn,
+        username=normalized,
+        window_seconds=login_attempt_window_seconds,
+        max_failures=login_attempt_max_failures,
+    )
     user_row = db.get_auth_user_by_username(conn, normalized)
     if user_row is None:
+        db.record_auth_login_attempt(conn, username=normalized, success=False, remote_addr=remote_addr)
+        _raise_if_login_rate_limited(
+            conn,
+            username=normalized,
+            window_seconds=login_attempt_window_seconds,
+            max_failures=login_attempt_max_failures,
+        )
         raise ValueError("invalid username or password")
     credential = db.get_auth_local_credential(conn, int(user_row["id"]))
     if credential is None:
+        db.record_auth_login_attempt(conn, username=normalized, success=False, remote_addr=remote_addr)
+        _raise_if_login_rate_limited(
+            conn,
+            username=normalized,
+            window_seconds=login_attempt_window_seconds,
+            max_failures=login_attempt_max_failures,
+        )
         raise ValueError("invalid username or password")
     if not verify_password(
         _require_nonempty_password(password),
@@ -218,7 +307,16 @@ def login_frontend_user(
         password_salt=str(credential["password_salt"]),
         password_iterations=int(credential["password_iterations"]),
     ):
+        db.record_auth_login_attempt(conn, username=normalized, success=False, remote_addr=remote_addr)
+        _raise_if_login_rate_limited(
+            conn,
+            username=normalized,
+            window_seconds=login_attempt_window_seconds,
+            max_failures=login_attempt_max_failures,
+        )
         raise ValueError("invalid username or password")
+    db.record_auth_login_attempt(conn, username=normalized, success=True, remote_addr=remote_addr)
+    db.clear_auth_login_attempts(conn, username=normalized)
     return issue_frontend_auth_session(
         conn,
         user_id=int(user_row["id"]),
