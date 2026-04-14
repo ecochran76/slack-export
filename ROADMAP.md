@@ -23,6 +23,9 @@ Actionable plans:
 - `docs/dev/plans/0001-2026-04-09-platform-foundation.md`
 - `docs/dev/plans/0002-2026-04-09-installer-upgrade-path.md`
 - `docs/dev/plans/0040-2026-04-14-planning-contract-cleanup.md`
+- `docs/dev/plans/0041-2026-04-14-runbook-monotonicity-and-git-hygiene.md`
+- `docs/dev/plans/0042-2026-04-14-policy-adoption-and-migration.md`
+- `docs/dev/plans/0043-2026-04-14-legacy-runbook-retirement.md`
 
 Current state:
 - supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
@@ -30,6 +33,9 @@ Current state:
 - bounded user-scope rollback exists
 - release/version discipline now has a supported `slack-mirror release check` gate with an explicit release-cut procedure
 - planning governance now explicitly keeps closed-lane summaries compact, with detailed slice archaeology left to the runbook and plan files
+- runbook governance now explicitly requires monotonic turn numbering in file order, not only globally unique headings
+- shared durable repo policy is now adopted under `docs/dev/policies/`, with `AGENTS.md` acting as the repo-local policy-loading entrypoint
+- the legacy `docs/dev/RUNBOOK.md` continuity log has been retired from canonical authority and preserved under `docs/dev/legacy/` so selector-based policy audits no longer see duplicate runbook authorities
 - the coordinating platform-foundation lane is closed; remaining work proceeds through narrower lanes such as `P02` and future bounded child plans when needed
 
 Legacy context:

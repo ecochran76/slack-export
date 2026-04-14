@@ -12,19 +12,15 @@ Before substantial work:
    - `RUNBOOK.md`
    - `docs/dev/plans/`
 3. Check `git status --short`.
+4. For any non-trivial turn, read the relevant entries under `docs/dev/policies/` before implementation.
 
 Do not assume any repo-local `SOUL.md`, `USER.md`, `MEMORY.md`, or `memory/` files exist or are relevant here. Those were mistakenly introduced from a different workspace model and are not part of this repo's operating contract.
 
 ## Scope
 
-This repo is for the Slack mirror platform:
-
-- ingest and reconcile Slack workspaces
-- persist canonical mirror state in SQLite
-- support keyword and semantic search
-- run in supported live-service topologies
-- expose shared service logic through CLI, API, and MCP
-- support outbound messaging and listener workflows
+- `AGENTS.md` includes repo-local guidance plus the policy entry section.
+- The durable policy body lives under `docs/dev/policies/`.
+- Keep repo-specific commands, environment details, and operational caveats in this file or adjacent local docs.
 
 ## Planning Source Of Truth
 
@@ -49,7 +45,7 @@ Rules:
 - For this repo, each `OPEN` plan should say what baseline is already shipped and what work remains. Prefer an explicit `Current State` section over vague status prose.
 - Keep `ROADMAP.md` compact enough to function as a priority map. For closed lanes, summarize shipped baseline and grouped child-plan coverage rather than replaying every micro-slice in prose.
 - Keep dense implementation archaeology in `docs/dev/plans/` and `RUNBOOK.md`, not inline in the roadmap body.
-- Keep `RUNBOOK.md` turn headings unique. If numbering drifts, repair the conflicting heading in the same slice that discovers it.
+- Keep `RUNBOOK.md` turn headings unique and monotonic in file order. If numbering drifts, repair the affected heading sequence in the same slice that discovers it.
 - Planning wiring should remain auditable with:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
@@ -83,6 +79,7 @@ Rules:
 - If overlapping dirty work exists, open a reconciliation step instead of pretending the merge boundary is clean.
 - Run relevant validation before closing out work.
 - Use clear, scoped commit messages.
+- Prefer conventional scoped subjects such as `feat(frontend): ...` or `docs(planning): ...` for new commits.
 - Do not amend, force-push, or rewrite published history unless explicitly requested.
 
 ## Parallel Work Policy
@@ -133,3 +130,43 @@ Default lanes for this repo when they fit:
 - Do not exfiltrate secrets or private data.
 - Do not run destructive commands without explicit approval.
 - Prefer recoverable deletion mechanisms over permanent deletion when cleanup is required.
+
+## Policy Loading Contract
+
+- `AGENTS.md` is a routing surface, not a one-time pointer.
+- Re-read the relevant policy files under `docs/dev/policies/` at the start of any non-trivial turn.
+- Re-read the relevant policy files when task scope changes mid-session.
+- When behavior is ambiguous, prefer re-reading policy over improvising from stale assumptions.
+
+## Policy Re-read Triggers
+
+- re-read planning-related policy before opening, revising, or closing a substantive plan
+- re-read documentation-related policy before changing docs, contracts, or canonical authorities
+- re-read validation and closeout policy before claiming work complete
+- re-read branch, commit, and integration policy before starting a multi-file or multi-step implementation slice
+
+## Policy Entry
+
+This repo keeps its durable repo-local policy under `docs/dev/policies/`.
+
+Read and follow:
+- `docs/dev/policies/0001-policy-management.md`
+- `docs/dev/policies/0002-policy-upgrade-management.md`
+- `docs/dev/policies/0003-policy-adoption-feedback-loop.md`
+- `docs/dev/policies/0004-notes-and-memories.md`
+- `docs/dev/policies/0005-planning-discipline.md`
+- `docs/dev/policies/0006-parallel-plan-design.md`
+- `docs/dev/policies/0007-git-worktree-hygiene.md`
+- `docs/dev/policies/0008-commit-history-discipline.md`
+- `docs/dev/policies/0009-branch-and-integration-strategy.md`
+- `docs/dev/policies/0010-commit-and-push-cadence.md`
+- `docs/dev/policies/0011-multi-agent-reconciliation.md`
+- `docs/dev/policies/0012-subagent-workflow-optimization.md`
+- `docs/dev/policies/0013-versioning-and-release.md`
+- `docs/dev/policies/0014-turn-closeout.md`
+- `docs/dev/policies/0015-policy-harvest-loop.md`
+- `docs/dev/policies/0016-architecture-guardrails.md`
+- `docs/dev/policies/0017-documentation-change-control.md`
+- `docs/dev/policies/0018-validation-and-handoff.md`
+- `docs/dev/policies/0019-upstream-fork-maintenance.md`
+- `docs/dev/policies/0020-roadmap-runbook-governance.md`

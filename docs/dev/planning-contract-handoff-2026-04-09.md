@@ -60,7 +60,7 @@ For new planning work, use:
 Treat these as legacy/supporting context only:
 
 - `docs/ROADMAP.md`
-- `docs/dev/RUNBOOK.md`
+- `docs/dev/legacy/2026-02-runbook-handoff-and-ops-log.md`
 - older `docs/dev/*.md` planning notes outside `docs/dev/plans/`
 
 ## Recommended Next Step
@@ -69,7 +69,7 @@ Review:
 
 ```bash
 git show 7272a4b
-git show a5f03f3 -- docs/ROADMAP.md docs/dev/RUNBOOK.md
+git show a5f03f3 -- docs/ROADMAP.md docs/dev/legacy/2026-02-runbook-handoff-and-ops-log.md
 ```
 
 If the bundled `docs/ROADMAP.md` changes in `a5f03f3` are acceptable, keep this branch as the planning-contract migration branch of record.
@@ -83,4 +83,4 @@ If not, open a bounded cleanup branch and separate:
 
 - Do not reopen planning work in legacy `docs/dev/PLAN.md`
 - Do not add new active plans outside `docs/dev/plans/`
-- Do not treat `docs/ROADMAP.md` or `docs/dev/RUNBOOK.md` as the active planning source of truth anymore
+- Do not treat `docs/ROADMAP.md` or `docs/dev/legacy/2026-02-runbook-handoff-and-ops-log.md` as the active planning source of truth anymore

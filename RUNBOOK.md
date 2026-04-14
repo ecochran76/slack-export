@@ -259,24 +259,6 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 138 | 2026-04-13
-
-- Opened and closed `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md` as a narrow `P02` child slice.
-- Added `slack-mirror user-env provision-frontend-user` as the supported first-user bootstrap path for local browser auth.
-- Kept the CLI thin over the shared frontend-auth service seam:
-  - new operator path provisions a local auth user without reopening browser self-registration
-  - prompted password entry is the default path
-  - unattended bootstrap is supported through `--password-env`
-  - existing local users can be rotated explicitly through `--reset-password`
-- Updated the auth/config docs so closed self-registration now points operators at the bootstrap command instead of implying temporary policy reversal.
-- Validation:
-  - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/user_env.py slack_mirror/cli/main.py tests/test_frontend_auth.py tests/test_user_env.py tests/test_cli.py`
-  - `./.venv/bin/python -m unittest tests.test_frontend_auth tests.test_user_env tests.test_cli -v`
-  - `./.venv/bin/python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
-  - `./.venv/bin/python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
-  - `./.venv/bin/python scripts/check_generated_docs.py`
-  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
-
 ## Turn 17 | 2026-04-10
 
 - Added machine-readable local operator output for the live-runtime checks:
@@ -1512,6 +1494,24 @@ This file is the dated turn log for planning and execution continuity.
 
 ## Turn 112 | 2026-04-13
 
+- Opened and closed `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md` as a narrow `P02` child slice.
+- Added `slack-mirror user-env provision-frontend-user` as the supported first-user bootstrap path for local browser auth.
+- Kept the CLI thin over the shared frontend-auth service seam:
+  - new operator path provisions a local auth user without reopening browser self-registration
+  - prompted password entry is the default path
+  - unattended bootstrap is supported through `--password-env`
+  - existing local users can be rotated explicitly through `--reset-password`
+- Updated the auth/config docs so closed self-registration now points operators at the bootstrap command instead of implying temporary policy reversal.
+- Validation:
+  - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/user_env.py slack_mirror/cli/main.py tests/test_frontend_auth.py tests/test_user_env.py tests/test_cli.py`
+  - `./.venv/bin/python -m unittest tests.test_frontend_auth tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `./.venv/bin/python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 113 | 2026-04-13
+
 - Opened and closed `0015-2026-04-13-report-export-crud.md` as a narrow `P02` child slice.
 - Added bounded CRUD support for managed runtime reports and managed exports through the shared service and local API.
 - Added shared filesystem lifecycle helpers for:
@@ -1535,7 +1535,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_exports tests.test_runtime_report tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 113 | 2026-04-13
+## Turn 114 | 2026-04-13
 
 - Opened and closed `0016-2026-04-13-frontend-report-export-manager.md` as a narrow `P02` child slice.
 - Upgraded `/runtime/reports` from a read-only browser index into a report manager with create/rename/delete controls.
@@ -1546,7 +1546,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 114 | 2026-04-13
+## Turn 115 | 2026-04-13
 
 - Opened and closed `0017-2026-04-13-frontend-export-choice-picker.md` as a narrow `P02` child slice.
 - Added `/v1/workspaces/{workspace}/channels` as the shared browser-facing source of valid mirrored channel choices.
@@ -1557,7 +1557,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 115 | 2026-04-13
+## Turn 116 | 2026-04-13
 
 - Opened and closed `0018-2026-04-13-frontend-report-choice-presets.md` as a narrow `P02` child slice.
 - Replaced the weakest part of `/runtime/reports` by removing raw base-URL entry and browser prompt rename flows.
@@ -1568,7 +1568,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 116 | 2026-04-13
+## Turn 117 | 2026-04-13
 
 - Opened and closed `0019-2026-04-13-frontend-export-channel-filter.md` as a narrow `P02` child slice.
 - Extended `/exports` with a browser-side channel filter for larger workspaces instead of leaving users in one long unfiltered selector.
@@ -1579,7 +1579,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 117 | 2026-04-13
+## Turn 118 | 2026-04-13
 
 - Opened and closed `0020-2026-04-13-frontend-export-inline-rename.md` as a narrow `P02` child slice.
 - Replaced the last prompt-driven export-manager control with inline export rename on `/exports`.
@@ -1589,7 +1589,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 118 | 2026-04-13
+## Turn 119 | 2026-04-13
 
 - Opened and closed `0021-2026-04-13-frontend-export-inline-mutation-state.md` as a narrow `P02` child slice.
 - Removed full-page reloads from successful export rename and delete actions on `/exports`.
@@ -1600,7 +1600,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 119 | 2026-04-13
+## Turn 120 | 2026-04-13
 
 - Opened and closed `0022-2026-04-13-frontend-report-inline-mutation-state.md` as a narrow `P02` child slice.
 - Removed full-page reloads from successful runtime-report rename and delete actions on `/runtime/reports`.
@@ -1611,7 +1611,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 120 | 2026-04-14
+## Turn 121 | 2026-04-14
 
 - Opened and closed `0023-2026-04-14-frontend-report-inline-create.md` as a narrow `P02` child slice.
 - Removed the remaining full-page reload from successful runtime-report creation on `/runtime/reports`.
@@ -1622,7 +1622,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 121 | 2026-04-14
+## Turn 122 | 2026-04-14
 
 - Opened and closed `0024-2026-04-14-frontend-export-inline-create.md` as a narrow `P02` child slice.
 - Removed the remaining full-page reload from successful export creation on `/exports`.
@@ -1633,7 +1633,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 122 | 2026-04-14
+## Turn 123 | 2026-04-14
 
 - Opened and closed `0025-2026-04-14-frontend-inline-manager-helper-consolidation.md` as a narrow `P02` child slice.
 - Consolidated the duplicated browser-side rename/delete row-binding logic used by `/runtime/reports` and `/exports` into one shared helper in `slack_mirror.service.api`.
@@ -1643,7 +1643,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 123 | 2026-04-14
+## Turn 124 | 2026-04-14
 
 - Opened and closed `0026-2026-04-14-frontend-manager-empty-state-restoration.md` as a narrow `P02` child slice.
 - Restored explicit empty-state rows after deleting the final item from the `/runtime/reports` and `/exports` browser managers.
@@ -1653,7 +1653,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 124 | 2026-04-14
+## Turn 125 | 2026-04-14
 
 - Opened and closed `0027-2026-04-14-runtime-report-create-auth-safe.md` as a narrow `P02` child slice.
 - Fixed authenticated runtime-report creation so it no longer self-calls `/v1/runtime/status` and `/v1/runtime/live-validation` without auth.
@@ -1663,7 +1663,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_runtime_report -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 125 | 2026-04-14
+## Turn 126 | 2026-04-14
 
 - Opened and closed `0028-2026-04-14-managed-export-script-packaging.md` as a narrow `P02` child slice.
 - Fixed managed export creation in installed `user-env` environments by shipping the repo `scripts` package into the built wheel.
@@ -1674,7 +1674,7 @@ This file is the dated turn log for planning and execution continuity.
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - live throwaway create/rename/delete smoke on `http://slack.localhost`
 
-## Turn 126 | 2026-04-14
+## Turn 127 | 2026-04-14
 
 - Opened and closed `0029-2026-04-14-frontend-inline-mutation-busy-state.md` as a narrow `P02` child slice.
 - Added shared row-level busy-state handling so `/runtime/reports` and `/exports` disable rename/delete controls while an inline mutation is in flight.
@@ -1684,7 +1684,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 127 | 2026-04-14
+## Turn 128 | 2026-04-14
 
 - Opened and closed `0030-2026-04-14-frontend-inline-create-busy-state.md` as a narrow `P02` child slice.
 - Added create-button busy-state handling so `/runtime/reports` and `/exports` disable create controls while a create request is in flight.
@@ -1694,7 +1694,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 128 | 2026-04-14
+## Turn 129 | 2026-04-14
 
 - Opened and closed `0031-2026-04-14-frontend-busy-labels.md` as a narrow `P02` child slice.
 - Added explicit inline busy labels so browser manager controls now show `creating…`, `saving…`, and `deleting…` while report/export mutations are in flight.
@@ -1704,7 +1704,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 129 | 2026-04-14
+## Turn 130 | 2026-04-14
 
 - Opened and closed `0032-2026-04-14-frontend-row-local-errors.md` as a narrow `P02` child slice.
 - Added row-local error slots and shared helper handling so inline report/export rename and delete failures render in the affected row as well as the page-level feedback banner.
@@ -1714,7 +1714,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 130 | 2026-04-14
+## Turn 131 | 2026-04-14
 
 - Opened and closed `0033-2026-04-14-frontend-create-local-errors.md` as a narrow `P02` child slice.
 - Added form-local error slots so runtime-report and export create failures now render inside the relevant create panel as well as the page-level feedback banner.
@@ -1724,7 +1724,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 131 | 2026-04-14
+## Turn 132 | 2026-04-14
 
 - Opened and closed `0034-2026-04-14-frontend-create-validation.md` as a narrow `P02` child slice.
 - Added bounded client-side create validation so runtime-report and export forms block obviously invalid submissions before issuing a request.
@@ -1734,7 +1734,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 132 | 2026-04-14
+## Turn 133 | 2026-04-14
 
 - Opened and closed `0035-2026-04-14-frontend-invalid-field-styling.md` as a narrow `P02` child slice.
 - Added invalid-field styling and field-specific client-side error cues so create validation now highlights the exact field that needs correction.
@@ -1744,7 +1744,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 133 | 2026-04-14
+## Turn 134 | 2026-04-14
 
 - Opened and closed `0036-2026-04-14-frontend-create-accessibility-focus.md` as a narrow `P02` child slice.
 - Added focus movement to the first invalid create field on `/runtime/reports` and `/exports`.
@@ -1755,7 +1755,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 134 | 2026-04-14
+## Turn 135 | 2026-04-14
 
 - Opened and closed `0037-2026-04-14-frontend-field-level-create-errors.md` as a narrow `P02` child slice.
 - Added field-local helper and error slots on the browser create forms for `/runtime/reports` and `/exports`.
@@ -1766,7 +1766,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 135 | 2026-04-14
+## Turn 136 | 2026-04-14
 
 - Opened and closed `0038-2026-04-14-frontend-create-helper-consolidation.md` as a narrow `P02` child slice.
 - Factored the duplicated report/export create-field browser helper logic through one shared server-side renderer in `slack_mirror/service/api.py`.
@@ -1776,7 +1776,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 136 | 2026-04-14
+## Turn 137 | 2026-04-14
 
 - Opened and closed `0039-2026-04-14-frontend-row-state-chips.md` as a narrow `P02` child slice.
 - Added compact per-row outcome chips on `/runtime/reports` and `/exports` for recent inline mutation results.
@@ -1786,7 +1786,7 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
-## Turn 137 | 2026-04-14
+## Turn 138 | 2026-04-14
 
 - Opened and closed `0040-2026-04-14-planning-contract-cleanup.md` as a narrow `P01` governance slice.
 - Compressed closed-lane roadmap prose so `ROADMAP.md` reads as a priority map instead of a dense micro-slice ledger, while preserving explicit plan wiring.
@@ -1794,4 +1794,37 @@ This file is the dated turn log for planning and execution continuity.
 - Repaired the duplicate runbook heading by reassigning the conflicting `2026-04-13` entry from duplicate `Turn 17` to unique numeric `Turn 138`.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 139 | 2026-04-14
+
+- Opened and closed `0041-2026-04-14-runbook-monotonicity-and-git-hygiene.md` as a narrow `P01` governance slice.
+- Renumbered the full runbook heading sequence into monotonic file order so `RUNBOOK.md` again behaves like a dated execution log instead of a uniqueness-only ledger.
+- Tightened `AGENTS.md` so future planning cleanup work preserves monotonic runbook numbering and so new commits prefer conventional scoped subjects.
+- Left published git history intact; existing unscoped commit subjects remain historical context rather than being rewritten.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 140 | 2026-04-14
+
+- Opened and closed `0042-2026-04-14-policy-adoption-and-migration.md` as a narrow `P01` governance slice.
+- Adopted shared durable repo policy under `docs/dev/policies/` and rewired `AGENTS.md` to treat that directory as the policy-loading entrypoint.
+- Kept repo-specific scope, startup, safety, and architecture nuance local in `AGENTS.md` while moving the reusable policy body into canonical policy files.
+- Added the missing roadmap/runbook governance companion module so the adopted policy matches this repo's canonical planning contract.
+- Tightened the session-start checklist so non-trivial turns explicitly read relevant policy files before implementation.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/manage_policy.py --repo-root /home/ecochran76/workspace.local/slack-export adopt --json`
+  - `git status --short`
+
+## Turn 141 | 2026-04-14
+
+- Opened and closed `0043-2026-04-14-legacy-runbook-retirement.md` as a narrow `P01` governance slice.
+- Retired the duplicate legacy `docs/dev/RUNBOOK.md` path as a canonical-looking runbook authority.
+- Preserved that old continuity log by moving it under `docs/dev/legacy/2026-02-runbook-handoff-and-ops-log.md` instead of deleting the historical content outright.
+- Updated repo references that still pointed at the old duplicate runbook path so policy selectors and future agents only see the root `RUNBOOK.md` as canonical authority.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/manage_policy.py --repo-root /home/ecochran76/workspace.local/slack-export adopt --json`
   - `git status --short`
