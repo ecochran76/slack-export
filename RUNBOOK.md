@@ -1723,3 +1723,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 131 | 2026-04-14
+
+- Opened and closed `0034-2026-04-14-frontend-create-validation.md` as a narrow `P02` child slice.
+- Added bounded client-side create validation so runtime-report and export forms block obviously invalid submissions before issuing a request.
+- Kept the existing API validation and error-envelope contracts unchanged; this slice only improves pre-submit browser guidance on the existing create flows.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

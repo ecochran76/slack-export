@@ -66,6 +66,7 @@ Actionable plans:
 - `docs/dev/plans/0031-2026-04-14-frontend-busy-labels.md`
 - `docs/dev/plans/0032-2026-04-14-frontend-row-local-errors.md`
 - `docs/dev/plans/0033-2026-04-14-frontend-create-local-errors.md`
+- `docs/dev/plans/0034-2026-04-14-frontend-create-validation.md`
 
 Current state:
 - shared application-service layer exists
@@ -171,6 +172,10 @@ Current state:
   - form-local create error slots on `/runtime/reports` and `/exports`
   - automatic clearing of stale local create errors after successful create responses
   - preservation of the existing page-level feedback banner as secondary context
+- the narrow create-validation follow-up is now shipped through `0034`, including:
+  - client-side pre-submit validation on `/runtime/reports`
+  - client-side pre-submit validation on `/exports`
+  - clearing of stale local create errors as relevant inputs change
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
