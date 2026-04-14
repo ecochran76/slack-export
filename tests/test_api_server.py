@@ -178,10 +178,16 @@ class ApiServerTests(unittest.TestCase):
         exports_index = requests.get(f"{self.base_url}/exports", timeout=5)
         self.assertEqual(exports_index.status_code, 200)
         self.assertIn("export-workspace", exports_index.text)
+        self.assertIn("export-channel-filter", exports_index.text)
+        self.assertIn("Search by name, id, or class", exports_index.text)
+        self.assertIn("export-channel-filter-meta", exports_index.text)
         self.assertIn("export-channel", exports_index.text)
         self.assertIn("/v1/workspaces", exports_index.text)
         self.assertIn("/channels", exports_index.text)
         self.assertIn("Loading workspaces", exports_index.text)
+        self.assertIn("channelSearchText", exports_index.text)
+        self.assertIn("No channels match this filter", exports_index.text)
+        self.assertIn("mirrored channels match", exports_index.text)
 
     def test_runtime_live_validation_endpoint(self):
         with patch(

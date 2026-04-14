@@ -136,6 +136,12 @@ Browser manager behavior on `/runtime/reports`:
 - the page exposes guided name presets plus a timestamped default
 - rename is an inline row action, not a prompt dialog
 
+Browser manager behavior on `/exports`:
+
+- workspace and channel choices come from the existing mirrored-state API, not raw free-text entry
+- the page now includes browser-side channel filtering for larger workspaces
+- filtering stays bounded to the already-loaded valid channel list and does not introduce a separate search contract
+
 MCP:
 
 - `runtime.report.latest`

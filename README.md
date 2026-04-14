@@ -97,6 +97,7 @@ The current repo has:
 - the local API now supports bounded managed-export lifecycle operations through `POST /v1/exports`, `POST /v1/exports/<export-id>/rename`, and `DELETE /v1/exports/<export-id>`, with create intentionally limited to channel-day exports
 - the browser now exposes those same bounded lifecycle operations through `/runtime/reports` and `/exports`, so reports and channel-day exports can be created and managed without hand-calling the JSON routes
 - the `/exports` browser flow now uses valid mirrored workspace/channel choices from the current DB instead of raw free-text entry, and defaults the date field from the selected channel's latest mirrored day when available
+- the `/exports` browser flow now also supports channel filtering for larger workspaces, with client-side match counts and empty-filter feedback over the same valid mirrored choices
 - the `/runtime/reports` browser flow now uses configured publish-origin choices, guided report-name presets, and inline rename controls instead of raw base-URL entry and prompt-driven rename
   - MCP now exposes the freshest managed runtime snapshot manifest through `runtime.report.latest`
 - the local API now supports a bounded local-password browser-auth baseline for `/runtime/reports*` and `/exports*`, with login/register HTML pages and cookie-backed sessions modeled on the lighter parts of the `../litscout` hosted auth seam

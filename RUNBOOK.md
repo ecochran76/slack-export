@@ -1567,3 +1567,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 116 | 2026-04-13
+
+- Opened and closed `0019-2026-04-13-frontend-export-channel-filter.md` as a narrow `P02` child slice.
+- Extended `/exports` with a browser-side channel filter for larger workspaces instead of leaving users in one long unfiltered selector.
+- Kept the filter bounded to already-loaded valid mirrored channel choices from the existing workspace/channel API contract.
+- Added match-count and empty-filter feedback so the page makes it clear when the current filter is too narrow.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
