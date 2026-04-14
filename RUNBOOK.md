@@ -1642,3 +1642,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 123 | 2026-04-14
+
+- Opened and closed `0026-2026-04-14-frontend-manager-empty-state-restoration.md` as a narrow `P02` child slice.
+- Restored explicit empty-state rows after deleting the final item from the `/runtime/reports` and `/exports` browser managers.
+- Kept the current inline create, rename, and delete model unchanged; this slice only repaired the final-row empty-state behavior.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

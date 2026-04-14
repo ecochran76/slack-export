@@ -101,6 +101,7 @@ The current repo has:
 - the `/exports` browser manager now uses inline export rename controls instead of prompt-driven rename dialogs
 - successful export rename and delete now update the `/exports` page inline instead of forcing a full page reload
 - successful export creation now inserts the new row inline instead of forcing a full page reload
+- deleting the final row on `/runtime/reports` or `/exports` now restores an explicit empty-state row instead of leaving an empty table body
 - the `/runtime/reports` browser flow now uses configured publish-origin choices, guided report-name presets, and inline rename controls instead of raw base-URL entry and prompt-driven rename
 - successful runtime-report rename and delete now update the `/runtime/reports` page inline instead of forcing a full page reload
 - successful runtime-report creation now inserts the new row inline, promotes it to the latest row, and resets the suggested report name without forcing a full page reload

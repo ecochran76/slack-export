@@ -58,6 +58,7 @@ Actionable plans:
 - `docs/dev/plans/0023-2026-04-14-frontend-report-inline-create.md`
 - `docs/dev/plans/0024-2026-04-14-frontend-export-inline-create.md`
 - `docs/dev/plans/0025-2026-04-14-frontend-inline-manager-helper-consolidation.md`
+- `docs/dev/plans/0026-2026-04-14-frontend-manager-empty-state-restoration.md`
 
 Current state:
 - shared application-service layer exists
@@ -131,6 +132,10 @@ Current state:
   - one shared browser-side row-action binder for inline rename/delete behavior
   - preserved inline behavior on both `/runtime/reports` and `/exports`
   - bounded maintainability cleanup without changing the operator contract
+- the narrow empty-state restoration follow-up is now shipped through `0026`, including:
+  - explicit empty-state row restoration after deleting the final runtime report
+  - explicit empty-state row restoration after deleting the final export
+  - preserved inline create behavior that removes the empty-state row before inserting a new item
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

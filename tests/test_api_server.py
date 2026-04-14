@@ -358,6 +358,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Created runtime report", index_html.text)
         self.assertIn("applyReportRename(", index_html.text)
         self.assertIn("removeReportRow(", index_html.text)
+        self.assertIn("report-empty-row", index_html.text)
+        self.assertIn("ensureReportEmptyStateRow(", index_html.text)
         self.assertIn("itemLabel:'runtime report'", index_html.text)
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
@@ -1258,6 +1260,8 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertIn("applyExportRename(", exports_index.text)
         self.assertIn("removeExportRow(", exports_index.text)
+        self.assertIn("export-empty-row", exports_index.text)
+        self.assertIn("ensureExportEmptyStateRow(", exports_index.text)
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));",
             exports_index.text,
