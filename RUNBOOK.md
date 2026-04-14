@@ -1461,3 +1461,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/errors.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 109 | 2026-04-13
+
+- Opened and closed `0011-2026-04-13-frontend-auth-idle-timeout.md` as a narrow `P02` child slice.
+- Added a config-backed inactivity timeout for browser-auth sessions on top of absolute session expiry.
+- Enforced idle expiry through the shared frontend-auth session resolver instead of only at individual browser routes.
+- Updated session listing and auth status so the idle-timeout policy is visible to operators and browser consumers.
+- Validation:
+  - `python -m py_compile slack_mirror/service/frontend_auth.py slack_mirror/service/app.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

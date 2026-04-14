@@ -21,6 +21,7 @@ service:
     cookie_name: ${SLACK_MIRROR_AUTH_COOKIE_NAME:-slack_mirror_hosted_session}
     cookie_secure_mode: ${SLACK_MIRROR_AUTH_COOKIE_SECURE_MODE:-auto}
     session_days: ${SLACK_MIRROR_AUTH_SESSION_DAYS:-30}
+    session_idle_timeout_seconds: ${SLACK_MIRROR_AUTH_SESSION_IDLE_TIMEOUT_SECONDS:-43200}
     login_attempt_window_seconds: ${SLACK_MIRROR_AUTH_LOGIN_WINDOW_SECONDS:-900}
     login_attempt_max_failures: ${SLACK_MIRROR_AUTH_LOGIN_MAX_FAILURES:-5}
 exports:
@@ -72,6 +73,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `service.auth.allow_registration` controls whether new local frontend users can self-register through `/register`.
 - `service.auth.registration_allowlist` optionally restricts self-registration to specific normalized usernames, including email-style usernames such as `ecochran76@gmail.com`.
 - `service.auth.cookie_name`, `service.auth.cookie_secure_mode`, and `service.auth.session_days` control the browser session cookie contract.
+- `service.auth.session_idle_timeout_seconds` controls inactivity expiry for browser sessions based on `last_seen_at`.
 - `service.auth.login_attempt_window_seconds` and `service.auth.login_attempt_max_failures` control the bounded failed-login throttle for `/auth/login`.
 - `service.auth.cookie_secure_mode` accepts:
   - `auto` — mark cookies `Secure` only for HTTPS requests
@@ -81,6 +83,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 - the older `service.auth.cookie_secure` boolean is still accepted as a compatibility override, but `cookie_secure_mode` is the canonical setting.
 - when frontend auth is enabled, browser auth POST routes (`/auth/register`, `/auth/login`, `/auth/logout`) are same-origin only and require a matching `Origin` or `Referer` header.
 - when the failed-login threshold is exceeded inside the configured window, `/auth/login` returns `429 RATE_LIMITED` with retry metadata instead of a generic invalid-credential response.
+- when a browser session exceeds the configured inactivity timeout, the shared auth resolver revokes it and treats it as unauthenticated on the next request.
 - per-user browser session inspection and revocation are available through `/auth/sessions` and `/auth/sessions/<id>/revoke`.
 - when frontend auth is enabled, protected HTML routes redirect unauthenticated browsers to `/login`, while protected JSON routes fail with `AUTH_REQUIRED`.
 - `exports.root_dir` is the user-scoped bundle root for managed export artifacts.

@@ -43,6 +43,7 @@ Actionable plans:
 - `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
 - `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md`
 - `docs/dev/plans/0010-2026-04-13-frontend-auth-hardening.md`
+- `docs/dev/plans/0011-2026-04-13-frontend-auth-idle-timeout.md`
 
 Current state:
 - shared application-service layer exists
@@ -59,6 +60,9 @@ Current state:
 - the narrow auth-hardening follow-up is now shipped through `0010`, including:
   - registration-status semantics that distinguish open, allowlisted, and closed registration
   - bounded failed-login throttling at the shared service/API boundary
+- the narrow idle-timeout follow-up is now shipped through `0011`, including:
+  - config-backed inactivity expiry on browser auth sessions
+  - idle-expiry visibility in auth status and session listing
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

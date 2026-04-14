@@ -2,6 +2,7 @@ import json
 import tempfile
 import threading
 import unittest
+from datetime import UTC, datetime, timedelta
 from importlib import util as importlib_util
 from pathlib import Path
 from types import SimpleNamespace
@@ -742,6 +743,69 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(auth_status.status_code, 200)
         self.assertEqual(auth_status.json()["auth"]["login_attempt_window_seconds"], 3600)
         self.assertEqual(auth_status.json()["auth"]["login_attempt_max_failures"], 2)
+
+    def test_frontend_auth_session_idle_timeout_enforced(self):
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: true",
+                    "    cookie_secure_mode: never",
+                    "    session_idle_timeout_seconds: 300",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        stale_session = requests.Session()
+        registered = stale_session.post(
+            f"{base_url}/auth/register",
+            json={"username": "idle-user", "display_name": "Idle User", "password": "correct-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(registered.status_code, 201)
+        session_id = registered.json()["session"]["session_id"]
+
+        viewer_session = requests.Session()
+        logged_in = viewer_session.post(
+            f"{base_url}/auth/login",
+            json={"username": "idle-user", "password": "correct-horse-123"},
+            headers={"origin": base_url},
+            timeout=5,
+        )
+        self.assertEqual(logged_in.status_code, 200)
+
+        service = get_app_service(str(self.config_path))
+        conn = service.connect()
+        stale_seen = (datetime.now(UTC) - timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S+00:00")
+        conn.execute("UPDATE auth_sessions SET last_seen_at = ? WHERE id = ?", (stale_seen, session_id))
+        conn.commit()
+
+        auth_status = viewer_session.get(f"{base_url}/auth/status", timeout=5)
+        self.assertEqual(auth_status.status_code, 200)
+        self.assertEqual(auth_status.json()["auth"]["session_idle_timeout_seconds"], 300)
+
+        sessions_listing = viewer_session.get(f"{base_url}/auth/sessions", timeout=5)
+        self.assertEqual(sessions_listing.status_code, 200)
+        listed = next(item for item in sessions_listing.json()["sessions"] if item["session_id"] == session_id)
+        self.assertTrue(listed["idle_expired"])
+        self.assertFalse(listed["active"])
+
+        auth_session = stale_session.get(f"{base_url}/auth/session", timeout=5)
+        self.assertEqual(auth_session.status_code, 200)
+        self.assertFalse(auth_session.json()["session"]["authenticated"])
 
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"

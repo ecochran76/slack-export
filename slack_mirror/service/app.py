@@ -262,6 +262,7 @@ class SlackMirrorAppService:
             "cookie_name": cfg.cookie_name,
             "cookie_secure_mode": cfg.cookie_secure_mode,
             "session_days": cfg.session_days,
+            "session_idle_timeout_seconds": cfg.session_idle_timeout_seconds,
             "login_attempt_window_seconds": cfg.login_attempt_window_seconds,
             "login_attempt_max_failures": cfg.login_attempt_max_failures,
             "user_count": user_count,
@@ -271,7 +272,11 @@ class SlackMirrorAppService:
     def frontend_auth_session(self, conn, *, session_token: str | None) -> FrontendAuthSession:
         if not self.frontend_auth_config().enabled:
             return FrontendAuthSession(authenticated=False, auth_source="disabled")
-        return resolve_frontend_auth_session(conn, session_token=session_token)
+        return resolve_frontend_auth_session(
+            conn,
+            session_token=session_token,
+            session_idle_timeout_seconds=self.frontend_auth_config().session_idle_timeout_seconds,
+        )
 
     def register_frontend_user(
         self,
@@ -328,7 +333,11 @@ class SlackMirrorAppService:
             raise ValueError("frontend auth is disabled")
         if not auth_session.authenticated or auth_session.user_id is None:
             raise ValueError("authentication required")
-        return list_frontend_auth_sessions(conn, user_id=int(auth_session.user_id))
+        return list_frontend_auth_sessions(
+            conn,
+            user_id=int(auth_session.user_id),
+            session_idle_timeout_seconds=self.frontend_auth_config().session_idle_timeout_seconds,
+        )
 
     def revoke_frontend_auth_session(
         self,

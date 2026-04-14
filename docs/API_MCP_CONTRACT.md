@@ -69,6 +69,7 @@ Important fields for `/auth/status`:
 - `cookie_name`
 - `cookie_secure_mode`
 - `session_days`
+- `session_idle_timeout_seconds`
 - `login_attempt_window_seconds`
 - `login_attempt_max_failures`
 - `user_count`
@@ -94,6 +95,7 @@ Important fields for `/auth/sessions`:
 - `revoked_at`
 - `active`
 - `expired`
+- `idle_expired`
 
 `/` is the canonical browser landing page when frontend auth is enabled. It is an HTML-only authenticated view over the existing runtime-status, runtime-report, and export-manifest surfaces.
 

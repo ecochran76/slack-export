@@ -14,6 +14,7 @@ from slack_mirror.service.errors import RateLimitError
 HOSTED_AUTH_COOKIE_NAME = "slack_mirror_hosted_session"
 PASSWORD_HASH_ITERATIONS = 600_000
 HOSTED_AUTH_SESSION_DAYS = 30
+HOSTED_AUTH_SESSION_IDLE_TIMEOUT_SECONDS = 43200
 HOSTED_AUTH_LOGIN_ATTEMPT_WINDOW_SECONDS = 900
 HOSTED_AUTH_LOGIN_ATTEMPT_MAX_FAILURES = 5
 
@@ -26,6 +27,7 @@ class FrontendAuthConfig:
     cookie_name: str
     cookie_secure_mode: str
     session_days: int
+    session_idle_timeout_seconds: int
     login_attempt_window_seconds: int
     login_attempt_max_failures: int
 
@@ -90,6 +92,11 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
         session_days = max(1, int(session_days_value))
     except (TypeError, ValueError):
         session_days = HOSTED_AUTH_SESSION_DAYS
+    session_idle_timeout_value = auth_cfg.get("session_idle_timeout_seconds", HOSTED_AUTH_SESSION_IDLE_TIMEOUT_SECONDS)
+    try:
+        session_idle_timeout_seconds = max(300, int(session_idle_timeout_value))
+    except (TypeError, ValueError):
+        session_idle_timeout_seconds = HOSTED_AUTH_SESSION_IDLE_TIMEOUT_SECONDS
     login_attempt_window_value = auth_cfg.get("login_attempt_window_seconds", HOSTED_AUTH_LOGIN_ATTEMPT_WINDOW_SECONDS)
     try:
         login_attempt_window_seconds = max(60, int(login_attempt_window_value))
@@ -107,6 +114,7 @@ def frontend_auth_config(raw_config: dict[str, Any]) -> FrontendAuthConfig:
         cookie_name=cookie_name,
         cookie_secure_mode=secure_mode,
         session_days=session_days,
+        session_idle_timeout_seconds=session_idle_timeout_seconds,
         login_attempt_window_seconds=login_attempt_window_seconds,
         login_attempt_max_failures=login_attempt_max_failures,
     )
@@ -159,6 +167,14 @@ def _parse_iso_datetime(value: str) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed
+
+
+def _session_idle_expired(*, last_seen_at: str | None, now: datetime, idle_timeout_seconds: int) -> bool:
+    timeout_seconds = int(max(300, idle_timeout_seconds))
+    last_seen_dt = _parse_iso_datetime(str(last_seen_at or ""))
+    if last_seen_dt is None:
+        return False
+    return last_seen_dt <= (now - timedelta(seconds=timeout_seconds))
 
 
 def _session_token_hash(token: str) -> str:
@@ -327,7 +343,12 @@ def login_frontend_user(
     )
 
 
-def resolve_frontend_auth_session(conn, *, session_token: str | None) -> FrontendAuthSession:
+def resolve_frontend_auth_session(
+    conn,
+    *,
+    session_token: str | None,
+    session_idle_timeout_seconds: int = HOSTED_AUTH_SESSION_IDLE_TIMEOUT_SECONDS,
+) -> FrontendAuthSession:
     token = str(session_token or "").strip()
     if not token:
         return FrontendAuthSession(authenticated=False)
@@ -336,16 +357,21 @@ def resolve_frontend_auth_session(conn, *, session_token: str | None) -> Fronten
         return FrontendAuthSession(authenticated=False)
     if row["revoked_at"]:
         return FrontendAuthSession(authenticated=False)
+    now = _utcnow()
     expires_at = str(row["expires_at"] or "").strip()
     if not expires_at:
         return FrontendAuthSession(authenticated=False)
-    try:
-        expires_dt = datetime.fromisoformat(expires_at)
-    except ValueError:
+    expires_dt = _parse_iso_datetime(expires_at)
+    if expires_dt is None:
         return FrontendAuthSession(authenticated=False)
-    if expires_dt.tzinfo is None:
-        expires_dt = expires_dt.replace(tzinfo=UTC)
-    if expires_dt <= _utcnow():
+    if expires_dt <= now:
+        db.revoke_auth_session(conn, token_hash=_session_token_hash(token))
+        return FrontendAuthSession(authenticated=False)
+    if _session_idle_expired(
+        last_seen_at=str(row["last_seen_at"] or ""),
+        now=now,
+        idle_timeout_seconds=session_idle_timeout_seconds,
+    ):
         db.revoke_auth_session(conn, token_hash=_session_token_hash(token))
         return FrontendAuthSession(authenticated=False)
     db.touch_auth_session(conn, token_hash=_session_token_hash(token))
@@ -367,7 +393,12 @@ def logout_frontend_user(conn, *, session_token: str | None) -> None:
     db.revoke_auth_session(conn, token_hash=_session_token_hash(token))
 
 
-def list_frontend_auth_sessions(conn, *, user_id: int) -> list[dict[str, Any]]:
+def list_frontend_auth_sessions(
+    conn,
+    *,
+    user_id: int,
+    session_idle_timeout_seconds: int = HOSTED_AUTH_SESSION_IDLE_TIMEOUT_SECONDS,
+) -> list[dict[str, Any]]:
     rows = db.list_auth_sessions_for_user(conn, user_id=user_id)
     sessions: list[dict[str, Any]] = []
     now = _utcnow()
@@ -375,13 +406,13 @@ def list_frontend_auth_sessions(conn, *, user_id: int) -> list[dict[str, Any]]:
         expires_at = str(row["expires_at"] or "").strip() or None
         expired = False
         if expires_at:
-            try:
-                expires_dt = datetime.fromisoformat(expires_at)
-                if expires_dt.tzinfo is None:
-                    expires_dt = expires_dt.replace(tzinfo=UTC)
-                expired = expires_dt <= now
-            except ValueError:
-                expired = False
+            expires_dt = _parse_iso_datetime(expires_at)
+            expired = bool(expires_dt and expires_dt <= now)
+        idle_expired = _session_idle_expired(
+            last_seen_at=str(row["last_seen_at"] or ""),
+            now=now,
+            idle_timeout_seconds=session_idle_timeout_seconds,
+        )
         sessions.append(
             {
                 "session_id": int(row["id"]),
@@ -390,8 +421,9 @@ def list_frontend_auth_sessions(conn, *, user_id: int) -> list[dict[str, Any]]:
                 "last_seen_at": str(row["last_seen_at"] or "") or None,
                 "expires_at": expires_at,
                 "revoked_at": str(row["revoked_at"] or "") or None,
-                "active": row["revoked_at"] is None and not expired,
+                "active": row["revoked_at"] is None and not expired and not idle_expired,
                 "expired": expired,
+                "idle_expired": idle_expired,
             }
         )
     return sessions

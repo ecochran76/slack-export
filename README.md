@@ -99,6 +99,7 @@ The current repo has:
 - browser auth POST routes now enforce same-origin `Origin`/`Referer` checks, so login, registration, and logout are intentionally browser-local rather than general cross-origin API endpoints
 - frontend auth now exposes current-user session listing and per-session revocation through `/auth/sessions` and `/auth/sessions/<id>/revoke`
 - `/auth/status` now distinguishes open vs allowlisted registration, instead of reporting any self-registration-capable install as fully open
+- browser-auth sessions now expire on inactivity through a config-backed idle timeout, not only absolute session age
 - `/auth/login` now has a bounded failed-login throttle with config-backed window and threshold controls
 - `/settings` now provides a browser-facing account page over the same frontend-auth session and registration-policy data
 - `/settings` now updates session revocation state inline instead of depending on a full page reload
