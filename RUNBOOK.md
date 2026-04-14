@@ -1425,3 +1425,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - live smoke on `http://slack.localhost/login`
+
+## Turn 106 | 2026-04-13
+
+- Removed the settings-page full reload after successful session revocation.
+- `/settings` now updates the revoked session row inline and only redirects to `/login` when the current browser session is the one being revoked.
+- Kept the backend contract unchanged; this is browser UX refinement over the existing auth routes.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - live smoke on `http://slack.localhost/settings`

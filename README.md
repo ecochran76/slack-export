@@ -99,6 +99,7 @@ The current repo has:
 - browser auth POST routes now enforce same-origin `Origin`/`Referer` checks, so login, registration, and logout are intentionally browser-local rather than general cross-origin API endpoints
 - frontend auth now exposes current-user session listing and per-session revocation through `/auth/sessions` and `/auth/sessions/<id>/revoke`
 - `/settings` now provides a browser-facing account page over the same frontend-auth session and registration-policy data
+- `/settings` now updates session revocation state inline instead of depending on a full page reload
 - frontend auth registration can now be restricted to an explicit allowlist of normalized usernames, including email-style usernames such as `ecochran76@gmail.com`
 - `/register` now surfaces that live allowlist policy directly in the browser instead of leaving the identity constraint implicit
 - `/login` now matches that language with an `Email or username` field label

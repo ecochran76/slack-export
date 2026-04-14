@@ -426,6 +426,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("/auth/sessions", settings.text)
         self.assertIn("Session API", settings.text)
         self.assertIn("Sign out here", settings.text)
+        self.assertNotIn("window.location.reload()", settings.text)
+        self.assertIn("markSessionInactive", settings.text)
 
         allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
         self.assertEqual(allowed.status_code, 200)
