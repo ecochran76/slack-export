@@ -105,6 +105,7 @@ The current repo has:
 - authenticated browser creation of runtime reports now uses shared runtime-service payloads instead of unauthenticated loopback calls back into `/v1/runtime/*`
 - managed export creation in installed `user-env` environments now ships the package-owned `scripts/export_channel_day.py` path expected by the shared service layer
 - inline rename/delete controls on `/runtime/reports` and `/exports` now disable themselves while a row mutation is in flight, so double-clicks do not race duplicate requests
+- create controls on `/runtime/reports` and `/exports` now disable themselves while creation is in flight, so create requests cannot be double-submitted
 - the `/runtime/reports` browser flow now uses configured publish-origin choices, guided report-name presets, and inline rename controls instead of raw base-URL entry and prompt-driven rename
 - successful runtime-report rename and delete now update the `/runtime/reports` page inline instead of forcing a full page reload
 - successful runtime-report creation now inserts the new row inline, promotes it to the latest row, and resets the suggested report name without forcing a full page reload

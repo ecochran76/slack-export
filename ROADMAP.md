@@ -62,6 +62,7 @@ Actionable plans:
 - `docs/dev/plans/0027-2026-04-14-runtime-report-create-auth-safe.md`
 - `docs/dev/plans/0028-2026-04-14-managed-export-script-packaging.md`
 - `docs/dev/plans/0029-2026-04-14-frontend-inline-mutation-busy-state.md`
+- `docs/dev/plans/0030-2026-04-14-frontend-inline-create-busy-state.md`
 
 Current state:
 - shared application-service layer exists
@@ -151,6 +152,10 @@ Current state:
   - shared row-level disabled state while rename/delete mutations are in flight
   - preserved inline mutation semantics on both `/runtime/reports` and `/exports`
   - bounded duplicate-submit protection without changing the API contract
+- the narrow inline create busy-state follow-up is now shipped through `0030`, including:
+  - disabled create controls while runtime-report creation is in flight
+  - disabled create controls while export creation is in flight
+  - bounded duplicate-submit protection for create flows without changing the API contract
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

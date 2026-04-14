@@ -1683,3 +1683,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 127 | 2026-04-14
+
+- Opened and closed `0030-2026-04-14-frontend-inline-create-busy-state.md` as a narrow `P02` child slice.
+- Added create-button busy-state handling so `/runtime/reports` and `/exports` disable create controls while a create request is in flight.
+- Kept the existing browser and API create contracts unchanged; this slice only adds bounded duplicate-submit protection for create flows.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
