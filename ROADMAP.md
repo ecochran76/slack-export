@@ -69,6 +69,7 @@ Actionable plans:
 - `docs/dev/plans/0034-2026-04-14-frontend-create-validation.md`
 - `docs/dev/plans/0035-2026-04-14-frontend-invalid-field-styling.md`
 - `docs/dev/plans/0036-2026-04-14-frontend-create-accessibility-focus.md`
+- `docs/dev/plans/0037-2026-04-14-frontend-field-level-create-errors.md`
 
 Current state:
 - shared application-service layer exists
@@ -186,6 +187,10 @@ Current state:
   - focus movement to the first invalid create field on `/runtime/reports` and `/exports`
   - `aria-describedby` wiring from create inputs to their local error region
   - polite live-region semantics on the local create error blocks
+- the narrow field-level-create-errors follow-up is now shipped through `0037`, including:
+  - field-local helper and error slots on report create inputs
+  - field-local helper and error slots on export create inputs
+  - field-level validation messaging that complements the shared form-level error block
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

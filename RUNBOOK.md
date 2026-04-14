@@ -1754,3 +1754,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 134 | 2026-04-14
+
+- Opened and closed `0037-2026-04-14-frontend-field-level-create-errors.md` as a narrow `P02` child slice.
+- Added field-local helper and error slots on the browser create forms for `/runtime/reports` and `/exports`.
+- Routed create validation messages into the relevant field-local error slot while keeping the existing form-level create error block as summary context.
+- Kept the existing API validation and create contracts unchanged; this slice only improves browser-side correction guidance on the existing create flows.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
