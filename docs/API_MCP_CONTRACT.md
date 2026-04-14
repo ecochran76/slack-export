@@ -142,6 +142,7 @@ Browser manager behavior on `/exports`:
 - the page now includes browser-side channel filtering for larger workspaces
 - filtering stays bounded to the already-loaded valid channel list and does not introduce a separate search contract
 - export rename is now an inline row action instead of a prompt dialog
+- successful export rename and delete now update the page inline instead of forcing a full reload
 
 MCP:
 

@@ -99,6 +99,7 @@ The current repo has:
 - the `/exports` browser flow now uses valid mirrored workspace/channel choices from the current DB instead of raw free-text entry, and defaults the date field from the selected channel's latest mirrored day when available
 - the `/exports` browser flow now also supports channel filtering for larger workspaces, with client-side match counts and empty-filter feedback over the same valid mirrored choices
 - the `/exports` browser manager now uses inline export rename controls instead of prompt-driven rename dialogs
+- successful export rename and delete now update the `/exports` page inline instead of forcing a full page reload
 - the `/runtime/reports` browser flow now uses configured publish-origin choices, guided report-name presets, and inline rename controls instead of raw base-URL entry and prompt-driven rename
   - MCP now exposes the freshest managed runtime snapshot manifest through `runtime.report.latest`
 - the local API now supports a bounded local-password browser-auth baseline for `/runtime/reports*` and `/exports*`, with login/register HTML pages and cookie-backed sessions modeled on the lighter parts of the `../litscout` hosted auth seam

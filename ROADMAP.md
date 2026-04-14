@@ -53,6 +53,7 @@ Actionable plans:
 - `docs/dev/plans/0018-2026-04-13-frontend-report-choice-presets.md`
 - `docs/dev/plans/0019-2026-04-13-frontend-export-channel-filter.md`
 - `docs/dev/plans/0020-2026-04-13-frontend-export-inline-rename.md`
+- `docs/dev/plans/0021-2026-04-13-frontend-export-inline-mutation-state.md`
 
 Current state:
 - shared application-service layer exists
@@ -106,6 +107,10 @@ Current state:
   - inline rename controls on `/exports`
   - prompt-free export rename interactions
   - continued reuse of the existing export rename API contract
+- the narrow export-inline-mutation-state follow-up is now shipped through `0021`, including:
+  - inline row updates after successful export rename
+  - inline row removal after successful export delete
+  - success feedback without forcing a full page reload for those two export mutations
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
