@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
+import sys
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -11,7 +13,14 @@ from typing import Any
 from slack_mirror.core import db
 from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
-from slack_mirror.exports import list_export_manifests, resolve_export_base_urls, resolve_export_root
+from slack_mirror.exports import (
+    build_export_manifest,
+    delete_export_bundle,
+    list_export_manifests,
+    rename_export_bundle,
+    resolve_export_base_urls,
+    resolve_export_root,
+)
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.frontend_auth import (
@@ -30,7 +39,13 @@ from slack_mirror.service.frontend_auth import (
 )
 from slack_mirror.service.processor import process_pending_events
 from slack_mirror.service.user_env import _build_live_validation_report, _build_status_report, _status_report_payload, default_user_env_paths
-from slack_mirror.service.runtime_report import get_runtime_report_manifest, list_runtime_report_manifests
+from slack_mirror.service.runtime_report import (
+    delete_runtime_report_snapshot,
+    get_runtime_report_manifest,
+    list_runtime_report_manifests,
+    rename_runtime_report_snapshot,
+    write_runtime_report_snapshot,
+)
 from slack_mirror.search.corpus import search_corpus, search_corpus_multi
 
 
@@ -224,6 +239,20 @@ class SlackMirrorAppService:
         reports = list_runtime_report_manifests(self.config.path)
         return reports[0] if reports else None
 
+    def create_runtime_report(self, *, base_url: str, name: str, timeout: float = 5.0) -> dict[str, Any]:
+        return write_runtime_report_snapshot(
+            config_path=self.config.path,
+            base_url=base_url,
+            name=name,
+            timeout=timeout,
+        )
+
+    def rename_runtime_report(self, *, name: str, new_name: str) -> dict[str, Any]:
+        return rename_runtime_report_snapshot(self.config.path, name, new_name)
+
+    def delete_runtime_report(self, *, name: str) -> bool:
+        return delete_runtime_report_snapshot(self.config.path, name)
+
     def landing_page_data(self, *, export_audience: str = "local") -> LandingPageResult:
         runtime_status = self.runtime_status().__dict__
         reports = list_runtime_report_manifests(self.config.path)
@@ -240,6 +269,74 @@ class SlackMirrorAppService:
             reports=reports[:5],
             exports=exports[:6],
         )
+
+    def create_channel_day_export(
+        self,
+        *,
+        workspace: str,
+        channel: str,
+        day: str,
+        tz: str = "America/Chicago",
+        audience: str = "local",
+        export_id: str | None = None,
+    ) -> dict[str, Any]:
+        export_root = resolve_export_root(self.config)
+        script_path = Path(__file__).resolve().parents[2] / "scripts" / "export_channel_day.py"
+        args = [
+            sys.executable,
+            str(script_path),
+            "--config",
+            str(self.config.path),
+            "--db",
+            str(self.db_path),
+            "--workspace",
+            str(workspace),
+            "--channel",
+            str(channel),
+            "--day",
+            str(day),
+            "--tz",
+            str(tz),
+            "--managed-export",
+            "--link-audience",
+            str(audience),
+        ]
+        if export_id:
+            args.extend(["--export-id", str(export_id)])
+        completed = subprocess.run(args, check=False, text=True, capture_output=True)
+        if completed.returncode != 0:
+            stderr = (completed.stderr or "").strip()
+            stdout = (completed.stdout or "").strip()
+            raise RuntimeError(stderr or stdout or f"channel-day export failed ({completed.returncode})")
+        resolved_export_id = str(export_id or "").strip()
+        if not resolved_export_id:
+            lines = [line.strip() for line in (completed.stdout or "").splitlines() if line.strip()]
+            bundle_line = next((line for line in lines if line.startswith("Export bundle: ")), "")
+            if bundle_line:
+                resolved_export_id = Path(bundle_line.removeprefix("Export bundle: ").strip()).name
+        if not resolved_export_id:
+            raise RuntimeError("channel-day export succeeded but export id could not be resolved")
+        bundle_dir = export_root / resolved_export_id
+        if not bundle_dir.exists() or not bundle_dir.is_dir():
+            raise FileNotFoundError(f"export bundle not found after create: {resolved_export_id}")
+        return build_export_manifest(
+            bundle_dir,
+            export_id=resolved_export_id,
+            base_urls=resolve_export_base_urls(self.config),
+            default_audience=audience,
+        )
+
+    def rename_export(self, *, export_id: str, new_export_id: str, audience: str = "local") -> dict[str, Any]:
+        return rename_export_bundle(
+            resolve_export_root(self.config),
+            export_id=export_id,
+            new_export_id=new_export_id,
+            base_urls=resolve_export_base_urls(self.config),
+            default_audience=audience,
+        )
+
+    def delete_export(self, *, export_id: str) -> bool:
+        return delete_export_bundle(resolve_export_root(self.config), export_id)
 
     def frontend_auth_config(self) -> FrontendAuthConfig:
         return frontend_auth_config(self.config.data)

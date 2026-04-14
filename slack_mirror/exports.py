@@ -4,12 +4,14 @@ import hashlib
 import json
 import mimetypes
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 
 _DEFAULT_EXPORT_ROOT = Path("~/.local/share/slack-mirror/exports").expanduser()
+_EXPORT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def _config_value(config: Any, key: str, default: Any = None) -> Any:
@@ -26,6 +28,13 @@ def slugify(value: str, *, max_length: int = 24) -> str:
     if not cleaned:
         cleaned = "export"
     return cleaned[:max_length].rstrip("-") or "export"
+
+
+def validate_export_id(export_id: str) -> str:
+    value = str(export_id or "").strip()
+    if not value or not _EXPORT_ID_RE.fullmatch(value):
+        raise ValueError(f"Invalid export id: {export_id}")
+    return value
 
 
 def build_export_id(
@@ -120,11 +129,92 @@ def build_export_urls(base_urls: dict[str, str], export_id: str, relpath: str, *
 
 
 def safe_export_path(export_root: Path, export_id: str, relpath: str) -> Path:
-    base = (export_root / export_id).resolve()
+    base = (export_root / validate_export_id(export_id)).resolve()
     target = (base / relpath).resolve()
     if target != base and base not in target.parents:
         raise ValueError(f"export path escapes bundle root: {relpath}")
     return target
+
+
+def delete_export_bundle(export_root: Path, export_id: str) -> bool:
+    safe_export_id = validate_export_id(export_id)
+    bundle_dir = export_root / safe_export_id
+    if not bundle_dir.exists() or not bundle_dir.is_dir():
+        return False
+    shutil.rmtree(bundle_dir)
+    return True
+
+
+def _replace_bundle_urls(text: str, *, old_export_id: str, new_export_id: str) -> str:
+    return text.replace(f"/exports/{old_export_id}/", f"/exports/{new_export_id}/").replace(
+        f"/exports/{old_export_id}\"",
+        f"/exports/{new_export_id}\"",
+    )
+
+
+def _rewrite_export_payload_urls(value: Any, *, old_export_id: str, new_export_id: str) -> Any:
+    if isinstance(value, dict):
+        updated = {}
+        for key, item in value.items():
+            if key == "export_id":
+                updated[key] = new_export_id
+            else:
+                updated[key] = _rewrite_export_payload_urls(item, old_export_id=old_export_id, new_export_id=new_export_id)
+        return updated
+    if isinstance(value, list):
+        return [_rewrite_export_payload_urls(item, old_export_id=old_export_id, new_export_id=new_export_id) for item in value]
+    if isinstance(value, str):
+        return _replace_bundle_urls(value, old_export_id=old_export_id, new_export_id=new_export_id)
+    return value
+
+
+def rename_export_bundle(
+    export_root: Path,
+    *,
+    export_id: str,
+    new_export_id: str,
+    base_urls: dict[str, str],
+    default_audience: str = "local",
+) -> dict[str, Any]:
+    safe_export_id = validate_export_id(export_id)
+    safe_new_export_id = validate_export_id(new_export_id)
+    source_dir = export_root / safe_export_id
+    if not source_dir.exists() or not source_dir.is_dir():
+        raise FileNotFoundError(f"export bundle not found: {safe_export_id}")
+    if safe_export_id == safe_new_export_id:
+        return build_export_manifest(
+            source_dir,
+            export_id=safe_export_id,
+            base_urls=base_urls,
+            default_audience=default_audience,
+        )
+    target_dir = export_root / safe_new_export_id
+    if target_dir.exists():
+        raise FileExistsError(f"export bundle already exists: {safe_new_export_id}")
+    shutil.move(str(source_dir), str(target_dir))
+
+    channel_day_path = target_dir / "channel-day.json"
+    if channel_day_path.exists():
+        payload = json.loads(channel_day_path.read_text(encoding="utf-8"))
+        rewritten = _rewrite_export_payload_urls(payload, old_export_id=safe_export_id, new_export_id=safe_new_export_id)
+        channel_day_path.write_text(json.dumps(rewritten, indent=2), encoding="utf-8")
+
+    index_path = target_dir / "index.html"
+    if index_path.exists():
+        html = index_path.read_text(encoding="utf-8")
+        index_path.write_text(
+            _replace_bundle_urls(html, old_export_id=safe_export_id, new_export_id=safe_new_export_id),
+            encoding="utf-8",
+        )
+
+    manifest = build_export_manifest(
+        target_dir,
+        export_id=safe_new_export_id,
+        base_urls=base_urls,
+        default_audience=default_audience,
+    )
+    (target_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return manifest
 
 
 def preview_supported_for_path(path: Path, *, content_type: str | None = None) -> bool:

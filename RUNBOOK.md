@@ -1509,3 +1509,28 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `./.venv/bin/python -m unittest tests.test_user_env -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 112 | 2026-04-13
+
+- Opened and closed `0015-2026-04-13-report-export-crud.md` as a narrow `P02` child slice.
+- Added bounded CRUD support for managed runtime reports and managed exports through the shared service and local API.
+- Added shared filesystem lifecycle helpers for:
+  - runtime report rename/delete
+  - export bundle rename/delete
+- Added shared app-service lifecycle methods for:
+  - runtime report create/rename/delete
+  - channel-day export create/rename/delete
+- Added API write routes:
+  - `POST /v1/runtime/reports`
+  - `POST /v1/runtime/reports/{name}/rename`
+  - `DELETE /v1/runtime/reports/{name}`
+  - `POST /v1/exports`
+  - `POST /v1/exports/{export_id}/rename`
+  - `DELETE /v1/exports/{export_id}`
+- Kept update semantics intentionally narrow:
+  - runtime reports: rename only
+  - exports: rename only
+- Validation:
+  - `python -m py_compile slack_mirror/exports.py slack_mirror/service/runtime_report.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_exports.py tests/test_runtime_report.py tests/test_app_service.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_exports tests.test_runtime_report tests.test_app_service tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

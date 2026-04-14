@@ -222,6 +222,64 @@ class RuntimeReportTests(unittest.TestCase):
                 ["ops-20260301T000000Z.html", "ops-20260301T000000Z.md"],
             )
 
+    def test_rename_runtime_report_snapshot_renames_latest_and_timestamped_outputs(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            config_path = root / "config.yaml"
+            db_path = root / "state" / "slack_mirror.db"
+            config_path.write_text("\n".join(["version: 1", "storage:", f"  db_path: {db_path}", ""]), encoding="utf-8")
+            with patch.object(
+                runtime_report,
+                "build_report_payload",
+                return_value={
+                    "base_url": "http://slack.localhost",
+                    "fetched_at": "2026-04-13T12:00:00+00:00",
+                    "runtime_status": self.runtime_status,
+                    "live_validation": self.live_validation,
+                },
+            ), patch("slack_mirror.service.runtime_report.datetime") as mock_datetime:
+                real_datetime = datetime
+                mock_datetime.now.return_value = real_datetime(2026, 4, 13, 12, 0, 0, tzinfo=timezone.utc)
+                mock_datetime.strptime.side_effect = real_datetime.strptime
+                runtime_report.write_runtime_report_snapshot(
+                    config_path=str(config_path),
+                    base_url="http://slack.localhost",
+                    name="morning-ops",
+                    timeout=5.0,
+                )
+
+            renamed = runtime_report.rename_runtime_report_snapshot(str(config_path), "morning-ops", "evening-ops")
+            self.assertEqual(renamed["name"], "evening-ops")
+            report_dir = db_path.parent / "runtime-reports"
+            self.assertTrue((report_dir / "evening-ops.latest.html").exists())
+            self.assertTrue((report_dir / "evening-ops.latest.json").exists())
+            self.assertFalse((report_dir / "morning-ops.latest.html").exists())
+
+    def test_delete_runtime_report_snapshot_removes_all_named_outputs(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            config_path = root / "config.yaml"
+            db_path = root / "state" / "slack_mirror.db"
+            config_path.write_text("\n".join(["version: 1", "storage:", f"  db_path: {db_path}", ""]), encoding="utf-8")
+            with patch.object(
+                runtime_report,
+                "build_report_payload",
+                return_value={
+                    "base_url": "http://slack.localhost",
+                    "fetched_at": "2026-04-13T12:00:00+00:00",
+                    "runtime_status": self.runtime_status,
+                    "live_validation": self.live_validation,
+                },
+            ):
+                runtime_report.write_runtime_report_snapshot(
+                    config_path=str(config_path),
+                    base_url="http://slack.localhost",
+                    name="ops",
+                    timeout=5.0,
+                )
+            self.assertTrue(runtime_report.delete_runtime_report_snapshot(str(config_path), "ops"))
+            self.assertFalse(runtime_report.delete_runtime_report_snapshot(str(config_path), "ops"))
+
     def test_script_main_writes_output_file(self):
         with tempfile.TemporaryDirectory() as td:
             output = Path(td) / "runtime-report.md"

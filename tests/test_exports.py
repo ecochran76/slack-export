@@ -9,7 +9,9 @@ from slack_mirror.exports import (
     build_export_id,
     build_export_url,
     build_export_urls,
+    delete_export_bundle,
     list_export_manifests,
+    rename_export_bundle,
     resolve_export_base_url,
     resolve_export_base_urls,
     resolve_export_root,
@@ -166,3 +168,52 @@ class ExportHelpersTests(unittest.TestCase):
             )
             self.assertEqual(len(manifests), 1)
             self.assertEqual(manifests[0]["export_id"], bundle_dir.name)
+
+    def test_rename_export_bundle_rewrites_manifest_and_channel_day_urls(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bundle_dir = root / "channel-day-default-general-2026-04-12-abc123"
+            (bundle_dir / "attachments" / "incident").mkdir(parents=True)
+            (bundle_dir / "index.html").write_text(
+                "<a href='/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/report.pdf'>report</a>",
+                encoding="utf-8",
+            )
+            (bundle_dir / "channel-day.json").write_text(
+                json.dumps(
+                    {
+                        "export_id": bundle_dir.name,
+                        "messages": [
+                            {
+                                "attachments": [
+                                    {
+                                        "download_url": "http://slack.localhost/exports/channel-day-default-general-2026-04-12-abc123/attachments/incident/report.pdf"
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (bundle_dir / "attachments" / "incident" / "report.pdf").write_bytes(b"%PDF-1.4\n")
+            manifest = rename_export_bundle(
+                root,
+                export_id=bundle_dir.name,
+                new_export_id="channel-day-default-general-renamed",
+                base_urls={"local": "http://slack.localhost"},
+                default_audience="local",
+            )
+            self.assertEqual(manifest["export_id"], "channel-day-default-general-renamed")
+            self.assertTrue((root / "channel-day-default-general-renamed").exists())
+            self.assertFalse(bundle_dir.exists())
+            payload = json.loads((root / "channel-day-default-general-renamed" / "channel-day.json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["export_id"], "channel-day-default-general-renamed")
+            self.assertIn("/exports/channel-day-default-general-renamed/", (root / "channel-day-default-general-renamed" / "index.html").read_text(encoding="utf-8"))
+
+    def test_delete_export_bundle_removes_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bundle_dir = root / "channel-day-default-general-2026-04-12-abc123"
+            bundle_dir.mkdir(parents=True)
+            self.assertTrue(delete_export_bundle(root, bundle_dir.name))
+            self.assertFalse(delete_export_bundle(root, bundle_dir.name))

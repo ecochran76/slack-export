@@ -205,6 +205,26 @@ def _validate_same_origin_post(
     return None
 
 
+def _requires_same_origin_write(path: str) -> bool:
+    if path in {"/auth/register", "/auth/login", "/auth/logout"}:
+        return True
+    if re.fullmatch(r"/auth/sessions/\d+/revoke", path):
+        return True
+    if path == "/v1/runtime/reports":
+        return True
+    if re.fullmatch(r"/v1/runtime/reports/[^/]+/rename", path):
+        return True
+    if re.fullmatch(r"/v1/runtime/reports/[^/]+", path):
+        return True
+    if path == "/v1/exports":
+        return True
+    if re.fullmatch(r"/v1/exports/[^/]+/rename", path):
+        return True
+    if re.fullmatch(r"/v1/exports/[^/]+", path):
+        return True
+    return False
+
+
 def _frontend_login_html(*, next_path: str, error: str | None = None, reason: str | None = None, can_register: bool) -> str:
     error_html = ""
     if error:
@@ -1351,7 +1371,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _error_response(self, 400, "BAD_REQUEST", f"Invalid JSON: {exc}")
                 return
 
-            if path in {"/auth/register", "/auth/login", "/auth/logout"} or re.fullmatch(r"/auth/sessions/\d+/revoke", path):
+            if _requires_same_origin_write(path):
                 csrf_error = _validate_same_origin_post(self, export_base_urls=export_base_urls)
                 if csrf_error:
                     _error_response(self, 403, "CSRF_FAILED", csrf_error)
@@ -1427,6 +1447,78 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 self.send_header("content-length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
+                return
+
+            if path == "/v1/runtime/reports":
+                try:
+                    payload = service.create_runtime_report(
+                        base_url=str(body.get("base_url") or "http://slack.localhost"),
+                        name=str(body.get("name") or "runtime-report"),
+                        timeout=float(body.get("timeout") or 5.0),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="runtime.reports.create")
+                    return
+                _json_response(self, 201, {"ok": True, "report": {**payload, **runtime_report_links(str(payload.get('name') or ''))}})
+                return
+
+            m = re.fullmatch(r"/v1/runtime/reports/([^/]+)/rename", path)
+            if m:
+                try:
+                    payload = service.rename_runtime_report(
+                        name=m.group(1),
+                        new_name=str(body.get("name") or ""),
+                    )
+                except FileNotFoundError:
+                    _error_response(self, 404, "NOT_FOUND", f"Runtime report not found: {m.group(1)}")
+                    return
+                except FileExistsError:
+                    _error_response(self, 409, "CONFLICT", f"Runtime report already exists: {body.get('name')}")
+                    return
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="runtime.reports.rename")
+                    return
+                _json_response(self, 200, {"ok": True, "report": {**payload, **runtime_report_links(str(payload.get('name') or ''))}})
+                return
+
+            if path == "/v1/exports":
+                kind = str(body.get("kind") or "channel-day")
+                if kind != "channel-day":
+                    _error_response(self, 400, "BAD_REQUEST", f"Unsupported export kind: {kind}")
+                    return
+                try:
+                    payload = service.create_channel_day_export(
+                        workspace=str(body.get("workspace") or ""),
+                        channel=str(body.get("channel") or ""),
+                        day=str(body.get("day") or ""),
+                        tz=str(body.get("tz") or "America/Chicago"),
+                        audience=str(body.get("audience") or "local"),
+                        export_id=str(body.get("export_id") or "") or None,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="exports.create")
+                    return
+                _json_response(self, 201, {"ok": True, "export": payload})
+                return
+
+            m = re.fullmatch(r"/v1/exports/([^/]+)/rename", path)
+            if m:
+                try:
+                    payload = service.rename_export(
+                        export_id=m.group(1),
+                        new_export_id=str(body.get("export_id") or ""),
+                        audience=str(body.get("audience") or "local"),
+                    )
+                except FileNotFoundError:
+                    _error_response(self, 404, "NOT_FOUND", f"Export bundle not found: {m.group(1)}")
+                    return
+                except FileExistsError:
+                    _error_response(self, 409, "CONFLICT", f"Export bundle already exists: {body.get('export_id')}")
+                    return
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="exports.rename")
+                    return
+                _json_response(self, 200, {"ok": True, "export": payload})
                 return
 
             m = re.fullmatch(r"/auth/sessions/(\d+)/revoke", path)
@@ -1537,6 +1629,42 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
 
         def do_DELETE(self):  # noqa: N802
             path = self._path()
+            if self._is_protected_frontend_path(path):
+                auth_session = self._enforce_frontend_auth(path)
+                if auth_session is None:
+                    return
+            if _requires_same_origin_write(path):
+                csrf_error = _validate_same_origin_post(self, export_base_urls=export_base_urls)
+                if csrf_error:
+                    _error_response(self, 403, "CSRF_FAILED", csrf_error)
+                    return
+
+            m = re.fullmatch(r"/v1/runtime/reports/([^/]+)", path)
+            if m:
+                try:
+                    deleted = service.delete_runtime_report(name=m.group(1))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="runtime.reports.delete")
+                    return
+                if not deleted:
+                    _error_response(self, 404, "NOT_FOUND", f"Runtime report not found: {m.group(1)}")
+                    return
+                _json_response(self, 200, {"ok": True, "deleted": True, "name": m.group(1)})
+                return
+
+            m = re.fullmatch(r"/v1/exports/([^/]+)", path)
+            if m:
+                try:
+                    deleted = service.delete_export(export_id=m.group(1))
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="exports.delete")
+                    return
+                if not deleted:
+                    _error_response(self, 404, "NOT_FOUND", f"Export bundle not found: {m.group(1)}")
+                    return
+                _json_response(self, 200, {"ok": True, "deleted": True, "export_id": m.group(1)})
+                return
+
             m = re.fullmatch(r"/v1/workspaces/([^/]+)/listeners/(\d+)", path)
             if m:
                 conn = service.connect()

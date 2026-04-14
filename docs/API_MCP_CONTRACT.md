@@ -12,6 +12,8 @@ Current shared contract coverage:
 - runtime status
 - live runtime validation
 - runtime report listing
+- runtime report CRUD
+- export CRUD
 - corpus search
 - search readiness
 - search health
@@ -118,6 +120,9 @@ API:
 - `GET /v1/runtime/reports`
 - `GET /v1/runtime/reports/{name}`
 - `GET /v1/runtime/reports/latest`
+- `POST /v1/runtime/reports`
+- `POST /v1/runtime/reports/{name}/rename`
+- `DELETE /v1/runtime/reports/{name}`
 - `GET /runtime/reports`
 - `GET /runtime/reports/{name}`
 - `GET /runtime/reports/latest`
@@ -142,6 +147,32 @@ Important fields for the JSON listing/detail routes:
 - `markdown_url`
 - `json_url`
 
+Create semantics for `POST /v1/runtime/reports`:
+
+- request fields:
+  - `base_url`
+  - `name`
+  - optional `timeout`
+- response:
+  - `ok`
+  - `report`
+
+Update semantics for `POST /v1/runtime/reports/{name}/rename`:
+
+- bounded to rename only
+- request fields:
+  - `name`
+- response:
+  - `ok`
+  - `report`
+
+Delete semantics for `DELETE /v1/runtime/reports/{name}`:
+
+- response:
+  - `ok`
+  - `deleted`
+  - `name`
+
 Important fields for `runtime.report.latest`:
 
 - `ok`
@@ -155,6 +186,68 @@ Important fields for `runtime.report.latest`:
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
 `/runtime/reports` serves a simple HTML index over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`, plus header links for the latest HTML and latest manifest.
 `/runtime/reports/latest` serves the freshest available HTML snapshot regardless of its snapshot name, and `/v1/runtime/reports/latest` returns the matching manifest.
+
+## Exports
+
+API:
+
+- `GET /v1/exports`
+- `GET /v1/exports/{export_id}`
+- `POST /v1/exports`
+- `POST /v1/exports/{export_id}/rename`
+- `DELETE /v1/exports/{export_id}`
+- `GET /exports/{export_id}`
+- `GET /exports/{export_id}/{filepath}`
+- `GET /exports/{export_id}/{filepath}/preview`
+
+Current semantics:
+
+- `POST /v1/exports` is intentionally bounded to `kind=channel-day`
+- export updates are intentionally bounded to rename only
+- the API remains a thin wrapper over the existing managed bundle ownership in `slack_mirror.exports`
+
+Important fields for export listing/detail routes:
+
+- `export_id`
+- `kind`
+- `workspace`
+- `channel`
+- `channel_id`
+- `day`
+- `bundle_url`
+- `attachment_count`
+- `files`
+
+Create semantics for `POST /v1/exports`:
+
+- request fields:
+  - `kind`
+  - `workspace`
+  - `channel`
+  - `day`
+  - optional `tz`
+  - optional `audience`
+  - optional `export_id`
+- response:
+  - `ok`
+  - `export`
+
+Update semantics for `POST /v1/exports/{export_id}/rename`:
+
+- bounded to rename only
+- request fields:
+  - `export_id`
+  - optional `audience`
+- response:
+  - `ok`
+  - `export`
+
+Delete semantics for `DELETE /v1/exports/{export_id}`:
+
+- response:
+  - `ok`
+  - `deleted`
+  - `export_id`
 
 ## Runtime Status
 

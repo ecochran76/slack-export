@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
@@ -66,6 +67,66 @@ def get_runtime_report_manifest(config_path: str | None, name: str) -> dict[str,
         return None
     if str(payload.get("name") or "") != safe_name:
         return None
+    return payload
+
+
+def delete_runtime_report_snapshot(config_path: str | None, name: str) -> bool:
+    safe_name = _safe_runtime_report_name(name)
+    report_dir = runtime_report_dir_for_config(config_path)
+    if not report_dir.exists():
+        return False
+    latest_json_path = report_dir / f"{safe_name}.latest.json"
+    if not latest_json_path.exists():
+        return False
+    for path in list(report_dir.glob(f"{safe_name}-*.md")) + list(report_dir.glob(f"{safe_name}-*.html")):
+        path.unlink(missing_ok=True)
+    for suffix in ("html", "md", "json"):
+        (report_dir / f"{safe_name}.latest.{suffix}").unlink(missing_ok=True)
+    return True
+
+
+def rename_runtime_report_snapshot(config_path: str | None, name: str, new_name: str) -> dict[str, Any]:
+    safe_name = _safe_runtime_report_name(name)
+    safe_new_name = _safe_runtime_report_name(new_name)
+    if safe_name == safe_new_name:
+        payload = get_runtime_report_manifest(config_path, safe_name)
+        if payload is None:
+            raise FileNotFoundError(f"runtime report not found: {safe_name}")
+        return payload
+    report_dir = runtime_report_dir_for_config(config_path)
+    latest_json_path = report_dir / f"{safe_name}.latest.json"
+    if not latest_json_path.exists():
+        raise FileNotFoundError(f"runtime report not found: {safe_name}")
+    if (report_dir / f"{safe_new_name}.latest.json").exists():
+        raise FileExistsError(f"runtime report already exists: {safe_new_name}")
+
+    renamed_paths: list[tuple[Path, Path]] = []
+    for source in sorted(report_dir.glob(f"{safe_name}-*.md")) + sorted(report_dir.glob(f"{safe_name}-*.html")):
+        target = source.with_name(source.name.replace(f"{safe_name}-", f"{safe_new_name}-", 1))
+        shutil.move(str(source), str(target))
+        renamed_paths.append((source, target))
+
+    for suffix in ("html", "md", "json"):
+        source = report_dir / f"{safe_name}.latest.{suffix}"
+        if not source.exists():
+            continue
+        target = report_dir / f"{safe_new_name}.latest.{suffix}"
+        shutil.move(str(source), str(target))
+        renamed_paths.append((source, target))
+
+    payload_path = report_dir / f"{safe_new_name}.latest.json"
+    try:
+        payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"renamed runtime report manifest missing: {safe_new_name}") from exc
+    payload["name"] = safe_new_name
+    for key in ("markdown_path", "html_path", "latest_markdown_path", "latest_html_path"):
+        raw = str(payload.get(key) or "")
+        if raw:
+            payload[key] = raw.replace(f"{safe_name}-", f"{safe_new_name}-").replace(
+                f"{safe_name}.latest", f"{safe_new_name}.latest"
+            )
+    payload_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return payload
 
 

@@ -47,6 +47,7 @@ Actionable plans:
 - `docs/dev/plans/0012-2026-04-13-frontend-auth-settings-governance.md`
 - `docs/dev/plans/0013-2026-04-13-frontend-auth-live-defaults.md`
 - `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md`
+- `docs/dev/plans/0015-2026-04-13-report-export-crud.md`
 
 Current state:
 - shared application-service layer exists
@@ -76,6 +77,10 @@ Current state:
   - `user-env provision-frontend-user` as the supported first-user bootstrap path
   - prompted or env-backed password entry without reopening browser self-registration
   - explicit password rotation for existing local frontend-auth users through the same operator command
+- the narrow report/export CRUD follow-up is now shipped through `0015`, including:
+  - runtime report create, rename, and delete through the shared service/API boundary
+  - managed channel-day export create, rename, and delete through the shared service/API boundary
+  - filesystem-owned rename/delete helpers that keep report/export manifests coherent after lifecycle operations
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

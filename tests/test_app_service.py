@@ -90,6 +90,43 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(result.workspaces[0]["reconcile_downloaded"], 2)
         self.assertEqual(result.workspaces[0]["reconcile_failed"], 0)
 
+    def test_create_channel_day_export_invokes_script_and_returns_manifest(self):
+        export_root = self.root / "exports"
+        bundle_dir = export_root / "channel-day-default-general-2026-04-12-abc123"
+        bundle_dir.mkdir(parents=True)
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "exports:",
+                    f"  root_dir: {export_root}",
+                    "  local_base_url: http://slack.localhost",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        service = SlackMirrorAppService(str(self.config_path))
+        with patch("slack_mirror.service.app.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(
+                returncode=0,
+                stdout=f"Export bundle: {bundle_dir}\n",
+                stderr="",
+            )
+            payload = service.create_channel_day_export(
+                workspace="default",
+                channel="general",
+                day="2026-04-12",
+            )
+        self.assertEqual(payload["export_id"], bundle_dir.name)
+        self.assertEqual(payload["bundle_url"], f"http://slack.localhost/exports/{bundle_dir.name}")
+        invoked = mock_run.call_args.args[0]
+        self.assertIn("--managed-export", invoked)
+        self.assertIn("--workspace", invoked)
+        self.assertIn("default", invoked)
+        self.assertIn("--channel", invoked)
+        self.assertIn("general", invoked)
+
     def test_get_workspace_status_and_process_pending_events(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
         upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})

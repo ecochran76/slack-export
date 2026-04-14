@@ -302,6 +302,138 @@ class ApiServerTests(unittest.TestCase):
         missing = requests.get(f"{self.base_url}/runtime/reports/bad%20name", timeout=5)
         self.assertEqual(missing.status_code, 400)
 
+    def test_runtime_reports_crud_endpoints(self):
+        service = get_app_service(str(self.config_path))
+        created_payload = {
+            "name": "daily-ops",
+            "base_url": "http://slack.localhost",
+            "fetched_at": "2026-04-13T12:00:00+00:00",
+            "status": "pass",
+            "summary": "Summary: PASS",
+            "markdown_path": str(self.root / "daily-ops-20260413T120000Z.md"),
+            "html_path": str(self.root / "daily-ops-20260413T120000Z.html"),
+            "latest_markdown_path": str(self.root / "daily-ops.latest.md"),
+            "latest_html_path": str(self.root / "daily-ops.latest.html"),
+            "latest_json_path": str(self.root / "daily-ops.latest.json"),
+        }
+        renamed_payload = {**created_payload, "name": "daily-ops-renamed"}
+        with patch.object(service, "create_runtime_report", return_value=created_payload) as mock_create, patch.object(
+            service, "rename_runtime_report", return_value=renamed_payload
+        ) as mock_rename, patch.object(service, "delete_runtime_report", return_value=True) as mock_delete, patch(
+            "slack_mirror.service.api.get_app_service", return_value=service
+        ):
+            server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self.addCleanup(server.shutdown)
+            self.addCleanup(server.server_close)
+            self.addCleanup(thread.join, 2)
+            base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+            created = requests.post(
+                f"{base_url}/v1/runtime/reports",
+                headers={"Origin": base_url},
+                json={"base_url": "http://slack.localhost", "name": "daily-ops"},
+                timeout=5,
+            )
+            self.assertEqual(created.status_code, 201)
+            self.assertEqual(created.json()["report"]["name"], "daily-ops")
+            self.assertEqual(created.json()["report"]["html_url"], "/runtime/reports/daily-ops")
+            mock_create.assert_called_once_with(base_url="http://slack.localhost", name="daily-ops", timeout=5.0)
+
+            renamed = requests.post(
+                f"{base_url}/v1/runtime/reports/daily-ops/rename",
+                headers={"Origin": base_url},
+                json={"name": "daily-ops-renamed"},
+                timeout=5,
+            )
+            self.assertEqual(renamed.status_code, 200)
+            self.assertEqual(renamed.json()["report"]["name"], "daily-ops-renamed")
+            self.assertEqual(renamed.json()["report"]["html_url"], "/runtime/reports/daily-ops-renamed")
+            mock_rename.assert_called_once_with(name="daily-ops", new_name="daily-ops-renamed")
+
+            deleted = requests.delete(
+                f"{base_url}/v1/runtime/reports/daily-ops-renamed",
+                headers={"Origin": base_url},
+                timeout=5,
+            )
+            self.assertEqual(deleted.status_code, 200)
+            self.assertTrue(deleted.json()["deleted"])
+            self.assertEqual(deleted.json()["name"], "daily-ops-renamed")
+            mock_delete.assert_called_once_with(name="daily-ops-renamed")
+
+    def test_export_crud_endpoints(self):
+        service = get_app_service(str(self.config_path))
+        created_payload = {
+            "export_id": "channel-day-default-general-2026-04-12-abc123",
+            "bundle_url": "http://slack.localhost/exports/channel-day-default-general-2026-04-12-abc123",
+            "files": [],
+        }
+        renamed_payload = {
+            **created_payload,
+            "export_id": "channel-day-default-general-renamed",
+            "bundle_url": "http://slack.localhost/exports/channel-day-default-general-renamed",
+        }
+        with patch.object(service, "create_channel_day_export", return_value=created_payload) as mock_create, patch.object(
+            service, "rename_export", return_value=renamed_payload
+        ) as mock_rename, patch.object(service, "delete_export", return_value=True) as mock_delete, patch(
+            "slack_mirror.service.api.get_app_service", return_value=service
+        ):
+            server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self.addCleanup(server.shutdown)
+            self.addCleanup(server.server_close)
+            self.addCleanup(thread.join, 2)
+            base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+            created = requests.post(
+                f"{base_url}/v1/exports",
+                headers={"Origin": base_url},
+                json={
+                    "kind": "channel-day",
+                    "workspace": "default",
+                    "channel": "general",
+                    "day": "2026-04-12",
+                    "audience": "local",
+                },
+                timeout=5,
+            )
+            self.assertEqual(created.status_code, 201)
+            self.assertEqual(created.json()["export"]["export_id"], "channel-day-default-general-2026-04-12-abc123")
+            mock_create.assert_called_once_with(
+                workspace="default",
+                channel="general",
+                day="2026-04-12",
+                tz="America/Chicago",
+                audience="local",
+                export_id=None,
+            )
+
+            renamed = requests.post(
+                f"{base_url}/v1/exports/channel-day-default-general-2026-04-12-abc123/rename",
+                headers={"Origin": base_url},
+                json={"export_id": "channel-day-default-general-renamed", "audience": "local"},
+                timeout=5,
+            )
+            self.assertEqual(renamed.status_code, 200)
+            self.assertEqual(renamed.json()["export"]["export_id"], "channel-day-default-general-renamed")
+            mock_rename.assert_called_once_with(
+                export_id="channel-day-default-general-2026-04-12-abc123",
+                new_export_id="channel-day-default-general-renamed",
+                audience="local",
+            )
+
+            deleted = requests.delete(
+                f"{base_url}/v1/exports/channel-day-default-general-renamed",
+                headers={"Origin": base_url},
+                timeout=5,
+            )
+            self.assertEqual(deleted.status_code, 200)
+            self.assertTrue(deleted.json()["deleted"])
+            self.assertEqual(deleted.json()["export_id"], "channel-day-default-general-renamed")
+            mock_delete.assert_called_once_with(export_id="channel-day-default-general-renamed")
+
     def test_frontend_auth_protects_runtime_reports_and_supports_local_login(self):
         report_dir = self.db_path.parent / "runtime-reports"
         report_dir.mkdir(parents=True, exist_ok=True)
