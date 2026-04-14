@@ -128,6 +128,7 @@ The current repo has:
 - `/login` now matches that language with an `Email or username` field label
 - browser manager controls on `/runtime/reports` and `/exports` now show inline `creating…`, `saving…`, and `deleting…` labels while mutations are in flight
 - browser manager rows on `/runtime/reports` and `/exports` now render row-local rename/delete errors in place, instead of relying only on the page-level feedback banner
+- browser create panels on `/runtime/reports` and `/exports` now render local create errors in place, instead of relying only on the page-level feedback banner
   - the managed user-env install now also provisions `slack-mirror-runtime-report.timer`, which runs `user-env snapshot-report` hourly into the same managed state directory
   - bounded browser preview support for images, PDFs, and text-like files through `/exports/<export-id>/<filepath>/preview`
   - lightweight `.docx` browser preview through `mammoth`, without requiring a full office server

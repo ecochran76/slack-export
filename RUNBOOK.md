@@ -1713,3 +1713,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 130 | 2026-04-14
+
+- Opened and closed `0033-2026-04-14-frontend-create-local-errors.md` as a narrow `P02` child slice.
+- Added form-local error slots so runtime-report and export create failures now render inside the relevant create panel as well as the page-level feedback banner.
+- Kept the existing browser and API create contracts unchanged; this slice only improves error locality for existing create flows.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
