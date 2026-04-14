@@ -54,6 +54,7 @@ Actionable plans:
 - `docs/dev/plans/0019-2026-04-13-frontend-export-channel-filter.md`
 - `docs/dev/plans/0020-2026-04-13-frontend-export-inline-rename.md`
 - `docs/dev/plans/0021-2026-04-13-frontend-export-inline-mutation-state.md`
+- `docs/dev/plans/0022-2026-04-13-frontend-report-inline-mutation-state.md`
 
 Current state:
 - shared application-service layer exists
@@ -111,6 +112,10 @@ Current state:
   - inline row updates after successful export rename
   - inline row removal after successful export delete
   - success feedback without forcing a full page reload for those two export mutations
+- the narrow report-inline-mutation-state follow-up is now shipped through `0022`, including:
+  - inline row updates after successful runtime-report rename
+  - inline row removal after successful runtime-report delete
+  - success feedback without forcing a full page reload for those two report mutations
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

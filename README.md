@@ -101,6 +101,7 @@ The current repo has:
 - the `/exports` browser manager now uses inline export rename controls instead of prompt-driven rename dialogs
 - successful export rename and delete now update the `/exports` page inline instead of forcing a full page reload
 - the `/runtime/reports` browser flow now uses configured publish-origin choices, guided report-name presets, and inline rename controls instead of raw base-URL entry and prompt-driven rename
+- successful runtime-report rename and delete now update the `/runtime/reports` page inline instead of forcing a full page reload
   - MCP now exposes the freshest managed runtime snapshot manifest through `runtime.report.latest`
 - the local API now supports a bounded local-password browser-auth baseline for `/runtime/reports*` and `/exports*`, with login/register HTML pages and cookie-backed sessions modeled on the lighter parts of the `../litscout` hosted auth seam
 - frontend auth cookie policy is now request-aware, so browser-origin HTTPS ingress can use `Secure` cookies without breaking the local `http://slack.localhost` path

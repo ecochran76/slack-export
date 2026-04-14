@@ -1599,3 +1599,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 119 | 2026-04-13
+
+- Opened and closed `0022-2026-04-13-frontend-report-inline-mutation-state.md` as a narrow `P02` child slice.
+- Removed full-page reloads from successful runtime-report rename and delete actions on `/runtime/reports`.
+- Runtime-report rename now updates the affected row inline, and runtime-report delete now removes the row inline while showing success feedback.
+- Kept runtime-report creation unchanged in this slice.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

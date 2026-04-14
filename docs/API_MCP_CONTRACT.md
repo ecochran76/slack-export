@@ -135,6 +135,7 @@ Browser manager behavior on `/runtime/reports`:
 - report creation uses configured publish-origin choices instead of a raw base-URL text field
 - the page exposes guided name presets plus a timestamped default
 - rename is an inline row action, not a prompt dialog
+- successful report rename and delete now update the page inline instead of forcing a full reload
 
 Browser manager behavior on `/exports`:
 

@@ -341,6 +341,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("data-report-name-preset='morning-ops'", index_html.text)
         self.assertIn("timestamped-report-name", index_html.text)
         self.assertIn("data-report-rename-toggle='morning-ops'", index_html.text)
+        self.assertIn("id='report-row-morning-ops'", index_html.text)
         self.assertIn("rename-row-morning-ops", index_html.text)
         self.assertIn("rename-input-morning-ops", index_html.text)
         self.assertIn("data-report-delete='morning-ops'", index_html.text)
@@ -351,6 +352,18 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("latest-row", index_html.text)
         self.assertIn("data-report-rename-save='morning-ops'", index_html.text)
         self.assertIn("data-report-rename-cancel='morning-ops'", index_html.text)
+        self.assertIn("applyReportRename(", index_html.text)
+        self.assertIn("removeReportRow(", index_html.text)
+        self.assertIn("Renamed runtime report", index_html.text)
+        self.assertIn("Deleted runtime report", index_html.text)
+        self.assertNotIn(
+            "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));",
+            index_html.text,
+        )
+        self.assertNotIn(
+            "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));",
+            index_html.text,
+        )
 
     def test_runtime_reports_endpoint_rejects_invalid_names(self):
         resp = requests.get(f"{self.base_url}/v1/runtime/reports/bad%20name", timeout=5)
