@@ -493,12 +493,30 @@ def _frontend_settings_html(
         "</div></body></html>"
     )
 
+def _render_create_field_helper_js(*, manager_name: str, fields_js: str, descriptors_js: str) -> str:
+    return "".join(
+        [
+            f"function get{manager_name}CreateField(fieldName){{const fields={fields_js};return fields[fieldName]||null;}}",
+            f"function get{manager_name}CreateFieldDescriptors(fieldName){{const descriptors={descriptors_js};return descriptors[fieldName]||[];}}",
+            f"function set{manager_name}CreateFieldError(fieldName,message){{const field=get{manager_name}CreateField(fieldName);const descriptors=get{manager_name}CreateFieldDescriptors(fieldName);const errorId=descriptors.find((id)=>id.endsWith('-error'));const errorNode=errorId?document.getElementById(errorId):null;if(errorNode){{errorNode.textContent=message||'';errorNode.hidden=!message;}}if(field)field.setAttribute('aria-describedby',descriptors.join(' '));}}",
+            f"function set{manager_name}CreateFieldState(fieldName,isInvalid,message=''){{const field=get{manager_name}CreateField(fieldName);if(!field)return;field.classList.toggle('field-invalid',!!isInvalid);field.setAttribute('aria-invalid',isInvalid?'true':'false');set{manager_name}CreateFieldError(fieldName,isInvalid?message:'');}}",
+            f"function clear{manager_name}CreateFieldState(){{for(const name of Object.keys({fields_js}))set{manager_name}CreateFieldState(name,false,'');}}",
+            f"function focus{manager_name}CreateField(fieldName){{const field=get{manager_name}CreateField(fieldName);if(!field)return;field.focus();if(typeof field.select==='function'&&(field.tagName==='INPUT'||field.tagName==='TEXTAREA'))field.select();}}",
+        ]
+    )
+
 
 def _runtime_reports_index_html(
     reports: list[dict[str, Any]],
     *,
     base_url_choices: list[dict[str, str]] | None = None,
 ) -> str:
+    report_create_field_helper_js = _render_create_field_helper_js(
+        manager_name="Report",
+        fields_js="{name:reportNameInput,base_url:baseUrlSelect,timeout:document.getElementById('report-timeout')}",
+        descriptors_js="{name:['report-name-help','report-name-error'],base_url:['report-base-url-help','report-base-url-error'],timeout:['report-timeout-help','report-timeout-error']}",
+    )
+
     def _report_row(report: dict[str, Any], *, is_latest: bool) -> str:
         row_class = " class='latest-row'" if is_latest else ""
         latest_badge = " <span class='badge'>latest</span>" if is_latest else ""
@@ -625,12 +643,7 @@ def _runtime_reports_index_html(
         "const reportCreateError=document.getElementById('report-create-error');"
         "function setReportFeedback(message,isError){reportFeedback.textContent=message;reportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
         "function setReportCreateError(message){if(!reportCreateError)return;if(message){reportCreateError.textContent=message;reportCreateError.hidden=false;return;}reportCreateError.textContent='';reportCreateError.hidden=true;}"
-        "function getReportCreateField(fieldName){const fields={name:reportNameInput,base_url:baseUrlSelect,timeout:document.getElementById('report-timeout')};return fields[fieldName]||null;}"
-        "function getReportCreateFieldDescriptors(fieldName){const descriptors={name:['report-name-help','report-name-error'],base_url:['report-base-url-help','report-base-url-error'],timeout:['report-timeout-help','report-timeout-error']};return descriptors[fieldName]||[];}"
-        "function setReportCreateFieldError(fieldName,message){const field=getReportCreateField(fieldName);const descriptors=getReportCreateFieldDescriptors(fieldName);const errorId=descriptors.find((id)=>id.endsWith('-error'));const errorNode=errorId?document.getElementById(errorId):null;if(errorNode){errorNode.textContent=message||'';errorNode.hidden=!message;}if(field)field.setAttribute('aria-describedby',descriptors.join(' '));}"
-        "function setReportCreateFieldState(fieldName,isInvalid,message=''){const field=getReportCreateField(fieldName);if(!field)return;field.classList.toggle('field-invalid',!!isInvalid);field.setAttribute('aria-invalid',isInvalid?'true':'false');setReportCreateFieldError(fieldName,isInvalid?message:'');}"
-        "function clearReportCreateFieldState(){for(const name of ['name','base_url','timeout'])setReportCreateFieldState(name,false,'');}"
-        "function focusReportCreateField(fieldName){const field=getReportCreateField(fieldName);if(!field)return;field.focus();if(typeof field.select==='function'&&(field.tagName==='INPUT'||field.tagName==='TEXTAREA'))field.select();}"
+        f"{report_create_field_helper_js}"
         "function escapeHtml(value){return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll(\"'\",'&#39;');}"
         "function rememberButtonLabel(button){if(button&&button.dataset.labelDefault===undefined)button.dataset.labelDefault=button.textContent||'';}"
         "function setButtonBusyLabel(button,isBusy,busyLabel){if(!button)return;rememberButtonLabel(button);button.textContent=isBusy?busyLabel:(button.dataset.labelDefault||button.textContent||'');}"
@@ -677,6 +690,12 @@ def _runtime_reports_index_html(
 
 
 def _exports_index_html(exports: list[dict[str, Any]]) -> str:
+    export_create_field_helper_js = _render_create_field_helper_js(
+        manager_name="Export",
+        fields_js="{workspace:workspaceSelect,channel:channelSelect,day:dayInput,tz:document.getElementById('export-tz'),audience:document.getElementById('export-audience')}",
+        descriptors_js="{workspace:['export-workspace-help','export-workspace-error'],channel:['export-channel-meta','export-channel-error'],day:['export-day-help','export-day-error'],tz:['export-tz-help','export-tz-error'],audience:['export-audience-help','export-audience-error']}",
+    )
+
     def _export_row(item: dict[str, Any]) -> str:
         export_id = str(item.get("export_id") or "unknown")
         safe_export_id = escape(export_id, quote=True)
@@ -789,12 +808,7 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "let workspaceChannels=[];"
         "function setExportFeedback(message,isError){exportFeedback.textContent=message;exportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
         "function setExportCreateError(message){if(!exportCreateError)return;if(message){exportCreateError.textContent=message;exportCreateError.hidden=false;return;}exportCreateError.textContent='';exportCreateError.hidden=true;}"
-        "function getExportCreateField(fieldName){const fields={workspace:workspaceSelect,channel:channelSelect,day:dayInput,tz:document.getElementById('export-tz'),audience:document.getElementById('export-audience')};return fields[fieldName]||null;}"
-        "function getExportCreateFieldDescriptors(fieldName){const descriptors={workspace:['export-workspace-help','export-workspace-error'],channel:['export-channel-meta','export-channel-error'],day:['export-day-help','export-day-error'],tz:['export-tz-help','export-tz-error'],audience:['export-audience-help','export-audience-error']};return descriptors[fieldName]||[];}"
-        "function setExportCreateFieldError(fieldName,message){const field=getExportCreateField(fieldName);const descriptors=getExportCreateFieldDescriptors(fieldName);const errorId=descriptors.find((id)=>id.endsWith('-error'));const errorNode=errorId?document.getElementById(errorId):null;if(errorNode){errorNode.textContent=message||'';errorNode.hidden=!message;}if(field)field.setAttribute('aria-describedby',descriptors.join(' '));}"
-        "function setExportCreateFieldState(fieldName,isInvalid,message=''){const field=getExportCreateField(fieldName);if(!field)return;field.classList.toggle('field-invalid',!!isInvalid);field.setAttribute('aria-invalid',isInvalid?'true':'false');setExportCreateFieldError(fieldName,isInvalid?message:'');}"
-        "function clearExportCreateFieldState(){for(const name of ['workspace','channel','day','tz','audience'])setExportCreateFieldState(name,false,'');}"
-        "function focusExportCreateField(fieldName){const field=getExportCreateField(fieldName);if(!field)return;field.focus();if(typeof field.select==='function'&&(field.tagName==='INPUT'||field.tagName==='TEXTAREA'))field.select();}"
+        f"{export_create_field_helper_js}"
         "function rememberButtonLabel(button){if(button&&button.dataset.labelDefault===undefined)button.dataset.labelDefault=button.textContent||'';}"
         "function setButtonBusyLabel(button,isBusy,busyLabel){if(!button)return;rememberButtonLabel(button);button.textContent=isBusy?busyLabel:(button.dataset.labelDefault||button.textContent||'');}"
         "function setInlineManagerBusyState(current,config,isBusy){for(const attr of [config.renameToggleAttr,config.renameCancelAttr,config.renameSaveAttr,config.deleteAttr]){for(const el of document.querySelectorAll(`[${attr}=\"${CSS.escape(current)}\"]`)){if('disabled' in el)el.disabled=isBusy;el.dataset.busy=isBusy?'true':'false';if(attr===config.renameSaveAttr)setButtonBusyLabel(el,isBusy,'saving…');if(attr===config.deleteAttr)setButtonBusyLabel(el,isBusy,'deleting…');}}const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.disabled=isBusy;}"

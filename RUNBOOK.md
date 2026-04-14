@@ -1765,3 +1765,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 135 | 2026-04-14
+
+- Opened and closed `0038-2026-04-14-frontend-create-helper-consolidation.md` as a narrow `P02` child slice.
+- Factored the duplicated report/export create-field browser helper logic through one shared server-side renderer in `slack_mirror/service/api.py`.
+- Kept the existing browser helper names, validation behavior, and create contracts unchanged; this slice is maintainability-only.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

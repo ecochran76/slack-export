@@ -70,6 +70,7 @@ Actionable plans:
 - `docs/dev/plans/0035-2026-04-14-frontend-invalid-field-styling.md`
 - `docs/dev/plans/0036-2026-04-14-frontend-create-accessibility-focus.md`
 - `docs/dev/plans/0037-2026-04-14-frontend-field-level-create-errors.md`
+- `docs/dev/plans/0038-2026-04-14-frontend-create-helper-consolidation.md`
 
 Current state:
 - shared application-service layer exists
@@ -191,6 +192,10 @@ Current state:
   - field-local helper and error slots on report create inputs
   - field-local helper and error slots on export create inputs
   - field-level validation messaging that complements the shared form-level error block
+- the narrow create-helper-consolidation follow-up is now shipped through `0038`, including:
+  - one shared server-side renderer for report/export create-field helper JS
+  - preserved browser helper names and behavior on both create forms
+  - bounded maintainability cleanup without changing the browser contract
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
