@@ -47,6 +47,9 @@ Rules:
 - New plan files are not active until they are wired into both `ROADMAP.md` and `RUNBOOK.md`.
 - Keep completed plans and migration notes visible; mark them complete or superseded instead of deleting them.
 - For this repo, each `OPEN` plan should say what baseline is already shipped and what work remains. Prefer an explicit `Current State` section over vague status prose.
+- Keep `ROADMAP.md` compact enough to function as a priority map. For closed lanes, summarize shipped baseline and grouped child-plan coverage rather than replaying every micro-slice in prose.
+- Keep dense implementation archaeology in `docs/dev/plans/` and `RUNBOOK.md`, not inline in the roadmap body.
+- Keep `RUNBOOK.md` turn headings unique. If numbering drifts, repair the conflicting heading in the same slice that discovers it.
 - Planning wiring should remain auditable with:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 

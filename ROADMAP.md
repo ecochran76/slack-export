@@ -8,6 +8,7 @@ Planning rules:
 - Treat this file as the authoritative priority map.
 - Treat `RUNBOOK.md` as the dated turn log of what happened.
 - Treat actionable plan files under `docs/dev/plans/` as the bounded implementation plans.
+- Keep closed lanes compact. Summarize shipped baseline and grouped child-plan coverage here; keep detailed slice-by-slice archaeology in the plan files and runbook.
 
 ## P01 | Platform Foundation
 
@@ -21,12 +22,14 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0001-2026-04-09-platform-foundation.md`
 - `docs/dev/plans/0002-2026-04-09-installer-upgrade-path.md`
+- `docs/dev/plans/0040-2026-04-14-planning-contract-cleanup.md`
 
 Current state:
 - supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
 - user-scope install and update flows exist
 - bounded user-scope rollback exists
 - release/version discipline now has a supported `slack-mirror release check` gate with an explicit release-cut procedure
+- planning governance now explicitly keeps closed-lane summaries compact, with detailed slice archaeology left to the runbook and plan files
 - the coordinating platform-foundation lane is closed; remaining work proceeds through narrower lanes such as `P02` and future bounded child plans when needed
 
 Legacy context:
@@ -40,38 +43,10 @@ Purpose:
 - define and harden the shared application boundary for CLI, API, MCP, and skills
 
 Actionable plans:
-- `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
-- `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md`
-- `docs/dev/plans/0010-2026-04-13-frontend-auth-hardening.md`
-- `docs/dev/plans/0011-2026-04-13-frontend-auth-idle-timeout.md`
-- `docs/dev/plans/0012-2026-04-13-frontend-auth-settings-governance.md`
-- `docs/dev/plans/0013-2026-04-13-frontend-auth-live-defaults.md`
-- `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md`
-- `docs/dev/plans/0015-2026-04-13-report-export-crud.md`
-- `docs/dev/plans/0016-2026-04-13-frontend-report-export-manager.md`
-- `docs/dev/plans/0017-2026-04-13-frontend-export-choice-picker.md`
-- `docs/dev/plans/0018-2026-04-13-frontend-report-choice-presets.md`
-- `docs/dev/plans/0019-2026-04-13-frontend-export-channel-filter.md`
-- `docs/dev/plans/0020-2026-04-13-frontend-export-inline-rename.md`
-- `docs/dev/plans/0021-2026-04-13-frontend-export-inline-mutation-state.md`
-- `docs/dev/plans/0022-2026-04-13-frontend-report-inline-mutation-state.md`
-- `docs/dev/plans/0023-2026-04-14-frontend-report-inline-create.md`
-- `docs/dev/plans/0024-2026-04-14-frontend-export-inline-create.md`
-- `docs/dev/plans/0025-2026-04-14-frontend-inline-manager-helper-consolidation.md`
-- `docs/dev/plans/0026-2026-04-14-frontend-manager-empty-state-restoration.md`
-- `docs/dev/plans/0027-2026-04-14-runtime-report-create-auth-safe.md`
-- `docs/dev/plans/0028-2026-04-14-managed-export-script-packaging.md`
-- `docs/dev/plans/0029-2026-04-14-frontend-inline-mutation-busy-state.md`
-- `docs/dev/plans/0030-2026-04-14-frontend-inline-create-busy-state.md`
-- `docs/dev/plans/0031-2026-04-14-frontend-busy-labels.md`
-- `docs/dev/plans/0032-2026-04-14-frontend-row-local-errors.md`
-- `docs/dev/plans/0033-2026-04-14-frontend-create-local-errors.md`
-- `docs/dev/plans/0034-2026-04-14-frontend-create-validation.md`
-- `docs/dev/plans/0035-2026-04-14-frontend-invalid-field-styling.md`
-- `docs/dev/plans/0036-2026-04-14-frontend-create-accessibility-focus.md`
-- `docs/dev/plans/0037-2026-04-14-frontend-field-level-create-errors.md`
-- `docs/dev/plans/0038-2026-04-14-frontend-create-helper-consolidation.md`
-- `docs/dev/plans/0039-2026-04-14-frontend-row-state-chips.md`
+- shared service/API/MCP boundary: `docs/dev/plans/0003-2026-04-09-api-mcp-boundary.md`
+- browser auth and account governance: `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md`, `docs/dev/plans/0010-2026-04-13-frontend-auth-hardening.md`, `docs/dev/plans/0011-2026-04-13-frontend-auth-idle-timeout.md`, `docs/dev/plans/0012-2026-04-13-frontend-auth-settings-governance.md`, `docs/dev/plans/0013-2026-04-13-frontend-auth-live-defaults.md`, `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md`
+- report/export browser management baseline: `docs/dev/plans/0015-2026-04-13-report-export-crud.md`, `docs/dev/plans/0016-2026-04-13-frontend-report-export-manager.md`, `docs/dev/plans/0017-2026-04-13-frontend-export-choice-picker.md`, `docs/dev/plans/0018-2026-04-13-frontend-report-choice-presets.md`, `docs/dev/plans/0019-2026-04-13-frontend-export-channel-filter.md`, `docs/dev/plans/0020-2026-04-13-frontend-export-inline-rename.md`, `docs/dev/plans/0021-2026-04-13-frontend-export-inline-mutation-state.md`, `docs/dev/plans/0022-2026-04-13-frontend-report-inline-mutation-state.md`, `docs/dev/plans/0023-2026-04-14-frontend-report-inline-create.md`, `docs/dev/plans/0024-2026-04-14-frontend-export-inline-create.md`
+- browser UX hardening and maintainability follow-ups: `docs/dev/plans/0025-2026-04-14-frontend-inline-manager-helper-consolidation.md`, `docs/dev/plans/0026-2026-04-14-frontend-manager-empty-state-restoration.md`, `docs/dev/plans/0027-2026-04-14-runtime-report-create-auth-safe.md`, `docs/dev/plans/0028-2026-04-14-managed-export-script-packaging.md`, `docs/dev/plans/0029-2026-04-14-frontend-inline-mutation-busy-state.md`, `docs/dev/plans/0030-2026-04-14-frontend-inline-create-busy-state.md`, `docs/dev/plans/0031-2026-04-14-frontend-busy-labels.md`, `docs/dev/plans/0032-2026-04-14-frontend-row-local-errors.md`, `docs/dev/plans/0033-2026-04-14-frontend-create-local-errors.md`, `docs/dev/plans/0034-2026-04-14-frontend-create-validation.md`, `docs/dev/plans/0035-2026-04-14-frontend-invalid-field-styling.md`, `docs/dev/plans/0036-2026-04-14-frontend-create-accessibility-focus.md`, `docs/dev/plans/0037-2026-04-14-frontend-field-level-create-errors.md`, `docs/dev/plans/0038-2026-04-14-frontend-create-helper-consolidation.md`, `docs/dev/plans/0039-2026-04-14-frontend-row-state-chips.md`
 
 Current state:
 - shared application-service layer exists
@@ -79,128 +54,9 @@ Current state:
 - MCP server exists
 - shared machine-readable success and error contracts are documented and enforced across service, API, and MCP
 - outbound write, listener, and live-validation semantics now run through one explicit shared boundary
-- the local frontend-auth baseline is now shipped through `0009`, including:
-  - protected browser-facing export and runtime-report routes
-  - local password sessions with allowlisted self-registration
-  - authenticated landing and settings pages
-  - current-user session listing and revocation
-  - same-origin browser write protection
-- the narrow auth-hardening follow-up is now shipped through `0010`, including:
-  - registration-status semantics that distinguish open, allowlisted, and closed registration
-  - bounded failed-login throttling at the shared service/API boundary
-- the narrow idle-timeout follow-up is now shipped through `0011`, including:
-  - config-backed inactivity expiry on browser auth sessions
-  - idle-expiry visibility in auth status and session listing
-- the narrow settings-governance follow-up is now shipped through `0012`, including:
-  - visible auth-policy display on `/settings`
-  - browser-facing exposure of session lifetime, idle timeout, and login-throttle policy
-- the narrow live-defaults follow-up is now shipped through `0013`, including:
-  - closed self-registration as the default template posture
-  - live-validation warnings for externally exposed installs that explicitly keep self-registration enabled
-- the narrow bootstrap-provisioning follow-up is now shipped through `0014`, including:
-  - `user-env provision-frontend-user` as the supported first-user bootstrap path
-  - prompted or env-backed password entry without reopening browser self-registration
-  - explicit password rotation for existing local frontend-auth users through the same operator command
-- the narrow report/export CRUD follow-up is now shipped through `0015`, including:
-  - runtime report create, rename, and delete through the shared service/API boundary
-  - managed channel-day export create, rename, and delete through the shared service/API boundary
-  - filesystem-owned rename/delete helpers that keep report/export manifests coherent after lifecycle operations
-- the narrow browser management follow-up is now shipped through `0016`, including:
-  - browser management controls on `/runtime/reports`
-  - a browser export manager at `/exports`
-  - landing-page links that point to the browser management surfaces instead of only the raw manifest APIs
-- the narrow export-choice picker follow-up is now shipped through `0017`, including:
-  - a shared API surface for valid mirrored channel choices per workspace
-  - dependent workspace/channel selectors on `/exports`
-  - latest-mirrored-day defaults on export creation when channel activity exists
-- the narrow report-choice presets follow-up is now shipped through `0018`, including:
-  - configured base-URL choices on `/runtime/reports`
-  - guided report-name presets plus a timestamped default
-  - inline runtime-report rename instead of prompt-driven browser dialogs
-- the narrow export-channel filter follow-up is now shipped through `0019`, including:
-  - browser-side filtering for valid mirrored channel choices on `/exports`
-  - match-count and empty-filter feedback for larger workspaces
-  - a bounded usability improvement without changing the underlying export contract
-- the narrow export-inline-rename follow-up is now shipped through `0020`, including:
-  - inline rename controls on `/exports`
-  - prompt-free export rename interactions
-  - continued reuse of the existing export rename API contract
-- the narrow export-inline-mutation-state follow-up is now shipped through `0021`, including:
-  - inline row updates after successful export rename
-  - inline row removal after successful export delete
-  - success feedback without forcing a full page reload for those two export mutations
-- the narrow report-inline-mutation-state follow-up is now shipped through `0022`, including:
-  - inline row updates after successful runtime-report rename
-  - inline row removal after successful runtime-report delete
-  - success feedback without forcing a full page reload for those two report mutations
-- the narrow report-inline-create follow-up is now shipped through `0023`, including:
-  - inline row insertion after successful runtime-report creation
-  - latest-row promotion for the newly created runtime report without a page reload
-  - create success feedback and timestamped-name reset without forcing a full page reload
-- the narrow export-inline-create follow-up is now shipped through `0024`, including:
-  - inline row insertion after successful export creation
-  - create success feedback without forcing a full page reload
-  - continued inline rename/delete behavior for newly inserted export rows
-- the narrow inline-manager-helper consolidation follow-up is now shipped through `0025`, including:
-  - one shared browser-side row-action binder for inline rename/delete behavior
-  - preserved inline behavior on both `/runtime/reports` and `/exports`
-  - bounded maintainability cleanup without changing the operator contract
-- the narrow empty-state restoration follow-up is now shipped through `0026`, including:
-  - explicit empty-state row restoration after deleting the final runtime report
-  - explicit empty-state row restoration after deleting the final export
-  - preserved inline create behavior that removes the empty-state row before inserting a new item
-- the narrow auth-safe runtime-report creation follow-up is now shipped through `0027`, including:
-  - shared service-owned runtime report snapshot creation without unauthenticated loopback API calls
-  - preserved runtime-report API and browser contracts under frontend auth
-  - targeted app-service coverage for the shared payload handoff into snapshot generation
-- the narrow managed-export packaging follow-up is now shipped through `0028`, including:
-  - shipping the repo `scripts` package into installed user-env builds
-  - preserving managed export creation in the installed environment without depending on the repo checkout layout
-  - explicit shared-service failure messaging if the managed export script path regresses
-- the narrow inline busy-state follow-up is now shipped through `0029`, including:
-  - shared row-level disabled state while rename/delete mutations are in flight
-  - preserved inline mutation semantics on both `/runtime/reports` and `/exports`
-  - bounded duplicate-submit protection without changing the API contract
-- the narrow inline create busy-state follow-up is now shipped through `0030`, including:
-  - disabled create controls while runtime-report creation is in flight
-  - disabled create controls while export creation is in flight
-  - bounded duplicate-submit protection for create flows without changing the API contract
-- the narrow busy-label follow-up is now shipped through `0031`, including:
-  - explicit `creating…` labels while report/export create requests are in flight
-  - explicit `saving…` and `deleting…` labels while inline row mutations are in flight
-  - automatic restoration of the original control labels after the request completes
-- the narrow row-local error follow-up is now shipped through `0032`, including:
-  - per-row inline error slots for report and export rename/delete failures
-  - automatic clearing of stale row-local errors when operators retry or cancel
-  - preservation of the existing page-level feedback banner as secondary context
-- the narrow create-local-error follow-up is now shipped through `0033`, including:
-  - form-local create error slots on `/runtime/reports` and `/exports`
-  - automatic clearing of stale local create errors after successful create responses
-  - preservation of the existing page-level feedback banner as secondary context
-- the narrow create-validation follow-up is now shipped through `0034`, including:
-  - client-side pre-submit validation on `/runtime/reports`
-  - client-side pre-submit validation on `/exports`
-  - clearing of stale local create errors as relevant inputs change
-- the narrow invalid-field-styling follow-up is now shipped through `0035`, including:
-  - invalid-field styling on report create validation failures
-  - invalid-field styling on export create validation failures
-  - clearing of stale invalid styling as relevant fields change
-- the narrow create-accessibility-focus follow-up is now shipped through `0036`, including:
-  - focus movement to the first invalid create field on `/runtime/reports` and `/exports`
-  - `aria-describedby` wiring from create inputs to their local error region
-  - polite live-region semantics on the local create error blocks
-- the narrow field-level-create-errors follow-up is now shipped through `0037`, including:
-  - field-local helper and error slots on report create inputs
-  - field-local helper and error slots on export create inputs
-  - field-level validation messaging that complements the shared form-level error block
-- the narrow create-helper-consolidation follow-up is now shipped through `0038`, including:
-  - one shared server-side renderer for report/export create-field helper JS
-  - preserved browser helper names and behavior on both create forms
-  - bounded maintainability cleanup without changing the browser contract
-- the narrow row-state-chips follow-up is now shipped through `0039`, including:
-  - compact per-row outcome chips on report and export rows
-  - positive `saved` state after successful rename
-  - negative `error` state after failed rename/delete attempts
+- browser auth baseline is shipped, including protected browser routes, local password sessions, same-origin browser writes, idle timeout, login throttling, visible auth-policy display, closed-by-default self-registration, and first-user bootstrap plus password rotation through `user-env provision-frontend-user`
+- report/export management baseline is shipped through the shared service/API boundary, including browser CRUD on `/runtime/reports` and `/exports`, channel-choice loading, presets, inline rename/delete/create, and managed-export script packaging for installed user environments
+- browser interaction hardening is shipped, including busy-state protection, busy labels, row-local and form-local errors, client-side create validation, invalid-field styling, first-invalid focus, field-level helper/error text, shared helper consolidation, and compact per-row mutation outcome chips
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
@@ -222,30 +78,10 @@ Current state:
 - keyword and semantic search exist
 - embedding backlog discipline and SQLite contention hardening have landed
 - cross-repo comparison against `../ragmail` and `../imcli` established the modernization direction explicitly
-- the shipped baseline now includes:
-  - first-class `derived_text`, `derived_text_fts`, and `derived_text_jobs` tables
-  - first-class `derived_text_chunks` and `derived_text_chunks_fts` tables for retrieval depth on long non-message documents
-  - document-native extraction for canvases, UTF-8 text-like files, OOXML and OpenDocument office files, with story-aware `.docx` extraction, visible-text-aware `.pptx` extraction, shared-string-aware `.xlsx` extraction, and machine-readable PDFs when `pdftotext` is available
-  - OCR extraction for image-like files and scanned PDFs when `tesseract` and `pdftoppm` are available
-  - `search derived-text`, `search corpus`, and `mirror process-derived-text-jobs` operator surfaces
-  - explicit cross-workspace corpus search through shared service, CLI, API, and MCP
-  - API and MCP exposure for corpus search, readiness, and search health
-  - shared search-health gates over readiness plus optional corpus smoke and depth benchmarks, with per-query diagnostics and bounded ranking-quality thresholds
-- active follow-up scope is now narrower:
-  - the extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation
-  - command-backed and HTTP-backed providers are landed, with local fallback retained by default
-  - extraction outcome thresholding is landed on top of readiness reporting and search health
-  - broader document-format coverage now includes OOXML and OpenDocument office files where they fit the shared `derived_text` contract cleanly
+- the shipped baseline now includes first-class derived-text and chunk tables, lexical-first corpus search over messages plus derived text, OCR and document-native extraction for the current supported file families, explicit cross-workspace corpus search, and shared readiness/search-health gates across CLI, API, and MCP
+- the extraction-provider boundary is landed, with the current host-local toolchain retained as the default implementation and command-backed plus HTTP-backed providers available behind the same contract
 - `docx-skill` is a likely source of reusable OOXML primitives for both richer `.docx` extraction and future DOCX-quality export rendering
-- active follow-up scope is now narrowed again through `0008`, which is focused on export-quality OOXML work rather than reopening generic search modernization
-- the current `0008` decision is to make channel/day export the first DOCX-quality target, with multi-day and semantic daypack outputs composing on top of that same artifact
-- the first implementation slice under `0008` is a bounded DOCX renderer over the existing channel/day JSON export artifact
-- the current `0008` quality pass is improving paragraph/run formatting and attachment presentation within that same renderer rather than adding a second export path
-- repeatable DOCX export review artifacts are now generated through a repo-local fixture script instead of one-off manual render commands
-- managed export bundles and API-served `/exports/<export-id>/<filepath>` download URLs are now part of the active export-quality baseline
-- the live service now exposes first-class export manifests through `/v1/exports` and `/v1/exports/<export-id>`, rebuilding configured local/external bundle URLs instead of leaving the published export contract entirely script-owned
-- bounded in-browser previews now cover `.docx`, `.pptx`, and `.xlsx` through lightweight conversion paths rather than a full office-server dependency
-- bounded in-browser previews now cover the OpenDocument office set as well (`.odt`, `.odp`, `.ods`) through the same lightweight extraction-first architecture
+- the export-quality follow-up under `0008` is also landed on the current baseline: channel/day JSON is the canonical export artifact, DOCX-quality rendering exists on top of it, managed export bundles and API-served manifests are first-class, and lightweight in-browser previews cover OOXML plus OpenDocument files without requiring a full office server
 - `P03` is now closed; future search or export follow-up work should open a new narrow child plan instead of reopening the broad modernization lane
 
 Legacy context:
