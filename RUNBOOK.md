@@ -1733,3 +1733,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 132 | 2026-04-14
+
+- Opened and closed `0035-2026-04-14-frontend-invalid-field-styling.md` as a narrow `P02` child slice.
+- Added invalid-field styling and field-specific client-side error cues so create validation now highlights the exact field that needs correction.
+- Kept the existing API validation and create contracts unchanged; this slice only improves browser-side correction guidance on the existing create flows.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

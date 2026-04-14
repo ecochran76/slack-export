@@ -67,6 +67,7 @@ Actionable plans:
 - `docs/dev/plans/0032-2026-04-14-frontend-row-local-errors.md`
 - `docs/dev/plans/0033-2026-04-14-frontend-create-local-errors.md`
 - `docs/dev/plans/0034-2026-04-14-frontend-create-validation.md`
+- `docs/dev/plans/0035-2026-04-14-frontend-invalid-field-styling.md`
 
 Current state:
 - shared application-service layer exists
@@ -176,6 +177,10 @@ Current state:
   - client-side pre-submit validation on `/runtime/reports`
   - client-side pre-submit validation on `/exports`
   - clearing of stale local create errors as relevant inputs change
+- the narrow invalid-field-styling follow-up is now shipped through `0035`, including:
+  - invalid-field styling on report create validation failures
+  - invalid-field styling on export create validation failures
+  - clearing of stale invalid styling as relevant fields change
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
