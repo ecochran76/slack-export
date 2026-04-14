@@ -44,6 +44,7 @@ Actionable plans:
 - `docs/dev/plans/0009-2026-04-13-frontend-auth-baseline.md`
 - `docs/dev/plans/0010-2026-04-13-frontend-auth-hardening.md`
 - `docs/dev/plans/0011-2026-04-13-frontend-auth-idle-timeout.md`
+- `docs/dev/plans/0012-2026-04-13-frontend-auth-settings-governance.md`
 
 Current state:
 - shared application-service layer exists
@@ -63,6 +64,9 @@ Current state:
 - the narrow idle-timeout follow-up is now shipped through `0011`, including:
   - config-backed inactivity expiry on browser auth sessions
   - idle-expiry visibility in auth status and session listing
+- the narrow settings-governance follow-up is now shipped through `0012`, including:
+  - visible auth-policy display on `/settings`
+  - browser-facing exposure of session lifetime, idle timeout, and login-throttle policy
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

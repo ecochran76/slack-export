@@ -343,7 +343,11 @@ def _frontend_settings_html(
 ) -> str:
     user_label = auth_session.display_name or auth_session.username or "Authenticated user"
     allowlist = auth_status.get("registration_allowlist") or []
-    registration_policy = "open" if auth_status.get("registration_open") and not allowlist else "allowlisted"
+    registration_policy = str(auth_status.get("registration_mode") or "closed")
+    session_days = int(auth_status.get("session_days") or 0)
+    session_idle_timeout_seconds = int(auth_status.get("session_idle_timeout_seconds") or 0)
+    login_attempt_window_seconds = int(auth_status.get("login_attempt_window_seconds") or 0)
+    login_attempt_max_failures = int(auth_status.get("login_attempt_max_failures") or 0)
     allowlist_html = (
         "".join(f"<li><code>{escape(str(item))}</code></li>" for item in allowlist)
         if allowlist
@@ -421,6 +425,14 @@ def _frontend_settings_html(
         f"<div class='meta' style='margin-top:10px'>open registration <code>{escape(str(bool(auth_status.get('registration_open'))))}</code> · allowlist count <code>{escape(str(auth_status.get('registration_allowlist_count') or 0))}</code></div>"
         "<ul style='margin-top:14px'>"
         f"{allowlist_html}"
+        "</ul>"
+        "</section>"
+        "<section class='card'>"
+        "<h2>Auth governance</h2>"
+        "<ul>"
+        f"<li class='list-row'><strong>Session lifetime</strong><div class='meta'><code>{session_days}</code> day(s)</div></li>"
+        f"<li class='list-row'><strong>Idle timeout</strong><div class='meta'><code>{session_idle_timeout_seconds}</code> second(s)</div></li>"
+        f"<li class='list-row'><strong>Login throttle</strong><div class='meta'><code>{login_attempt_max_failures}</code> failed attempt(s) per <code>{login_attempt_window_seconds}</code> second window</div></li>"
         "</ul>"
         "</section>"
         "<section class='card'>"

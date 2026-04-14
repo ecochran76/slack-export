@@ -1472,3 +1472,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/frontend_auth.py slack_mirror/service/app.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 110 | 2026-04-13
+
+- Opened and closed `0012-2026-04-13-frontend-auth-settings-governance.md` as a narrow `P02` child slice.
+- Extended `/settings` so the active browser-auth policy is visible in the browser instead of only through `/auth/status`.
+- The settings page now shows registration mode, allowlist count, absolute session lifetime, idle timeout, and login-throttle policy.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

@@ -103,6 +103,7 @@ Important fields for `/auth/sessions`:
 
 - current frontend-auth policy
 - registration allowlist state
+- auth-governance policy such as session lifetime, idle timeout, and login-throttle settings
 - current-user browser sessions
 - revoke actions backed by `POST /auth/sessions/{id}/revoke`
 

@@ -102,6 +102,7 @@ The current repo has:
 - browser-auth sessions now expire on inactivity through a config-backed idle timeout, not only absolute session age
 - `/auth/login` now has a bounded failed-login throttle with config-backed window and threshold controls
 - `/settings` now provides a browser-facing account page over the same frontend-auth session and registration-policy data
+- `/settings` now also surfaces the active auth-governance policy, including session lifetime, idle timeout, and login-throttle settings
 - `/settings` now updates session revocation state inline instead of depending on a full page reload
 - frontend auth registration can now be restricted to an explicit allowlist of normalized usernames, including email-style usernames such as `ecochran76@gmail.com`
 - `/register` now surfaces that live allowlist policy directly in the browser instead of leaving the identity constraint implicit
