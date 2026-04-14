@@ -499,6 +499,32 @@ def _runtime_reports_index_html(
     *,
     base_url_choices: list[dict[str, str]] | None = None,
 ) -> str:
+    def _report_row(report: dict[str, Any], *, is_latest: bool) -> str:
+        row_class = " class='latest-row'" if is_latest else ""
+        latest_badge = " <span class='badge'>latest</span>" if is_latest else ""
+        name = str(report.get("name") or "unknown")
+        html_href = "/runtime/reports/latest" if is_latest else str(report["html_url"])
+        safe_name = escape(name, quote=True)
+        return (
+            f"<tr{row_class} id='report-row-{safe_name}' data-report-name='{safe_name}'>"
+            f"<td data-report-col='name'><a href=\"{escape(html_href, quote=True)}\">{escape(name)}</a>{latest_badge}</td>"
+            f"<td data-report-col='status'>{escape(str(report.get('status') or 'unknown'))}</td>"
+            f"<td data-report-col='summary'>{escape(str(report.get('summary') or ''))}</td>"
+            f"<td data-report-col='fetched'><code>{escape(str(report.get('fetched_at') or ''))}</code></td>"
+            f"<td data-report-col='links'><a href=\"{escape(str(report['markdown_url']), quote=True)}\">md</a> "
+            f"<a href=\"{escape(str(report['json_url']), quote=True)}\">json</a></td>"
+            "<td>"
+            f"<button class='action-button' data-report-rename-toggle='{safe_name}'>rename</button> "
+            f"<button class='action-button danger' data-report-delete='{safe_name}'>delete</button>"
+            f"<div class='rename-row' id='rename-row-{safe_name}' hidden>"
+            f"<input class='inline-input' id='rename-input-{safe_name}' value=\"{escape(name, quote=True)}\" aria-label='Rename {escape(name, quote=True)}' />"
+            f"<button class='action-button' data-report-rename-save='{safe_name}'>save</button> "
+            f"<button class='action-button secondary' data-report-rename-cancel='{safe_name}'>cancel</button>"
+            "</div>"
+            "</td>"
+            "</tr>"
+        )
+
     header_links = ""
     options_parts: list[str] = []
     for choice in base_url_choices or []:
@@ -518,40 +544,13 @@ def _runtime_reports_index_html(
             "<a href=\"/v1/runtime/reports/latest\">latest manifest</a>"
             "</div>"
         )
-        rows_parts: list[str] = []
-        for index, report in enumerate(reports):
-            is_latest = index == 0
-            row_class = " class='latest-row'" if is_latest else ""
-            latest_badge = " <span class='badge'>latest</span>" if is_latest else ""
-            name = str(report.get("name") or "unknown")
-            html_href = "/runtime/reports/latest" if is_latest else str(report["html_url"])
-            safe_name = escape(name, quote=True)
-            rows_parts.append(
-                f"<tr{row_class} id='report-row-{safe_name}' data-report-name='{safe_name}'>"
-                f"<td data-report-col='name'><a href=\"{escape(html_href, quote=True)}\">{escape(name)}</a>{latest_badge}</td>"
-                f"<td data-report-col='status'>{escape(str(report.get('status') or 'unknown'))}</td>"
-                f"<td data-report-col='summary'>{escape(str(report.get('summary') or ''))}</td>"
-                f"<td data-report-col='fetched'><code>{escape(str(report.get('fetched_at') or ''))}</code></td>"
-                f"<td data-report-col='links'><a href=\"{escape(str(report['markdown_url']), quote=True)}\">md</a> "
-                f"<a href=\"{escape(str(report['json_url']), quote=True)}\">json</a></td>"
-                "<td>"
-                f"<button class='action-button' data-report-rename-toggle='{safe_name}'>rename</button> "
-                f"<button class='action-button danger' data-report-delete='{safe_name}'>delete</button>"
-                f"<div class='rename-row' id='rename-row-{safe_name}' hidden>"
-                f"<input class='inline-input' id='rename-input-{safe_name}' value=\"{escape(name, quote=True)}\" aria-label='Rename {escape(name, quote=True)}' />"
-                f"<button class='action-button' data-report-rename-save='{safe_name}'>save</button> "
-                f"<button class='action-button secondary' data-report-rename-cancel='{safe_name}'>cancel</button>"
-                "</div>"
-                "</td>"
-                "</tr>"
-            )
-        rows = "".join(rows_parts)
+        rows = "".join(_report_row(report, is_latest=index == 0) for index, report in enumerate(reports))
         table = (
             "<table><thead><tr><th>Name</th><th>Status</th><th>Summary</th><th>Fetched</th><th>Links</th><th>Actions</th></tr></thead>"
-            f"<tbody>{rows}</tbody></table>"
+            f"<tbody id='report-table-body'>{rows}</tbody></table>"
         )
     else:
-        table = "<p>No managed runtime reports are available yet.</p>"
+        table = "<p id='runtime-report-empty-state'>No managed runtime reports are available yet.</p>"
 
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
@@ -617,6 +616,11 @@ def _runtime_reports_index_html(
         "const reportFeedback=document.getElementById('report-feedback');"
         "function setReportFeedback(message,isError){reportFeedback.textContent=message;reportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
         "function escapeHtml(value){return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll(\"'\",'&#39;');}"
+        "function reportRowHtml(report,isLatest){const safeName=escapeHtml(report.name||'unknown');const htmlHref=isLatest?'/runtime/reports/latest':String(report.html_url||`/runtime/reports/${encodeURIComponent(report.name||'unknown')}`);const latestBadge=isLatest?\" <span class='badge'>latest</span>\":'';const rowClass=isLatest?\" class='latest-row'\":'';return `<tr${rowClass} id=\"report-row-${safeName}\" data-report-name=\"${safeName}\"><td data-report-col=\"name\"><a href=\"${escapeHtml(htmlHref)}\">${safeName}</a>${latestBadge}</td><td data-report-col=\"status\">${escapeHtml(report.status||'unknown')}</td><td data-report-col=\"summary\">${escapeHtml(report.summary||'')}</td><td data-report-col=\"fetched\"><code>${escapeHtml(report.fetched_at||'')}</code></td><td data-report-col=\"links\"><a href=\"${escapeHtml(report.markdown_url||'')}\">md</a> <a href=\"${escapeHtml(report.json_url||'')}\">json</a></td><td><button class=\"action-button\" data-report-rename-toggle=\"${safeName}\">rename</button> <button class=\"action-button danger\" data-report-delete=\"${safeName}\">delete</button><div class=\"rename-row\" id=\"rename-row-${safeName}\" hidden><input class=\"inline-input\" id=\"rename-input-${safeName}\" value=\"${safeName}\" aria-label=\"Rename ${safeName}\" /><button class=\"action-button\" data-report-rename-save=\"${safeName}\">save</button> <button class=\"action-button secondary\" data-report-rename-cancel=\"${safeName}\">cancel</button></div></td></tr>`;}"
+        "function bindReportRowActions(scope){for(const button of scope.querySelectorAll('[data-report-rename-toggle]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{const current=button.getAttribute('data-report-rename-toggle');if(!current)return;toggleRenameRow(current,true);const input=document.getElementById(`rename-input-${current}`);if(input){input.focus();input.select();}});}for(const button of scope.querySelectorAll('[data-report-rename-cancel]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{const current=button.getAttribute('data-report-rename-cancel');if(!current)return;toggleRenameRow(current,false);const input=document.getElementById(`rename-input-${current}`);if(input)input.value=current;});}for(const button of scope.querySelectorAll('[data-report-rename-save]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{const current=button.getAttribute('data-report-rename-save');if(!current)return;const input=document.getElementById(`rename-input-${current}`);const next=(input?.value||'').trim();if(!next||next===current){toggleRenameRow(current,false);return;}const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:next})});if(resp.ok){applyReportRename(current,next);setReportFeedback(`Renamed runtime report ${current} to ${next}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setReportFeedback(data.error?.message||'Rename failed',true);});}for(const button of scope.querySelectorAll('[data-report-delete]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{const name=button.getAttribute('data-report-delete');if(!window.confirm(`Delete runtime report ${name}?`))return;const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(name)}`,{method:'DELETE'});if(resp.ok){removeReportRow(name);setReportFeedback(`Deleted runtime report ${name}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setReportFeedback(data.error?.message||'Delete failed',true);});}}"
+        "function clearLatestReportRow(){const row=document.querySelector('#report-table-body .latest-row');if(!row)return;row.classList.remove('latest-row');const nameCell=row.querySelector('[data-report-col=\"name\"]');if(nameCell){const badge=nameCell.querySelector('.badge');if(badge)badge.remove();const link=nameCell.querySelector('a');const name=row.dataset.reportName||'';if(link&&name){link.setAttribute('href',`/runtime/reports/${encodeURIComponent(name)}`);}}}"
+        "function ensureReportTableBody(){let tbody=document.getElementById('report-table-body');if(tbody)return tbody;const empty=document.getElementById('runtime-report-empty-state');if(empty)empty.remove();const host=document.querySelector('.layout section:last-child');if(!host)return null;const table=document.createElement('table');table.innerHTML='<thead><tr><th>Name</th><th>Status</th><th>Summary</th><th>Fetched</th><th>Links</th><th>Actions</th></tr></thead><tbody id=\"report-table-body\"></tbody>';host.insertAdjacentElement('beforeend',table);return document.getElementById('report-table-body');}"
+        "function insertCreatedReport(report){const tbody=ensureReportTableBody();if(!tbody)return;clearLatestReportRow();const wrapper=document.createElement('tbody');wrapper.innerHTML=reportRowHtml(report,true);const row=wrapper.firstElementChild;if(!row)return;tbody.prepend(row);bindReportRowActions(row);}"
         "function timestampedReportName(){const now=new Date();const pad=(v)=>String(v).padStart(2,'0');return `ops-${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;}"
         "const reportNameInput=document.getElementById('report-name');"
         "if(!reportNameInput.value.trim())reportNameInput.value=timestampedReportName();"
@@ -629,31 +633,13 @@ def _runtime_reports_index_html(
         "const baseUrl=(baseUrlSelect?.value||'').trim()||window.location.origin;"
         "const timeout=Number(document.getElementById('report-timeout').value||'5');"
         "const resp=await fetch('/v1/runtime/reports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,base_url:baseUrl,timeout})});"
-        "if(resp.ok){window.location.reload();return;}"
+        "if(resp.ok){const data=await resp.json().catch(()=>({report:null}));if(data.report){insertCreatedReport(data.report);reportNameInput.value=timestampedReportName();setReportFeedback(`Created runtime report ${data.report.name}.`,false);return;}setReportFeedback('Created runtime report.',false);return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));setReportFeedback(data.error?.message||'Create failed',true);"
         "});"
         "function toggleRenameRow(name,show){const row=document.getElementById(`rename-row-${name}`);if(row)row.hidden=!show;}"
         "function applyReportRename(current,next){const row=document.getElementById(`report-row-${current}`);if(!row)return;row.id=`report-row-${next}`;row.dataset.reportName=next;const nameCell=row.querySelector('[data-report-col=\"name\"]');if(nameCell){nameCell.innerHTML=`<a href=\"/runtime/reports/${encodeURIComponent(next)}\">${escapeHtml(next)}</a>`;}const linksCell=row.querySelector('[data-report-col=\"links\"]');if(linksCell){linksCell.innerHTML=`<a href=\"/runtime/reports/${encodeURIComponent(next)}.latest.md\">md</a> <a href=\"/runtime/reports/${encodeURIComponent(next)}.latest.json\">json</a>`;}for(const el of row.querySelectorAll('[data-report-rename-toggle]'))el.setAttribute('data-report-rename-toggle',next);for(const el of row.querySelectorAll('[data-report-rename-save]'))el.setAttribute('data-report-rename-save',next);for(const el of row.querySelectorAll('[data-report-rename-cancel]'))el.setAttribute('data-report-rename-cancel',next);for(const el of row.querySelectorAll('[data-report-delete]'))el.setAttribute('data-report-delete',next);const renameRow=document.getElementById(`rename-row-${current}`);if(renameRow){renameRow.id=`rename-row-${next}`;renameRow.hidden=true;}const renameInput=document.getElementById(`rename-input-${current}`);if(renameInput){renameInput.id=`rename-input-${next}`;renameInput.value=next;renameInput.setAttribute('aria-label',`Rename ${next}`);}}"
         "function removeReportRow(name){const row=document.getElementById(`report-row-${name}`);if(row)row.remove();}"
-        "for(const button of document.querySelectorAll('[data-report-rename-toggle]')){button.addEventListener('click',()=>{const current=button.getAttribute('data-report-rename-toggle');if(!current)return;toggleRenameRow(current,true);const input=document.getElementById(`rename-input-${current}`);if(input){input.focus();input.select();}});}"
-        "for(const button of document.querySelectorAll('[data-report-rename-cancel]')){button.addEventListener('click',()=>{const current=button.getAttribute('data-report-rename-cancel');if(!current)return;toggleRenameRow(current,false);const input=document.getElementById(`rename-input-${current}`);if(input)input.value=current;});}"
-        "for(const button of document.querySelectorAll('[data-report-rename-save]')){button.addEventListener('click',async()=>{"
-        "const current=button.getAttribute('data-report-rename-save');"
-        "if(!current)return;"
-        "const input=document.getElementById(`rename-input-${current}`);"
-        "const next=(input?.value||'').trim();"
-        "if(!next||next===current){toggleRenameRow(current,false);return;}"
-        "const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:next})});"
-        "if(resp.ok){applyReportRename(current,next);setReportFeedback(`Renamed runtime report ${current} to ${next}.`,false);return;}"
-        "const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setReportFeedback(data.error?.message||'Rename failed',true);"
-        "});}"
-        "for(const button of document.querySelectorAll('[data-report-delete]')){button.addEventListener('click',async()=>{"
-        "const name=button.getAttribute('data-report-delete');"
-        "if(!window.confirm(`Delete runtime report ${name}?`))return;"
-        "const resp=await fetch(`/v1/runtime/reports/${encodeURIComponent(name)}`,{method:'DELETE'});"
-        "if(resp.ok){removeReportRow(name);setReportFeedback(`Deleted runtime report ${name}.`,false);return;}"
-        "const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setReportFeedback(data.error?.message||'Delete failed',true);"
-        "});}"
+        "bindReportRowActions(document);"
         "</script>"
         "</body></html>"
     )

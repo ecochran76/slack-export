@@ -352,10 +352,17 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("latest-row", index_html.text)
         self.assertIn("data-report-rename-save='morning-ops'", index_html.text)
         self.assertIn("data-report-rename-cancel='morning-ops'", index_html.text)
+        self.assertIn("insertCreatedReport(", index_html.text)
+        self.assertIn("reportRowHtml(", index_html.text)
+        self.assertIn("Created runtime report", index_html.text)
         self.assertIn("applyReportRename(", index_html.text)
         self.assertIn("removeReportRow(", index_html.text)
         self.assertIn("Renamed runtime report", index_html.text)
         self.assertIn("Deleted runtime report", index_html.text)
+        self.assertNotIn(
+            "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
+            index_html.text,
+        )
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));",
             index_html.text,

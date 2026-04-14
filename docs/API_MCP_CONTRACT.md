@@ -199,7 +199,7 @@ Important fields for `runtime.report.latest`:
   - `summary`
 
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
-`/runtime/reports` now serves a browser management page over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`, plus bounded create/rename/delete controls backed by the same runtime-report CRUD API routes.
+`/runtime/reports` now serves a browser management page over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`, plus bounded create/rename/delete controls backed by the same runtime-report CRUD API routes. Successful create, rename, and delete mutations now update the page inline instead of forcing a full page reload.
 `/runtime/reports/latest` serves the freshest available HTML snapshot regardless of its snapshot name, and `/v1/runtime/reports/latest` returns the matching manifest.
 
 ## Exports
