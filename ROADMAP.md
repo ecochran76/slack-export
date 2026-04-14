@@ -26,6 +26,7 @@ Actionable plans:
 - `docs/dev/plans/0041-2026-04-14-runbook-monotonicity-and-git-hygiene.md`
 - `docs/dev/plans/0042-2026-04-14-policy-adoption-and-migration.md`
 - `docs/dev/plans/0043-2026-04-14-legacy-runbook-retirement.md`
+- `docs/dev/plans/0044-2026-04-14-policy-surface-fit-trim.md`
 
 Current state:
 - supported live topology is documented as socket-mode ingress plus one unified daemon per workspace
@@ -35,6 +36,7 @@ Current state:
 - planning governance now explicitly keeps closed-lane summaries compact, with detailed slice archaeology left to the runbook and plan files
 - runbook governance now explicitly requires monotonic turn numbering in file order, not only globally unique headings
 - shared durable repo policy is now adopted under `docs/dev/policies/`, with `AGENTS.md` acting as the repo-local policy-loading entrypoint
+- the adopted policy surface is now intentionally trimmed to the modules this repo actually uses, instead of keeping the entire generic selector recommendation as dead weight
 - the legacy `docs/dev/RUNBOOK.md` continuity log has been retired from canonical authority and preserved under `docs/dev/legacy/` so selector-based policy audits no longer see duplicate runbook authorities
 - the coordinating platform-foundation lane is closed; remaining work proceeds through narrower lanes such as `P02` and future bounded child plans when needed
 

@@ -1828,3 +1828,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/manage_policy.py --repo-root /home/ecochran76/workspace.local/slack-export adopt --json`
   - `git status --short`
+
+## Turn 142 | 2026-04-14
+
+- Opened and closed `0044-2026-04-14-policy-surface-fit-trim.md` as a narrow `P01` governance slice.
+- Trimmed the adopted policy set down to the modules this repo actively uses for planning, git hygiene, architecture, documentation, validation, closeout, and policy management.
+- Removed the non-applicable notes/memories, cadence, multi-agent, subagent, versioning, harvest, and upstream-fork modules from both `docs/dev/policies/` and the `AGENTS.md` policy entry.
+- Kept the policy-loading contract intact so future non-trivial turns still read the relevant retained policy files before implementation.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/manage_policy.py --repo-root /home/ecochran76/workspace.local/slack-export adopt --json`
+  - `git status --short`
