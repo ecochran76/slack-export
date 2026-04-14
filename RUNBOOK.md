@@ -1673,3 +1673,13 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_runtime_report -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - live throwaway create/rename/delete smoke on `http://slack.localhost`
+
+## Turn 126 | 2026-04-14
+
+- Opened and closed `0029-2026-04-14-frontend-inline-mutation-busy-state.md` as a narrow `P02` child slice.
+- Added shared row-level busy-state handling so `/runtime/reports` and `/exports` disable rename/delete controls while an inline mutation is in flight.
+- Kept the existing browser CRUD contract unchanged; this slice only adds bounded duplicate-submit protection.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

@@ -61,6 +61,7 @@ Actionable plans:
 - `docs/dev/plans/0026-2026-04-14-frontend-manager-empty-state-restoration.md`
 - `docs/dev/plans/0027-2026-04-14-runtime-report-create-auth-safe.md`
 - `docs/dev/plans/0028-2026-04-14-managed-export-script-packaging.md`
+- `docs/dev/plans/0029-2026-04-14-frontend-inline-mutation-busy-state.md`
 
 Current state:
 - shared application-service layer exists
@@ -146,6 +147,10 @@ Current state:
   - shipping the repo `scripts` package into installed user-env builds
   - preserving managed export creation in the installed environment without depending on the repo checkout layout
   - explicit shared-service failure messaging if the managed export script path regresses
+- the narrow inline busy-state follow-up is now shipped through `0029`, including:
+  - shared row-level disabled state while rename/delete mutations are in flight
+  - preserved inline mutation semantics on both `/runtime/reports` and `/exports`
+  - bounded duplicate-submit protection without changing the API contract
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

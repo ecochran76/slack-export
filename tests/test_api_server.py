@@ -355,6 +355,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("insertCreatedReport(", index_html.text)
         self.assertIn("reportRowHtml(", index_html.text)
         self.assertIn("bindInlineManagerActions(", index_html.text)
+        self.assertIn("setInlineManagerBusyState(", index_html.text)
+        self.assertIn("button.dataset.busy==='true'", index_html.text)
         self.assertIn("Created runtime report", index_html.text)
         self.assertIn("applyReportRename(", index_html.text)
         self.assertIn("removeReportRow(", index_html.text)
@@ -1252,6 +1254,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("insertCreatedExport(", exports_index.text)
         self.assertIn("exportRowHtml(", exports_index.text)
         self.assertIn("bindInlineManagerActions(", exports_index.text)
+        self.assertIn("setInlineManagerBusyState(", exports_index.text)
+        self.assertIn("button.dataset.busy==='true'", exports_index.text)
         self.assertIn("Created export", exports_index.text)
         self.assertIn("itemLabel:'export'", exports_index.text)
         self.assertNotIn(
