@@ -34,7 +34,7 @@ Legacy context:
 
 ## P02 | Service Surfaces
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - define and harden the shared application boundary for CLI, API, MCP, and skills
@@ -49,7 +49,13 @@ Current state:
 - MCP server exists
 - shared machine-readable success and error contracts are documented and enforced across service, API, and MCP
 - outbound write, listener, and live-validation semantics now run through one explicit shared boundary
-- the baseline service-surface lane remains closed through `0003`, but `P02` is reopened narrowly through `0009` for local frontend-auth hardening on browser-facing routes without reopening broad surface design
+- the local frontend-auth baseline is now shipped through `0009`, including:
+  - protected browser-facing export and runtime-report routes
+  - local password sessions with allowlisted self-registration
+  - authenticated landing and settings pages
+  - current-user session listing and revocation
+  - same-origin browser write protection
+- `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
 - retained through the dated runbook and prior local planning notes when needed for archaeology

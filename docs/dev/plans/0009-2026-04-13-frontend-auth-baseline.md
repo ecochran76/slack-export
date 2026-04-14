@@ -1,6 +1,6 @@
 # Frontend Auth Baseline
 
-State: OPEN
+State: CLOSED
 Roadmap: P02
 Opened: 2026-04-13
 
@@ -30,16 +30,22 @@ Add a bounded local-auth baseline for browser-facing Slack Mirror surfaces:
 - browser auth POST routes are now same-origin guarded through `Origin`/`Referer` validation
 - current-user session listing and per-session revocation are now shipped through the browser auth API
 - self-registration can now be restricted to an explicit allowlist of normalized usernames, including email-style usernames
+- the browser UX baseline is now present:
+  - `/` authenticated landing page
+  - `/settings` account/session page
+  - allowlist-aware `/register`
+  - reason-aware `/login` banners for auth challenge, logout, and revoked-current-session redirects
 - the correct scope remains narrower than `../litscout`:
   - keep the local-password plus cookie-session shape
   - do not import a broader hosted product/account/subscription model
 
 ## Remaining Work
 
-- tighten browser-session hardening:
-  - session presentation and revocation UX beyond the raw JSON/auth API contract
-- decide whether allowlisted self-registration should remain enabled by default for live installs
-- add any further browser polish without expanding into a full hosted app shell
+- no open baseline work remains in this plan
+- any future follow-up should open a new narrow child plan for:
+  - alternate registration policy defaults
+  - deeper browser polish
+  - provider-backed or non-local auth expansion
 
 ## Parallel Tracks
 

@@ -1435,3 +1435,18 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - live smoke on `http://slack.localhost/settings`
+
+## Turn 107 | 2026-04-13
+
+- Closed `0009-2026-04-13-frontend-auth-baseline.md`.
+- Closed `P02` in `ROADMAP.md`.
+- Closure basis:
+  - local password-based browser auth is shipped
+  - protected browser-facing export and runtime-report routes are shipped
+  - same-origin browser write protection is shipped
+  - current-user session listing and revocation are shipped
+  - authenticated landing and settings pages are shipped
+  - allowlist-aware registration and reason-aware login UX are shipped
+- Any future auth or browser-surface work should reopen as a new narrow child plan instead of extending `0009`.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
