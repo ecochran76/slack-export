@@ -1693,3 +1693,13 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 128 | 2026-04-14
+
+- Opened and closed `0031-2026-04-14-frontend-busy-labels.md` as a narrow `P02` child slice.
+- Added explicit inline busy labels so browser manager controls now show `creating…`, `saving…`, and `deleting…` while report/export mutations are in flight.
+- Kept the existing browser and API mutation contracts unchanged; this slice only improves in-flight operator feedback on the existing busy-state paths.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

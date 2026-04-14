@@ -63,6 +63,7 @@ Actionable plans:
 - `docs/dev/plans/0028-2026-04-14-managed-export-script-packaging.md`
 - `docs/dev/plans/0029-2026-04-14-frontend-inline-mutation-busy-state.md`
 - `docs/dev/plans/0030-2026-04-14-frontend-inline-create-busy-state.md`
+- `docs/dev/plans/0031-2026-04-14-frontend-busy-labels.md`
 
 Current state:
 - shared application-service layer exists
@@ -156,6 +157,10 @@ Current state:
   - disabled create controls while runtime-report creation is in flight
   - disabled create controls while export creation is in flight
   - bounded duplicate-submit protection for create flows without changing the API contract
+- the narrow busy-label follow-up is now shipped through `0031`, including:
+  - explicit `creating…` labels while report/export create requests are in flight
+  - explicit `saving…` and `deleting…` labels while inline row mutations are in flight
+  - automatic restoration of the original control labels after the request completes
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
