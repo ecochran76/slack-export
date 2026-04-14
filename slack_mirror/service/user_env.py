@@ -7,6 +7,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from getpass import getpass
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -1716,6 +1717,88 @@ def check_live_user_env(
                 out(f"  [{item.code}] {item.action}")
     out(f"Combined {report.summary}")
     return report.exit_code
+
+
+def provision_frontend_user_user_env(
+    *,
+    username: str,
+    display_name: str | None = None,
+    password: str | None = None,
+    password_env: str | None = None,
+    reset_password: bool = False,
+    json_output: bool = False,
+    out: PrintFn = print,
+    paths: UserEnvPaths | None = None,
+) -> int:
+    target = paths or default_user_env_paths()
+    if not target.config_path.exists():
+        payload = {
+            "ok": False,
+            "code": "CONFIG_MISSING",
+            "message": f"managed config missing: {target.config_path}",
+        }
+        if json_output:
+            out(json.dumps(payload, indent=2))
+        else:
+            out(f"ERROR  managed config missing: {target.config_path}")
+        return 1
+
+    resolved_password = password
+    password_source = "prompt"
+    if resolved_password is None and password_env:
+        env_name = str(password_env).strip()
+        if not env_name:
+            raise ValueError("password_env is required when using password_env mode")
+        resolved_password = os.environ.get(env_name)
+        password_source = f"env:{env_name}"
+        if resolved_password is None:
+            raise ValueError(f"password environment variable is not set: {env_name}")
+    if resolved_password is None:
+        first = getpass("New local frontend-auth password: ")
+        second = getpass("Confirm password: ")
+        if first != second:
+            raise ValueError("password confirmation does not match")
+        resolved_password = first
+
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(str(target.config_path))
+    conn = service.connect()
+    provisioned = service.provision_frontend_user(
+        conn,
+        username=username,
+        password=str(resolved_password),
+        display_name=display_name,
+        reset_password=reset_password,
+    )
+    auth_status = service.frontend_auth_status(conn)
+    payload = {
+        "ok": True,
+        "user": {
+            "user_id": provisioned.user_id,
+            "username": provisioned.username,
+            "display_name": provisioned.display_name,
+            "created": provisioned.created,
+            "password_updated": provisioned.password_updated,
+        },
+        "auth": {
+            "enabled": bool(auth_status.get("enabled")),
+            "registration_mode": auth_status.get("registration_mode"),
+            "user_count": int(auth_status.get("user_count") or 0),
+        },
+        "password_source": password_source,
+    }
+    if json_output:
+        out(json.dumps(payload, indent=2))
+    else:
+        action = "created" if provisioned.created else "updated"
+        out(
+            "Provisioned frontend auth user "
+            f"username={provisioned.username} action={action} "
+            f"registration_mode={auth_status.get('registration_mode')} "
+            f"user_count={int(auth_status.get('user_count') or 0)}"
+        )
+    return 0
 
 
 def recover_live_user_env(

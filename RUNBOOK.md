@@ -259,6 +259,24 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
 
+## Turn 17 | 2026-04-13
+
+- Opened and closed `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md` as a narrow `P02` child slice.
+- Added `slack-mirror user-env provision-frontend-user` as the supported first-user bootstrap path for local browser auth.
+- Kept the CLI thin over the shared frontend-auth service seam:
+  - new operator path provisions a local auth user without reopening browser self-registration
+  - prompted password entry is the default path
+  - unattended bootstrap is supported through `--password-env`
+  - existing local users can be rotated explicitly through `--reset-password`
+- Updated the auth/config docs so closed self-registration now points operators at the bootstrap command instead of implying temporary policy reversal.
+- Validation:
+  - `python -m py_compile slack_mirror/core/db.py slack_mirror/service/frontend_auth.py slack_mirror/service/app.py slack_mirror/service/user_env.py slack_mirror/cli/main.py tests/test_frontend_auth.py tests/test_user_env.py tests/test_cli.py`
+  - `./.venv/bin/python -m unittest tests.test_frontend_auth tests.test_user_env tests.test_cli -v`
+  - `./.venv/bin/python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `./.venv/bin/python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `./.venv/bin/python scripts/check_generated_docs.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
 ## Turn 17 | 2026-04-10
 
 - Added machine-readable local operator output for the live-runtime checks:

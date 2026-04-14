@@ -91,6 +91,30 @@ class UserEnvTests(unittest.TestCase):
 
         return calls, fake_runner
 
+    def _write_auth_config(self):
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "\n".join(
+                [
+                    "version: 1",
+                    "storage:",
+                    f"  db_path: {db_path}",
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: false",
+                    "workspaces:",
+                    "  - name: default",
+                    "    token: xoxb-test-token",
+                    "    outbound_token: xoxb-outbound-token",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
     def test_install_bootstraps_user_env(self):
         calls, runner = self._runner()
 
@@ -127,8 +151,40 @@ class UserEnvTests(unittest.TestCase):
         _, runner = self._runner()
 
         user_env.install_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
-
         self.assertEqual(self.paths.config_path.read_text(encoding="utf-8"), "keep: true\n")
+
+    def test_provision_frontend_user_uses_password_env(self):
+        self._write_auth_config()
+        output: list[str] = []
+        with patch.dict("os.environ", {"SLACK_MIRROR_BOOTSTRAP_PASSWORD": "correct-horse-123"}, clear=False):
+            rc = user_env.provision_frontend_user_user_env(
+                username="ecochran76@gmail.com",
+                display_name="Eric Cochran",
+                password_env="SLACK_MIRROR_BOOTSTRAP_PASSWORD",
+                json_output=True,
+                out=output.append,
+                paths=self.paths,
+            )
+        self.assertEqual(rc, 0)
+        payload = json.loads(output[-1])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["user"]["username"], "ecochran76@gmail.com")
+        self.assertTrue(payload["user"]["created"])
+        self.assertEqual(payload["auth"]["registration_mode"], "closed")
+
+    def test_provision_frontend_user_reports_missing_config(self):
+        output: list[str] = []
+        rc = user_env.provision_frontend_user_user_env(
+            username="ecochran76@gmail.com",
+            password="correct-horse-123",
+            json_output=True,
+            out=output.append,
+            paths=self.paths,
+        )
+        self.assertEqual(rc, 1)
+        payload = json.loads(output[-1])
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["code"], "CONFIG_MISSING")
 
     def test_update_runs_without_recreating_state(self):
         self.paths.app_dir.mkdir(parents=True, exist_ok=True)

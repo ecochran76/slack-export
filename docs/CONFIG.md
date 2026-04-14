@@ -72,6 +72,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `service.auth.enabled` turns on the local browser-auth baseline for published runtime-report and export surfaces.
 - `service.auth.allow_registration` controls whether new local frontend users can self-register through `/register`. The shipped config template now defaults this to `false` for a stricter live posture.
 - `service.auth.registration_allowlist` optionally restricts self-registration to specific normalized usernames, including email-style usernames such as `ecochran76@gmail.com`.
+- when `service.auth.allow_registration` remains `false`, use `slack-mirror user-env provision-frontend-user --username <identity>` for first-user bootstrap instead of temporarily reopening browser self-registration.
 - `service.auth.cookie_name`, `service.auth.cookie_secure_mode`, and `service.auth.session_days` control the browser session cookie contract.
 - `service.auth.session_idle_timeout_seconds` controls inactivity expiry for browser sessions based on `last_seen_at`.
 - `service.auth.login_attempt_window_seconds` and `service.auth.login_attempt_max_failures` control the bounded failed-login throttle for `/auth/login`.

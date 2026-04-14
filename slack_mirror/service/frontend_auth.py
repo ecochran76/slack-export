@@ -49,6 +49,15 @@ class FrontendAuthIssueResult:
     session_token: str
 
 
+@dataclass(frozen=True)
+class FrontendAuthProvisionResult:
+    user_id: int
+    username: str
+    display_name: str | None
+    created: bool
+    password_updated: bool
+
+
 def _parse_bool(value: Any, default: bool) -> bool:
     if value is None:
         return default
@@ -431,3 +440,48 @@ def list_frontend_auth_sessions(
 
 def revoke_frontend_auth_session(conn, *, user_id: int, session_id: int) -> bool:
     return db.revoke_auth_session_by_id_for_user(conn, user_id=user_id, session_id=session_id)
+
+
+def provision_frontend_user(
+    conn,
+    *,
+    username: str,
+    password: str,
+    display_name: str | None = None,
+    reset_password: bool = False,
+) -> FrontendAuthProvisionResult:
+    normalized = _normalize_username(username)
+    if not normalized:
+        raise ValueError("username is required")
+    password_hash, password_salt, password_iterations = make_password_hash(_require_nonempty_password(password))
+    user_row = db.get_auth_user_by_username(conn, normalized)
+    created = False
+    password_updated = False
+
+    if user_row is None:
+        user_row = db.create_auth_user(conn, username=normalized, display_name=display_name)
+        created = True
+    elif display_name is not None:
+        updated_row = db.update_auth_user_display_name(conn, user_id=int(user_row["id"]), display_name=display_name)
+        if updated_row is not None:
+            user_row = updated_row
+
+    credential = db.get_auth_local_credential(conn, int(user_row["id"]))
+    if credential is not None and not reset_password:
+        raise ValueError("username already exists; pass reset_password to rotate the local password")
+
+    db.upsert_auth_local_credential(
+        conn,
+        user_id=int(user_row["id"]),
+        password_hash=password_hash,
+        password_salt=password_salt,
+        password_iterations=password_iterations,
+    )
+    password_updated = True
+    return FrontendAuthProvisionResult(
+        user_id=int(user_row["id"]),
+        username=str(user_row["username"]),
+        display_name=str(user_row["display_name"] or "") or None,
+        created=created,
+        password_updated=password_updated,
+    )

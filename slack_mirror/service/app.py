@@ -17,11 +17,13 @@ from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
     FrontendAuthIssueResult,
+    FrontendAuthProvisionResult,
     FrontendAuthSession,
     frontend_auth_config,
     list_frontend_auth_sessions,
     login_frontend_user,
     logout_frontend_user,
+    provision_frontend_user,
     register_frontend_user,
     revoke_frontend_auth_session,
     resolve_frontend_auth_session,
@@ -351,6 +353,23 @@ class SlackMirrorAppService:
         if not auth_session.authenticated or auth_session.user_id is None:
             raise ValueError("authentication required")
         return revoke_frontend_auth_session(conn, user_id=int(auth_session.user_id), session_id=int(session_id))
+
+    def provision_frontend_user(
+        self,
+        conn,
+        *,
+        username: str,
+        password: str,
+        display_name: str | None = None,
+        reset_password: bool = False,
+    ) -> FrontendAuthProvisionResult:
+        return provision_frontend_user(
+            conn,
+            username=username,
+            password=password,
+            display_name=display_name,
+            reset_password=reset_password,
+        )
 
     def workspace_configs(self) -> list[dict[str, Any]]:
         return self.config.get("workspaces", [])

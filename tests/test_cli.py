@@ -10,6 +10,7 @@ from slack_mirror.cli.main import (
     cmd_serve_mcp,
     cmd_user_env_check_live,
     cmd_user_env_install,
+    cmd_user_env_provision_frontend_user,
     cmd_user_env_rollback,
     cmd_user_env_recover_live,
     cmd_user_env_snapshot_report,
@@ -167,6 +168,31 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.base_url, "http://slack.localhost")
         self.assertEqual(args.name, "ops")
         self.assertEqual(args.timeout, 9.0)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_user_env_provision_frontend_user(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "user-env",
+                "provision-frontend-user",
+                "--username",
+                "ecochran76@gmail.com",
+                "--display-name",
+                "Eric Cochran",
+                "--password-env",
+                "SLACK_MIRROR_BOOTSTRAP_PASSWORD",
+                "--reset-password",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "user-env")
+        self.assertEqual(args.user_env_cmd, "provision-frontend-user")
+        self.assertEqual(args.username, "ecochran76@gmail.com")
+        self.assertEqual(args.display_name, "Eric Cochran")
+        self.assertEqual(args.password_env, "SLACK_MIRROR_BOOTSTRAP_PASSWORD")
+        self.assertTrue(args.reset_password)
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
@@ -792,6 +818,33 @@ class CliTests(unittest.TestCase):
             base_url="http://slack.localhost",
             name="ops",
             timeout=7.5,
+            json_output=True,
+        )
+
+    @patch("slack_mirror.service.user_env.provision_frontend_user_user_env", return_value=0)
+    def test_user_env_provision_frontend_user_dispatches_to_service(self, mock_provision):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "user-env",
+                "provision-frontend-user",
+                "--username",
+                "ecochran76@gmail.com",
+                "--display-name",
+                "Eric Cochran",
+                "--password-env",
+                "SLACK_MIRROR_BOOTSTRAP_PASSWORD",
+                "--reset-password",
+                "--json",
+            ]
+        )
+        self.assertEqual(cmd_user_env_provision_frontend_user(args), 0)
+        mock_provision.assert_called_once_with(
+            username="ecochran76@gmail.com",
+            display_name="Eric Cochran",
+            password=None,
+            password_env="SLACK_MIRROR_BOOTSTRAP_PASSWORD",
+            reset_password=True,
             json_output=True,
         )
 

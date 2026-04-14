@@ -815,7 +815,7 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 
 ```
 usage: slack-mirror user-env [-h]
-                             {install,update,rollback,uninstall,status,validate-live,check-live,recover-live,snapshot-report}
+                             {install,update,rollback,uninstall,status,validate-live,check-live,recover-live,snapshot-report,provision-frontend-user}
                              ...
 ```
 
@@ -826,6 +826,7 @@ usage: slack-mirror user-env [-h]
 
 - `check-live`
 - `install`
+- `provision-frontend-user`
 - `recover-live`
 - `rollback`
 - `snapshot-report`
@@ -852,6 +853,28 @@ usage: slack-mirror user-env check-live [-h] [--json]
 ```
 usage: slack-mirror user-env install [-h]
 ```
+
+
+### `slack-mirror user-env provision-frontend-user`
+**Usage**
+
+```
+usage: slack-mirror user-env provision-frontend-user [-h] --username USERNAME
+                                                     [--display-name DISPLAY_NAME]
+                                                     [--password PASSWORD]
+                                                     [--password-env PASSWORD_ENV]
+                                                     [--reset-password]
+                                                     [--json]
+```
+
+**Options**
+
+- `--username` — frontend auth username or email
+- `--display-name` — optional display name
+- `--password` — password value (avoid shell history when possible)
+- `--password-env` — read password from the named environment variable instead of prompting
+- `--reset-password` — rotate the local password when the user already exists
+- `--json` — json output
 
 
 ### `slack-mirror user-env recover-live`

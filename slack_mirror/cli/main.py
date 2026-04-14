@@ -1636,7 +1636,7 @@ _slack_mirror_complete() {
   local api_sub="serve"
   local mcp_sub="serve"
   local release_sub="check"
-  local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report"
+  local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
   local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1793,7 +1793,7 @@ _slack_mirror() {
   api_sub=(serve)
   mcp_sub=(serve)
   release_sub=(check)
-  user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report)
+  user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
   mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
 
@@ -2023,6 +2023,19 @@ def cmd_user_env_snapshot_report(args: argparse.Namespace) -> int:
         base_url=str(args.base_url),
         name=str(args.name),
         timeout=float(args.timeout),
+        json_output=bool(args.json),
+    )
+
+
+def cmd_user_env_provision_frontend_user(args: argparse.Namespace) -> int:
+    from slack_mirror.service.user_env import provision_frontend_user_user_env
+
+    return provision_frontend_user_user_env(
+        username=str(args.username),
+        display_name=str(args.display_name) if args.display_name is not None else None,
+        password=str(args.password) if args.password is not None else None,
+        password_env=str(args.password_env) if args.password_env is not None else None,
+        reset_password=bool(args.reset_password),
         json_output=bool(args.json),
     )
 
@@ -2448,6 +2461,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_user_snapshot_report.add_argument("--timeout", type=float, default=5.0, help="request timeout in seconds")
     p_user_snapshot_report.add_argument("--json", action="store_true", help="json output")
     p_user_snapshot_report.set_defaults(func=cmd_user_env_snapshot_report)
+    p_user_provision_frontend_user = user_env_sub.add_parser(
+        "provision-frontend-user",
+        help="create or rotate a local frontend-auth user without reopening browser self-registration",
+    )
+    p_user_provision_frontend_user.add_argument("--username", required=True, help="frontend auth username or email")
+    p_user_provision_frontend_user.add_argument("--display-name", default=None, help="optional display name")
+    p_user_provision_frontend_user.add_argument("--password", default=None, help="password value (avoid shell history when possible)")
+    p_user_provision_frontend_user.add_argument(
+        "--password-env",
+        default=None,
+        help="read password from the named environment variable instead of prompting",
+    )
+    p_user_provision_frontend_user.add_argument(
+        "--reset-password",
+        action="store_true",
+        help="rotate the local password when the user already exists",
+    )
+    p_user_provision_frontend_user.add_argument("--json", action="store_true", help="json output")
+    p_user_provision_frontend_user.set_defaults(func=cmd_user_env_provision_frontend_user)
 
     version_parser = sub.add_parser("version", help="print the package version")
     version_parser.set_defaults(func=cmd_version)

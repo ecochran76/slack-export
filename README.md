@@ -26,6 +26,7 @@ slack-mirror --config ~/.config/slack-mirror/config.yaml mirror status --workspa
 slack-mirror user-env check-live
 slack-mirror user-env check-live --json
 slack-mirror user-env status --json
+slack-mirror user-env provision-frontend-user --username ecochran76@gmail.com --password-env SLACK_MIRROR_BOOTSTRAP_PASSWORD
 slack-mirror user-env snapshot-report
 slack-mirror user-env snapshot-report --name morning-ops --json
 python scripts/render_runtime_report.py --base-url http://slack.localhost --format markdown --output /tmp/slack-mirror-runtime-report.md
@@ -104,6 +105,7 @@ The current repo has:
 - `/settings` now provides a browser-facing account page over the same frontend-auth session and registration-policy data
 - `/settings` now also surfaces the active auth-governance policy, including session lifetime, idle timeout, and login-throttle settings
 - the shipped config template now defaults browser self-registration to off; enabling it for an externally exposed install is an explicit policy choice
+- `user-env provision-frontend-user` is the supported first-user bootstrap path when browser self-registration stays closed
 - `/settings` now updates session revocation state inline instead of depending on a full page reload
 - frontend auth registration can now be restricted to an explicit allowlist of normalized usernames, including email-style usernames such as `ecochran76@gmail.com`
 - `/register` now surfaces that live allowlist policy directly in the browser instead of leaving the identity constraint implicit

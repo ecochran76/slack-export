@@ -83,6 +83,69 @@ class FrontendAuthTests(unittest.TestCase):
                 password="wrong-horse-123",
             )
 
+    def test_provision_frontend_user_creates_user_without_registration_flow(self):
+        provisioned = self.service.provision_frontend_user(
+            self.conn,
+            username="ecochran76@gmail.com",
+            password="correct-horse-123",
+            display_name="Eric Cochran",
+        )
+        self.assertTrue(provisioned.created)
+        self.assertTrue(provisioned.password_updated)
+        self.assertEqual(provisioned.username, "ecochran76@gmail.com")
+        login = self.service.login_frontend_user(
+            self.conn,
+            username="ecochran76@gmail.com",
+            password="correct-horse-123",
+        )
+        self.assertTrue(login.payload.authenticated)
+        self.assertEqual(login.payload.display_name, "Eric Cochran")
+
+    def test_provision_frontend_user_requires_reset_for_existing_user(self):
+        self.service.provision_frontend_user(
+            self.conn,
+            username="ecochran76@gmail.com",
+            password="correct-horse-123",
+            display_name="Eric Cochran",
+        )
+        with self.assertRaisesRegex(ValueError, "reset_password"):
+            self.service.provision_frontend_user(
+                self.conn,
+                username="ecochran76@gmail.com",
+                password="new-password-123",
+            )
+
+    def test_provision_frontend_user_can_reset_existing_password(self):
+        self.service.provision_frontend_user(
+            self.conn,
+            username="ecochran76@gmail.com",
+            password="correct-horse-123",
+            display_name="Eric Cochran",
+        )
+        provisioned = self.service.provision_frontend_user(
+            self.conn,
+            username="ecochran76@gmail.com",
+            password="new-password-123",
+            display_name="E. Cochran",
+            reset_password=True,
+        )
+        self.assertFalse(provisioned.created)
+        self.assertTrue(provisioned.password_updated)
+        self.assertEqual(provisioned.display_name, "E. Cochran")
+        with self.assertRaisesRegex(ValueError, "invalid username or password"):
+            self.service.login_frontend_user(
+                self.conn,
+                username="ecochran76@gmail.com",
+                password="correct-horse-123",
+            )
+        login = self.service.login_frontend_user(
+            self.conn,
+            username="ecochran76@gmail.com",
+            password="new-password-123",
+        )
+        self.assertTrue(login.payload.authenticated)
+        self.assertEqual(login.payload.display_name, "E. Cochran")
+
 
 if __name__ == "__main__":
     unittest.main()

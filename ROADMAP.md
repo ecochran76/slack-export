@@ -46,6 +46,7 @@ Actionable plans:
 - `docs/dev/plans/0011-2026-04-13-frontend-auth-idle-timeout.md`
 - `docs/dev/plans/0012-2026-04-13-frontend-auth-settings-governance.md`
 - `docs/dev/plans/0013-2026-04-13-frontend-auth-live-defaults.md`
+- `docs/dev/plans/0014-2026-04-13-frontend-auth-bootstrap-provisioning.md`
 
 Current state:
 - shared application-service layer exists
@@ -71,6 +72,10 @@ Current state:
 - the narrow live-defaults follow-up is now shipped through `0013`, including:
   - closed self-registration as the default template posture
   - live-validation warnings for externally exposed installs that explicitly keep self-registration enabled
+- the narrow bootstrap-provisioning follow-up is now shipped through `0014`, including:
+  - `user-env provision-frontend-user` as the supported first-user bootstrap path
+  - prompted or env-backed password entry without reopening browser self-registration
+  - explicit password rotation for existing local frontend-auth users through the same operator command
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

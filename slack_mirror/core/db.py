@@ -304,6 +304,25 @@ def create_auth_user(
     return row
 
 
+def update_auth_user_display_name(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    display_name: str | None,
+) -> sqlite3.Row | None:
+    cleaned_display_name = (display_name or "").strip() or None
+    with conn:
+        conn.execute(
+            """
+            UPDATE auth_users
+            SET display_name = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (cleaned_display_name, int(user_id)),
+        )
+    return get_auth_user_by_id(conn, int(user_id))
+
+
 def get_auth_local_credential(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row | None:
     return conn.execute(
         """
