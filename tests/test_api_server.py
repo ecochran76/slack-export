@@ -355,15 +355,15 @@ class ApiServerTests(unittest.TestCase):
 
         html_redirect = requests.get(f"{base_url}/runtime/reports", timeout=5, allow_redirects=False)
         self.assertEqual(html_redirect.status_code, 303)
-        self.assertIn("/login?next=%2Fruntime%2Freports", html_redirect.headers["location"])
+        self.assertIn("/login?next=%2Fruntime%2Freports&reason=auth_required", html_redirect.headers["location"])
 
         root_redirect = requests.get(f"{base_url}/", timeout=5, allow_redirects=False)
         self.assertEqual(root_redirect.status_code, 303)
-        self.assertEqual(root_redirect.headers["location"], "/login?next=%2F")
+        self.assertEqual(root_redirect.headers["location"], "/login?next=%2F&reason=auth_required")
 
         settings_redirect = requests.get(f"{base_url}/settings", timeout=5, allow_redirects=False)
         self.assertEqual(settings_redirect.status_code, 303)
-        self.assertEqual(settings_redirect.headers["location"], "/login?next=%2Fsettings")
+        self.assertEqual(settings_redirect.headers["location"], "/login?next=%2Fsettings&reason=auth_required")
 
         export_redirect = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
@@ -371,7 +371,7 @@ class ApiServerTests(unittest.TestCase):
             allow_redirects=False,
         )
         self.assertEqual(export_redirect.status_code, 303)
-        self.assertIn("/login?next=%2Fexports%2Fchannel-day-default-general-2026-04-12-abc123", export_redirect.headers["location"])
+        self.assertIn("/login?next=%2Fexports%2Fchannel-day-default-general-2026-04-12-abc123&reason=auth_required", export_redirect.headers["location"])
 
         api_blocked = requests.get(f"{base_url}/v1/runtime/reports", timeout=5)
         self.assertEqual(api_blocked.status_code, 401)
@@ -381,6 +381,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(login_page.status_code, 200)
         self.assertIn("Slack Mirror", login_page.text)
         self.assertIn("Email or username", login_page.text)
+
+        login_reason_page = requests.get(f"{base_url}/login?next=%2Fsettings&reason=auth_required", timeout=5)
+        self.assertEqual(login_reason_page.status_code, 200)
+        self.assertIn("Sign in to continue to the protected page you requested.", login_reason_page.text)
 
         register_page = requests.get(f"{base_url}/register", timeout=5)
         self.assertEqual(register_page.status_code, 200)
@@ -428,6 +432,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Sign out here", settings.text)
         self.assertNotIn("window.location.reload()", settings.text)
         self.assertIn("markSessionInactive", settings.text)
+        self.assertIn("reason:'session_revoked'", settings.text)
 
         allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
         self.assertEqual(allowed.status_code, 200)
@@ -459,6 +464,14 @@ class ApiServerTests(unittest.TestCase):
         self.assertTrue(revoke_current.json()["revoked"])
         blocked_again = session.get(f"{base_url}/v1/runtime/reports/latest", timeout=5)
         self.assertEqual(blocked_again.status_code, 401)
+
+        logged_out = requests.get(f"{base_url}/logout", timeout=5, allow_redirects=False)
+        self.assertEqual(logged_out.status_code, 303)
+        self.assertEqual(logged_out.headers["location"], "/login?next=%2F&reason=signed_out")
+
+        signed_out_page = requests.get(f"{base_url}/login?next=%2F&reason=signed_out", timeout=5)
+        self.assertEqual(signed_out_page.status_code, 200)
+        self.assertIn("You have been signed out.", signed_out_page.text)
 
         bad_origin_register = requests.post(
             f"{base_url}/auth/register",

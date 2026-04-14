@@ -62,6 +62,15 @@ def _redirect_response(handler: BaseHTTPRequestHandler, location: str, *, status
     handler.end_headers()
 
 
+def _login_path(*, next_path: str = "/", reason: str | None = None, error: str | None = None) -> str:
+    params: dict[str, str] = {"next": next_path}
+    if reason:
+        params["reason"] = reason
+    if error:
+        params["error"] = error
+    return f"/login?{urlencode(params)}"
+
+
 def _parse_cookie_value(handler: BaseHTTPRequestHandler, key: str) -> str | None:
     raw_cookie = handler.headers.get("Cookie", "")
     if not raw_cookie:
@@ -196,10 +205,17 @@ def _validate_same_origin_post(
     return None
 
 
-def _frontend_login_html(*, next_path: str, error: str | None = None, can_register: bool) -> str:
+def _frontend_login_html(*, next_path: str, error: str | None = None, reason: str | None = None, can_register: bool) -> str:
     error_html = ""
     if error:
         error_html = f"<p class='error'>{escape(error)}</p>"
+    banner_html = ""
+    if reason == "auth_required":
+        banner_html = "<p class='banner banner-info'>Sign in to continue to the protected page you requested.</p>"
+    elif reason == "signed_out":
+        banner_html = "<p class='banner banner-info'>You have been signed out.</p>"
+    elif reason == "session_revoked":
+        banner_html = "<p class='banner banner-info'>Your current session was revoked. Sign in again to continue.</p>"
     register_link = f"<p class='meta'>Need an account? <a href=\"/register?{urlencode({'next': next_path})}\">Register</a></p>" if can_register else ""
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
@@ -213,12 +229,15 @@ def _frontend_login_html(*, next_path: str, error: str | None = None, can_regist
         "input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}"
         "button{margin-top:18px;width:100%;padding:11px 14px;border:none;border-radius:10px;background:#0b57d0;color:#fff;font-weight:700;font-size:14px;cursor:pointer}"
         ".error{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;padding:10px 12px;border-radius:10px}"
+        ".banner{padding:10px 12px;border-radius:10px;margin:14px 0}"
+        ".banner-info{color:#0b57d0;background:#eff6ff;border:1px solid #bfdbfe}"
         ".meta{margin-top:14px;color:#475569;font-size:14px}"
         "code{background:#e2e8f0;padding:1px 5px;border-radius:6px}"
         "</style></head><body>"
         "<div class='card'>"
         "<h1>Slack Mirror</h1>"
         "<p>Sign in to access published exports and runtime reports.</p>"
+        f"{banner_html}"
         f"{error_html}"
         "<form id='login-form'>"
         "<label for='username'>Email or username</label>"
@@ -435,7 +454,7 @@ def _frontend_settings_html(
         "const current=button.getAttribute('data-current')==='true';"
         "button.disabled=true;"
         "const resp=await fetch(`/auth/sessions/${sessionId}/revoke`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});"
-        "if(resp.ok){markSessionInactive(sessionId,current);showFeedback(current?`Signed out session ${sessionId}. Redirecting to login...`:`Revoked session ${sessionId}.`,false);if(current){window.location.assign('/login');}return;}"
+        "if(resp.ok){markSessionInactive(sessionId,current);showFeedback(current?`Signed out session ${sessionId}. Redirecting to login...`:`Revoked session ${sessionId}.`,false);if(current){window.location.assign('/login?'+new URLSearchParams({next:'/',reason:'session_revoked'}));}return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Revocation failed'}}));"
         "showFeedback(data.error?.message||'Revocation failed',true);button.disabled=false;});}"
         "</script>"
@@ -827,7 +846,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             if path.startswith("/v1/"):
                 _error_response(self, 401, "AUTH_REQUIRED", "Authentication required")
                 return None
-            destination = f"/login?{urlencode({'next': self._request_path_with_query()})}"
+            destination = _login_path(next_path=self._request_path_with_query(), reason="auth_required")
             _redirect_response(self, destination)
             return None
 
@@ -933,6 +952,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             if path == "/login":
                 next_path = str(query.get("next", ["/"])[0] or "/")
                 error = str(query.get("error", [""])[0] or "").strip() or None
+                reason = str(query.get("reason", [""])[0] or "").strip() or None
                 if auth_session.authenticated:
                     _redirect_response(self, next_path)
                     return
@@ -942,6 +962,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _frontend_login_html(
                         next_path=next_path,
                         error=error,
+                        reason=reason,
                         can_register=auth_config.allow_registration,
                     ),
                 )
@@ -972,7 +993,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 service.logout_frontend_user(conn, session_token=_parse_cookie_value(self, auth_config.cookie_name))
                 self.send_response(303)
                 self._clear_frontend_auth_cookie()
-                self.send_header("location", "/login")
+                self.send_header("location", _login_path(next_path="/", reason="signed_out"))
                 self.send_header("content-length", "0")
                 self.end_headers()
                 return
