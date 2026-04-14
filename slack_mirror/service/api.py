@@ -646,13 +646,12 @@ def _runtime_reports_index_html(
 
 
 def _exports_index_html(exports: list[dict[str, Any]]) -> str:
-    rows_parts: list[str] = []
-    for item in exports:
+    def _export_row(item: dict[str, Any]) -> str:
         export_id = str(item.get("export_id") or "unknown")
         safe_export_id = escape(export_id, quote=True)
         workspace = escape(str(item.get("workspace") or "unknown"))
         channel = escape(str(item.get("channel") or item.get("channel_id") or "unknown"))
-        rows_parts.append(
+        return (
             f"<tr id='export-row-{safe_export_id}' data-export-id='{safe_export_id}'>"
             f"<td data-export-col='name'><a href=\"/exports/{safe_export_id}\">{escape(export_id)}</a></td>"
             f"<td data-export-col='scope'><code>{workspace}</code> <code>{channel}</code></td>"
@@ -670,9 +669,13 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
             "</td>"
             "</tr>"
         )
+
+    rows_parts: list[str] = []
+    for item in exports:
+        rows_parts.append(_export_row(item))
     table = (
         "<table><thead><tr><th>Export</th><th>Scope</th><th>Day</th><th>Files</th><th>Links</th><th>Actions</th></tr></thead>"
-        f"<tbody>{''.join(rows_parts) if rows_parts else '<tr><td colspan=\"6\">No managed exports published yet.</td></tr>'}</tbody></table>"
+        f"<tbody id='export-table-body'>{''.join(rows_parts) if rows_parts else '<tr id=\"export-empty-row\"><td colspan=\"6\">No managed exports published yet.</td></tr>'}</tbody></table>"
     )
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
@@ -748,34 +751,19 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "workspaceSelect.addEventListener('change',async()=>{const workspace=workspaceSelect.value.trim();dayInput.value='';if(!workspace){workspaceChannels=[];channelFilterInput.value='';renderChannelOptions();return;}await loadChannels(workspace);});"
         "channelFilterInput.addEventListener('input',()=>{renderChannelOptions();});"
         "channelSelect.addEventListener('change',()=>{updateChannelSelectionMeta();});"
+        "function exportRowHtml(item){const exportId=escapeHtml(item.export_id||'unknown');const workspace=escapeHtml(item.workspace||'unknown');const channel=escapeHtml(item.channel||item.channel_id||'unknown');const day=escapeHtml(item.day||'');const attachmentCount=Number(item.attachment_count||0);const fileCount=Number(item.file_count||0);return `<tr id=\"export-row-${exportId}\" data-export-id=\"${exportId}\"><td data-export-col=\"name\"><a href=\"/exports/${encodeURIComponent(item.export_id||'unknown')}\">${exportId}</a></td><td data-export-col=\"scope\"><code>${workspace}</code> <code>${channel}</code></td><td data-export-col=\"day\">${day}</td><td data-export-col=\"files\">${attachmentCount} attachments · ${fileCount} files</td><td data-export-col=\"manifest\"><a href=\"/v1/exports/${encodeURIComponent(item.export_id||'unknown')}\">manifest</a></td><td><button class=\"action-button\" data-export-rename-toggle=\"${exportId}\">rename</button> <button class=\"action-button danger\" data-export-delete=\"${exportId}\">delete</button><div class=\"rename-row\" id=\"export-rename-row-${exportId}\" hidden><input class=\"inline-input\" id=\"export-rename-input-${exportId}\" value=\"${exportId}\" aria-label=\"Rename ${exportId}\" /><button class=\"action-button\" data-export-rename-save=\"${exportId}\">save</button> <button class=\"action-button secondary\" data-export-rename-cancel=\"${exportId}\">cancel</button></div></td></tr>`;}"
+        "function bindExportRowActions(scope){for(const button of scope.querySelectorAll('[data-export-rename-toggle]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{const current=button.getAttribute('data-export-rename-toggle');if(!current)return;toggleExportRenameRow(current,true);const input=document.getElementById(`export-rename-input-${current}`);if(input){input.focus();input.select();}});}for(const button of scope.querySelectorAll('[data-export-rename-cancel]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{const current=button.getAttribute('data-export-rename-cancel');if(!current)return;toggleExportRenameRow(current,false);const input=document.getElementById(`export-rename-input-${current}`);if(input)input.value=current;});}for(const button of scope.querySelectorAll('[data-export-rename-save]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{const current=button.getAttribute('data-export-rename-save');if(!current)return;const input=document.getElementById(`export-rename-input-${current}`);const next=(input?.value||'').trim();if(!next||next===current){toggleExportRenameRow(current,false);return;}const resp=await fetch(`/v1/exports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({export_id:next,audience:'local'})});if(resp.ok){applyExportRename(current,next);setExportFeedback(`Renamed export ${current} to ${next}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setExportFeedback(data.error?.message||'Rename failed',true);});}for(const button of scope.querySelectorAll('[data-export-delete]')){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{const exportId=button.getAttribute('data-export-delete');if(!window.confirm(`Delete export ${exportId}?`))return;const resp=await fetch(`/v1/exports/${encodeURIComponent(exportId)}`,{method:'DELETE'});if(resp.ok){removeExportRow(exportId);setExportFeedback(`Deleted export ${exportId}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setExportFeedback(data.error?.message||'Delete failed',true);});}}"
+        "function insertCreatedExport(item){const tbody=document.getElementById('export-table-body');if(!tbody||!item)return;const empty=document.getElementById('export-empty-row');if(empty)empty.remove();const wrapper=document.createElement('tbody');wrapper.innerHTML=exportRowHtml(item);const row=wrapper.firstElementChild;if(!row)return;tbody.prepend(row);bindExportRowActions(row);}"
         "document.getElementById('create-export-button').addEventListener('click',async()=>{"
         "const payload={kind:'channel-day',workspace:workspaceSelect.value.trim(),channel:channelSelect.value.trim(),day:dayInput.value.trim(),tz:document.getElementById('export-tz').value.trim()||'America/Chicago',audience:document.getElementById('export-audience').value,export_id:document.getElementById('export-id').value.trim()||undefined};"
         "const resp=await fetch('/v1/exports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});"
-        "if(resp.ok){window.location.reload();return;}"
+        "if(resp.ok){const data=await resp.json().catch(()=>({export:null}));if(data.export){insertCreatedExport(data.export);document.getElementById('export-id').value='';setExportFeedback(`Created export ${data.export.export_id}.`,false);return;}setExportFeedback('Created export.',false);return;}"
         "const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));setExportFeedback(data.error?.message||'Create failed',true);"
         "});"
         "function toggleExportRenameRow(name,show){const row=document.getElementById(`export-rename-row-${name}`);if(row)row.hidden=!show;}"
         "function applyExportRename(current,next){const row=document.getElementById(`export-row-${current}`);if(!row)return;row.id=`export-row-${next}`;row.dataset.exportId=next;const nameCell=row.querySelector('[data-export-col=\"name\"]');if(nameCell){nameCell.innerHTML=`<a href=\"/exports/${encodeURIComponent(next)}\">${escapeHtml(next)}</a>`;}const manifestCell=row.querySelector('[data-export-col=\"manifest\"]');if(manifestCell){manifestCell.innerHTML=`<a href=\"/v1/exports/${encodeURIComponent(next)}\">manifest</a>`;}for(const el of row.querySelectorAll('[data-export-rename-toggle]'))el.setAttribute('data-export-rename-toggle',next);for(const el of row.querySelectorAll('[data-export-rename-save]'))el.setAttribute('data-export-rename-save',next);for(const el of row.querySelectorAll('[data-export-rename-cancel]'))el.setAttribute('data-export-rename-cancel',next);for(const el of row.querySelectorAll('[data-export-delete]'))el.setAttribute('data-export-delete',next);const renameRow=document.getElementById(`export-rename-row-${current}`);if(renameRow){renameRow.id=`export-rename-row-${next}`;renameRow.hidden=true;}const renameInput=document.getElementById(`export-rename-input-${current}`);if(renameInput){renameInput.id=`export-rename-input-${next}`;renameInput.value=next;renameInput.setAttribute('aria-label',`Rename ${next}`);}}"
         "function removeExportRow(name){const row=document.getElementById(`export-row-${name}`);if(row)row.remove();}"
-        "for(const button of document.querySelectorAll('[data-export-rename-toggle]')){button.addEventListener('click',()=>{const current=button.getAttribute('data-export-rename-toggle');if(!current)return;toggleExportRenameRow(current,true);const input=document.getElementById(`export-rename-input-${current}`);if(input){input.focus();input.select();}});}"
-        "for(const button of document.querySelectorAll('[data-export-rename-cancel]')){button.addEventListener('click',()=>{const current=button.getAttribute('data-export-rename-cancel');if(!current)return;toggleExportRenameRow(current,false);const input=document.getElementById(`export-rename-input-${current}`);if(input)input.value=current;});}"
-        "for(const button of document.querySelectorAll('[data-export-rename-save]')){button.addEventListener('click',async()=>{"
-        "const current=button.getAttribute('data-export-rename-save');"
-        "if(!current)return;"
-        "const input=document.getElementById(`export-rename-input-${current}`);"
-        "const next=(input?.value||'').trim();"
-        "if(!next||next===current){toggleExportRenameRow(current,false);return;}"
-        "const resp=await fetch(`/v1/exports/${encodeURIComponent(current)}/rename`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({export_id:next,audience:'local'})});"
-        "if(resp.ok){applyExportRename(current,next);setExportFeedback(`Renamed export ${current} to ${next}.`,false);return;}"
-        "const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));setExportFeedback(data.error?.message||'Rename failed',true);"
-        "});}"
-        "for(const button of document.querySelectorAll('[data-export-delete]')){button.addEventListener('click',async()=>{"
-        "const exportId=button.getAttribute('data-export-delete');"
-        "if(!window.confirm(`Delete export ${exportId}?`))return;"
-        "const resp=await fetch(`/v1/exports/${encodeURIComponent(exportId)}`,{method:'DELETE'});"
-        "if(resp.ok){removeExportRow(exportId);setExportFeedback(`Deleted export ${exportId}.`,false);return;}"
-        "const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));setExportFeedback(data.error?.message||'Delete failed',true);"
-        "});}"
+        "bindExportRowActions(document);"
         "loadWorkspaces();"
         "</script>"
         "</body></html>"

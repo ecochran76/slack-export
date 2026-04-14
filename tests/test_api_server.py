@@ -1247,6 +1247,13 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn(f"data-export-delete='{bundle_dir.name}'", exports_index.text)
         self.assertNotIn("window.prompt('Rename export bundle'", exports_index.text)
         self.assertIn(f"id='export-row-{bundle_dir.name}'", exports_index.text)
+        self.assertIn("insertCreatedExport(", exports_index.text)
+        self.assertIn("exportRowHtml(", exports_index.text)
+        self.assertIn("Created export", exports_index.text)
+        self.assertNotIn(
+            "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
+            exports_index.text,
+        )
         self.assertIn("applyExportRename(", exports_index.text)
         self.assertIn("removeExportRow(", exports_index.text)
         self.assertNotIn(

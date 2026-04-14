@@ -100,6 +100,7 @@ The current repo has:
 - the `/exports` browser flow now also supports channel filtering for larger workspaces, with client-side match counts and empty-filter feedback over the same valid mirrored choices
 - the `/exports` browser manager now uses inline export rename controls instead of prompt-driven rename dialogs
 - successful export rename and delete now update the `/exports` page inline instead of forcing a full page reload
+- successful export creation now inserts the new row inline instead of forcing a full page reload
 - the `/runtime/reports` browser flow now uses configured publish-origin choices, guided report-name presets, and inline rename controls instead of raw base-URL entry and prompt-driven rename
 - successful runtime-report rename and delete now update the `/runtime/reports` page inline instead of forcing a full page reload
 - successful runtime-report creation now inserts the new row inline, promotes it to the latest row, and resets the suggested report name without forcing a full page reload

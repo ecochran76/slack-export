@@ -275,7 +275,7 @@ Delete semantics for `DELETE /v1/exports/{export_id}`:
   - `deleted`
   - `export_id`
 
-`/exports` now serves a browser management page over the managed export bundles, with bounded channel-day create plus rename/delete controls backed by the same export CRUD API routes. The create form now uses dependent workspace/channel selectors populated from `/v1/workspaces/{workspace}/channels` instead of raw free-text channel entry.
+`/exports` now serves a browser management page over the managed export bundles, with bounded channel-day create plus rename/delete controls backed by the same export CRUD API routes. The create form now uses dependent workspace/channel selectors populated from `/v1/workspaces/{workspace}/channels` instead of raw free-text channel entry, and successful create/rename/delete mutations update the page inline instead of forcing a full page reload.
 
 ## Runtime Status
 

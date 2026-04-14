@@ -56,6 +56,7 @@ Actionable plans:
 - `docs/dev/plans/0021-2026-04-13-frontend-export-inline-mutation-state.md`
 - `docs/dev/plans/0022-2026-04-13-frontend-report-inline-mutation-state.md`
 - `docs/dev/plans/0023-2026-04-14-frontend-report-inline-create.md`
+- `docs/dev/plans/0024-2026-04-14-frontend-export-inline-create.md`
 
 Current state:
 - shared application-service layer exists
@@ -121,6 +122,10 @@ Current state:
   - inline row insertion after successful runtime-report creation
   - latest-row promotion for the newly created runtime report without a page reload
   - create success feedback and timestamped-name reset without forcing a full page reload
+- the narrow export-inline-create follow-up is now shipped through `0024`, including:
+  - inline row insertion after successful export creation
+  - create success feedback without forcing a full page reload
+  - continued inline rename/delete behavior for newly inserted export rows
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:

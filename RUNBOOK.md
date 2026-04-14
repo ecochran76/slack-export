@@ -1621,3 +1621,14 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 121 | 2026-04-14
+
+- Opened and closed `0024-2026-04-14-frontend-export-inline-create.md` as a narrow `P02` child slice.
+- Removed the remaining full-page reload from successful export creation on `/exports`.
+- Export creation now inserts the new row inline and shows success feedback without reloading the page.
+- Kept runtime-report creation unchanged in this slice because that path was already handled by `0023`.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
