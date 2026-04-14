@@ -1652,3 +1652,24 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `./.venv/bin/python -m unittest tests.test_api_server -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 124 | 2026-04-14
+
+- Opened and closed `0027-2026-04-14-runtime-report-create-auth-safe.md` as a narrow `P02` child slice.
+- Fixed authenticated runtime-report creation so it no longer self-calls `/v1/runtime/status` and `/v1/runtime/live-validation` without auth.
+- Moved the report-create path back onto shared service-owned runtime payloads, preserving the existing browser and API contract while removing the auth regression.
+- Validation:
+  - `python -m py_compile slack_mirror/service/runtime_report.py slack_mirror/service/app.py tests/test_app_service.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_runtime_report -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 125 | 2026-04-14
+
+- Opened and closed `0028-2026-04-14-managed-export-script-packaging.md` as a narrow `P02` child slice.
+- Fixed managed export creation in installed `user-env` environments by shipping the repo `scripts` package into the built wheel.
+- Kept the current shared-service subprocess export path, but added an explicit missing-script guard so future packaging regressions fail clearly.
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service tests.test_api_server tests.test_runtime_report -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - live throwaway create/rename/delete smoke on `http://slack.localhost`

@@ -249,11 +249,17 @@ class SlackMirrorAppService:
         return reports[0] if reports else None
 
     def create_runtime_report(self, *, base_url: str, name: str, timeout: float = 5.0) -> dict[str, Any]:
+        runtime_status_result = self.runtime_status()
+        runtime_status = {"ok": runtime_status_result.ok, "status": runtime_status_result.__dict__}
+        live_validation_result = self.validate_live_runtime(require_live_units=True)
+        live_validation = {"ok": live_validation_result.ok, "validation": live_validation_result.__dict__}
         return write_runtime_report_snapshot(
             config_path=self.config.path,
             base_url=base_url,
             name=name,
             timeout=timeout,
+            runtime_status=runtime_status,
+            live_validation=live_validation,
         )
 
     def rename_runtime_report(self, *, name: str, new_name: str) -> dict[str, Any]:
@@ -291,6 +297,8 @@ class SlackMirrorAppService:
     ) -> dict[str, Any]:
         export_root = resolve_export_root(self.config)
         script_path = Path(__file__).resolve().parents[2] / "scripts" / "export_channel_day.py"
+        if not script_path.exists():
+            raise FileNotFoundError(f"managed export script not found: {script_path}")
         args = [
             sys.executable,
             str(script_path),

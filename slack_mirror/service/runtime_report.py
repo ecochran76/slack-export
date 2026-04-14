@@ -379,15 +379,29 @@ def render_runtime_report_html(
     )
 
 
-def build_report_payload(*, base_url: str, timeout: float) -> dict[str, Any]:
-    runtime_status = _fetch_json(f"{base_url.rstrip('/')}/v1/runtime/status", timeout=timeout)
-    live_validation = _fetch_json(f"{base_url.rstrip('/')}/v1/runtime/live-validation", timeout=timeout)
+def build_report_payload(
+    *,
+    base_url: str,
+    timeout: float,
+    runtime_status: dict[str, Any] | None = None,
+    live_validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    runtime_status_payload = (
+        runtime_status
+        if runtime_status is not None
+        else _fetch_json(f"{base_url.rstrip('/')}/v1/runtime/status", timeout=timeout)
+    )
+    live_validation_payload = (
+        live_validation
+        if live_validation is not None
+        else _fetch_json(f"{base_url.rstrip('/')}/v1/runtime/live-validation", timeout=timeout)
+    )
     fetched_at = datetime.now(timezone.utc).isoformat()
     return {
         "base_url": base_url,
         "fetched_at": fetched_at,
-        "runtime_status": runtime_status,
-        "live_validation": live_validation,
+        "runtime_status": runtime_status_payload,
+        "live_validation": live_validation_payload,
     }
 
 
@@ -414,10 +428,17 @@ def write_runtime_report_snapshot(
     base_url: str,
     name: str,
     timeout: float,
+    runtime_status: dict[str, Any] | None = None,
+    live_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     safe_name = "-".join(part for part in name.strip().split() if part) or "runtime-report"
     safe_name = safe_name.replace("/", "-")
-    payload = build_report_payload(base_url=base_url, timeout=timeout)
+    payload = build_report_payload(
+        base_url=base_url,
+        timeout=timeout,
+        runtime_status=runtime_status,
+        live_validation=live_validation,
+    )
     markdown = render_runtime_report_markdown(**payload)
     html = render_runtime_report_html(**payload)
     report_dir = runtime_report_dir_for_config(config_path)

@@ -162,6 +162,50 @@ class AppServiceTests(unittest.TestCase):
             ],
         )
 
+    def test_create_runtime_report_uses_shared_runtime_payloads(self):
+        runtime_status = SimpleNamespace(
+            ok=True,
+            api_wrapper_present=True,
+            cli_wrapper_present=True,
+            mcp_wrapper_present=True,
+            api_service_present=True,
+            config_present=True,
+            db_present=True,
+            cache_present=True,
+            rollback_snapshot_present=False,
+            services={"slack-mirror-api.service": "active"},
+            reconcile_workspaces=[],
+        )
+        live_validation = SimpleNamespace(
+            ok=True,
+            status="pass",
+            summary="Summary: PASS",
+            lines=[],
+            exit_code=0,
+            failure_count=0,
+            warning_count=0,
+            failure_codes=[],
+            warning_codes=[],
+            workspaces=[],
+        )
+        with patch.object(self.service, "runtime_status", return_value=runtime_status), patch.object(
+            self.service,
+            "validate_live_runtime",
+            return_value=live_validation,
+        ), patch("slack_mirror.service.app.write_runtime_report_snapshot") as mock_write:
+            mock_write.return_value = {"name": "ops-report"}
+            payload = self.service.create_runtime_report(base_url="http://slack.localhost", name="ops report", timeout=7.5)
+        self.assertEqual(payload["name"], "ops-report")
+        kwargs = mock_write.call_args.kwargs
+        self.assertEqual(str(kwargs["config_path"]), str(self.config_path))
+        self.assertEqual(kwargs["base_url"], "http://slack.localhost")
+        self.assertEqual(kwargs["name"], "ops report")
+        self.assertEqual(kwargs["timeout"], 7.5)
+        self.assertEqual(kwargs["runtime_status"]["ok"], True)
+        self.assertEqual(kwargs["runtime_status"]["status"]["services"]["slack-mirror-api.service"], "active")
+        self.assertEqual(kwargs["live_validation"]["ok"], True)
+        self.assertEqual(kwargs["live_validation"]["validation"]["status"], "pass")
+
     def test_get_workspace_status_and_process_pending_events(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
         upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})

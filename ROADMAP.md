@@ -59,6 +59,8 @@ Actionable plans:
 - `docs/dev/plans/0024-2026-04-14-frontend-export-inline-create.md`
 - `docs/dev/plans/0025-2026-04-14-frontend-inline-manager-helper-consolidation.md`
 - `docs/dev/plans/0026-2026-04-14-frontend-manager-empty-state-restoration.md`
+- `docs/dev/plans/0027-2026-04-14-runtime-report-create-auth-safe.md`
+- `docs/dev/plans/0028-2026-04-14-managed-export-script-packaging.md`
 
 Current state:
 - shared application-service layer exists
@@ -136,6 +138,14 @@ Current state:
   - explicit empty-state row restoration after deleting the final runtime report
   - explicit empty-state row restoration after deleting the final export
   - preserved inline create behavior that removes the empty-state row before inserting a new item
+- the narrow auth-safe runtime-report creation follow-up is now shipped through `0027`, including:
+  - shared service-owned runtime report snapshot creation without unauthenticated loopback API calls
+  - preserved runtime-report API and browser contracts under frontend auth
+  - targeted app-service coverage for the shared payload handoff into snapshot generation
+- the narrow managed-export packaging follow-up is now shipped through `0028`, including:
+  - shipping the repo `scripts` package into installed user-env builds
+  - preserving managed export creation in the installed environment without depending on the repo checkout layout
+  - explicit shared-service failure messaging if the managed export script path regresses
 - `P02` is now closed; any future browser-auth or broader service-surface work should open a new narrow child plan instead of reopening the full lane
 
 Legacy context:
