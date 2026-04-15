@@ -70,9 +70,11 @@ Minimum first-workspace checklist:
 After editing config, the normal sequence is:
 
 ```bash
-slack-mirror workspaces sync-config
-slack-mirror workspaces verify --require-explicit-outbound
+slack-mirror-user workspaces sync-config
+slack-mirror-user workspaces verify --require-explicit-outbound
 ```
+
+Use `slack-mirror-user` after `user-env install`; it pins the managed config, DB, and cache paths. Use `uv run slack-mirror ...` from the repo before the managed wrapper exists.
 
 ## Interpolation syntax
 

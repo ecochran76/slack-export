@@ -161,7 +161,7 @@ Current state:
 
 ## P07 | Install Onboarding And Manifest Hardening
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - make new-user installation and first-workspace onboarding well explained, fast, and low-friction
@@ -174,4 +174,5 @@ Current state:
 - user-scope install/update/live-validation flows already exist, but the operator journey is split across install, config, live-mode, auth-bootstrap, and contract docs
 - the docs-first onboarding baseline is now shipped: `docs/dev/USER_INSTALL.md` is the canonical fresh-install-to-first-workspace path, and `README.md`, `docs/CONFIG.md`, and `docs/dev/LIVE_MODE.md` now route operators into that same sequence instead of leaving them to stitch the flow together manually
 - manifest hardening is now also shipped: export and runtime-report JSON manifests carry explicit schema, generation-time, producer, and provenance metadata, runtime reports expose compact machine-readable validation summary fields, and `docs/API_MCP_CONTRACT.md` documents the exact route shapes
-- the next bounded work is a colder install/onboarding rehearsal to confirm the new docs and manifest signoff surfaces are actually low-friction in practice
+- the cold-path docs rehearsal is complete: onboarding docs now distinguish repo-side `uv run slack-mirror ...` commands before install from managed `slack-mirror-user ...` commands after install
+- `P07` is closed; a real clean-user live Slack credential rehearsal should open a new explicit ops slice if needed

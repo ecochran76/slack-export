@@ -11,13 +11,13 @@ For the canonical fresh-install-to-first-workspace path, start with [docs/dev/US
 
 The supported operator sequence is:
 
-1. `slack-mirror user-env install`
+1. `uv run slack-mirror user-env install`
 2. edit `~/.config/slack-mirror/config.yaml`
-3. `slack-mirror workspaces sync-config`
-4. `slack-mirror workspaces verify --require-explicit-outbound`
+3. `slack-mirror-user workspaces sync-config`
+4. `slack-mirror-user workspaces verify --require-explicit-outbound`
 5. `scripts/install_live_mode_systemd_user.sh <workspace>`
-6. `slack-mirror user-env check-live`
-7. `slack-mirror user-env provision-frontend-user --username <identity> --password-env <ENV_VAR>`
+6. `slack-mirror-user user-env check-live`
+7. `slack-mirror-user user-env provision-frontend-user --username <identity> --password-env <ENV_VAR>`
 8. browser smoke on `http://slack.localhost/login`
 
 Use these companion docs for detail, not as separate competing entrypoints:

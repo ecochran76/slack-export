@@ -40,15 +40,15 @@ Use it when you want to go from a fresh machine or fresh user account to:
 
 Per-install steps:
 
-- `slack-mirror user-env install`
+- from a repo checkout, `uv run slack-mirror user-env install`
 - edit `~/.config/slack-mirror/config.yaml`
-- `slack-mirror user-env provision-frontend-user ...`
+- `slack-mirror-user user-env provision-frontend-user ...`
 
 Per-workspace steps:
 
 - add a workspace entry under `workspaces:`
-- `slack-mirror workspaces sync-config`
-- `slack-mirror workspaces verify --require-explicit-outbound`
+- `slack-mirror-user workspaces sync-config`
+- `slack-mirror-user workspaces verify --require-explicit-outbound`
 - `scripts/install_live_mode_systemd_user.sh <workspace>`
 
 ### Recommended first-run sequence
@@ -56,8 +56,10 @@ Per-workspace steps:
 1. Install the managed user runtime:
 
 ```bash
-slack-mirror user-env install
+uv run slack-mirror user-env install
 ```
+
+If `slack-mirror` is already installed on your shell `PATH`, `slack-mirror user-env install` is equivalent. From a fresh repo checkout, prefer the `uv run ...` form so the installer uses the repo dependency set.
 
 2. Edit `~/.config/slack-mirror/config.yaml` and define at least:
 
@@ -71,13 +73,13 @@ For field-level config guidance, see [docs/CONFIG.md](/home/ecochran76/workspace
 3. Sync the configured workspaces into the managed DB:
 
 ```bash
-slack-mirror workspaces sync-config
+slack-mirror-user workspaces sync-config
 ```
 
 4. Verify the workspace config with explicit outbound-write requirements:
 
 ```bash
-slack-mirror workspaces verify --require-explicit-outbound
+slack-mirror-user workspaces verify --require-explicit-outbound
 ```
 
 5. Install the live per-workspace services for the workspace you just added:
@@ -91,8 +93,8 @@ Repeat that command for each additional workspace name.
 6. Run the one-command managed smoke gate:
 
 ```bash
-slack-mirror user-env check-live
-slack-mirror user-env check-live --json
+slack-mirror-user user-env check-live
+slack-mirror-user user-env check-live --json
 ```
 
 Use `check-live` as the best single signoff that the managed install, config, API service, workspace sync, and live units are aligned.
@@ -101,7 +103,7 @@ Use `check-live` as the best single signoff that the managed install, config, AP
 
 ```bash
 export SLACK_MIRROR_BOOTSTRAP_PASSWORD='choose-a-long-random-password'
-slack-mirror user-env provision-frontend-user \
+slack-mirror-user user-env provision-frontend-user \
   --username you@example.com \
   --password-env SLACK_MIRROR_BOOTSTRAP_PASSWORD
 ```
@@ -115,8 +117,8 @@ slack-mirror user-env provision-frontend-user \
 9. Capture a shareable machine-readable runtime signoff when needed:
 
 ```bash
-slack-mirror user-env snapshot-report --name first-install
-slack-mirror user-env snapshot-report --name first-install --json
+slack-mirror-user user-env snapshot-report --name first-install
+slack-mirror-user user-env snapshot-report --name first-install --json
 ```
 
 ### Adding another workspace later
@@ -124,12 +126,18 @@ slack-mirror user-env snapshot-report --name first-install --json
 When the install already exists and you are onboarding an additional workspace:
 
 1. add the new workspace block to `~/.config/slack-mirror/config.yaml`
-2. run `slack-mirror workspaces sync-config`
-3. run `slack-mirror workspaces verify --require-explicit-outbound`
+2. run `slack-mirror-user workspaces sync-config`
+3. run `slack-mirror-user workspaces verify --require-explicit-outbound`
 4. run `scripts/install_live_mode_systemd_user.sh <workspace>`
-5. rerun `slack-mirror user-env check-live`
+5. rerun `slack-mirror-user user-env check-live`
 
 The browser user bootstrap is per-install, not per-workspace.
+
+### Entrypoint rule of thumb
+
+- Before install, run commands from the repo with `uv run slack-mirror ...`.
+- After install, use `slack-mirror-user ...` for managed-runtime commands because that wrapper pins the managed config, DB, and cache paths.
+- Keep using repo scripts such as `scripts/install_live_mode_systemd_user.sh <workspace>` from a repo checkout unless you have intentionally copied those scripts elsewhere.
 
 ## Install
 

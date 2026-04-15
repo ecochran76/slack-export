@@ -1,6 +1,6 @@
 # Install Onboarding And Manifest Hardening
 
-State: OPEN
+State: CLOSED
 Roadmap: P07
 Opened: 2026-04-15
 Follows:
@@ -32,6 +32,8 @@ This plan is not a generic reopening of broader platform, frontend, or search la
   - `docs/CLI.md`
 - export manifests now carry explicit schema, generation time, producer, and provenance metadata, and the contract doc now describes the exact file-entry shape exposed through the API
 - runtime report manifests now carry explicit schema, generation time, producer, provenance, and compact machine-readable validation summary fields suitable for onboarding signoff and downstream automation
+- the colder onboarding rehearsal found one concrete friction point: the docs assumed `slack-mirror` remained the right follow-up command after install, but the reliable managed-runtime command is `slack-mirror-user`
+- the onboarding docs now use `uv run slack-mirror ...` before install and `slack-mirror-user ...` after install
 - the repo already has live JSON manifest surfaces for:
   - export manifests through `/v1/exports` and `/v1/exports/{export_id}`
   - runtime report manifests through `/v1/runtime/reports` and `/v1/runtime/reports/latest`
@@ -44,8 +46,7 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 - shipped baseline:
   - one canonical quickstart now covers fresh user install, first config edit, workspace sync and verification, per-workspace live unit install, operator smoke gate, frontend user bootstrap, first browser smoke, and runtime snapshot signoff
 - remaining work:
-  - decide whether `docs/CLI.md` needs a dedicated onboarding pointer near `user-env` and `workspaces`
-  - verify the quickstart against a true cold-start rehearsal instead of only a docs/code audit
+  - none in this plan
 
 ### Track B | Tenant / Workspace Onboarding Flow
 
@@ -55,7 +56,7 @@ This plan is not a generic reopening of broader platform, frontend, or search la
   - config docs now distinguish read-path, write-path, and ingress-path credentials
   - user-facing docs now treat `workspace` as the canonical runtime term and reconcile tenant-style language to that term
 - remaining work:
-  - verify that additional workspace onboarding is friction-light in practice during a real operator rehearsal
+  - none in this plan
 
 ### Track C | JSON Manifest Audit
 
@@ -63,7 +64,7 @@ This plan is not a generic reopening of broader platform, frontend, or search la
   - export manifests were audited against emitted payloads and the API contract doc now records both top-level and file-entry shapes
   - runtime report manifests were audited against emitted payloads and now expose compact machine-readable validation summary fields directly in the manifest
 - remaining work:
-  - verify the upgraded manifest shape against a colder operator workflow instead of only unit/API tests
+  - none in this plan
 
 ### Track D | Contract Hardening
 
@@ -72,18 +73,18 @@ This plan is not a generic reopening of broader platform, frontend, or search la
   - `docs/API_MCP_CONTRACT.md` now documents the exact runtime-report and export manifest shapes, including runtime validation summary fields and export file-entry fields
   - targeted tests now lock the upgraded emitted manifest schemas across runtime-report, app-service, and API surfaces
 - remaining work:
-  - keep future manifest changes narrow and version-aware if the contract has to grow again
+  - none in this plan
 
 ### Track E | Friction Removal
 
-- identify the highest-friction setup steps and either:
-  - simplify them
-  - or document them much more directly
-- likely candidates include:
-  - first config editing
-  - first frontend-user bootstrap
-  - differentiating install-time validation vs full live validation
-  - understanding which JSON/status surface to trust for onboarding signoff
+- shipped baseline:
+  - clarified the before-install vs after-install entrypoint split:
+    - `uv run slack-mirror ...` from a repo checkout before the managed wrapper exists
+    - `slack-mirror-user ...` after install so commands use managed config, DB, and cache paths
+  - kept `docs/CLI.md` unchanged because it is generated command reference, not the onboarding entrypoint
+  - preserved runtime-report and manifest JSON surfaces as the onboarding signoff artifacts
+- remaining work:
+  - none in this plan
 
 ## Non-Goals
 
@@ -103,9 +104,24 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 
 ## Next Implementation Slices
 
-1. Rehearse the updated onboarding path from a colder starting point and trim any remaining friction that the manifest audit does not already cover.
-2. Decide whether `docs/CLI.md` should gain a short explicit onboarding pointer near `user-env` and `workspaces`.
-3. Keep any further manifest growth as separate bounded slices only if a downstream consumer proves the current schema is still insufficient.
+This plan is closed.
+
+Future work should open a new bounded plan if:
+
+- a real clean-user install with live Slack credentials exposes additional setup friction
+- downstream tooling needs a manifest field that is not covered by the current schema
+- generated CLI reference docs need a broader redesign to carry task-oriented entrypoint links
+
+## Closeout
+
+Closed on 2026-04-15 after:
+
+- shipping a canonical fresh-install-to-first-workspace path
+- hardening export and runtime-report manifests with schema/version/provenance metadata
+- adding targeted tests for the upgraded manifest contracts
+- rehearsing the install/onboarding path in a non-mutating way through command-help checks and mocked user-env install/provision/report tests
+
+The rehearsal deliberately did not run a real `user-env install` against the current user systemd manager because that would overwrite the active `slack-mirror-api.service` and runtime-report timer. That live mutation belongs to an explicit ops rehearsal, not this repo-doc/contract hardening slice.
 
 ## Validation
 

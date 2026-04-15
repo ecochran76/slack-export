@@ -2127,3 +2127,28 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_runtime_report tests.test_app_service.AppServiceTests.test_create_channel_day_export_invokes_script_and_returns_manifest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_runtime_reports_crud_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 158 | 2026-04-15
+
+- Ran the final `P07` onboarding rehearsal in a non-mutating mode.
+- Avoided running a real `user-env install` against the active user systemd manager because that would overwrite the current `slack-mirror-api.service` and runtime-report timer.
+- Validated the repo-side command availability with:
+  - `uv run slack-mirror user-env install --help`
+  - `uv run slack-mirror workspaces sync-config --help`
+  - `uv run slack-mirror user-env provision-frontend-user --help`
+- Reused the isolated user-env tests to validate the cold installer/provision/report path without touching the real managed install.
+- Found and fixed one concrete onboarding friction point:
+  - the docs assumed `slack-mirror ...` follow-up commands after install
+  - the reliable managed-runtime follow-up command is `slack-mirror-user ...`
+- Updated:
+  - `README.md`
+  - `docs/dev/USER_INSTALL.md`
+  - `docs/CONFIG.md`
+- Closed `P07` as shipped. Future real clean-user Slack credential rehearsal should open a dedicated ops slice if needed.
+- Validation:
+  - `uv run slack-mirror user-env install --help`
+  - `uv run slack-mirror workspaces sync-config --help`
+  - `uv run slack-mirror user-env provision-frontend-user --help`
+  - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_install_bootstraps_user_env tests.test_user_env.UserEnvTests.test_provision_frontend_user_uses_password_env tests.test_user_env.UserEnvTests.test_snapshot_runtime_report_json_outputs_machine_readable_payload -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
