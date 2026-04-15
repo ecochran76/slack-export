@@ -76,6 +76,8 @@ slack-mirror-user workspaces verify --require-explicit-outbound
 
 Use `slack-mirror-user` after `user-env install`; it pins the managed config, DB, and cache paths. Use `uv run slack-mirror ...` from the repo before the managed wrapper exists.
 
+For staged tenant onboarding, keep a new workspace entry at `enabled: false` until its credentials are present. Default `workspaces verify` skips disabled scaffolds; use `workspaces verify --workspace <name>` when you want to confirm that a staged entry is still disabled before activation.
+
 ## Interpolation syntax
 
 - `${VAR}` → required env var (empty if not set)

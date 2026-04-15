@@ -99,6 +99,11 @@ def cmd_workspaces_verify(args: argparse.Namespace) -> int:
         workspaces = [w for w in workspaces if w.get("name") == args.workspace]
         if not workspaces:
             raise ValueError(f"Workspace '{args.workspace}' not found in config")
+        if workspaces[0].get("enabled", True) is False:
+            print(f"{args.workspace}\tdisabled")
+            return 0
+    else:
+        workspaces = [w for w in workspaces if w.get("enabled", True) is not False]
     failures = 0
     for ws in workspaces:
         name = ws.get("name") or "<unnamed>"

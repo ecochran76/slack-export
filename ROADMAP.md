@@ -176,3 +176,21 @@ Current state:
 - manifest hardening is now also shipped: export and runtime-report JSON manifests carry explicit schema, generation-time, producer, and provenance metadata, runtime reports expose compact machine-readable validation summary fields, and `docs/API_MCP_CONTRACT.md` documents the exact route shapes
 - the cold-path docs rehearsal is complete: onboarding docs now distinguish repo-side `uv run slack-mirror ...` commands before install from managed `slack-mirror-user ...` commands after install
 - `P07` is closed; a real clean-user live Slack credential rehearsal should open a new explicit ops slice if needed
+
+## P08 | Polymer Tenant Onboarding
+
+Status: OPEN
+
+Purpose:
+- onboard Polymer Consulting Group as a new Slack Mirror workspace/tenant without destabilizing existing live workspaces
+- use the new onboarding path against a real tenant while keeping credentials and activation explicit
+
+Actionable plans:
+- `docs/dev/plans/0049-2026-04-15-polymer-tenant-onboarding.md`
+
+Current state:
+- Polymer is scaffolded in the managed config as disabled with explicit `SLACK_POLYMER_*` credential placeholders
+- the disabled Polymer workspace has been synced into the managed DB
+- current active workspace validation still passes for `default` and `soylei`
+- repo code now skips disabled workspace scaffolds during default `workspaces verify`, matching live-validation behavior
+- activation is blocked on Polymer Slack credentials

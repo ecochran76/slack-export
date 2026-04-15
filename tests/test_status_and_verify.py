@@ -103,6 +103,45 @@ class StatusAndVerifyTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
 
+    def test_workspaces_verify_skips_disabled_workspaces_by_default(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = Path(td) / "config.yaml"
+            cfg.write_text(
+                "workspaces:\n"
+                "  - name: default\n"
+                "    token: xoxb-test\n"
+                "    outbound_token: xoxb-write\n"
+                "  - name: staged\n"
+                "    enabled: false\n",
+                encoding="utf-8",
+            )
+            args = SimpleNamespace(config=str(cfg), workspace=None, require_explicit_outbound=True)
+
+            with patch("slack_mirror.core.slack_api.safe_auth_test", return_value=(True, "ok")) as mock_auth:
+                with redirect_stdout(io.StringIO()) as out:
+                    rc = cmd_workspaces_verify(args)
+
+            self.assertEqual(rc, 0)
+            self.assertNotIn("staged", out.getvalue())
+            mock_auth.assert_called_once_with("xoxb-test")
+
+    def test_workspaces_verify_reports_disabled_when_explicitly_selected(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = Path(td) / "config.yaml"
+            cfg.write_text(
+                "workspaces:\n"
+                "  - name: staged\n"
+                "    enabled: false\n",
+                encoding="utf-8",
+            )
+            args = SimpleNamespace(config=str(cfg), workspace="staged", require_explicit_outbound=True)
+
+            with redirect_stdout(io.StringIO()) as out:
+                rc = cmd_workspaces_verify(args)
+
+            self.assertEqual(rc, 0)
+            self.assertIn("staged\tdisabled", out.getvalue())
+
     def test_mirror_status_classify_access_respects_workspace_filter_and_reports_examples(self):
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)

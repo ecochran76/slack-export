@@ -2152,3 +2152,30 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_install_bootstraps_user_env tests.test_user_env.UserEnvTests.test_provision_frontend_user_uses_password_env tests.test_user_env.UserEnvTests.test_snapshot_runtime_report_json_outputs_machine_readable_payload -v`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 159 | 2026-04-15
+
+- Started a real tenant-onboarding slice for Polymer Consulting Group.
+- Target Slack URL:
+  - `https://polymerconsul-clo9441.slack.com`
+- Local workspace name:
+  - `polymer`
+- Created a timestamped backup of the managed config before editing:
+  - `~/.config/slack-mirror/config.yaml.before-polymer-20260415T221639Z`
+- Added Polymer to `~/.config/slack-mirror/config.yaml` as a disabled scaffold with explicit `SLACK_POLYMER_*` placeholders.
+- Confirmed no Polymer credential env vars were present in the current shell.
+- Synced the managed config into the DB:
+  - `slack-mirror-user workspaces sync-config`
+- Confirmed `slack-mirror-user user-env check-live --json` still passes for the active install.
+- Found a verifier inconsistency:
+  - live validation skips disabled workspaces
+  - `workspaces verify --require-explicit-outbound` still checked disabled workspace scaffolds
+- Patched `workspaces verify` so default verification skips disabled workspaces and explicit disabled verification reports `<workspace>\tdisabled`.
+- Opened:
+  - `P08 | Polymer Tenant Onboarding`
+  - `docs/dev/plans/0049-2026-04-15-polymer-tenant-onboarding.md`
+- Validation:
+  - `uv run python -m unittest tests.test_status_and_verify.StatusAndVerifyTests.test_workspaces_verify_can_require_explicit_outbound_tokens tests.test_status_and_verify.StatusAndVerifyTests.test_workspaces_verify_passes_with_explicit_outbound_tokens tests.test_status_and_verify.StatusAndVerifyTests.test_workspaces_verify_skips_disabled_workspaces_by_default tests.test_status_and_verify.StatusAndVerifyTests.test_workspaces_verify_reports_disabled_when_explicitly_selected -v`
+  - `python -m py_compile slack_mirror/cli/main.py tests/test_status_and_verify.py`
+  - `slack-mirror-user workspaces sync-config`
+  - `slack-mirror-user user-env check-live --json`
