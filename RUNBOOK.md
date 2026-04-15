@@ -2179,3 +2179,21 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/cli/main.py tests/test_status_and_verify.py`
   - `slack-mirror-user workspaces sync-config`
   - `slack-mirror-user user-env check-live --json`
+
+## Turn 160 | 2026-04-15
+
+- Updated the managed install from the current repo so the live `slack-mirror-user` wrapper picked up the disabled-workspace verifier fix.
+- Validation after update:
+  - `slack-mirror-user workspaces verify --require-explicit-outbound`
+    - passed for active workspaces and skipped disabled Polymer
+  - `slack-mirror-user workspaces verify --workspace polymer --require-explicit-outbound`
+    - returned `polymer	disabled`
+  - `slack-mirror-user user-env check-live --json`
+    - passed with existing `EMBEDDING_PENDING` warning for `default`
+- Polymer remains scaffolded but not active because required `SLACK_POLYMER_*` credentials are not present yet.
+- Validation:
+  - `uv run slack-mirror user-env update`
+  - `slack-mirror-user workspaces verify --require-explicit-outbound`
+  - `slack-mirror-user workspaces verify --workspace polymer --require-explicit-outbound`
+  - `slack-mirror-user user-env check-live --json`
+  - `git status --short`

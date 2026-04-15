@@ -192,5 +192,6 @@ Current state:
 - Polymer is scaffolded in the managed config as disabled with explicit `SLACK_POLYMER_*` credential placeholders
 - the disabled Polymer workspace has been synced into the managed DB
 - current active workspace validation still passes for `default` and `soylei`
-- repo code now skips disabled workspace scaffolds during default `workspaces verify`, matching live-validation behavior
+- repo code and the managed install now skip disabled workspace scaffolds during default `workspaces verify`, matching live-validation behavior
+- explicit verification reports Polymer as disabled until credentials are available and the workspace is activated
 - activation is blocked on Polymer Slack credentials

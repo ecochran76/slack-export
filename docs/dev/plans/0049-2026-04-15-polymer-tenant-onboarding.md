@@ -45,6 +45,12 @@ This plan does not include exfiltrating or inventing Slack credentials.
 - `slack-mirror-user user-env check-live --json` still passed for the active workspaces
 - a verifier gap was found: `workspaces verify --require-explicit-outbound` checked disabled workspaces
 - the repo code now skips disabled workspaces by default and reports `<workspace>\tdisabled` when a disabled workspace is explicitly selected
+- the managed install has been updated from the repo so `slack-mirror-user` now has that verifier behavior live
+- default verification now skips Polymer:
+  - `slack-mirror-user workspaces verify --require-explicit-outbound`
+- explicit Polymer verification now reports:
+  - `polymer	disabled`
+- `slack-mirror-user user-env check-live --json` passes with the pre-existing `EMBEDDING_PENDING` warning for `default`
 
 ## Remaining Work
 
@@ -93,3 +99,6 @@ This plan does not include exfiltrating or inventing Slack credentials.
 - `python -m py_compile slack_mirror/cli/main.py tests/test_status_and_verify.py`
 - `slack-mirror-user workspaces sync-config`
 - `slack-mirror-user user-env check-live --json`
+- `uv run slack-mirror user-env update`
+- `slack-mirror-user workspaces verify --require-explicit-outbound`
+- `slack-mirror-user workspaces verify --workspace polymer --require-explicit-outbound`
