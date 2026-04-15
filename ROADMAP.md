@@ -143,7 +143,7 @@ Current state:
 
 ## P06 | Browser Search And Frontend Hardening
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - introduce a first-class authenticated browser search surface over the shipped search APIs
@@ -156,4 +156,5 @@ Current state:
 - the browser already has authenticated management surfaces for landing, settings, runtime reports, and exports
 - the browser now also has an authenticated `/search` surface over the existing corpus-search and readiness APIs
 - the shipped browser search baseline includes URL-backed state, workspace/all-workspace scope, mode and derived-text filters, bounded pagination with `offset` plus total-result counts, duplicate-submit protection, inline readiness context for one-workspace searches, refinement links from result cards, stable repo-owned JSON detail destinations for message and derived-text hits, shared low-level browser helpers reused across the existing authenticated manager pages, shared fetch/error helpers for bounded browser-side request plumbing, and shared authenticated topbar rendering across `/`, `/settings`, and `/search`
-- the remaining work in this lane is to decide whether any broader helper extraction or browser-native viewer surface is justified without reopening the broader service or search lanes
+- the live managed install has been refreshed from the current repo and browser QA passed on `/`, `/settings`, `/search`, `/runtime/reports`, and `/exports`
+- deferred follow-ups such as a browser-native viewer or broader frontend extraction should open as separate bounded slices if they are ever justified

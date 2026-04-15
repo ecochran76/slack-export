@@ -2035,3 +2035,24 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
   - `git status --short`
+
+## Turn 154 | 2026-04-15
+
+- Audited the live local deployment against the committed `P06` browser-search slice.
+- Confirmed the managed API unit was still serving an older install, refreshed it from the current repo with `slack-mirror user-env update`, and restarted `slack-mirror-api.service`.
+- Verified the live host now serves the committed browser routes, including `/search`, instead of the stale `Unknown path: /search` response seen before the refresh.
+- Ran post-redeploy browser QA with a dedicated local frontend-auth user and confirmed the shipped authenticated surfaces work on the live install:
+  - `/`
+  - `/settings`
+  - `/search`
+  - `/runtime/reports`
+  - `/exports`
+- Closed `P06` as shipped. The remaining ideas in `0047` are now explicitly deferred follow-ups rather than open required work.
+- Left the unrelated pre-existing `uv.lock` modification untouched.
+- Validation:
+  - `uv run slack-mirror user-env update`
+  - `systemctl --user restart slack-mirror-api.service`
+  - `curl -sS -D - http://127.0.0.1:8787/search -o /tmp/api_search_direct.out`
+  - `curl -sS -D - http://slack.localhost/search -o /tmp/proxy_search_retry.out`
+  - browser QA via `dev-browser --headless`
+  - `git status --short`

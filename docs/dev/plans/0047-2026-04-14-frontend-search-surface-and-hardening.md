@@ -1,6 +1,6 @@
 # Frontend Search Surface And Hardening
 
-State: OPEN
+State: CLOSED
 Roadmap: P06
 Opened: 2026-04-14
 Follows:
@@ -40,6 +40,12 @@ This plan is not a generic reopening of the closed service-surface or search-mod
   - shared low-level browser helper extraction for HTML escaping, busy-label handling, and inline-manager actions reused across `/runtime/reports`, `/exports`, and `/search`
   - shared browser-side fetch/error helpers reused across `/runtime/reports`, `/exports`, and `/search` for bounded request plumbing without introducing a larger page framework
   - shared authenticated topbar rendering across `/`, `/settings`, and `/search`, so the main browser entry surfaces no longer hand-roll separate navigation chrome
+- the managed live install has been refreshed from the current repo through `user-env update`, and post-redeploy browser QA passed on:
+  - `/`
+  - `/settings`
+  - `/search`
+  - `/runtime/reports`
+  - `/exports`
 - browser auth, same-origin write discipline, and basic inline-manager hardening are already shipped
 - the shared search service and HTTP API already expose:
   - `GET /v1/workspaces/{workspace}/search/corpus`
@@ -60,22 +66,11 @@ This plan is not a generic reopening of the closed service-surface or search-mod
   - distinguish workspace-scoped vs all-workspace search without hand-calling JSON routes
 - the current frontend remains largely inline HTML/CSS/JS in `slack_mirror/service/api.py`, so any new surface should prefer shared helpers and bounded rendering patterns instead of another one-off blob
 
-## Remaining Work
+## Deferred Follow-Ups
 
 ### Track A | Browser Search Baseline
 
-- shipped:
-  - authenticated `/search` page linked from `/`
-  - bounded search form over the current API contract:
-    - query
-    - workspace vs all-workspaces scope
-    - mode
-    - result limit
-    - derived-text kind
-    - derived-text source kind
-  - thin browser submission over the existing search API routes
-- remaining:
-  - decide whether the search form needs any additional bounded filters before broader hardening work
+- decide whether the search form ever needs additional bounded filters before reopening this area
 
 ### Track B | Search Result Presentation
 
@@ -105,7 +100,7 @@ This plan is not a generic reopening of the closed service-surface or search-mod
   - stable repo-owned JSON destinations from result cards for:
     - message detail
     - derived-text detail plus chunk payload
-- remaining:
+- deferred:
   - decide whether the repo needs any browser-native viewer beyond the current refinement and JSON destination links before adding more UI chrome
 
 ### Track C | Frontend Hardening For Search
@@ -117,8 +112,6 @@ This plan is not a generic reopening of the closed service-surface or search-mod
   - local validation for missing query or missing workspace in workspace scope
   - bounded previous/next pagination backed by API `offset`
   - explicit total-result counts from the API so the browser can show page position and result range
-- remaining:
-  - decide whether search-specific helper extraction is warranted after another implementation slice
 - the lowest-risk shared helper extraction is now landed; any follow-on extraction should justify itself beyond the already-shared browser primitives
 - the current bounded pagination contract is sufficient for the shipped browser surface; defer infinite scroll or cursor pagination unless the API contract changes again
 
@@ -126,7 +119,7 @@ This plan is not a generic reopening of the closed service-surface or search-mod
 
 - shipped:
   - inline workspace readiness panel on `/search` for one-workspace searches
-- remaining:
+- deferred:
   - decide whether readiness should stay inline, collapse by default, or move to a drill-down affordance after real operator use
 - keep search-health benchmark execution off the hot search form path unless a narrow follow-up proves browser-triggered health checks are worth the UI complexity
 
@@ -140,7 +133,7 @@ This plan is not a generic reopening of the closed service-surface or search-mod
   - search execution
   - readiness loading
 - shared authenticated topbar rendering is now shipped for `/`, `/settings`, and `/search`
-- use this slice to identify whether the next frontend-hardening plan should cover:
+- any future frontend-hardening follow-up should cover:
   - browser pagination for large report/export lists
   - further extraction of inline browser helpers inside `slack_mirror/service/api.py`
 
@@ -160,11 +153,11 @@ This plan is not a generic reopening of the closed service-surface or search-mod
 - readiness exposure is planned deliberately instead of being left as an afterthought
 - follow-on frontend maintainability work is identified without reopening the entire frontend lane
 
-## Next Implementation Slices
+## Closure
 
-1. Decide whether any higher-level fetch-state abstraction is still justified now that the bounded request/error helpers are shared across the existing browser manager pages.
-2. Keep search-health benchmark triggering out of the page unless a later narrow plan proves that browser-admin workflow is worth the complexity.
-3. Decide whether the current JSON destinations are sufficient, or whether a later repo-owned browser viewer is worth the added surface area.
+- `P06` is closed as shipped.
+- The browser search surface is live in the managed install and has been validated through real browser login plus page-level QA.
+- Any later work in this area should open as a new bounded slice instead of extending this plan indefinitely.
 
 ## Validation
 
