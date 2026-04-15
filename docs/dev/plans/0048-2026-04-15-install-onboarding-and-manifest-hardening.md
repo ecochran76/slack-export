@@ -30,20 +30,12 @@ This plan is not a generic reopening of broader platform, frontend, or search la
   - `docs/CONFIG.md`
   - `docs/dev/LIVE_MODE.md`
   - `docs/CLI.md`
+- export manifests now carry explicit schema, generation time, producer, and provenance metadata, and the contract doc now describes the exact file-entry shape exposed through the API
+- runtime report manifests now carry explicit schema, generation time, producer, provenance, and compact machine-readable validation summary fields suitable for onboarding signoff and downstream automation
 - the repo already has live JSON manifest surfaces for:
   - export manifests through `/v1/exports` and `/v1/exports/{export_id}`
   - runtime report manifests through `/v1/runtime/reports` and `/v1/runtime/reports/latest`
   - managed runtime status through `/v1/runtime/status`
-- current export manifests are useful for internal browser/API usage but remain thin for onboarding/audit use:
-  - no explicit schema version
-  - no generation timestamp
-  - no producer/version metadata
-  - no provenance field clarifying current-service URL reconstruction vs original bundle metadata
-- current runtime report manifests are also thin:
-  - status and summary are present
-  - file paths are present
-  - machine-readable validation detail is not surfaced directly in the manifest
-  - no explicit schema/version metadata exists for downstream consumers
 
 ## Remaining Work
 
@@ -67,21 +59,20 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 
 ### Track C | JSON Manifest Audit
 
-- review export manifests for:
-  - accuracy against emitted payloads
-  - field naming clarity
-  - file-entry contract completeness
-  - suitability for downstream automation and onboarding review
-- review runtime report manifests for:
-  - accuracy against emitted payloads
-  - adequacy as a machine-readable onboarding or runtime signoff artifact
-  - whether validation summary/detail needs to be promoted into the manifest
+- shipped baseline:
+  - export manifests were audited against emitted payloads and the API contract doc now records both top-level and file-entry shapes
+  - runtime report manifests were audited against emitted payloads and now expose compact machine-readable validation summary fields directly in the manifest
+- remaining work:
+  - verify the upgraded manifest shape against a colder operator workflow instead of only unit/API tests
 
 ### Track D | Contract Hardening
 
-- add explicit schema metadata to manifest payloads where justified
-- document exact JSON route shapes in `docs/API_MCP_CONTRACT.md`, not just top-level summary fields
-- add or tighten tests that lock the emitted manifest schemas
+- shipped baseline:
+  - both manifest families now include `schema_version`, `generated_at`, `producer`, and provenance metadata
+  - `docs/API_MCP_CONTRACT.md` now documents the exact runtime-report and export manifest shapes, including runtime validation summary fields and export file-entry fields
+  - targeted tests now lock the upgraded emitted manifest schemas across runtime-report, app-service, and API surfaces
+- remaining work:
+  - keep future manifest changes narrow and version-aware if the contract has to grow again
 
 ### Track E | Friction Removal
 
@@ -112,9 +103,9 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 
 ## Next Implementation Slices
 
-1. Audit the current export and runtime-report manifest payloads against real emitted JSON and document the exact contract gaps.
-2. Land the smallest justified schema-hardening patch for manifest versioning/provenance, with tests and contract-doc updates in the same slice.
-3. Rehearse the updated onboarding path from a colder starting point and trim any remaining friction that the manifest audit does not already cover.
+1. Rehearse the updated onboarding path from a colder starting point and trim any remaining friction that the manifest audit does not already cover.
+2. Decide whether `docs/CLI.md` should gain a short explicit onboarding pointer near `user-env` and `workspaces`.
+3. Keep any further manifest growth as separate bounded slices only if a downstream consumer proves the current schema is still insufficient.
 
 ## Validation
 

@@ -165,11 +165,27 @@ Named report browsing remains API-only. MCP now exposes the freshest managed run
 
 Important fields for the JSON listing/detail routes:
 
+- `schema_version`
+- `generated_at`
+- `producer`
+  - `name`
+  - `version`
+- `provenance`
+  - `runtime_status_source`
+  - `live_validation_source`
 - `name`
 - `base_url`
 - `fetched_at`
 - `status`
 - `summary`
+- `validation`
+  - `status`
+  - `summary`
+  - `failure_count`
+  - `warning_count`
+  - `failure_codes`
+  - `warning_codes`
+  - `workspace_count`
 - `html_url`
 - `markdown_url`
 - `json_url`
@@ -204,11 +220,16 @@ Important fields for `runtime.report.latest`:
 
 - `ok`
 - `report`
+  - `schema_version`
+  - `generated_at`
+  - `producer`
+  - `provenance`
   - `name`
   - `base_url`
   - `fetched_at`
   - `status`
   - `summary`
+  - `validation`
 
 `/runtime/reports/{name}` serves the latest HTML snapshot directly for human review.
 `/runtime/reports` now serves a browser management page over the currently available managed snapshots, with the freshest report highlighted and linked through `/runtime/reports/latest`, plus bounded create/rename/delete controls backed by the same runtime-report CRUD API routes. Successful create, rename, and delete mutations now update the page inline instead of forcing a full page reload.
@@ -237,15 +258,34 @@ Current semantics:
 
 Important fields for export listing/detail routes:
 
+- `schema_version`
+- `generated_at`
+- `producer`
+  - `name`
+  - `version`
+- `provenance`
+  - `metadata_source`
+  - `url_contract_source`
 - `export_id`
 - `kind`
 - `workspace`
 - `channel`
 - `channel_id`
 - `day`
+- `default_audience`
+- `bundle_urls`
 - `bundle_url`
+- `file_count`
 - `attachment_count`
 - `files`
+  - `relpath`
+  - `role`
+  - `content_type`
+  - `size_bytes`
+  - `download_urls`
+  - `preview_urls`
+  - `download_url`
+  - `preview_url`
 
 Important fields for `GET /v1/workspaces/{workspace}/channels`:
 

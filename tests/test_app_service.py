@@ -122,6 +122,9 @@ class AppServiceTests(unittest.TestCase):
                 day="2026-04-12",
             )
         self.assertEqual(payload["export_id"], bundle_dir.name)
+        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["producer"]["name"], "slack-mirror")
+        self.assertEqual(payload["provenance"]["url_contract_source"], "current_service_config")
         self.assertEqual(payload["bundle_url"], f"http://slack.localhost/exports/{bundle_dir.name}")
         invoked = mock_run.call_args.args[0]
         self.assertIn("--managed-export", invoked)

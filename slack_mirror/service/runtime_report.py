@@ -10,6 +10,7 @@ from typing import Any
 
 import requests
 
+from slack_mirror import __version__
 from slack_mirror.core.config import load_config
 
 
@@ -17,6 +18,21 @@ RUNTIME_REPORT_RETENTION_MAX_SNAPSHOTS = 24
 RUNTIME_REPORT_RETENTION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60
 _SNAPSHOT_STEM_RE = re.compile(r"^(?P<name>.+)-(?P<stamp>\d{8}T\d{6}Z)$")
 _REPORT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _validation_summary(live_validation_payload: dict[str, Any]) -> dict[str, Any]:
+    validation = live_validation_payload.get("validation", {}) if isinstance(live_validation_payload, dict) else {}
+    workspaces = validation.get("workspaces")
+    workspace_count = len(workspaces) if isinstance(workspaces, list) else 0
+    return {
+        "status": validation.get("status"),
+        "summary": validation.get("summary"),
+        "failure_count": int(validation.get("failure_count") or 0),
+        "warning_count": int(validation.get("warning_count") or 0),
+        "failure_codes": list(validation.get("failure_codes") or []),
+        "warning_codes": list(validation.get("warning_codes") or []),
+        "workspace_count": workspace_count,
+    }
 
 
 def _db_path_from_config(config_path: str | None) -> Path:
@@ -455,12 +471,24 @@ def write_runtime_report_snapshot(
     html_path.write_text(html, encoding="utf-8")
     latest_markdown_path.write_text(markdown, encoding="utf-8")
     latest_html_path.write_text(html, encoding="utf-8")
+    validation = _validation_summary(payload["live_validation"])
     metadata = {
+        "schema_version": 2,
+        "generated_at": now.isoformat(),
+        "producer": {
+            "name": "slack-mirror",
+            "version": __version__,
+        },
+        "provenance": {
+            "runtime_status_source": "runtime_status_payload",
+            "live_validation_source": "live_validation_payload",
+        },
         "name": safe_name,
         "base_url": base_url,
         "fetched_at": payload["fetched_at"],
-        "status": payload["live_validation"].get("validation", {}).get("status"),
-        "summary": payload["live_validation"].get("validation", {}).get("summary"),
+        "status": validation["status"],
+        "summary": validation["summary"],
+        "validation": validation,
         "markdown_path": str(markdown_path),
         "html_path": str(html_path),
         "latest_markdown_path": str(latest_markdown_path),

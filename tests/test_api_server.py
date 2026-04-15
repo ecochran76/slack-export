@@ -285,11 +285,27 @@ class ApiServerTests(unittest.TestCase):
         (report_dir / "morning-ops.latest.json").write_text(
             json.dumps(
                 {
+                    "schema_version": 2,
+                    "generated_at": "2026-04-13T12:00:01+00:00",
+                    "producer": {"name": "slack-mirror", "version": "0.5.0"},
+                    "provenance": {
+                        "runtime_status_source": "runtime_status_payload",
+                        "live_validation_source": "live_validation_payload",
+                    },
                     "name": "morning-ops",
                     "base_url": "http://slack.localhost",
                     "fetched_at": "2026-04-13T12:00:00+00:00",
                     "status": "pass",
                     "summary": "Summary: PASS",
+                    "validation": {
+                        "status": "pass",
+                        "summary": "Summary: PASS",
+                        "failure_count": 0,
+                        "warning_count": 0,
+                        "failure_codes": [],
+                        "warning_codes": [],
+                        "workspace_count": 1,
+                    },
                     "markdown_path": str(report_dir / "morning-ops-20260413T120000Z.md"),
                     "html_path": str(report_dir / "morning-ops-20260413T120000Z.html"),
                     "latest_markdown_path": str(report_dir / "morning-ops.latest.md"),
@@ -304,6 +320,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(listing.status_code, 200)
         self.assertTrue(listing.json()["ok"])
         self.assertEqual(listing.json()["reports"][0]["name"], "morning-ops")
+        self.assertEqual(listing.json()["reports"][0]["schema_version"], 2)
+        self.assertEqual(listing.json()["reports"][0]["validation"]["status"], "pass")
         self.assertEqual(listing.json()["reports"][0]["html_url"], "/runtime/reports/morning-ops")
         self.assertEqual(listing.json()["reports"][0]["markdown_url"], "/runtime/reports/morning-ops.latest.md")
         self.assertEqual(listing.json()["reports"][0]["json_url"], "/runtime/reports/morning-ops.latest.json")
@@ -311,6 +329,7 @@ class ApiServerTests(unittest.TestCase):
         detail = requests.get(f"{self.base_url}/v1/runtime/reports/morning-ops", timeout=5)
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["report"]["name"], "morning-ops")
+        self.assertEqual(detail.json()["report"]["producer"]["name"], "slack-mirror")
         self.assertEqual(detail.json()["report"]["html_url"], "/runtime/reports/morning-ops")
 
         latest_detail = requests.get(f"{self.base_url}/v1/runtime/reports/latest", timeout=5)
@@ -414,11 +433,27 @@ class ApiServerTests(unittest.TestCase):
     def test_runtime_reports_crud_endpoints(self):
         service = get_app_service(str(self.config_path))
         created_payload = {
+            "schema_version": 2,
+            "generated_at": "2026-04-13T12:00:01+00:00",
+            "producer": {"name": "slack-mirror", "version": "0.5.0"},
+            "provenance": {
+                "runtime_status_source": "runtime_status_payload",
+                "live_validation_source": "live_validation_payload",
+            },
             "name": "daily-ops",
             "base_url": "http://slack.localhost",
             "fetched_at": "2026-04-13T12:00:00+00:00",
             "status": "pass",
             "summary": "Summary: PASS",
+            "validation": {
+                "status": "pass",
+                "summary": "Summary: PASS",
+                "failure_count": 0,
+                "warning_count": 0,
+                "failure_codes": [],
+                "warning_codes": [],
+                "workspace_count": 1,
+            },
             "markdown_path": str(self.root / "daily-ops-20260413T120000Z.md"),
             "html_path": str(self.root / "daily-ops-20260413T120000Z.html"),
             "latest_markdown_path": str(self.root / "daily-ops.latest.md"),
@@ -1298,6 +1333,9 @@ class ApiServerTests(unittest.TestCase):
         self.assertTrue(exports.json()["ok"])
         self.assertEqual(len(exports.json()["exports"]), 1)
         self.assertEqual(exports.json()["exports"][0]["export_id"], bundle_dir.name)
+        self.assertEqual(exports.json()["exports"][0]["schema_version"], 2)
+        self.assertEqual(exports.json()["exports"][0]["producer"]["name"], "slack-mirror")
+        self.assertEqual(exports.json()["exports"][0]["provenance"]["url_contract_source"], "current_service_config")
         self.assertEqual(
             exports.json()["exports"][0]["bundle_url"],
             f"http://slack.localhost/exports/{bundle_dir.name}",
@@ -1379,6 +1417,8 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertEqual(external_manifest.status_code, 200)
         manifest = external_manifest.json()["export"]
+        self.assertEqual(manifest["schema_version"], 2)
+        self.assertEqual(manifest["provenance"]["url_contract_source"], "current_service_config")
         self.assertEqual(
             manifest["bundle_url"],
             f"https://slack.ecochran.dyndns.org/exports/{bundle_dir.name}",

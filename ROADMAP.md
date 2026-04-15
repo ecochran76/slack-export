@@ -173,5 +173,5 @@ Actionable plans:
 Current state:
 - user-scope install/update/live-validation flows already exist, but the operator journey is split across install, config, live-mode, auth-bootstrap, and contract docs
 - the docs-first onboarding baseline is now shipped: `docs/dev/USER_INSTALL.md` is the canonical fresh-install-to-first-workspace path, and `README.md`, `docs/CONFIG.md`, and `docs/dev/LIVE_MODE.md` now route operators into that same sequence instead of leaving them to stitch the flow together manually
-- export and runtime-report JSON manifests are already shipped and useful for the current browser/API surfaces, but they are still thin for onboarding signoff and explicit downstream contract use
-- the next bounded work is to audit the real emitted manifests and then tighten schema/version/provenance only where the current payloads prove inadequate
+- manifest hardening is now also shipped: export and runtime-report JSON manifests carry explicit schema, generation-time, producer, and provenance metadata, runtime reports expose compact machine-readable validation summary fields, and `docs/API_MCP_CONTRACT.md` documents the exact route shapes
+- the next bounded work is a colder install/onboarding rehearsal to confirm the new docs and manifest signoff surfaces are actually low-friction in practice

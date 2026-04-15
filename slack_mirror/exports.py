@@ -5,9 +5,12 @@ import json
 import mimetypes
 import re
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+
+from slack_mirror import __version__
 
 
 _DEFAULT_EXPORT_ROOT = Path("~/.local/share/slack-mirror/exports").expanduser()
@@ -239,7 +242,7 @@ def read_export_metadata(bundle_dir: Path) -> dict[str, Any]:
         try:
             payload = json.loads(manifest_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                return payload
+                return {**payload, "_metadata_source": "manifest_json"}
         except Exception:
             pass
 
@@ -256,11 +259,12 @@ def read_export_metadata(bundle_dir: Path) -> dict[str, Any]:
                     "day": payload.get("day"),
                     "tz": payload.get("tz"),
                     "export_id": payload.get("export_id") or bundle_dir.name,
+                    "_metadata_source": "channel_day_json",
                 }
         except Exception:
             pass
 
-    return {"export_id": bundle_dir.name}
+    return {"export_id": bundle_dir.name, "_metadata_source": "bundle_dir_fallback"}
 
 
 def build_export_manifest(
@@ -271,6 +275,7 @@ def build_export_manifest(
     default_audience: str = "local",
 ) -> dict[str, Any]:
     metadata = read_export_metadata(bundle_dir)
+    generated_at = datetime.now(timezone.utc).isoformat()
     bundle_urls = {
         audience: f"{base_url.rstrip('/')}/exports/{quote(export_id)}"
         for audience, base_url in base_urls.items()
@@ -306,6 +311,16 @@ def build_export_manifest(
         )
 
     return {
+        "schema_version": 2,
+        "generated_at": generated_at,
+        "producer": {
+            "name": "slack-mirror",
+            "version": __version__,
+        },
+        "provenance": {
+            "metadata_source": metadata.get("_metadata_source") or "unknown",
+            "url_contract_source": "current_service_config",
+        },
         "export_id": export_id,
         "kind": metadata.get("kind") or "export-bundle",
         "workspace": metadata.get("workspace"),

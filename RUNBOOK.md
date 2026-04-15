@@ -2100,3 +2100,30 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 157 | 2026-04-15
+
+- Opened the manifest-audit implementation slice for `P07` and tightened the shipped export and runtime-report JSON contracts only where the payloads were actually too thin.
+- Updated export manifests to include:
+  - `schema_version`
+  - `generated_at`
+  - producer name/version
+  - provenance for stored bundle metadata vs current-service URL reconstruction
+- Updated runtime report manifests to include:
+  - `schema_version`
+  - `generated_at`
+  - producer name/version
+  - provenance
+  - compact machine-readable validation summary fields for status, counts, and issue codes
+- Updated `docs/API_MCP_CONTRACT.md` to document the exact runtime-report and export manifest shapes, including runtime validation and export file-entry fields.
+- Added targeted test coverage across:
+  - runtime-report snapshot writing
+  - app-service export creation
+  - runtime-report API routes
+  - export API routes
+- Updated the active `P07` plan and roadmap summary so the remaining work is now the colder install/onboarding rehearsal rather than more manifest drift cleanup.
+- Validation:
+  - `python -m py_compile slack_mirror/exports.py slack_mirror/service/runtime_report.py tests/test_app_service.py tests/test_runtime_report.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_runtime_report tests.test_app_service.AppServiceTests.test_create_channel_day_export_invokes_script_and_returns_manifest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_runtime_reports_crud_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
