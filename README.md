@@ -5,6 +5,27 @@ A Python script to export Slack conversations, canvases, and files.
 This repo also contains the newer `slack_mirror` package for multi-workspace ingest, local search, and always-on live sync. For current live-ops setup, use the runbooks in [docs/dev/LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md) and [docs/CLI.md](/home/ecochran76/workspace.local/slack-export/docs/CLI.md).
 For the shipped local API and MCP response semantics, including outbound writes and listener deliveries, see [docs/API_MCP_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/API_MCP_CONTRACT.md).
 
+## New Install Quickstart
+
+For the canonical fresh-install-to-first-workspace path, start with [docs/dev/USER_INSTALL.md](/home/ecochran76/workspace.local/slack-export/docs/dev/USER_INSTALL.md).
+
+The supported operator sequence is:
+
+1. `slack-mirror user-env install`
+2. edit `~/.config/slack-mirror/config.yaml`
+3. `slack-mirror workspaces sync-config`
+4. `slack-mirror workspaces verify --require-explicit-outbound`
+5. `scripts/install_live_mode_systemd_user.sh <workspace>`
+6. `slack-mirror user-env check-live`
+7. `slack-mirror user-env provision-frontend-user --username <identity> --password-env <ENV_VAR>`
+8. browser smoke on `http://slack.localhost/login`
+
+Use these companion docs for detail, not as separate competing entrypoints:
+
+- install and onboarding: [docs/dev/USER_INSTALL.md](/home/ecochran76/workspace.local/slack-export/docs/dev/USER_INSTALL.md)
+- config fields and token semantics: [docs/CONFIG.md](/home/ecochran76/workspace.local/slack-export/docs/CONFIG.md)
+- live per-workspace services: [docs/dev/LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md)
+
 ## Current Live Topology
 
 For unattended live operation, the supported systemd user-service topology is:

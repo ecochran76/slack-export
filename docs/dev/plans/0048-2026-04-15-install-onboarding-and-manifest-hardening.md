@@ -23,6 +23,7 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 ## Current State
 
 - user-scope install, update, rollback, uninstall, status, validate-live, check-live, recover-live, and snapshot-report flows already exist through `slack-mirror user-env`
+- the repo now has one canonical fresh-install-to-first-workspace operator path in `docs/dev/USER_INSTALL.md`, with `README.md`, `docs/CONFIG.md`, and `docs/dev/LIVE_MODE.md` aligned to that route instead of acting as competing entrypoints
 - workspace configuration, live-mode topology, and frontend-auth bootstrap are documented, but the operator journey is split across:
   - `README.md`
   - `docs/dev/USER_INSTALL.md`
@@ -48,22 +49,21 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 
 ### Track A | Canonical New-User Path
 
-- create one canonical quickstart that covers:
-  - fresh user install
-  - first config edit
-  - workspace sync and verification
-  - per-workspace live unit install
-  - operator smoke gate
-  - frontend user bootstrap
-  - first browser/API smoke
-- make the path opinionated enough that a new operator can reach first success without stitching multiple docs together manually
+- shipped baseline:
+  - one canonical quickstart now covers fresh user install, first config edit, workspace sync and verification, per-workspace live unit install, operator smoke gate, frontend user bootstrap, first browser smoke, and runtime snapshot signoff
+- remaining work:
+  - decide whether `docs/CLI.md` needs a dedicated onboarding pointer near `user-env` and `workspaces`
+  - verify the quickstart against a true cold-start rehearsal instead of only a docs/code audit
 
 ### Track B | Tenant / Workspace Onboarding Flow
 
-- define the supported first-workspace and additional-workspace onboarding sequence explicitly
-- clarify which steps are per-install vs per-workspace
-- clarify which credentials are read-path vs write-path vs ingress-path requirements
-- decide whether “tenant onboarding” should remain workspace terminology in user-facing docs or whether both terms need explicit reconciliation
+- shipped baseline:
+  - docs now distinguish first-workspace vs additional-workspace onboarding explicitly
+  - docs now distinguish per-install vs per-workspace steps explicitly
+  - config docs now distinguish read-path, write-path, and ingress-path credentials
+  - user-facing docs now treat `workspace` as the canonical runtime term and reconcile tenant-style language to that term
+- remaining work:
+  - verify that additional workspace onboarding is friction-light in practice during a real operator rehearsal
 
 ### Track C | JSON Manifest Audit
 
@@ -112,9 +112,9 @@ This plan is not a generic reopening of broader platform, frontend, or search la
 
 ## Next Implementation Slices
 
-1. Write a docs-first onboarding slice that produces one canonical operator quickstart for fresh install plus first workspace.
-2. Audit the current export and runtime-report manifest payloads against real emitted JSON and document the exact contract gaps.
-3. Land the smallest justified schema-hardening patch for manifest versioning/provenance, with tests and contract-doc updates in the same slice.
+1. Audit the current export and runtime-report manifest payloads against real emitted JSON and document the exact contract gaps.
+2. Land the smallest justified schema-hardening patch for manifest versioning/provenance, with tests and contract-doc updates in the same slice.
+3. Rehearse the updated onboarding path from a colder starting point and trim any remaining friction that the manifest audit does not already cover.
 
 ## Validation
 

@@ -2,6 +2,8 @@
 
 This runbook keeps Slack mirror ingest + search freshness running continuously.
 
+For the canonical fresh-install-to-first-workspace path, start with [USER_INSTALL.md](/home/ecochran76/workspace.local/slack-export/docs/dev/USER_INSTALL.md) and treat this document as the per-workspace live-service companion.
+
 ## Recommended config target
 
 For long-lived user installs, prefer the user-scope config/state:

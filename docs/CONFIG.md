@@ -40,6 +40,40 @@ workspaces:
     enabled: true
 ```
 
+## Onboarding Model
+
+This repo uses `workspace` as the canonical runtime term.
+If you are thinking in hosted or customer-account terms, treat "tenant onboarding" here as "configure and activate one workspace entry under `workspaces:`".
+
+For a first install, the canonical operator sequence lives in [docs/dev/USER_INSTALL.md](/home/ecochran76/workspace.local/slack-export/docs/dev/USER_INSTALL.md).
+
+Configuration responsibilities break down like this:
+
+- per-install:
+  - `storage.*`
+  - `service.*`
+  - `exports.*`
+- per-workspace:
+  - one item under `workspaces:`
+  - read-path credentials
+  - write-path credentials
+  - ingress credentials such as `signing_secret` when live event ingress is enabled
+
+Minimum first-workspace checklist:
+
+- one enabled workspace with a stable `name`
+- explicit read credentials
+- explicit write credentials
+- `service.auth.enabled: true` if you want the browser surfaces
+- `exports.local_base_url: http://slack.localhost` for local managed links
+
+After editing config, the normal sequence is:
+
+```bash
+slack-mirror workspaces sync-config
+slack-mirror workspaces verify --require-explicit-outbound
+```
+
 ## Interpolation syntax
 
 - `${VAR}` → required env var (empty if not set)
@@ -53,6 +87,7 @@ workspaces:
 - For the `default` workspace, generic env names like `SLACK_BOT_TOKEN` and `SLACK_USER_TOKEN` are considered write-capable fallbacks.
 - For production installs, prefer explicit outbound fields rather than fallback heuristics.
 - `workspaces verify --require-explicit-outbound` enforces that policy during validation.
+- `signing_secret` is the ingress-path credential used to validate incoming Slack requests for live event delivery.
 
 ## Path resolution rules
 

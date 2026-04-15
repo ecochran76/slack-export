@@ -2076,3 +2076,27 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 156 | 2026-04-15
+
+- Opened the docs-first implementation slice for `P07` and shipped one canonical onboarding path from fresh install to first live workspace.
+- Added a `Fresh Install To First Workspace` section to `docs/dev/USER_INSTALL.md` covering:
+  - managed install
+  - config edit
+  - workspace sync
+  - explicit outbound verification
+  - per-workspace live unit install
+  - `check-live`
+  - frontend-user bootstrap
+  - browser smoke
+  - runtime snapshot signoff
+- Updated `README.md` to point new operators at that canonical path instead of leaving installation and onboarding implied inside the broader live-ops command inventory.
+- Updated `docs/CONFIG.md` to clarify:
+  - workspace terminology
+  - per-install vs per-workspace responsibilities
+  - read-path vs write-path vs ingress-path credentials
+- Updated `docs/dev/LIVE_MODE.md` to act as the per-workspace live-service companion instead of a competing onboarding entrypoint.
+- Updated `P07` planning text and roadmap state so remaining work now centers on manifest audit and narrow schema hardening.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`

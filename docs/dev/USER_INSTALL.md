@@ -24,6 +24,113 @@ The MCP launcher runs `slack-mirror mcp serve` with the managed config.
 The API service runs the API launcher under `systemd --user`.
 The runtime report timer runs `slack-mirror-user user-env snapshot-report --name scheduled-runtime-report` hourly under `systemd --user`.
 
+## Fresh Install To First Workspace
+
+This is the canonical operator path for a new local install.
+
+Use it when you want to go from a fresh machine or fresh user account to:
+
+- one working managed install
+- one configured Slack workspace
+- live per-workspace services installed
+- one bootstrapped browser user
+- one successful browser smoke on `http://slack.localhost`
+
+### Per-install vs per-workspace
+
+Per-install steps:
+
+- `slack-mirror user-env install`
+- edit `~/.config/slack-mirror/config.yaml`
+- `slack-mirror user-env provision-frontend-user ...`
+
+Per-workspace steps:
+
+- add a workspace entry under `workspaces:`
+- `slack-mirror workspaces sync-config`
+- `slack-mirror workspaces verify --require-explicit-outbound`
+- `scripts/install_live_mode_systemd_user.sh <workspace>`
+
+### Recommended first-run sequence
+
+1. Install the managed user runtime:
+
+```bash
+slack-mirror user-env install
+```
+
+2. Edit `~/.config/slack-mirror/config.yaml` and define at least:
+
+- `service.auth.enabled: true`
+- `exports.local_base_url: http://slack.localhost`
+- one enabled workspace under `workspaces:`
+- explicit read and write credentials for that workspace
+
+For field-level config guidance, see [docs/CONFIG.md](/home/ecochran76/workspace.local/slack-export/docs/CONFIG.md).
+
+3. Sync the configured workspaces into the managed DB:
+
+```bash
+slack-mirror workspaces sync-config
+```
+
+4. Verify the workspace config with explicit outbound-write requirements:
+
+```bash
+slack-mirror workspaces verify --require-explicit-outbound
+```
+
+5. Install the live per-workspace services for the workspace you just added:
+
+```bash
+scripts/install_live_mode_systemd_user.sh default
+```
+
+Repeat that command for each additional workspace name.
+
+6. Run the one-command managed smoke gate:
+
+```bash
+slack-mirror user-env check-live
+slack-mirror user-env check-live --json
+```
+
+Use `check-live` as the best single signoff that the managed install, config, API service, workspace sync, and live units are aligned.
+
+7. Bootstrap the first browser user without reopening public self-registration:
+
+```bash
+export SLACK_MIRROR_BOOTSTRAP_PASSWORD='choose-a-long-random-password'
+slack-mirror user-env provision-frontend-user \
+  --username you@example.com \
+  --password-env SLACK_MIRROR_BOOTSTRAP_PASSWORD
+```
+
+8. Smoke the browser surface:
+
+- open `http://slack.localhost/login`
+- sign in with the provisioned user
+- verify `/`, `/settings`, `/runtime/reports`, and `/exports`
+
+9. Capture a shareable machine-readable runtime signoff when needed:
+
+```bash
+slack-mirror user-env snapshot-report --name first-install
+slack-mirror user-env snapshot-report --name first-install --json
+```
+
+### Adding another workspace later
+
+When the install already exists and you are onboarding an additional workspace:
+
+1. add the new workspace block to `~/.config/slack-mirror/config.yaml`
+2. run `slack-mirror workspaces sync-config`
+3. run `slack-mirror workspaces verify --require-explicit-outbound`
+4. run `scripts/install_live_mode_systemd_user.sh <workspace>`
+5. rerun `slack-mirror user-env check-live`
+
+The browser user bootstrap is per-install, not per-workspace.
+
 ## Install
 
 Supported product entrypoint:
