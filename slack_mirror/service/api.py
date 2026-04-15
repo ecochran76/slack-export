@@ -8,7 +8,7 @@ from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from slack_mirror.core.config import load_config
 from slack_mirror.exports import build_export_manifest, list_export_manifests, resolve_export_base_urls, resolve_export_root, safe_export_path
@@ -60,6 +60,28 @@ def _redirect_response(handler: BaseHTTPRequestHandler, location: str, *, status
     handler.send_header("location", location)
     handler.send_header("content-length", "0")
     handler.end_headers()
+
+
+_BROWSER_ESCAPE_HTML_JS = (
+    "function escapeHtml(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\\\"','&quot;').replaceAll(\"'\",'&#39;');}"
+)
+
+_BROWSER_BUSY_LABEL_JS = (
+    "function rememberButtonLabel(button){if(button&&button.dataset.labelDefault===undefined)button.dataset.labelDefault=button.textContent||'';}"
+    "function setButtonBusyLabel(button,isBusy,busyLabel){if(!button)return;rememberButtonLabel(button);button.textContent=isBusy?busyLabel:(button.dataset.labelDefault||button.textContent||'');}"
+)
+
+_BROWSER_FETCH_JSON_HELPERS_JS = (
+    "async function fetchJsonResponse(input,init){const resp=await fetch(input,init);const data=await resp.json().catch(()=>null);return {resp,data};}"
+    "function responseErrorMessage(data,fallback){return data?.error?.message||fallback;}"
+)
+
+_INLINE_MANAGER_JS = (
+    "function setInlineManagerBusyState(current,config,isBusy){for(const attr of [config.renameToggleAttr,config.renameCancelAttr,config.renameSaveAttr,config.deleteAttr]){for(const el of document.querySelectorAll(`[${attr}=\\\"${CSS.escape(current)}\\\"]`)){if('disabled' in el)el.disabled=isBusy;el.dataset.busy=isBusy?'true':'false';if(attr===config.renameSaveAttr)setButtonBusyLabel(el,isBusy,'saving…');if(attr===config.deleteAttr)setButtonBusyLabel(el,isBusy,'deleting…');}}const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.disabled=isBusy;}"
+    "function setInlineManagerRowError(current,config,message){const errorRow=document.getElementById(`${config.rowErrorPrefix}${current}`);if(!errorRow)return;if(message){errorRow.textContent=message;errorRow.hidden=false;return;}errorRow.textContent='';errorRow.hidden=true;}"
+    "function setInlineManagerRowOutcome(current,config,message,isError){const state=document.getElementById(`${config.rowStatePrefix}${current}`);if(!state)return;if(!message){state.textContent='';state.className='inline-state';return;}state.textContent=message;state.className=`inline-state show ${isError?'bad':'ok'}`;}"
+    "function bindInlineManagerActions(scope,config){for(const button of scope.querySelectorAll(`[${config.renameToggleAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameToggleAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=false;const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input){input.focus();input.select();}});}for(const button of scope.querySelectorAll(`[${config.renameCancelAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameCancelAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=true;const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.value=current;});}for(const button of scope.querySelectorAll(`[${config.renameSaveAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameSaveAttr);if(!current)return;const input=document.getElementById(`${config.renameInputPrefix}${current}`);const next=(input?.value||'').trim();if(!next||next===current){setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=true;return;}setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);setInlineManagerBusyState(current,config,true);try{const {resp,data}=await fetchJsonResponse(config.renamePath(current,next),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(config.renameBody(next))});if(resp.ok){config.applyRename(current,next);setInlineManagerRowOutcome(next,config,'saved',false);config.setFeedback(`Renamed ${config.itemLabel} ${current} to ${next}.`,false);return;}const message=responseErrorMessage(data,'Rename failed');setInlineManagerRowError(current,config,message);setInlineManagerRowOutcome(current,config,'error',true);config.setFeedback(message,true);}finally{setInlineManagerBusyState(current,config,false);}});}for(const button of scope.querySelectorAll(`[${config.deleteAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.deleteAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);if(!window.confirm(config.deleteConfirm(current)))return;setInlineManagerBusyState(current,config,true);try{const {resp,data}=await fetchJsonResponse(config.deletePath(current),{method:'DELETE'});if(resp.ok){config.removeRow(current);config.setFeedback(`Deleted ${config.itemLabel} ${current}.`,false);return;}const message=responseErrorMessage(data,'Delete failed');setInlineManagerRowError(current,config,message);setInlineManagerRowOutcome(current,config,'error',true);config.setFeedback(message,true);}finally{setInlineManagerBusyState(current,config,false);}});}}"
+)
 
 
 def _login_path(*, next_path: str = "/", reason: str | None = None, error: str | None = None) -> str:
@@ -355,13 +377,50 @@ def _frontend_register_html(*, next_path: str, error: str | None = None, registr
     )
 
 
+def _authenticated_topbar_css() -> str:
+    return (
+        ".auth-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;"
+        "margin-bottom:18px;padding:14px 16px;border:1px solid var(--line);border-radius:18px;background:rgba(255,253,249,.88);box-shadow:var(--shadow)}"
+        ".auth-identity{color:var(--muted);font-size:13px;line-height:1.45}"
+        ".auth-nav{display:flex;flex-wrap:wrap;gap:10px}"
+        ".nav-link{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:#f8f5ef;color:var(--ink);font-weight:700}"
+        ".nav-link.active{background:#edf4ff;border-color:#b7c9ee;color:var(--accent)}"
+        ".nav-link.logout{background:#fff1f2;border-color:#fecdd3;color:#be123c}"
+    )
+
+
+def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_path: str) -> str:
+    user_label = auth_session.display_name or auth_session.username or "Authenticated user"
+    nav_items = [
+        ("/", "Home", False),
+        ("/search", "Search", False),
+        ("/runtime/reports", "Runtime reports", False),
+        ("/exports", "Exports", False),
+        ("/settings", "Settings", False),
+        ("/logout", "Logout", True),
+    ]
+    links = []
+    for href, label, is_logout in nav_items:
+        classes = ["nav-link"]
+        if current_path == href:
+            classes.append("active")
+        if is_logout:
+            classes.append("logout")
+        links.append(f"<a class='{' '.join(classes)}' href=\"{href}\">{escape(label)}</a>")
+    return (
+        "<div class='auth-topbar'>"
+        f"<div class='auth-identity'>Signed in as <strong>{escape(user_label)}</strong> · username <code>{escape(str(auth_session.username or ''))}</code></div>"
+        f"<nav class='auth-nav'>{''.join(links)}</nav>"
+        "</div>"
+    )
+
+
 def _frontend_settings_html(
     *,
     auth_session: FrontendAuthSession,
     auth_status: dict[str, Any],
     sessions: list[dict[str, Any]],
 ) -> str:
-    user_label = auth_session.display_name or auth_session.username or "Authenticated user"
     allowlist = auth_status.get("registration_allowlist") or []
     registration_policy = str(auth_status.get("registration_mode") or "closed")
     session_days = int(auth_status.get("session_days") or 0)
@@ -411,6 +470,7 @@ def _frontend_settings_html(
         "<style>"
         ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--bad:#a12828;--bad-soft:#fde5e5;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--shadow:0 14px 30px rgba(18,32,51,.08);}"
         "*{box-sizing:border-box}body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        f"{_authenticated_topbar_css()}"
         ".shell{max-width:1080px;margin:0 auto;padding:28px 18px 40px}.top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}"
         ".card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}"
         ".grid{display:grid;grid-template-columns:1fr 1.3fr;gap:18px}.stack{display:grid;gap:18px}"
@@ -428,15 +488,12 @@ def _frontend_settings_html(
         "#feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px;font-size:14px}.feedback-ok{display:block;background:var(--ok-soft);color:var(--ok)}.feedback-bad{display:block;background:var(--bad-soft);color:var(--bad)}"
         "@media (max-width: 860px){.grid{grid-template-columns:1fr}.top,.session-row{flex-direction:column}.session-actions{width:100%}button.danger{width:100%}}"
         "</style></head><body><div class='shell'>"
+        f"{_authenticated_topbar_html(auth_session=auth_session, current_path='/settings')}"
         "<div class='top'>"
         "<div><span class='eyebrow'>Slack Mirror</span>"
         "<h1>Account settings</h1>"
-        f"<div class='meta'>Signed in as <strong>{escape(user_label)}</strong> · username <code>{escape(str(auth_session.username or ''))}</code></div></div>"
-        "<div style='display:flex;gap:10px;flex-wrap:wrap'>"
-        "<a class='btn secondary' href='/'>Home</a>"
-        "<a class='btn secondary' href='/runtime/reports'>Runtime reports</a>"
-        "<a class='btn' href='/logout'>Logout</a>"
-        "</div></div>"
+        "<div class='meta'>Review browser-auth policy, current-user sessions, and revocation controls from one place.</div></div>"
+        "</div>"
         "<div class='grid'>"
         "<div class='stack'>"
         "<section class='card'>"
@@ -648,13 +705,10 @@ def _runtime_reports_index_html(
         "function setReportFeedback(message,isError){reportFeedback.textContent=message;reportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
         "function setReportCreateError(message){if(!reportCreateError)return;if(message){reportCreateError.textContent=message;reportCreateError.hidden=false;return;}reportCreateError.textContent='';reportCreateError.hidden=true;}"
         f"{report_create_field_helper_js}"
-        "function escapeHtml(value){return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll(\"'\",'&#39;');}"
-        "function rememberButtonLabel(button){if(button&&button.dataset.labelDefault===undefined)button.dataset.labelDefault=button.textContent||'';}"
-        "function setButtonBusyLabel(button,isBusy,busyLabel){if(!button)return;rememberButtonLabel(button);button.textContent=isBusy?busyLabel:(button.dataset.labelDefault||button.textContent||'');}"
-        "function setInlineManagerBusyState(current,config,isBusy){for(const attr of [config.renameToggleAttr,config.renameCancelAttr,config.renameSaveAttr,config.deleteAttr]){for(const el of document.querySelectorAll(`[${attr}=\"${CSS.escape(current)}\"]`)){if('disabled' in el)el.disabled=isBusy;el.dataset.busy=isBusy?'true':'false';if(attr===config.renameSaveAttr)setButtonBusyLabel(el,isBusy,'saving…');if(attr===config.deleteAttr)setButtonBusyLabel(el,isBusy,'deleting…');}}const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.disabled=isBusy;}"
-        "function setInlineManagerRowError(current,config,message){const errorRow=document.getElementById(`${config.rowErrorPrefix}${current}`);if(!errorRow)return;if(message){errorRow.textContent=message;errorRow.hidden=false;return;}errorRow.textContent='';errorRow.hidden=true;}"
-        "function setInlineManagerRowOutcome(current,config,message,isError){const state=document.getElementById(`${config.rowStatePrefix}${current}`);if(!state)return;if(!message){state.textContent='';state.className='inline-state';return;}state.textContent=message;state.className=`inline-state show ${isError?'bad':'ok'}`;}"
-        "function bindInlineManagerActions(scope,config){for(const button of scope.querySelectorAll(`[${config.renameToggleAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameToggleAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=false;const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input){input.focus();input.select();}});}for(const button of scope.querySelectorAll(`[${config.renameCancelAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameCancelAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=true;const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.value=current;});}for(const button of scope.querySelectorAll(`[${config.renameSaveAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameSaveAttr);if(!current)return;const input=document.getElementById(`${config.renameInputPrefix}${current}`);const next=(input?.value||'').trim();if(!next||next===current){setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=true;return;}setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);setInlineManagerBusyState(current,config,true);try{const resp=await fetch(config.renamePath(current,next),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(config.renameBody(next))});if(resp.ok){config.applyRename(current,next);setInlineManagerRowOutcome(next,config,'saved',false);config.setFeedback(`Renamed ${config.itemLabel} ${current} to ${next}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));const message=data.error?.message||'Rename failed';setInlineManagerRowError(current,config,message);setInlineManagerRowOutcome(current,config,'error',true);config.setFeedback(message,true);}finally{setInlineManagerBusyState(current,config,false);}});}for(const button of scope.querySelectorAll(`[${config.deleteAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.deleteAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);if(!window.confirm(config.deleteConfirm(current)))return;setInlineManagerBusyState(current,config,true);try{const resp=await fetch(config.deletePath(current),{method:'DELETE'});if(resp.ok){config.removeRow(current);config.setFeedback(`Deleted ${config.itemLabel} ${current}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));const message=data.error?.message||'Delete failed';setInlineManagerRowError(current,config,message);setInlineManagerRowOutcome(current,config,'error',true);config.setFeedback(message,true);}finally{setInlineManagerBusyState(current,config,false);}});}}"
+        f"{_BROWSER_ESCAPE_HTML_JS}"
+        f"{_BROWSER_BUSY_LABEL_JS}"
+        f"{_BROWSER_FETCH_JSON_HELPERS_JS}"
+        f"{_INLINE_MANAGER_JS}"
         "function reportRowHtml(report,isLatest){const safeName=escapeHtml(report.name||'unknown');const htmlHref=isLatest?'/runtime/reports/latest':String(report.html_url||`/runtime/reports/${encodeURIComponent(report.name||'unknown')}`);const latestBadge=isLatest?\" <span class='badge'>latest</span>\":'';const rowClass=isLatest?\" class='latest-row'\":'';return `<tr${rowClass} id=\"report-row-${safeName}\" data-report-name=\"${safeName}\"><td data-report-col=\"name\"><a href=\"${escapeHtml(htmlHref)}\">${safeName}</a>${latestBadge}</td><td data-report-col=\"status\">${escapeHtml(report.status||'unknown')}</td><td data-report-col=\"summary\">${escapeHtml(report.summary||'')}</td><td data-report-col=\"fetched\"><code>${escapeHtml(report.fetched_at||'')}</code></td><td data-report-col=\"links\"><a href=\"${escapeHtml(report.markdown_url||'')}\">md</a> <a href=\"${escapeHtml(report.json_url||'')}\">json</a></td><td><button class=\"action-button\" data-report-rename-toggle=\"${safeName}\">rename</button> <button class=\"action-button danger\" data-report-delete=\"${safeName}\">delete</button><div class=\"rename-row\" id=\"rename-row-${safeName}\" hidden><input class=\"inline-input\" id=\"rename-input-${safeName}\" value=\"${safeName}\" aria-label=\"Rename ${safeName}\" /><button class=\"action-button\" data-report-rename-save=\"${safeName}\">save</button> <button class=\"action-button secondary\" data-report-rename-cancel=\"${safeName}\">cancel</button></div><div class=\"inline-state\" id=\"report-row-state-${safeName}\" aria-live=\"polite\"></div><div class=\"hint bad\" id=\"report-row-error-${safeName}\" hidden></div></td></tr>`;}"
         "function clearLatestReportRow(){const row=document.querySelector('#report-table-body .latest-row');if(!row)return;row.classList.remove('latest-row');const nameCell=row.querySelector('[data-report-col=\"name\"]');if(nameCell){const badge=nameCell.querySelector('.badge');if(badge)badge.remove();const link=nameCell.querySelector('a');const name=row.dataset.reportName||'';if(link&&name){link.setAttribute('href',`/runtime/reports/${encodeURIComponent(name)}`);}}}"
         "function ensureReportEmptyStateRow(){const tbody=document.getElementById('report-table-body');if(!tbody)return;const empty=document.getElementById('report-empty-row');if(empty)return;const row=document.createElement('tr');row.id='report-empty-row';row.innerHTML='<td colspan=\"6\">No managed runtime reports are available yet.</td>';tbody.append(row);}"
@@ -683,7 +737,7 @@ def _runtime_reports_index_html(
         "clearReportCreateFieldState();"
         "if(validationError){setReportCreateFieldState(validationError.field,true,validationError.message);setReportCreateError(validationError.message);setReportFeedback(validationError.message,true);focusReportCreateField(validationError.field);return;}"
         "setCreateReportBusyState(true);"
-        "try{const resp=await fetch('/v1/runtime/reports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,base_url:baseUrl,timeout})});if(resp.ok){const data=await resp.json().catch(()=>({report:null}));clearReportCreateFieldState();setReportCreateError('');if(data.report){insertCreatedReport(data.report);reportNameInput.value=timestampedReportName();setReportFeedback(`Created runtime report ${data.report.name}.`,false);return;}setReportFeedback('Created runtime report.',false);return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));const message=data.error?.message||'Create failed';setReportCreateError(message);setReportFeedback(message,true);}finally{setCreateReportBusyState(false);}"
+        "try{const {resp,data}=await fetchJsonResponse('/v1/runtime/reports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,base_url:baseUrl,timeout})});if(resp.ok){clearReportCreateFieldState();setReportCreateError('');if(data?.report){insertCreatedReport(data.report);reportNameInput.value=timestampedReportName();setReportFeedback(`Created runtime report ${data.report.name}.`,false);return;}setReportFeedback('Created runtime report.',false);return;}const message=responseErrorMessage(data,'Create failed');setReportCreateError(message);setReportFeedback(message,true);}finally{setCreateReportBusyState(false);}"
         "});"
         "function bindReportRowActions(scope){bindInlineManagerActions(scope,{renameToggleAttr:'data-report-rename-toggle',renameCancelAttr:'data-report-rename-cancel',renameSaveAttr:'data-report-rename-save',deleteAttr:'data-report-delete',renameInputPrefix:'rename-input-',renameRowPrefix:'rename-row-',rowStatePrefix:'report-row-state-',rowErrorPrefix:'report-row-error-',renamePath:(current)=>`/v1/runtime/reports/${encodeURIComponent(current)}/rename`,renameBody:(next)=>({name:next}),deletePath:(current)=>`/v1/runtime/reports/${encodeURIComponent(current)}`,deleteConfirm:(current)=>`Delete runtime report ${current}?`,applyRename:applyReportRename,removeRow:removeReportRow,setFeedback:setReportFeedback,itemLabel:'runtime report'});}"
         "function applyReportRename(current,next){const row=document.getElementById(`report-row-${current}`);if(!row)return;row.id=`report-row-${next}`;row.dataset.reportName=next;const nameCell=row.querySelector('[data-report-col=\"name\"]');if(nameCell){nameCell.innerHTML=`<a href=\"/runtime/reports/${encodeURIComponent(next)}\">${escapeHtml(next)}</a>`;}const linksCell=row.querySelector('[data-report-col=\"links\"]');if(linksCell){linksCell.innerHTML=`<a href=\"/runtime/reports/${encodeURIComponent(next)}.latest.md\">md</a> <a href=\"/runtime/reports/${encodeURIComponent(next)}.latest.json\">json</a>`;}for(const el of row.querySelectorAll('[data-report-rename-toggle]'))el.setAttribute('data-report-rename-toggle',next);for(const el of row.querySelectorAll('[data-report-rename-save]'))el.setAttribute('data-report-rename-save',next);for(const el of row.querySelectorAll('[data-report-rename-cancel]'))el.setAttribute('data-report-rename-cancel',next);for(const el of row.querySelectorAll('[data-report-delete]'))el.setAttribute('data-report-delete',next);const renameRow=document.getElementById(`rename-row-${current}`);if(renameRow){renameRow.id=`rename-row-${next}`;renameRow.hidden=true;}const renameInput=document.getElementById(`rename-input-${current}`);if(renameInput){renameInput.id=`rename-input-${next}`;renameInput.value=next;renameInput.setAttribute('aria-label',`Rename ${next}`);}const rowState=document.getElementById(`report-row-state-${current}`);if(rowState){rowState.id=`report-row-state-${next}`;rowState.className='inline-state';rowState.textContent='';}const rowError=document.getElementById(`report-row-error-${current}`);if(rowError){rowError.id=`report-row-error-${next}`;rowError.hidden=true;rowError.textContent='';}}"
@@ -818,18 +872,15 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "function setExportFeedback(message,isError){exportFeedback.textContent=message;exportFeedback.className=`feedback show ${isError?'bad':'ok'}`;}"
         "function setExportCreateError(message){if(!exportCreateError)return;if(message){exportCreateError.textContent=message;exportCreateError.hidden=false;return;}exportCreateError.textContent='';exportCreateError.hidden=true;}"
         f"{export_create_field_helper_js}"
-        "function rememberButtonLabel(button){if(button&&button.dataset.labelDefault===undefined)button.dataset.labelDefault=button.textContent||'';}"
-        "function setButtonBusyLabel(button,isBusy,busyLabel){if(!button)return;rememberButtonLabel(button);button.textContent=isBusy?busyLabel:(button.dataset.labelDefault||button.textContent||'');}"
-        "function setInlineManagerBusyState(current,config,isBusy){for(const attr of [config.renameToggleAttr,config.renameCancelAttr,config.renameSaveAttr,config.deleteAttr]){for(const el of document.querySelectorAll(`[${attr}=\"${CSS.escape(current)}\"]`)){if('disabled' in el)el.disabled=isBusy;el.dataset.busy=isBusy?'true':'false';if(attr===config.renameSaveAttr)setButtonBusyLabel(el,isBusy,'saving…');if(attr===config.deleteAttr)setButtonBusyLabel(el,isBusy,'deleting…');}}const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.disabled=isBusy;}"
-        "function setInlineManagerRowError(current,config,message){const errorRow=document.getElementById(`${config.rowErrorPrefix}${current}`);if(!errorRow)return;if(message){errorRow.textContent=message;errorRow.hidden=false;return;}errorRow.textContent='';errorRow.hidden=true;}"
-        "function setInlineManagerRowOutcome(current,config,message,isError){const state=document.getElementById(`${config.rowStatePrefix}${current}`);if(!state)return;if(!message){state.textContent='';state.className='inline-state';return;}state.textContent=message;state.className=`inline-state show ${isError?'bad':'ok'}`;}"
-        "function bindInlineManagerActions(scope,config){for(const button of scope.querySelectorAll(`[${config.renameToggleAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameToggleAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=false;const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input){input.focus();input.select();}});}for(const button of scope.querySelectorAll(`[${config.renameCancelAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameCancelAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=true;const input=document.getElementById(`${config.renameInputPrefix}${current}`);if(input)input.value=current;});}for(const button of scope.querySelectorAll(`[${config.renameSaveAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.renameSaveAttr);if(!current)return;const input=document.getElementById(`${config.renameInputPrefix}${current}`);const next=(input?.value||'').trim();if(!next||next===current){setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);const row=document.getElementById(`${config.renameRowPrefix}${current}`);if(row)row.hidden=true;return;}setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);setInlineManagerBusyState(current,config,true);try{const resp=await fetch(config.renamePath(current,next),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(config.renameBody(next))});if(resp.ok){config.applyRename(current,next);setInlineManagerRowOutcome(next,config,'saved',false);config.setFeedback(`Renamed ${config.itemLabel} ${current} to ${next}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Rename failed'}}));const message=data.error?.message||'Rename failed';setInlineManagerRowError(current,config,message);setInlineManagerRowOutcome(current,config,'error',true);config.setFeedback(message,true);}finally{setInlineManagerBusyState(current,config,false);}});}for(const button of scope.querySelectorAll(`[${config.deleteAttr}]`)){if(button.dataset.bound==='true')continue;button.dataset.bound='true';button.addEventListener('click',async()=>{if(button.dataset.busy==='true')return;const current=button.getAttribute(config.deleteAttr);if(!current)return;setInlineManagerRowError(current,config,'');setInlineManagerRowOutcome(current,config,'',false);if(!window.confirm(config.deleteConfirm(current)))return;setInlineManagerBusyState(current,config,true);try{const resp=await fetch(config.deletePath(current),{method:'DELETE'});if(resp.ok){config.removeRow(current);config.setFeedback(`Deleted ${config.itemLabel} ${current}.`,false);return;}const data=await resp.json().catch(()=>({error:{message:'Delete failed'}}));const message=data.error?.message||'Delete failed';setInlineManagerRowError(current,config,message);setInlineManagerRowOutcome(current,config,'error',true);config.setFeedback(message,true);}finally{setInlineManagerBusyState(current,config,false);}});}}"
+        f"{_BROWSER_BUSY_LABEL_JS}"
+        f"{_BROWSER_FETCH_JSON_HELPERS_JS}"
+        f"{_INLINE_MANAGER_JS}"
         "function channelSearchText(item){return [item.name,item.channel_id,item.channel_class,item.latest_message_day].filter(Boolean).join(' ').toLowerCase();}"
         "function updateChannelSelectionMeta(){const selected=workspaceChannels.find((item)=>item.name===channelSelect.value);if(!selected){channelMeta.textContent='Choose a valid mirrored channel for export creation.';return;}channelMeta.textContent=`${selected.channel_class} · ${selected.message_count} messages mirrored${selected.latest_message_day?` · latest day ${selected.latest_message_day}`:''}`;if(selected.latest_message_day){dayInput.value=selected.latest_message_day;}}"
-        "function escapeHtml(value){return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('\"','&quot;').replaceAll(\"'\",'&#39;');}"
+        f"{_BROWSER_ESCAPE_HTML_JS}"
         "function renderChannelOptions(){const filter=(channelFilterInput.value||'').trim().toLowerCase();const filtered=workspaceChannels.filter((item)=>!filter||channelSearchText(item).includes(filter));const previous=channelSelect.value;channelSelect.innerHTML='';if(!workspaceChannels.length){channelSelect.disabled=true;channelFilterInput.disabled=true;channelSelect.innerHTML='<option value=\"\">No mirrored channels available</option>';channelMeta.textContent='No mirrored channels were found for this workspace.';channelFilterMeta.textContent='No channel choices are available for filtering.';return;}channelFilterInput.disabled=false;if(!filtered.length){channelSelect.disabled=true;channelSelect.innerHTML='<option value=\"\">No channels match this filter</option>';channelMeta.textContent='Adjust the channel filter to see valid choices.';channelFilterMeta.textContent=`0 of ${workspaceChannels.length} mirrored channels match.`;return;}channelSelect.disabled=false;channelSelect.innerHTML='<option value=\"\">Choose a channel…</option>'+filtered.map((item)=>`<option value=\"${item.name}\">${item.name} · ${item.channel_class} · ${item.message_count} msgs</option>`).join('');channelFilterMeta.textContent=`${filtered.length} of ${workspaceChannels.length} mirrored channels match.`;if(filtered.some((item)=>item.name===previous)){channelSelect.value=previous;}channelMeta.textContent='Choose a valid mirrored channel for export creation.';if(channelSelect.value){updateChannelSelectionMeta();}}"
-        "async function loadChannels(workspace){channelSelect.disabled=true;channelFilterInput.disabled=true;channelFilterInput.value='';channelSelect.innerHTML='<option value=\"\">Loading channels…</option>';channelMeta.textContent='Loading mirrored channels…';channelFilterMeta.textContent='Loading valid channel choices…';const resp=await fetch(`/v1/workspaces/${encodeURIComponent(workspace)}/channels`);if(!resp.ok){const data=await resp.json().catch(()=>({error:{message:'Failed to load channels'}}));setExportFeedback(data.error?.message||'Failed to load channels',true);workspaceChannels=[];renderChannelOptions();return;}const data=await resp.json();workspaceChannels=data.channels||[];renderChannelOptions();}"
-        "async function loadWorkspaces(){const resp=await fetch('/v1/workspaces');if(!resp.ok){const data=await resp.json().catch(()=>({error:{message:'Failed to load workspaces'}}));setExportFeedback(data.error?.message||'Failed to load workspaces',true);workspaceSelect.innerHTML='<option value=\"\">Unable to load workspaces</option>';return;}const data=await resp.json();const workspaces=data.workspaces||[];workspaceSelect.innerHTML='<option value=\"\">Choose a workspace…</option>'+workspaces.map((item)=>`<option value=\"${item.name}\">${item.name}</option>`).join('');if(workspaces.length){workspaceSelect.value=workspaces[0].name;await loadChannels(workspaces[0].name);}}"
+        "async function loadChannels(workspace){channelSelect.disabled=true;channelFilterInput.disabled=true;channelFilterInput.value='';channelSelect.innerHTML='<option value=\"\">Loading channels…</option>';channelMeta.textContent='Loading mirrored channels…';channelFilterMeta.textContent='Loading valid channel choices…';const {resp,data}=await fetchJsonResponse(`/v1/workspaces/${encodeURIComponent(workspace)}/channels`);if(!resp.ok){setExportFeedback(responseErrorMessage(data,'Failed to load channels'),true);workspaceChannels=[];renderChannelOptions();return;}workspaceChannels=data?.channels||[];renderChannelOptions();}"
+        "async function loadWorkspaces(){const {resp,data}=await fetchJsonResponse('/v1/workspaces');if(!resp.ok){setExportFeedback(responseErrorMessage(data,'Failed to load workspaces'),true);workspaceSelect.innerHTML='<option value=\"\">Unable to load workspaces</option>';return;}const workspaces=data?.workspaces||[];workspaceSelect.innerHTML='<option value=\"\">Choose a workspace…</option>'+workspaces.map((item)=>`<option value=\"${item.name}\">${item.name}</option>`).join('');if(workspaces.length){workspaceSelect.value=workspaces[0].name;await loadChannels(workspaces[0].name);}}"
         "workspaceSelect.addEventListener('change',async()=>{const workspace=workspaceSelect.value.trim();dayInput.value='';if(!workspace){workspaceChannels=[];channelFilterInput.value='';renderChannelOptions();return;}await loadChannels(workspace);});"
         "channelFilterInput.addEventListener('input',()=>{renderChannelOptions();});"
         "channelSelect.addEventListener('change',()=>{updateChannelSelectionMeta();});"
@@ -855,7 +906,7 @@ def _exports_index_html(exports: list[dict[str, Any]]) -> str:
         "clearExportCreateFieldState();"
         "if(validationError){setExportCreateFieldState(validationError.field,true,validationError.message);setExportCreateError(validationError.message);setExportFeedback(validationError.message,true);focusExportCreateField(validationError.field);return;}"
         "setCreateExportBusyState(true);"
-        "try{const resp=await fetch('/v1/exports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});if(resp.ok){const data=await resp.json().catch(()=>({export:null}));clearExportCreateFieldState();setExportCreateError('');if(data.export){insertCreatedExport(data.export);document.getElementById('export-id').value='';setExportFeedback(`Created export ${data.export.export_id}.`,false);return;}setExportFeedback('Created export.',false);return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));const message=data.error?.message||'Create failed';setExportCreateError(message);setExportFeedback(message,true);}finally{setCreateExportBusyState(false);}"
+        "try{const {resp,data}=await fetchJsonResponse('/v1/exports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});if(resp.ok){clearExportCreateFieldState();setExportCreateError('');if(data?.export){insertCreatedExport(data.export);document.getElementById('export-id').value='';setExportFeedback(`Created export ${data.export.export_id}.`,false);return;}setExportFeedback('Created export.',false);return;}const message=responseErrorMessage(data,'Create failed');setExportCreateError(message);setExportFeedback(message,true);}finally{setCreateExportBusyState(false);}"
         "});"
         "function bindExportRowActions(scope){bindInlineManagerActions(scope,{renameToggleAttr:'data-export-rename-toggle',renameCancelAttr:'data-export-rename-cancel',renameSaveAttr:'data-export-rename-save',deleteAttr:'data-export-delete',renameInputPrefix:'export-rename-input-',renameRowPrefix:'export-rename-row-',rowStatePrefix:'export-row-state-',rowErrorPrefix:'export-row-error-',renamePath:(current)=>`/v1/exports/${encodeURIComponent(current)}/rename`,renameBody:(next)=>({export_id:next,audience:'local'}),deletePath:(current)=>`/v1/exports/${encodeURIComponent(current)}`,deleteConfirm:(current)=>`Delete export ${current}?`,applyRename:applyExportRename,removeRow:removeExportRow,setFeedback:setExportFeedback,itemLabel:'export'});}"
         "function applyExportRename(current,next){const row=document.getElementById(`export-row-${current}`);if(!row)return;row.id=`export-row-${next}`;row.dataset.exportId=next;const nameCell=row.querySelector('[data-export-col=\"name\"]');if(nameCell){nameCell.innerHTML=`<a href=\"/exports/${encodeURIComponent(next)}\">${escapeHtml(next)}</a>`;}const manifestCell=row.querySelector('[data-export-col=\"manifest\"]');if(manifestCell){manifestCell.innerHTML=`<a href=\"/v1/exports/${encodeURIComponent(next)}\">manifest</a>`;}for(const el of row.querySelectorAll('[data-export-rename-toggle]'))el.setAttribute('data-export-rename-toggle',next);for(const el of row.querySelectorAll('[data-export-rename-save]'))el.setAttribute('data-export-rename-save',next);for(const el of row.querySelectorAll('[data-export-rename-cancel]'))el.setAttribute('data-export-rename-cancel',next);for(const el of row.querySelectorAll('[data-export-delete]'))el.setAttribute('data-export-delete',next);const renameRow=document.getElementById(`export-rename-row-${current}`);if(renameRow){renameRow.id=`export-rename-row-${next}`;renameRow.hidden=true;}const renameInput=document.getElementById(`export-rename-input-${current}`);if(renameInput){renameInput.id=`export-rename-input-${next}`;renameInput.value=next;renameInput.setAttribute('aria-label',`Rename ${next}`);}const rowState=document.getElementById(`export-row-state-${current}`);if(rowState){rowState.id=`export-row-state-${next}`;rowState.className='inline-state';rowState.textContent='';}const rowError=document.getElementById(`export-row-error-${current}`);if(rowError){rowError.id=`export-row-error-${next}`;rowError.hidden=true;rowError.textContent='';}}"
@@ -881,8 +932,6 @@ def _landing_page_html(
     services_active = sum(1 for state in services.values() if state == "active")
     warnings = sum(int(item.get("warnings", 0) or 0) for item in reconcile_workspaces)
     failures = sum(int(item.get("failed", 0) or 0) for item in reconcile_workspaces)
-    user_label = auth_session.display_name or auth_session.username or "Authenticated user"
-
     def code(text: Any) -> str:
         return f"<code>{escape(str(text))}</code>"
 
@@ -954,6 +1003,8 @@ def _landing_page_html(
         [
             f"<li class='list-row compact'><a href=\"/v1/runtime/status\">{code('/v1/runtime/status')}</a></li>",
             f"<li class='list-row compact'><a href=\"/v1/runtime/reports/latest\">{code('/v1/runtime/reports/latest')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/search\">{code('/search')}</a></li>",
+            f"<li class='list-row compact'><a href=\"/v1/search/corpus\">{code('/v1/search/corpus')}</a></li>",
             f"<li class='list-row compact'><a href=\"/exports\">{code('/exports')}</a></li>",
             f"<li class='list-row compact'><a href=\"/v1/exports\">{code('/v1/exports')}</a></li>",
             f"<li class='list-row compact'><a href=\"/auth/session\">{code('/auth/session')}</a></li>",
@@ -969,6 +1020,7 @@ def _landing_page_html(
         "<style>"
         ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--accent-soft:#dfeafe;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--bad:#a12828;--bad-soft:#fde5e5;--shadow:0 14px 30px rgba(18,32,51,.08);}"
         "*{box-sizing:border-box} body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:radial-gradient(circle at top right,#fff8ef 0,transparent 28%),linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        f"{_authenticated_topbar_css()}"
         "a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}"
         ".shell{max-width:1180px;margin:0 auto;padding:32px 20px 48px}"
         ".hero{display:grid;grid-template-columns:2.2fr 1fr;gap:18px;margin-bottom:18px}"
@@ -1002,19 +1054,16 @@ def _landing_page_html(
         "@media (max-width: 900px){.hero,.grid{grid-template-columns:1fr}.mini-grid,.service-list{grid-template-columns:1fr 1fr}}"
         "@media (max-width: 640px){.shell{padding:20px 14px 32px}h1{font-size:32px}.mini-grid,.service-list{grid-template-columns:1fr}}"
         "</style></head><body><div class='shell'>"
+        f"{_authenticated_topbar_html(auth_session=auth_session, current_path='/')}"
         "<div class='hero'>"
         "<section class='card hero-card'>"
         "<span class='eyebrow'>Slack Mirror</span>"
         "<h1>Authenticated workspace home</h1>"
-        f"<p class='lede'>Signed in as <strong>{escape(user_label)}</strong>. Use this page as the browser entrypoint for runtime health, the freshest ops snapshot, and recent managed exports.</p>"
+        "<p class='lede'>Use this page as the browser entrypoint for runtime health, the freshest ops snapshot, and recent managed exports.</p>"
         f"<div class='status-line'>{''.join(health_badges)}</div>"
         "<div class='hero-actions'>"
         "<a class='btn' href='/runtime/reports/latest'>Latest runtime snapshot</a>"
-        "<a class='btn secondary' href='/runtime/reports'>Runtime reports</a>"
-        "<a class='btn secondary' href='/settings'>Settings</a>"
-        "<a class='btn secondary' href='/exports'>Exports</a>"
         "<a class='btn secondary' href='/v1/exports'>Export manifest API</a>"
-        "<a class='btn secondary' href='/logout'>Logout</a>"
         "</div>"
         "<div class='mini-grid'>"
         f"<div class='metric'><span class='label'>Managed Services</span><span class='value'>{services_active}</span><div class='meta'>{len(services)} tracked service states</div></div>"
@@ -1044,6 +1093,147 @@ def _landing_page_html(
         "<section class='card'><div class='section-title'><h2>Useful endpoints</h2></div>"
         f"<ul>{endpoint_rows}</ul></section>"
         "</div></div></div></body></html>"
+    )
+
+
+def _search_page_html(
+    *,
+    auth_session: FrontendAuthSession,
+    workspace_names: list[str],
+    initial_query: str,
+    initial_scope: str,
+    initial_workspace: str,
+    initial_mode: str,
+    initial_limit: int,
+    initial_offset: int,
+    initial_kind: str,
+    initial_source_kind: str,
+) -> str:
+    options = "".join(
+        f"<option value=\"{escape(name, quote=True)}\"{' selected' if name == initial_workspace else ''}>{escape(name)}</option>"
+        for name in workspace_names
+    )
+    initial_state = json.dumps(
+        {
+            "query": initial_query,
+            "scope": initial_scope,
+            "workspace": initial_workspace,
+            "mode": initial_mode,
+            "limit": initial_limit,
+            "offset": initial_offset,
+            "kind": initial_kind,
+            "source_kind": initial_source_kind,
+        }
+    ).replace("</", "<\\/")
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror Search</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--accent-soft:#dfeafe;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--bad:#a12828;--bad-soft:#fde5e5;--shadow:0 14px 30px rgba(18,32,51,.08);}"
+        "*{box-sizing:border-box} body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:radial-gradient(circle at top right,#fff8ef 0,transparent 28%),linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        f"{_authenticated_topbar_css()}"
+        "a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}"
+        ".shell{max-width:1180px;margin:0 auto;padding:32px 20px 48px}.stack{display:grid;gap:18px}"
+        ".card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}"
+        ".section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}"
+        ".section-title h1,.section-title h2{margin:0}.section-title h1{font-size:34px;line-height:1.05}.section-title h2{font-size:20px}"
+        ".lede{margin:0;color:var(--muted);font-size:15px;line-height:1.55;max-width:60rem}.meta{color:var(--muted);font-size:13px;line-height:1.45}"
+        ".top-links,.hero-actions{display:flex;flex-wrap:wrap;gap:10px}.top-links{margin-top:16px}.hero-actions{margin-top:18px}"
+        ".btn{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700}"
+        ".btn.secondary{background:#f8f5ef;border-color:var(--line);color:var(--ink)}"
+        ".form-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:14px}.filters-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:14px;margin-top:14px}"
+        "label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}input,select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid #c8beb0;background:#fff;color:var(--ink)}"
+        "input:focus,select:focus{outline:2px solid #8ab4ff;outline-offset:2px}.hint{margin-top:6px;color:var(--muted);font-size:12px}.hint.bad{color:var(--bad)}"
+        ".toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}.summary{color:var(--muted);font-size:13px}"
+        ".results{display:grid;gap:12px;margin-top:14px}.result-card{padding:16px;border:1px solid #e4ddd1;border-radius:18px;background:#fcfaf6}.result-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;margin-bottom:10px}"
+        ".result-title{font-size:16px;font-weight:800;line-height:1.3}.result-meta{display:flex;flex-wrap:wrap;gap:6px}.badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1}"
+        ".badge-neutral{background:#ece7dc;color:#514739}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}"
+        ".snippet{white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.5;margin:0}.empty{padding:18px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
+        ".detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 0}.detail-item{padding:10px 12px;border-radius:14px;background:#f8f3eb;border:1px solid #e2d8ca}.detail-item .label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}"
+        ".action-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.action-link{display:inline-flex;align-items:center;padding:8px 10px;border-radius:12px;border:1px solid #d4c7b6;background:#fff9f1;color:var(--ink);font-size:13px;font-weight:700}"
+        ".pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid #e2d8ca}.pager-actions{display:flex;flex-wrap:wrap;gap:10px}"
+        ".readiness{margin-top:14px;padding:14px;border-radius:16px;border:1px solid #e2d8ca;background:#f8f4ec}.readiness.hidden{display:none}.readiness-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:10px}"
+        ".readiness-metric{padding:12px;border-radius:14px;background:#fffdf9;border:1px solid #e2d8ca}.readiness-metric strong{display:block;font-size:22px;line-height:1.1}"
+        "code{background:#efe7da;border:1px solid #dfd3c2;padding:2px 6px;border-radius:8px;font-size:12px}"
+        "@media (max-width: 900px){.form-grid,.filters-grid,.readiness-grid,.detail-grid{grid-template-columns:1fr 1fr}}"
+        "@media (max-width: 640px){.shell{padding:20px 14px 32px}.section-title h1{font-size:28px}.form-grid,.filters-grid,.readiness-grid,.detail-grid{grid-template-columns:1fr}}"
+        "</style></head><body><div class='shell stack'>"
+        f"{_authenticated_topbar_html(auth_session=auth_session, current_path='/search')}"
+        "<section class='card'>"
+        "<div class='section-title'><h1>Search mirrored messages and derived text</h1></div>"
+        "<p class='lede'>This browser surface stays thin over the existing corpus-search and readiness APIs, so operators can search without hand-calling JSON routes.</p>"
+        "</section>"
+        "<section class='card'>"
+        "<div class='section-title'><h2>Search query</h2><a id='search-api-link' href='/v1/search/corpus'>JSON API</a></div>"
+        "<form id='search-form'>"
+        "<div class='form-grid'>"
+        f"<div><label for='search-query'>Query</label><input id='search-query' name='query' value=\"{escape(initial_query, quote=True)}\" placeholder='incident review' /><div class='hint' id='search-query-help'>Searches messages plus derived attachment or OCR text from the mirrored corpus.</div></div>"
+        "<div><label for='search-scope'>Scope</label><select id='search-scope' name='scope'><option value='workspace'>Selected workspace</option><option value='all'>All workspaces</option></select><div class='hint'>Use all-workspace scope sparingly for broader operator discovery.</div></div>"
+        f"<div><label for='search-workspace'>Workspace</label><select id='search-workspace' name='workspace'><option value=''>Choose a workspace…</option>{options}</select><div class='hint' id='search-workspace-help'>Choose one of the mirrored workspaces available in this install.</div></div>"
+        "<div><label for='search-limit'>Limit</label><select id='search-limit' name='limit'><option value='10'>10</option><option value='20'>20</option><option value='50'>50</option></select><div class='hint'>Bound large result sets in the browser for now.</div></div>"
+        "</div>"
+        "<div class='filters-grid'>"
+        "<div><label for='search-mode'>Mode</label><select id='search-mode' name='mode'><option value='hybrid'>Hybrid</option><option value='lexical'>Lexical</option><option value='semantic'>Semantic</option></select><div class='hint'>Hybrid is the default shipped retrieval mode.</div></div>"
+        "<div><label for='search-kind'>Derived text kind</label><select id='search-kind' name='kind'><option value=''>Any</option><option value='attachment_text'>Attachment text</option><option value='ocr_text'>OCR text</option></select><div class='hint'>Optional filter for non-message corpus rows.</div></div>"
+        "<div><label for='search-source-kind'>Source kind</label><select id='search-source-kind' name='source_kind'><option value=''>Any</option><option value='file'>File</option><option value='canvas'>Canvas</option></select><div class='hint'>Optional filter for file vs canvas sources.</div></div>"
+        "</div>"
+        "<div class='toolbar'><div class='summary'>Browser route: <code>/search</code> · API routes: <code>/v1/workspaces/&lt;workspace&gt;/search/corpus</code> and <code>/v1/search/corpus</code></div><button class='btn' id='search-run-button' type='submit'>Search</button></div>"
+        "<div class='hint bad' id='search-form-error' hidden></div>"
+        "</form>"
+        "<div class='readiness hidden' id='search-readiness-panel' aria-live='polite'></div>"
+        "</section>"
+        "<section class='card'>"
+        "<div class='section-title'><h2>Results</h2><div class='meta' id='search-results-meta'>Enter a query to search mirrored messages and derived text.</div></div>"
+        "<div class='results' id='search-results-list'><div class='empty'>Enter a query to search mirrored messages and derived text.</div></div>"
+        "<div class='pager'><div class='meta' id='search-page-meta'>Page navigation appears after the first search.</div><div class='pager-actions'><button class='btn secondary' id='search-prev-button' type='button' disabled>Previous</button><button class='btn secondary' id='search-next-button' type='button' disabled>Next</button></div></div>"
+        "</section>"
+        f"<script>const initialSearchState={initial_state};"
+        "const queryInput=document.getElementById('search-query');"
+        "const scopeSelect=document.getElementById('search-scope');"
+        "const workspaceSelect=document.getElementById('search-workspace');"
+        "const modeSelect=document.getElementById('search-mode');"
+        "const limitSelect=document.getElementById('search-limit');"
+        "const kindSelect=document.getElementById('search-kind');"
+        "const sourceKindSelect=document.getElementById('search-source-kind');"
+        "const searchButton=document.getElementById('search-run-button');"
+        "const searchError=document.getElementById('search-form-error');"
+        "const searchResultsMeta=document.getElementById('search-results-meta');"
+        "const searchResultsList=document.getElementById('search-results-list');"
+        "const searchApiLink=document.getElementById('search-api-link');"
+        "const readinessPanel=document.getElementById('search-readiness-panel');"
+        "const searchPageMeta=document.getElementById('search-page-meta');"
+        "const searchPrevButton=document.getElementById('search-prev-button');"
+        "const searchNextButton=document.getElementById('search-next-button');"
+        f"{_BROWSER_ESCAPE_HTML_JS}"
+        f"{_BROWSER_BUSY_LABEL_JS}"
+        f"{_BROWSER_FETCH_JSON_HELPERS_JS}"
+        "function setSearchBusyState(isBusy){queryInput.disabled=isBusy;scopeSelect.disabled=isBusy;workspaceSelect.disabled=isBusy||scopeSelect.value==='all';modeSelect.disabled=isBusy;limitSelect.disabled=isBusy;kindSelect.disabled=isBusy;sourceKindSelect.disabled=isBusy;searchButton.disabled=isBusy;searchPrevButton.disabled=isBusy||searchPrevButton.disabled;searchNextButton.disabled=isBusy||searchNextButton.disabled;setButtonBusyLabel(searchButton,isBusy,'searching…');}"
+        "function setSearchError(message){if(message){searchError.textContent=message;searchError.hidden=false;return;}searchError.textContent='';searchError.hidden=true;}"
+        "function updateWorkspaceState(){workspaceSelect.disabled=scopeSelect.value==='all'||searchButton.disabled;}"
+        "function resultScoreLabel(item){if(item._source==='hybrid'&&item._hybrid_score!==undefined)return `hybrid ${Number(item._hybrid_score).toFixed(2)}`;if(item._semantic_score!==undefined&&item._source==='semantic')return `semantic ${Number(item._semantic_score).toFixed(2)}`;if(item._score!==undefined)return `lexical ${Number(item._score).toFixed(2)}`;return item._source||'';}"
+        "function resultTitle(item){if(item.result_kind==='message')return item.source_label||item.channel_name||item.channel_id||'Message hit';return item.source_label||item.source_kind||'Derived text hit';}"
+        "function resultSnippet(item){const text=item.snippet_text||item.text||'';return String(text).slice(0,1200);}"
+        "function buildSearchHref(state,overrides){const next={...state,...overrides};const params=stateToSearchParams(next);return params.toString()?`/search?${params.toString()}`:'/search';}"
+        "function appendQueryTerm(base,term){const trimmed=(base||'').trim();const extra=(term||'').trim();if(!extra)return trimmed;if(!trimmed)return extra;return `${trimmed} ${extra}`;}"
+        "function detailItem(label,value){if(value===undefined||value===null||value==='')return'';return `<div class=\"detail-item\"><span class=\"label\">${escapeHtml(label)}</span><div><code>${escapeHtml(value)}</code></div></div>`;}"
+        "function resultActions(item,state){const links=[];const workspace=item.workspace||state.workspace||'';if(workspace&&state.scope==='all'){links.push(`<a class=\"action-link\" href=\"${buildSearchHref({...state,scope:'workspace',workspace,offset:0}, {})}\">workspace scope</a>`);}if(item.result_kind==='message'){const channelRef=item.channel_name||item.channel_id||'';if(workspace&&item.channel_id&&item.ts){links.push(`<a class=\"action-link\" href=\"/v1/workspaces/${encodeURIComponent(workspace)}/messages/${encodeURIComponent(item.channel_id)}/${encodeURIComponent(item.ts)}\" target=\"_blank\" rel=\"noopener\">message JSON</a>`);}if(workspace&&channelRef){links.push(`<a class=\"action-link\" href=\"${buildSearchHref({...state,scope:'workspace',workspace,offset:0},{query:appendQueryTerm(state.query,`in:${channelRef}`)})}\">channel scope</a>`);}if(item.thread_ts&&workspace&&channelRef){links.push(`<a class=\"action-link\" href=\"${buildSearchHref({...state,scope:'workspace',workspace,offset:0},{query:appendQueryTerm(state.query,`in:${channelRef} is:thread`)})}\">thread context</a>`);}}else{if(workspace&&item.source_kind&&item.source_id&&item.derivation_kind){const params=new URLSearchParams({kind:String(item.derivation_kind||'')});if(item.extractor)params.set('extractor',String(item.extractor));links.push(`<a class=\"action-link\" href=\"/v1/workspaces/${encodeURIComponent(workspace)}/derived-text/${encodeURIComponent(item.source_kind)}/${encodeURIComponent(item.source_id)}?${params.toString()}\" target=\"_blank\" rel=\"noopener\">derived text JSON</a>`);}if(workspace&&item.derivation_kind){links.push(`<a class=\"action-link\" href=\"${buildSearchHref({...state,scope:'workspace',workspace,offset:0},{kind:item.derivation_kind})}\">same kind</a>`);}if(workspace&&item.source_kind){links.push(`<a class=\"action-link\" href=\"${buildSearchHref({...state,scope:'workspace',workspace,offset:0},{source_kind:item.source_kind})}\">same source kind</a>`);}}return links.join('');}"
+        "function renderEmpty(message){searchResultsMeta.textContent=message;searchResultsList.innerHTML=`<div class='empty'>${escapeHtml(message)}</div>`;}"
+        "function updatePager(state,resultCount,totalCount){const limit=Math.max(1,Number(state.limit||20));const offset=Math.max(0,Number(state.offset||0));const total=Math.max(0,Number(totalCount||0));if(!state.query){searchPageMeta.textContent='No paged results yet.';searchPrevButton.disabled=true;searchNextButton.disabled=true;searchPrevButton.dataset.nextOffset='0';searchNextButton.dataset.nextOffset=String(offset+limit);return;}if(!resultCount&&!total){searchPageMeta.textContent=`No results · offset ${offset} · limit ${limit}`;searchPrevButton.disabled=offset<=0;searchNextButton.disabled=true;searchPrevButton.dataset.nextOffset=String(Math.max(0,offset-limit));searchNextButton.dataset.nextOffset=String(offset+limit);return;}const page=Math.floor(offset/limit)+1;const pageCount=Math.max(1,Math.ceil(total/limit));const start=total?offset+1:0;const end=Math.min(offset+resultCount,total||offset+resultCount);searchPageMeta.textContent=`Page ${page} of ${pageCount} · results ${start}-${end} of ${total}`;searchPrevButton.disabled=offset<=0;searchNextButton.disabled=(offset+resultCount)>=total;searchPrevButton.dataset.nextOffset=String(Math.max(0,offset-limit));searchNextButton.dataset.nextOffset=String(offset+limit);}"
+        "function renderResults(results,state){if(!results.length){renderEmpty(`No results for “${state.query}”.`);return;}searchResultsMeta.textContent=`${results.length} result(s) · ${state.scope==='all'?'all workspaces':state.workspace||'selected workspace'} · ${state.mode}`;searchResultsList.innerHTML=results.map((item)=>{const workspace=item.workspace?`<code>${escapeHtml(item.workspace)}</code>`:'';const source=item._source?`<span class='badge badge-ok'>${escapeHtml(item._source)}</span>`:'';const kind=`<span class='badge badge-neutral'>${escapeHtml(item.result_kind||'result')}</span>`;const score=resultScoreLabel(item);const scoreHtml=score?`<span class='badge badge-warn'>${escapeHtml(score)}</span>`:'';const sourceKind=item.source_kind?`<code>${escapeHtml(item.source_kind)}</code>`:'';const derivedKind=item.derivation_kind?`<code>${escapeHtml(item.derivation_kind)}</code>`:'';const timestamp=item.ts||item.updated_at||item.sort_ts||'';const snippet=escapeHtml(resultSnippet(item)||'');const details=item.result_kind==='message'?[detailItem('channel',item.channel_name||item.channel_id||''),detailItem('timestamp',item.ts||''),detailItem('user',item.user_id||''),detailItem('thread',item.thread_ts||'')].join(''):[detailItem('source id',item.source_id||''),detailItem('updated',item.updated_at||''),detailItem('extractor',item.extractor||''),detailItem('local path',item.local_path||'')].join('');const actions=resultActions(item,state);return `<article class=\"result-card\"><div class=\"result-top\"><div><div class=\"result-title\">${escapeHtml(resultTitle(item))}</div><div class=\"result-meta\">${kind}${source}${scoreHtml}${workspace}${sourceKind}${derivedKind}</div></div><div class=\"meta\">${escapeHtml(timestamp)}</div></div><p class=\"snippet\">${snippet||'No snippet available.'}</p>${details?`<div class=\"detail-grid\">${details}</div>`:''}${actions?`<div class=\"action-row\">${actions}</div>`:''}</article>`;}).join('');}"
+        "function renderReadiness(payload,workspace){if(!payload){readinessPanel.classList.add('hidden');readinessPanel.innerHTML='';return;}const messages=payload.messages||{};const embeddings=messages.embeddings||{};const derived=payload.derived_text||{};const attachment=derived.attachment_text||{};const ocr=derived.ocr_text||{};readinessPanel.classList.remove('hidden');readinessPanel.innerHTML=`<div><strong>Workspace readiness</strong> <code>${escapeHtml(workspace)}</code> <span class=\"badge ${payload.status==='ready'?'badge-ok':'badge-warn'}\">${escapeHtml(payload.status||'unknown')}</span></div><div class=\"meta\">Use this to distinguish weak results from a corpus that is still catching up on embeddings or derived text.</div><div class=\"readiness-grid\"><div class=\"readiness-metric\"><span class=\"meta\">Messages</span><strong>${Number(messages.count||0)}</strong><div class=\"meta\">embeddings ${Number(embeddings.count||0)} · pending ${Number(embeddings.pending||0)} · errors ${Number(embeddings.errors||0)}</div></div><div class=\"readiness-metric\"><span class=\"meta\">Attachment text</span><strong>${Number(attachment.count||0)}</strong><div class=\"meta\">pending ${Number(attachment.pending||0)} · errors ${Number(attachment.errors||0)}</div></div><div class=\"readiness-metric\"><span class=\"meta\">OCR text</span><strong>${Number(ocr.count||0)}</strong><div class=\"meta\">pending ${Number(ocr.pending||0)} · errors ${Number(ocr.errors||0)}</div></div></div>`;}"
+        "function currentState(){return {query:queryInput.value.trim(),scope:scopeSelect.value,workspace:workspaceSelect.value.trim(),mode:modeSelect.value,limit:limitSelect.value,offset:Number(initialSearchState.offset||0),kind:kindSelect.value,source_kind:sourceKindSelect.value};}"
+        "function stateToSearchParams(state){const params=new URLSearchParams();if(state.query)params.set('query',state.query);if(state.scope&&state.scope!=='workspace')params.set('scope',state.scope);if(state.workspace)params.set('workspace',state.workspace);if(state.mode&&state.mode!=='hybrid')params.set('mode',state.mode);if(state.limit&&String(state.limit)!=='20')params.set('limit',String(state.limit));if(Number(state.offset||0)>0)params.set('offset',String(state.offset));if(state.kind)params.set('kind',state.kind);if(state.source_kind)params.set('source_kind',state.source_kind);return params;}"
+        "function updateUrlAndApiLink(state){const params=stateToSearchParams(state);const nextUrl=params.toString()?`/search?${params.toString()}`:'/search';window.history.replaceState(null,'',nextUrl);const apiParams=new URLSearchParams();if(state.query)apiParams.set('query',state.query);apiParams.set('mode',state.mode||'hybrid');apiParams.set('limit',String(state.limit||20));if(Number(state.offset||0)>0)apiParams.set('offset',String(state.offset));if(state.kind)apiParams.set('kind',state.kind);if(state.source_kind)apiParams.set('source_kind',state.source_kind);const href=state.scope==='all'?`/v1/search/corpus?${apiParams.toString()}`:`/v1/workspaces/${encodeURIComponent(state.workspace||'')}/search/corpus?${apiParams.toString()}`;searchApiLink.setAttribute('href',href);}"
+        "async function loadReadiness(state){if(state.scope==='all'||!state.workspace){renderReadiness(null,'');return;}const {resp,data}=await fetchJsonResponse(`/v1/workspaces/${encodeURIComponent(state.workspace)}/search/readiness`);if(!resp.ok){renderReadiness({status:'degraded',messages:{},derived_text:{}},state.workspace);const meta=readinessPanel.querySelector('.meta');if(meta)meta.textContent=responseErrorMessage(data,'Failed to load readiness');return;}renderReadiness(data?.readiness||null,state.workspace);}"
+        "async function runSearch(state){setSearchError('');updateWorkspaceState();updateUrlAndApiLink(state);if(!state.query){renderEmpty('Enter a query to search mirrored messages and derived text.');updatePager(state,0,0);renderReadiness(null,'');return;}if(state.scope!=='all'&&!state.workspace){setSearchError('Workspace is required unless searching all workspaces.');renderEmpty('Choose a workspace or switch to all-workspace search.');updatePager(state,0,0);renderReadiness(null,'');return;}setSearchBusyState(true);searchResultsMeta.textContent='Running search…';searchResultsList.innerHTML='<div class=\"empty\">Running search…</div>';searchPageMeta.textContent='Running search…';try{const params=new URLSearchParams({query:state.query,mode:state.mode||'hybrid',limit:String(state.limit||20),offset:String(state.offset||0)});if(state.kind)params.set('kind',state.kind);if(state.source_kind)params.set('source_kind',state.source_kind);const href=state.scope==='all'?`/v1/search/corpus?${params.toString()}`:`/v1/workspaces/${encodeURIComponent(state.workspace)}/search/corpus?${params.toString()}`;const {resp,data}=await fetchJsonResponse(href);if(!resp.ok){const message=responseErrorMessage(data,'Search failed');setSearchError(message);renderEmpty(message);updatePager(state,0,0);renderReadiness(null,'');return;}const results=data?.results||[];const nextState={...(state),offset:Number(data?.offset??state.offset??0),limit:Number(data?.limit??state.limit??20)};const total=Number(data?.total??results.length);renderResults(results,nextState);updatePager(nextState,results.length,total);await loadReadiness(nextState);}finally{setSearchBusyState(false);updateWorkspaceState();}}"
+        "scopeSelect.addEventListener('change',()=>{setSearchError('');updateWorkspaceState();if(scopeSelect.value==='all')readinessPanel.classList.add('hidden');});"
+        "workspaceSelect.addEventListener('change',()=>setSearchError(''));queryInput.addEventListener('input',()=>setSearchError(''));"
+        "document.getElementById('search-form').addEventListener('submit',async(event)=>{event.preventDefault();const state=currentState();state.offset=0;initialSearchState.offset=0;await runSearch(state);});"
+        "searchPrevButton.addEventListener('click',async()=>{const state=currentState();state.offset=Number(searchPrevButton.dataset.nextOffset||0);initialSearchState.offset=state.offset;await runSearch(state);});"
+        "searchNextButton.addEventListener('click',async()=>{const state=currentState();state.offset=Number(searchNextButton.dataset.nextOffset||0);initialSearchState.offset=state.offset;await runSearch(state);});"
+        "scopeSelect.value=initialSearchState.scope==='all'?'all':'workspace';workspaceSelect.value=initialSearchState.workspace||workspaceSelect.value;modeSelect.value=initialSearchState.mode||'hybrid';limitSelect.value=String(initialSearchState.limit||20);kindSelect.value=initialSearchState.kind||'';sourceKindSelect.value=initialSearchState.source_kind||'';updateWorkspaceState();updateUrlAndApiLink(currentState());updatePager(currentState(),0,0);if(initialSearchState.query){runSearch(currentState());}"
+        "</script></div></body></html>"
     )
 
 
@@ -1170,7 +1360,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return False
             if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
                 return False
-            if path in {"/", "/settings"}:
+            if path in {"/", "/settings", "/search"}:
                 return True
             if path.startswith("/v1/workspaces/") and path.endswith("/webhook"):
                 return False
@@ -1376,6 +1566,46 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 )
                 return
 
+            if path == "/search":
+                conn = service.connect()
+                workspace_rows = service.list_workspaces(conn)
+                workspace_names = [str(item.get("name") or "").strip() for item in workspace_rows if str(item.get("name") or "").strip()]
+                if not workspace_names:
+                    workspace_names = [name for name in service.enabled_workspace_names() if name]
+                initial_scope = "all" if str(query.get("scope", ["workspace"])[0] or "workspace").strip().lower() == "all" else "workspace"
+                requested_workspace = str(query.get("workspace", [""])[0] or "").strip()
+                initial_workspace = requested_workspace if requested_workspace in workspace_names else (workspace_names[0] if workspace_names else "")
+                initial_mode = str(query.get("mode", ["hybrid"])[0] or "hybrid").strip().lower()
+                if initial_mode not in {"hybrid", "lexical", "semantic"}:
+                    initial_mode = "hybrid"
+                initial_limit = int(query.get("limit", [20])[0] or 20)
+                if initial_limit not in {10, 20, 50}:
+                    initial_limit = 20
+                initial_offset = max(0, int(query.get("offset", [0])[0] or 0))
+                initial_kind = str(query.get("kind", [""])[0] or "").strip()
+                if initial_kind not in {"", "attachment_text", "ocr_text"}:
+                    initial_kind = ""
+                initial_source_kind = str(query.get("source_kind", [""])[0] or "").strip()
+                if initial_source_kind not in {"", "file", "canvas"}:
+                    initial_source_kind = ""
+                _html_response(
+                    self,
+                    200,
+                    _search_page_html(
+                        auth_session=auth_session,
+                        workspace_names=workspace_names,
+                        initial_query=str(query.get("query", [""])[0] or "").strip(),
+                        initial_scope=initial_scope,
+                        initial_workspace=initial_workspace,
+                        initial_mode=initial_mode,
+                        initial_limit=initial_limit,
+                        initial_offset=initial_offset,
+                        initial_kind=initial_kind,
+                        initial_source_kind=initial_source_kind,
+                    ),
+                )
+                return
+
             if path == "/v1/workspaces":
                 conn = service.connect()
                 _json_response(self, 200, {"ok": True, "workspaces": service.list_workspaces(conn)})
@@ -1390,6 +1620,79 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, workspace=m.group(1), operation="workspaces.channels.list")
                     return
                 _json_response(self, 200, {"ok": True, "channels": payload})
+                return
+
+            m = re.fullmatch(r"/v1/workspaces/([^/]+)/messages/([^/]+)/([^/]+)", path)
+            if m:
+                conn = service.connect()
+                workspace = unquote(m.group(1))
+                channel_id = unquote(m.group(2))
+                ts = unquote(m.group(3))
+                try:
+                    payload = service.get_message_detail(
+                        conn,
+                        workspace=workspace,
+                        channel_id=channel_id,
+                        ts=ts,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(
+                        self,
+                        exc,
+                        path=path,
+                        workspace=workspace,
+                        channel_id=channel_id,
+                        ts=ts,
+                        operation="messages.detail",
+                    )
+                    return
+                if payload is None:
+                    _error_response(self, 404, "NOT_FOUND", f"Message not found: {workspace}/{channel_id}/{ts}")
+                    return
+                _json_response(self, 200, {"ok": True, "message": payload})
+                return
+
+            m = re.fullmatch(r"/v1/workspaces/([^/]+)/derived-text/([^/]+)/([^/]+)", path)
+            if m:
+                conn = service.connect()
+                workspace = unquote(m.group(1))
+                source_kind = unquote(m.group(2))
+                source_id = unquote(m.group(3))
+                derivation_kind = str(query.get("kind", [""])[0] or "").strip()
+                extractor = str(query.get("extractor", [""])[0] or "").strip() or None
+                if not derivation_kind:
+                    _error_response(self, 400, "BAD_REQUEST", "kind query parameter is required")
+                    return
+                try:
+                    payload = service.get_derived_text_detail(
+                        conn,
+                        workspace=workspace,
+                        source_kind=source_kind,
+                        source_id=source_id,
+                        derivation_kind=derivation_kind,
+                        extractor=extractor,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(
+                        self,
+                        exc,
+                        path=path,
+                        workspace=workspace,
+                        source_kind=source_kind,
+                        source_id=source_id,
+                        derivation_kind=derivation_kind,
+                        operation="derived_text.detail",
+                    )
+                    return
+                if payload is None:
+                    _error_response(
+                        self,
+                        404,
+                        "NOT_FOUND",
+                        f"Derived text not found: {workspace}/{source_kind}/{source_id}/{derivation_kind}",
+                    )
+                    return
+                _json_response(self, 200, {"ok": True, "derived_text": payload})
                 return
 
             if path == "/v1/runtime/live-validation":
@@ -1616,11 +1919,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             if m:
                 conn = service.connect()
                 try:
-                    payload = service.corpus_search(
+                    payload = service.corpus_search_page(
                         conn,
                         workspace=m.group(1),
                         query=str(query.get("query", [""])[0]),
                         limit=int(query.get("limit", [20])[0]),
+                        offset=int(query.get("offset", [0])[0]),
                         mode=str(query.get("mode", ["hybrid"])[0]),
                         model_id=str(query.get("model", ["local-hash-128"])[0]),
                         lexical_weight=float(query.get("lexical_weight", [0.6])[0]),
@@ -1633,17 +1937,22 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, workspace=m.group(1), operation="search.corpus")
                     return
-                _json_response(self, 200, {"ok": True, "results": payload})
+                _json_response(
+                    self,
+                    200,
+                    {"ok": True, **payload},
+                )
                 return
 
             if path == "/v1/search/corpus":
                 conn = service.connect()
                 try:
-                    payload = service.corpus_search(
+                    payload = service.corpus_search_page(
                         conn,
                         all_workspaces=True,
                         query=str(query.get("query", [""])[0]),
                         limit=int(query.get("limit", [20])[0]),
+                        offset=int(query.get("offset", [0])[0]),
                         mode=str(query.get("mode", ["hybrid"])[0]),
                         model_id=str(query.get("model", ["local-hash-128"])[0]),
                         lexical_weight=float(query.get("lexical_weight", [0.6])[0]),
@@ -1656,7 +1965,11 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, operation="search.corpus")
                     return
-                _json_response(self, 200, {"ok": True, "scope": "all", "results": payload})
+                _json_response(
+                    self,
+                    200,
+                    {"ok": True, "scope": "all", **payload},
+                )
                 return
 
             m = re.fullmatch(r"/v1/workspaces/([^/]+)/search/readiness", path)

@@ -1859,3 +1859,179 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 145 | 2026-04-14
+
+- Opened `0047-2026-04-14-frontend-search-surface-and-hardening.md` as a new `P06` lane for the next browser-facing product slice.
+- Defined the current baseline explicitly:
+  - authenticated browser surfaces already exist for landing, settings, runtime reports, and exports
+  - corpus search, readiness, and health already exist through the shared service and API
+  - no first-class browser search page exists yet
+- Scoped the next work as:
+  - authenticated `/search` introduction
+  - browser result rendering over the existing search contract
+  - search-form validation, busy-state, and URL-state hardening
+  - browser-visible readiness context for operators
+- Left a pre-existing unrelated dirty worktree change in `uv.lock` untouched and kept this slice limited to planning artifacts.
+- Active roadmap lane:
+  - `P06 | Browser Search And Frontend Hardening`
+- Active plan:
+  - `docs/dev/plans/0047-2026-04-14-frontend-search-surface-and-hardening.md`
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 146 | 2026-04-14
+
+- Implemented the first `P06` slice from `0047-2026-04-14-frontend-search-surface-and-hardening.md`.
+- Added authenticated browser search at `/search`, linked from `/`, over the existing shared corpus-search and readiness APIs.
+- Shipped the initial browser search contract with:
+  - workspace vs all-workspace scope
+  - mode, limit, derived-text kind, and source-kind controls
+  - URL-backed browser state
+  - local validation and duplicate-submit protection
+  - minimal in-page result cards
+  - inline readiness context for one-workspace searches
+- Updated repo docs so the browser contract now explicitly includes `/search` in `README.md` and `docs/API_MCP_CONTRACT.md`.
+- Kept the broader `P06` lane open for tighter result linking, operator context, and any justified helper extraction follow-up.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 147 | 2026-04-14
+
+- Tightened `/search` result presentation and operator context without changing the underlying search APIs.
+- Expanded browser result cards to show row-level operator metadata already present in the existing search rows:
+  - message channel, user, timestamp, and thread marker
+  - derived-text source id, extractor, updated time, and local path
+- Added bounded refinement links from result cards so operators can rerun the current search as:
+  - workspace-scoped search from all-workspace results
+  - channel-scoped search for message hits
+  - thread-context narrowing for threaded message hits
+  - same-kind or same-source-kind narrowing for derived-text hits
+- Kept the page thin over existing search contracts; this slice only improves frontend operator workflow and scanability.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server -v`
+  - `git status --short`
+
+## Turn 148 | 2026-04-14
+
+- Added bounded pagination to the shared corpus-search contract and to the `/search` browser flow.
+- `search.corpus` now accepts `offset` alongside `limit` through the shared search core, service layer, and HTTP API routes.
+- `/search` now uses that same contract for previous/next navigation and persists the current offset in the URL query string.
+- Kept the pagination model intentionally narrow:
+  - offset-based only
+  - no total-result count
+  - no infinite scroll or browser-only pagination fork
+- Updated `README.md`, `docs/API_MCP_CONTRACT.md`, `ROADMAP.md`, and the active `0047` plan so the shipped browser-search baseline now explicitly includes bounded pagination.
+- Validation:
+  - `python -m py_compile slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 149 | 2026-04-14
+
+- Extended the shared HTTP corpus-search contract with explicit page metadata while keeping CLI and MCP call sites on the existing list-returning service method.
+- Added `corpus_search_page` through the shared search core and service layer so browser/API consumers now receive:
+  - `results`
+  - `total`
+  - `limit`
+  - `offset`
+- Updated `/search` to use that metadata for stable page-position and result-range display instead of guessing from page size alone.
+- Updated `README.md`, `docs/API_MCP_CONTRACT.md`, `ROADMAP.md`, and the active `0047` plan so the shipped browser-search baseline now explicitly includes total-result pagination metadata.
+- Kept the lane bounded:
+  - no cursor pagination
+  - no infinite scroll
+  - no change to CLI or MCP response shape
+- Validation:
+  - `python -m py_compile slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `git status --short`
+
+## Turn 150 | 2026-04-14
+
+- Extracted the lowest-risk shared browser helpers inside `slack_mirror.service.api` instead of widening the frontend lane with a larger page refactor.
+- Centralized the repeated inline JavaScript primitives for:
+  - HTML escaping
+  - busy-label handling
+  - inline manager rename/delete action wiring
+- Reused those shared snippets across the existing authenticated manager pages:
+  - `/runtime/reports`
+  - `/exports`
+  - `/search`
+- Kept the slice intentionally narrow:
+  - no browser contract change
+  - no new routes
+  - no higher-level page framework or shared component layer
+- Updated the active `0047` plan and `ROADMAP.md` so the lane now reflects that low-level helper extraction is shipped and the remaining decision is whether stronger result destinations or broader extraction still justify another slice.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `git status --short`
+
+## Turn 151 | 2026-04-14
+
+- Added stronger repo-owned result destinations from `/search` without inventing a second browser viewer surface.
+- Extended the shared service and API layer with read-only detail routes for:
+  - message detail at `GET /v1/workspaces/{workspace}/messages/{channel_id}/{ts}`
+  - derived-text detail at `GET /v1/workspaces/{workspace}/derived-text/{source_kind}/{source_id}?kind=...`
+- Wired `/search` result cards to those JSON detail routes for message and derived-text hits while keeping the existing refinement links in place.
+- Kept the slice narrow:
+  - no browser-native message viewer
+  - no browser-native derived-text viewer
+  - no new search ranking or readiness behavior
+- Updated `README.md`, `docs/API_MCP_CONTRACT.md`, `ROADMAP.md`, and the active `0047` plan so the shipped browser-search baseline now explicitly includes stable JSON detail destinations.
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 152 | 2026-04-15
+
+- Extracted shared authenticated topbar rendering across the main browser entry surfaces instead of leaving `/`, `/settings`, and `/search` with separately hand-rolled navigation chrome.
+- Added one shared helper for:
+  - identity context
+  - active-route nav links
+  - logout access
+- Reused that helper across:
+  - `/`
+  - `/settings`
+  - `/search`
+- Kept the slice intentionally narrow:
+  - no route or API contract changes
+  - no change to `/runtime/reports` or `/exports` page ownership
+  - no broader page-framework extraction
+- Updated `README.md`, `ROADMAP.md`, and the active `0047` plan so the shipped browser-hardening baseline now explicitly includes shared authenticated page chrome.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 153 | 2026-04-15
+
+- Extracted shared browser-side fetch/error helpers for the remaining bounded request-plumbing duplication across the authenticated manager pages.
+- Added one narrow helper pair for:
+  - JSON fetch plus tolerant response parsing
+  - consistent service-error message extraction from API envelopes
+- Reused those helpers across the browser flows that were still hand-rolling the same request logic:
+  - runtime-report create
+  - export workspace loading
+  - export channel loading
+  - export create
+  - search execution
+  - search readiness loading
+- Kept the slice intentionally narrow:
+  - no route or API contract changes
+  - no new browser surface
+  - no broader component or page-framework extraction
+- Updated `ROADMAP.md` and the active `0047` plan so the shipped browser-hardening baseline now explicitly includes shared request/error helpers.
+- Validation:
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `git status --short`

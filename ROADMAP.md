@@ -140,3 +140,20 @@ Current state:
 - listener registration, delivery inspection, and delivery acknowledgement exist
 - the outbound/listener contract is now documented and enforced across service, API, and MCP surfaces
 - the current local queue-delivery model is the supported baseline unless future requirements justify richer retry policy
+
+## P06 | Browser Search And Frontend Hardening
+
+Status: OPEN
+
+Purpose:
+- introduce a first-class authenticated browser search surface over the shipped search APIs
+- harden browser-side query, result, and operator-context behavior without reopening the broader service or search lanes
+
+Actionable plans:
+- `docs/dev/plans/0047-2026-04-14-frontend-search-surface-and-hardening.md`
+
+Current state:
+- the browser already has authenticated management surfaces for landing, settings, runtime reports, and exports
+- the browser now also has an authenticated `/search` surface over the existing corpus-search and readiness APIs
+- the shipped browser search baseline includes URL-backed state, workspace/all-workspace scope, mode and derived-text filters, bounded pagination with `offset` plus total-result counts, duplicate-submit protection, inline readiness context for one-workspace searches, refinement links from result cards, stable repo-owned JSON detail destinations for message and derived-text hits, shared low-level browser helpers reused across the existing authenticated manager pages, shared fetch/error helpers for bounded browser-side request plumbing, and shared authenticated topbar rendering across `/`, `/settings`, and `/search`
+- the remaining work in this lane is to decide whether any broader helper extraction or browser-native viewer surface is justified without reopening the broader service or search lanes

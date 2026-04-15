@@ -12,7 +12,15 @@ from typing import Any
 
 from slack_mirror.core import db
 from slack_mirror.core.config import load_config
-from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, list_workspaces, upsert_workspace
+from slack_mirror.core.db import (
+    apply_migrations,
+    connect,
+    get_derived_text,
+    get_derived_text_chunks,
+    get_workspace_by_name,
+    list_workspaces,
+    upsert_workspace,
+)
 from slack_mirror.exports import (
     build_export_manifest,
     delete_export_bundle,
@@ -46,7 +54,7 @@ from slack_mirror.service.runtime_report import (
     rename_runtime_report_snapshot,
     write_runtime_report_snapshot,
 )
-from slack_mirror.search.corpus import search_corpus, search_corpus_multi
+from slack_mirror.search.corpus import search_corpus, search_corpus_multi, search_corpus_multi_page, search_corpus_page
 
 
 @dataclass(frozen=True)
@@ -708,6 +716,7 @@ class SlackMirrorAppService:
         all_workspaces: bool = False,
         query: str,
         limit: int = 20,
+        offset: int = 0,
         mode: str = "hybrid",
         model_id: str = "local-hash-128",
         lexical_weight: float = 0.6,
@@ -726,6 +735,7 @@ class SlackMirrorAppService:
                 workspaces=scopes,
                 query=query,
                 limit=limit,
+                offset=offset,
                 mode=mode,
                 model_id=model_id,
                 lexical_weight=lexical_weight,
@@ -745,6 +755,7 @@ class SlackMirrorAppService:
             workspace_name=workspace,
             query=query,
             limit=limit,
+            offset=offset,
             mode=mode,
             model_id=model_id,
             lexical_weight=lexical_weight,
@@ -754,6 +765,142 @@ class SlackMirrorAppService:
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
         )
+
+    def corpus_search_page(
+        self,
+        conn,
+        *,
+        workspace: str | None = None,
+        all_workspaces: bool = False,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+        mode: str = "hybrid",
+        model_id: str = "local-hash-128",
+        lexical_weight: float = 0.6,
+        semantic_weight: float = 0.4,
+        semantic_scale: float = 10.0,
+        use_fts: bool = True,
+        derived_kind: str | None = None,
+        derived_source_kind: str | None = None,
+    ) -> dict[str, Any]:
+        if all_workspaces:
+            if workspace:
+                raise ValueError("workspace must not be set when all_workspaces is true")
+            scopes = [{"id": self.workspace_id(conn, name), "name": name} for name in self.enabled_workspace_names()]
+            return search_corpus_multi_page(
+                conn,
+                workspaces=scopes,
+                query=query,
+                limit=limit,
+                offset=offset,
+                mode=mode,
+                model_id=model_id,
+                lexical_weight=lexical_weight,
+                semantic_weight=semantic_weight,
+                semantic_scale=semantic_scale,
+                use_fts=use_fts,
+                derived_kind=derived_kind,
+                derived_source_kind=derived_source_kind,
+            )
+
+        if not workspace:
+            raise ValueError("workspace is required unless all_workspaces is true")
+        workspace_id = self.workspace_id(conn, workspace)
+        return search_corpus_page(
+            conn,
+            workspace_id=workspace_id,
+            workspace_name=workspace,
+            query=query,
+            limit=limit,
+            offset=offset,
+            mode=mode,
+            model_id=model_id,
+            lexical_weight=lexical_weight,
+            semantic_weight=semantic_weight,
+            semantic_scale=semantic_scale,
+            use_fts=use_fts,
+            derived_kind=derived_kind,
+            derived_source_kind=derived_source_kind,
+        )
+
+    def get_message_detail(
+        self,
+        conn,
+        *,
+        workspace: str,
+        channel_id: str,
+        ts: str,
+    ) -> dict[str, Any] | None:
+        workspace_id = self.workspace_id(conn, workspace)
+        row = conn.execute(
+            """
+            SELECT
+              m.workspace_id,
+              ? AS workspace,
+              m.channel_id,
+              c.name AS channel_name,
+              m.ts,
+              m.thread_ts,
+              m.user_id,
+              COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+              m.subtype,
+              m.text,
+              m.edited_ts,
+              m.deleted,
+              m.raw_json,
+              m.created_at,
+              m.updated_at
+            FROM messages m
+            LEFT JOIN channels c
+              ON c.workspace_id = m.workspace_id
+             AND c.channel_id = m.channel_id
+            LEFT JOIN users u
+              ON u.workspace_id = m.workspace_id
+             AND u.user_id = m.user_id
+            WHERE m.workspace_id = ?
+              AND m.channel_id = ?
+              AND m.ts = ?
+            LIMIT 1
+            """,
+            (workspace, workspace_id, channel_id, ts),
+        ).fetchone()
+        if not row:
+            return None
+        payload = dict(row)
+        try:
+            payload["message"] = json.loads(payload.get("raw_json") or "{}")
+        except json.JSONDecodeError:
+            payload["message"] = {}
+        return payload
+
+    def get_derived_text_detail(
+        self,
+        conn,
+        *,
+        workspace: str,
+        source_kind: str,
+        source_id: str,
+        derivation_kind: str,
+        extractor: str | None = None,
+    ) -> dict[str, Any] | None:
+        workspace_id = self.workspace_id(conn, workspace)
+        record = get_derived_text(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+            derivation_kind=derivation_kind,
+            extractor=extractor,
+        )
+        if not record:
+            return None
+        chunks = get_derived_text_chunks(conn, derived_text_id=int(record["id"]))
+        return {
+            **record,
+            "workspace": workspace,
+            "chunks": chunks,
+        }
 
     def search_readiness(self, conn, *, workspace: str) -> dict[str, Any]:
         workspace_id = self.workspace_id(conn, workspace)

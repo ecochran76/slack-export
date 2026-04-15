@@ -33,13 +33,14 @@ def _normalize_derived_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def search_corpus(
+def _search_corpus_rows(
     conn: sqlite3.Connection,
     *,
     workspace_id: int,
     workspace_name: str | None = None,
     query: str,
     limit: int = 20,
+    offset: int = 0,
     mode: str = "hybrid",
     model_id: str = "local-hash-128",
     lexical_weight: float = 0.6,
@@ -52,31 +53,30 @@ def search_corpus(
     q = (query or "").strip()
     if not q:
         return []
-
     mode = (mode or "hybrid").lower()
-    lexical_limit = max(limit * 2, 20)
+    requested_limit = max(1, int(limit or 20))
+    requested_offset = max(0, int(offset or 0))
+    lexical_limit = max((requested_limit + requested_offset) * 2, 20)
 
     if mode == "lexical":
         msg_rows = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
         derived_rows = [_normalize_derived_row(r) for r in search_derived_text(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
-        out = merged[: max(1, limit)]
-        for row in out:
+        for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
-        return out
+        return merged
 
     if mode == "semantic":
         msg_rows = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, mode="semantic", model_id=model_id)]
         derived_rows = [_normalize_derived_row(r) for r in search_derived_text_semantic(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
-        out = merged[: max(1, limit)]
-        for row in out:
+        for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
-        return out
+        return merged
 
     msg_lexical = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
     msg_semantic = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, mode="semantic", model_id=model_id)]
@@ -117,19 +117,100 @@ def search_corpus(
         key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""),
         reverse=True,
     )
-    final = out[: max(1, limit)]
-    for row in final:
+    for row in out:
         row["workspace_id"] = workspace_id
         row["workspace"] = workspace_name
-    return final
+    return out
 
 
-def search_corpus_multi(
+def search_corpus(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    workspace_name: str | None = None,
+    query: str,
+    limit: int = 20,
+    offset: int = 0,
+    mode: str = "hybrid",
+    model_id: str = "local-hash-128",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
+    use_fts: bool = True,
+    derived_kind: str | None = None,
+    derived_source_kind: str | None = None,
+) -> list[dict[str, Any]]:
+    slice_limit = max(1, int(limit or 20))
+    slice_offset = max(0, int(offset or 0))
+    rows = _search_corpus_rows(
+        conn,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        query=query,
+        limit=limit,
+        offset=offset,
+        mode=mode,
+        model_id=model_id,
+        lexical_weight=lexical_weight,
+        semantic_weight=semantic_weight,
+        semantic_scale=semantic_scale,
+        use_fts=use_fts,
+        derived_kind=derived_kind,
+        derived_source_kind=derived_source_kind,
+    )
+    return rows[slice_offset : slice_offset + slice_limit]
+
+
+def search_corpus_page(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    workspace_name: str | None = None,
+    query: str,
+    limit: int = 20,
+    offset: int = 0,
+    mode: str = "hybrid",
+    model_id: str = "local-hash-128",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
+    use_fts: bool = True,
+    derived_kind: str | None = None,
+    derived_source_kind: str | None = None,
+) -> dict[str, Any]:
+    page_limit = max(1, int(limit or 20))
+    page_offset = max(0, int(offset or 0))
+    rows = _search_corpus_rows(
+        conn,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        query=query,
+        limit=limit,
+        offset=offset,
+        mode=mode,
+        model_id=model_id,
+        lexical_weight=lexical_weight,
+        semantic_weight=semantic_weight,
+        semantic_scale=semantic_scale,
+        use_fts=use_fts,
+        derived_kind=derived_kind,
+        derived_source_kind=derived_source_kind,
+    )
+    return {
+        "results": rows[page_offset : page_offset + page_limit],
+        "total": len(rows),
+        "limit": page_limit,
+        "offset": page_offset,
+    }
+
+
+def _search_corpus_multi_rows(
     conn: sqlite3.Connection,
     *,
     workspaces: list[dict[str, Any]],
     query: str,
     limit: int = 20,
+    offset: int = 0,
     mode: str = "hybrid",
     model_id: str = "local-hash-128",
     lexical_weight: float = 0.6,
@@ -141,16 +222,19 @@ def search_corpus_multi(
 ) -> list[dict[str, Any]]:
     if not workspaces:
         return []
-    per_workspace_limit = max(limit, 10)
+    requested_limit = max(1, int(limit or 20))
+    requested_offset = max(0, int(offset or 0))
+    per_workspace_limit = max(requested_limit + requested_offset, 10)
     rows: list[dict[str, Any]] = []
     for workspace in workspaces:
         rows.extend(
-            search_corpus(
+            _search_corpus_rows(
                 conn,
                 workspace_id=int(workspace["id"]),
                 workspace_name=str(workspace["name"]),
                 query=query,
                 limit=per_workspace_limit,
+                offset=requested_offset,
                 mode=mode,
                 model_id=model_id,
                 lexical_weight=lexical_weight,
@@ -168,4 +252,81 @@ def search_corpus_multi(
         rows.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
     else:
         rows.sort(key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
-    return rows[: max(1, limit)]
+    return rows
+
+
+def search_corpus_multi(
+    conn: sqlite3.Connection,
+    *,
+    workspaces: list[dict[str, Any]],
+    query: str,
+    limit: int = 20,
+    offset: int = 0,
+    mode: str = "hybrid",
+    model_id: str = "local-hash-128",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
+    use_fts: bool = True,
+    derived_kind: str | None = None,
+    derived_source_kind: str | None = None,
+) -> list[dict[str, Any]]:
+    slice_limit = max(1, int(limit or 20))
+    slice_offset = max(0, int(offset or 0))
+    rows = _search_corpus_multi_rows(
+        conn,
+        workspaces=workspaces,
+        query=query,
+        limit=limit,
+        offset=offset,
+        mode=mode,
+        model_id=model_id,
+        lexical_weight=lexical_weight,
+        semantic_weight=semantic_weight,
+        semantic_scale=semantic_scale,
+        use_fts=use_fts,
+        derived_kind=derived_kind,
+        derived_source_kind=derived_source_kind,
+    )
+    return rows[slice_offset : slice_offset + slice_limit]
+
+
+def search_corpus_multi_page(
+    conn: sqlite3.Connection,
+    *,
+    workspaces: list[dict[str, Any]],
+    query: str,
+    limit: int = 20,
+    offset: int = 0,
+    mode: str = "hybrid",
+    model_id: str = "local-hash-128",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
+    use_fts: bool = True,
+    derived_kind: str | None = None,
+    derived_source_kind: str | None = None,
+) -> dict[str, Any]:
+    page_limit = max(1, int(limit or 20))
+    page_offset = max(0, int(offset or 0))
+    rows = _search_corpus_multi_rows(
+        conn,
+        workspaces=workspaces,
+        query=query,
+        limit=limit,
+        offset=offset,
+        mode=mode,
+        model_id=model_id,
+        lexical_weight=lexical_weight,
+        semantic_weight=semantic_weight,
+        semantic_scale=semantic_scale,
+        use_fts=use_fts,
+        derived_kind=derived_kind,
+        derived_source_kind=derived_source_kind,
+    )
+    return {
+        "results": rows[page_offset : page_offset + page_limit],
+        "total": len(rows),
+        "limit": page_limit,
+        "offset": page_offset,
+    }

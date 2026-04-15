@@ -607,6 +607,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(settings_redirect.status_code, 303)
         self.assertEqual(settings_redirect.headers["location"], "/login?next=%2Fsettings&reason=auth_required")
 
+        search_redirect = requests.get(f"{base_url}/search", timeout=5, allow_redirects=False)
+        self.assertEqual(search_redirect.status_code, 303)
+        self.assertEqual(search_redirect.headers["location"], "/login?next=%2Fsearch&reason=auth_required")
+
         export_redirect = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
             timeout=5,
@@ -659,9 +663,12 @@ class ApiServerTests(unittest.TestCase):
         landing = session.get(f"{base_url}/", timeout=5)
         self.assertEqual(landing.status_code, 200)
         self.assertIn("Authenticated workspace home", landing.text)
+        self.assertIn("class='auth-topbar'", landing.text)
         self.assertIn("Signed in as <strong>Eric</strong>", landing.text)
+        self.assertIn("class='nav-link active' href=\"/\"", landing.text)
         self.assertIn("/runtime/reports/latest", landing.text)
         self.assertIn("/settings", landing.text)
+        self.assertIn("/search", landing.text)
         self.assertIn("/exports/channel-day-default-general-2026-04-12-abc123", landing.text)
         self.assertIn("/v1/exports", landing.text)
 
@@ -669,6 +676,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(settings.status_code, 200)
         self.assertIn("Account settings", settings.text)
         self.assertIn("Signed in as <strong>Eric</strong>", settings.text)
+        self.assertIn("class='nav-link active' href=\"/settings\"", settings.text)
         self.assertIn("Auth governance", settings.text)
         self.assertIn("Session lifetime", settings.text)
         self.assertIn("Idle timeout", settings.text)
@@ -679,6 +687,35 @@ class ApiServerTests(unittest.TestCase):
         self.assertNotIn("window.location.reload()", settings.text)
         self.assertIn("markSessionInactive", settings.text)
         self.assertIn("reason:'session_revoked'", settings.text)
+
+        search_page = session.get(
+            f"{base_url}/search?query=incident%20review&scope=workspace&workspace=default&mode=hybrid&limit=10&kind=ocr_text&source_kind=file",
+            timeout=5,
+        )
+        self.assertEqual(search_page.status_code, 200)
+        self.assertIn("Slack Mirror Search", search_page.text)
+        self.assertIn("Search mirrored messages and derived text", search_page.text)
+        self.assertIn("class='nav-link active' href=\"/search\"", search_page.text)
+        self.assertIn("id='search-query'", search_page.text)
+        self.assertIn("id='search-run-button'", search_page.text)
+        self.assertIn("/v1/search/corpus", search_page.text)
+        self.assertIn("/v1/workspaces/${encodeURIComponent(state.workspace)}/search/readiness", search_page.text)
+        self.assertIn("/v1/workspaces/${encodeURIComponent(state.workspace)}/search/corpus", search_page.text)
+        self.assertIn("Selected workspace", search_page.text)
+        self.assertIn("All workspaces", search_page.text)
+        self.assertIn("Attachment text", search_page.text)
+        self.assertIn("OCR text", search_page.text)
+        self.assertIn("This browser surface stays thin over the existing corpus-search and readiness APIs", search_page.text)
+        self.assertIn("workspace scope", search_page.text)
+        self.assertIn("message JSON", search_page.text)
+        self.assertIn("channel scope", search_page.text)
+        self.assertIn("thread context", search_page.text)
+        self.assertIn("derived text JSON", search_page.text)
+        self.assertIn("same kind", search_page.text)
+        self.assertIn("same source kind", search_page.text)
+        self.assertIn("local path", search_page.text)
+        self.assertIn("Page ${page} of ${pageCount}", search_page.text)
+        self.assertIn("results ${start}-${end} of ${total}", search_page.text)
 
         allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
         self.assertEqual(allowed.status_code, 200)
@@ -1377,14 +1414,35 @@ class ApiServerTests(unittest.TestCase):
         with patch("slack_mirror.service.api.get_app_service") as mock_get_service:
             service = mock_get_service.return_value
             service.connect.return_value = object()
-            service.corpus_search.return_value = [
+            service.corpus_search_page.side_effect = [
                 {
-                    "result_kind": "derived_text",
-                    "source_label": "Incident PDF",
-                    "text": "incident review appendix",
-                    "_source": "hybrid",
-                    "_hybrid_score": 4.2,
-                }
+                    "results": [
+                        {
+                            "result_kind": "derived_text",
+                            "source_label": "Incident PDF",
+                            "text": "incident review appendix",
+                            "_source": "hybrid",
+                            "_hybrid_score": 4.2,
+                        }
+                    ],
+                    "total": 37,
+                    "limit": 20,
+                    "offset": 10,
+                },
+                {
+                    "results": [
+                        {
+                            "result_kind": "derived_text",
+                            "source_label": "Incident PDF",
+                            "text": "incident review appendix",
+                            "_source": "hybrid",
+                            "_hybrid_score": 4.2,
+                        }
+                    ],
+                    "total": 37,
+                    "limit": 20,
+                    "offset": 20,
+                },
             ]
             service.search_readiness.return_value = {
                 "workspace": "default",
@@ -1413,6 +1471,27 @@ class ApiServerTests(unittest.TestCase):
                 "failure_codes": [],
                 "warning_codes": [],
             }
+            service.get_message_detail.return_value = {
+                "workspace": "default",
+                "channel_id": "C123",
+                "channel_name": "general",
+                "ts": "1712870400.000100",
+                "thread_ts": "1712870400.000100",
+                "user_id": "U123",
+                "user_label": "Eric",
+                "text": "incident review",
+                "deleted": 0,
+                "message": {"text": "incident review"},
+            }
+            service.get_derived_text_detail.return_value = {
+                "workspace": "default",
+                "source_kind": "file",
+                "source_id": "F123",
+                "derivation_kind": "ocr_text",
+                "extractor": "tesseract",
+                "text": "incident review appendix",
+                "chunks": [{"chunk_index": 0, "text": "incident review appendix"}],
+            }
 
             server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -1424,22 +1503,45 @@ class ApiServerTests(unittest.TestCase):
 
             corpus = requests.get(
                 f"{base_url}/v1/workspaces/default/search/corpus",
-                params={"query": "incident review", "mode": "hybrid", "kind": "ocr_text", "source_kind": "file"},
+                params={"query": "incident review", "mode": "hybrid", "kind": "ocr_text", "source_kind": "file", "offset": "10"},
                 timeout=5,
             )
             self.assertEqual(corpus.status_code, 200)
             self.assertTrue(corpus.json()["ok"])
             self.assertEqual(corpus.json()["results"][0]["result_kind"], "derived_text")
+            self.assertEqual(corpus.json()["offset"], 10)
+            self.assertEqual(corpus.json()["total"], 37)
 
             all_corpus = requests.get(
                 f"{base_url}/v1/search/corpus",
-                params={"query": "incident review", "mode": "hybrid"},
+                params={"query": "incident review", "mode": "hybrid", "offset": "20"},
                 timeout=5,
             )
             self.assertEqual(all_corpus.status_code, 200)
             self.assertEqual(all_corpus.json()["scope"], "all")
             self.assertTrue(all_corpus.json()["ok"])
-            self.assertEqual(service.corpus_search.call_count, 2)
+            self.assertEqual(all_corpus.json()["offset"], 20)
+            self.assertEqual(all_corpus.json()["total"], 37)
+            self.assertEqual(service.corpus_search_page.call_count, 2)
+
+            message_detail = requests.get(
+                f"{base_url}/v1/workspaces/default/messages/C123/1712870400.000100",
+                timeout=5,
+            )
+            self.assertEqual(message_detail.status_code, 200)
+            self.assertTrue(message_detail.json()["ok"])
+            self.assertEqual(message_detail.json()["message"]["channel_name"], "general")
+            service.get_message_detail.assert_called_once()
+
+            derived_text_detail = requests.get(
+                f"{base_url}/v1/workspaces/default/derived-text/file/F123",
+                params={"kind": "ocr_text", "extractor": "tesseract"},
+                timeout=5,
+            )
+            self.assertEqual(derived_text_detail.status_code, 200)
+            self.assertTrue(derived_text_detail.json()["ok"])
+            self.assertEqual(derived_text_detail.json()["derived_text"]["extractor"], "tesseract")
+            service.get_derived_text_detail.assert_called_once()
 
             readiness = requests.get(f"{base_url}/v1/workspaces/default/search/readiness", timeout=5)
             self.assertEqual(readiness.status_code, 200)

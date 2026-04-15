@@ -96,6 +96,8 @@ The current repo has:
 - the local API now supports bounded runtime report lifecycle operations through `POST /v1/runtime/reports`, `POST /v1/runtime/reports/<name>/rename`, and `DELETE /v1/runtime/reports/<name>`
 - the local API now supports bounded managed-export lifecycle operations through `POST /v1/exports`, `POST /v1/exports/<export-id>/rename`, and `DELETE /v1/exports/<export-id>`, with create intentionally limited to channel-day exports
 - the browser now exposes those same bounded lifecycle operations through `/runtime/reports` and `/exports`, so reports and channel-day exports can be created and managed without hand-calling the JSON routes
+- the browser now also exposes authenticated corpus search through `/search`, with workspace/all-workspace scope, mode and derived-text filters, bounded previous/next pagination with total-result counts, inline workspace readiness context, and stable JSON detail destinations for message and derived-text hits over the shipped search APIs
+- the main authenticated browser entry surfaces (`/`, `/settings`, and `/search`) now share a common topbar with identity context and direct navigation across home, search, runtime reports, exports, and settings
 - the `/exports` browser flow now uses valid mirrored workspace/channel choices from the current DB instead of raw free-text entry, and defaults the date field from the selected channel's latest mirrored day when available
 - the `/exports` browser flow now also supports channel filtering for larger workspaces, with client-side match counts and empty-filter feedback over the same valid mirrored choices
 - the `/exports` browser manager now uses inline export rename controls instead of prompt-driven rename dialogs

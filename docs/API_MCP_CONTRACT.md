@@ -41,6 +41,7 @@ API only:
 - `GET /register`
 - `GET /`
 - `GET /settings`
+- `GET /search`
 
 Current semantics:
 
@@ -56,6 +57,7 @@ Current semantics:
   - `/`
   - `/exports/*`
   - `/v1/exports*`
+  - `/search`
   - `/runtime/reports*`
   - `/v1/runtime/reports*`
   - `/v1/runtime/status`
@@ -108,6 +110,16 @@ Important fields for `/auth/sessions`:
 - auth-governance policy such as session lifetime, idle timeout, and login-throttle settings
 - current-user browser sessions
 - revoke actions backed by `POST /auth/sessions/{id}/revoke`
+
+`/search` is the authenticated browser search page for the shipped corpus-search contract. It currently provides:
+
+- workspace-scoped or all-workspace corpus search over the existing API routes
+- browser controls for search mode, result limit, derived-text kind, and derived-text source kind
+- bounded previous/next pagination backed by the same `limit` and `offset` API parameters
+- page-position and result-range display backed by API `total` counts
+- browser-visible workspace readiness context when searching one workspace
+- URL-backed search state so the current browser query can be reloaded or shared
+- stable JSON detail destinations for message and derived-text hits, backed by repo-owned API routes rather than a second browser viewer contract
 
 `/register` remains the browser registration entrypoint, and now surfaces any configured frontend-auth registration allowlist directly in the page copy.
 
@@ -362,6 +374,9 @@ API:
 
 - `GET /v1/workspaces/{workspace}/search/corpus`
 - `GET /v1/search/corpus`
+- `GET /v1/workspaces/{workspace}/messages/{channel_id}/{ts}`
+- `GET /v1/workspaces/{workspace}/derived-text/{source_kind}/{source_id}?kind={derivation_kind}`
+- `GET /v1/workspaces/{workspace}/derived-text/{source_kind}/{source_id}?kind={derivation_kind}&extractor={extractor}`
 
 MCP:
 
@@ -385,6 +400,7 @@ Important request fields:
   - `semantic`
   - `hybrid`
 - `limit`
+- `offset`
 - `kind`
   - optional derived-text filter
 - `source_kind`
@@ -424,6 +440,27 @@ Current semantics:
   - CLI uses `--all-workspaces`
   - API uses `GET /v1/search/corpus`
   - MCP uses `all_workspaces=true`
+- pagination is bounded and offset-based:
+  - API routes accept `limit` plus `offset`
+  - the current browser page uses previous/next controls over that same contract
+  - the current API also exposes `total` so browser clients can render page and range metadata without inventing a second paging contract
+- the browser uses the read-only message and derived-text detail routes as stronger result destinations without adding a second browser-native viewer contract
+
+Detail route semantics:
+
+- message detail returns one repo-owned message envelope with:
+  - workspace
+  - channel metadata
+  - user label
+  - thread metadata
+  - stored message fields
+  - parsed `raw_json` payload under `message`
+- derived-text detail returns one repo-owned derived-text envelope with:
+  - workspace
+  - source and derivation metadata
+  - stored derived-text fields
+  - parsed `metadata`
+  - chunk rows under `chunks`
 
 ## Search Readiness
 
