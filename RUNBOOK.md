@@ -2056,3 +2056,23 @@ This file is the dated turn log for planning and execution continuity.
   - `curl -sS -D - http://slack.localhost/search -o /tmp/proxy_search_retry.out`
   - browser QA via `dev-browser --headless`
   - `git status --short`
+
+## Turn 155 | 2026-04-15
+
+- Audited the new-user installation and first-workspace onboarding surfaces, with special attention to JSON manifest adequacy.
+- Identified three main planning gaps:
+  - no single canonical operator path from fresh install to first usable workspace
+  - install/config/live/auth guidance is split across multiple docs instead of one opinionated onboarding path
+  - export and runtime-report manifests are useful but still thin for onboarding signoff and downstream contract use
+- Opened a new bounded lane:
+  - `P07 | Install Onboarding And Manifest Hardening`
+- Opened the actionable plan:
+  - `docs/dev/plans/0048-2026-04-15-install-onboarding-and-manifest-hardening.md`
+- Scoped the lane deliberately around:
+  - canonical install and onboarding flow
+  - tenant/workspace onboarding terminology and sequence
+  - export/runtime-report JSON manifest audit
+  - narrow manifest schema hardening where justified
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`

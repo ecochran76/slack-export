@@ -158,3 +158,19 @@ Current state:
 - the shipped browser search baseline includes URL-backed state, workspace/all-workspace scope, mode and derived-text filters, bounded pagination with `offset` plus total-result counts, duplicate-submit protection, inline readiness context for one-workspace searches, refinement links from result cards, stable repo-owned JSON detail destinations for message and derived-text hits, shared low-level browser helpers reused across the existing authenticated manager pages, shared fetch/error helpers for bounded browser-side request plumbing, and shared authenticated topbar rendering across `/`, `/settings`, and `/search`
 - the live managed install has been refreshed from the current repo and browser QA passed on `/`, `/settings`, `/search`, `/runtime/reports`, and `/exports`
 - deferred follow-ups such as a browser-native viewer or broader frontend extraction should open as separate bounded slices if they are ever justified
+
+## P07 | Install Onboarding And Manifest Hardening
+
+Status: OPEN
+
+Purpose:
+- make new-user installation and first-workspace onboarding well explained, fast, and low-friction
+- harden the emitted JSON manifests so onboarding and downstream tooling can rely on them as real contracts
+
+Actionable plans:
+- `docs/dev/plans/0048-2026-04-15-install-onboarding-and-manifest-hardening.md`
+
+Current state:
+- user-scope install/update/live-validation flows already exist, but the operator journey is split across install, config, live-mode, auth-bootstrap, and contract docs
+- export and runtime-report JSON manifests are already shipped and useful for the current browser/API surfaces, but they are still thin for onboarding signoff and explicit downstream contract use
+- the next bounded work is to create one canonical install/onboarding path and then tighten manifest schema/version/provenance only where the current payloads prove inadequate
