@@ -2197,3 +2197,20 @@ This file is the dated turn log for planning and execution continuity.
   - `slack-mirror-user workspaces verify --workspace polymer --require-explicit-outbound`
   - `slack-mirror-user user-env check-live --json`
   - `git status --short`
+
+## Turn 161 | 2026-04-15
+
+- Expanded tenant onboarding docs so new operators know where to get Slack credentials and where to store them.
+- Updated `docs/SLACK_MANIFEST.md` to make the Socket Mode manifest the preferred live-mode path and to map Slack app settings to config/env variables:
+  - Basic Information → signing secret
+  - OAuth & Permissions → bot and optional user OAuth tokens
+  - Socket Mode → app-level `xapp-...` token
+  - dotenv storage → `~/credentials/API-keys.env`
+- Added the Polymer rendered-manifest location:
+  - `manifests/slack-mirror-socket-mode-polymer.rendered.yaml`
+- Updated `docs/dev/USER_INSTALL.md` and `docs/CONFIG.md` to link tenant onboarding to the Slack app manifest workflow.
+- Updated the Polymer onboarding plan with the manifest and dotenv locations.
+- Validation:
+  - `python3 scripts/render_slack_manifest.py --template manifests/slack-mirror-socket-mode.yaml --output manifests/slack-mirror-socket-mode-polymer.rendered.yaml`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`

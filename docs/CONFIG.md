@@ -77,6 +77,7 @@ slack-mirror-user workspaces verify --require-explicit-outbound
 Use `slack-mirror-user` after `user-env install`; it pins the managed config, DB, and cache paths. Use `uv run slack-mirror ...` from the repo before the managed wrapper exists.
 
 For staged tenant onboarding, keep a new workspace entry at `enabled: false` until its credentials are present. Default `workspaces verify` skips disabled scaffolds; use `workspaces verify --workspace <name>` when you want to confirm that a staged entry is still disabled before activation.
+For Slack app creation, credential collection, and the app-manifest location, see [docs/SLACK_MANIFEST.md](/home/ecochran76/workspace.local/slack-export/docs/SLACK_MANIFEST.md).
 
 ## Interpolation syntax
 
@@ -87,6 +88,7 @@ For staged tenant onboarding, keep a new workspace entry at `enabled: false` unt
 
 - `token` / `user_token` are the default read-path credentials.
 - `outbound_token` / `outbound_user_token` are used for write actions such as sending messages or thread replies.
+- `app_token` is the Socket Mode app-level token (`xapp-...`) used by `mirror serve-socket-mode`.
 - If outbound token fields are not set, the service falls back to workspace-aware env aliases for writes.
 - For the `default` workspace, generic env names like `SLACK_BOT_TOKEN` and `SLACK_USER_TOKEN` are considered write-capable fallbacks.
 - For production installs, prefer explicit outbound fields rather than fallback heuristics.

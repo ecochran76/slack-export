@@ -47,6 +47,8 @@ Per-install steps:
 Per-workspace steps:
 
 - add a workspace entry under `workspaces:`
+- create a private Slack app for that workspace from the manifest in `manifests/`
+- store that workspace's Slack credentials in the configured dotenv file
 - `slack-mirror-user workspaces sync-config`
 - `slack-mirror-user workspaces verify --require-explicit-outbound`
 - `scripts/install_live_mode_systemd_user.sh <workspace>`
@@ -69,6 +71,7 @@ If `slack-mirror` is already installed on your shell `PATH`, `slack-mirror user-
 - explicit read and write credentials for that workspace
 
 For field-level config guidance, see [docs/CONFIG.md](/home/ecochran76/workspace.local/slack-export/docs/CONFIG.md).
+For Slack app creation, credential collection, and the app-manifest location, see [docs/SLACK_MANIFEST.md](/home/ecochran76/workspace.local/slack-export/docs/SLACK_MANIFEST.md).
 
 3. Sync the configured workspaces into the managed DB:
 
@@ -125,11 +128,16 @@ slack-mirror-user user-env snapshot-report --name first-install --json
 
 When the install already exists and you are onboarding an additional workspace:
 
-1. add the new workspace block to `~/.config/slack-mirror/config.yaml`
-2. run `slack-mirror-user workspaces sync-config`
-3. run `slack-mirror-user workspaces verify --require-explicit-outbound`
-4. run `scripts/install_live_mode_systemd_user.sh <workspace>`
-5. rerun `slack-mirror-user user-env check-live`
+1. render a workspace-specific Slack app manifest from `manifests/slack-mirror-socket-mode.yaml`
+2. create the Slack app at `https://api.slack.com/apps` from that rendered manifest
+3. collect the team ID, bot token, app token, signing secret, and optional user token
+4. store those values in the configured dotenv file
+5. add the new workspace block to `~/.config/slack-mirror/config.yaml` as `enabled: false`
+6. run `slack-mirror-user workspaces sync-config`
+7. when credentials are present, set `enabled: true`
+8. run `slack-mirror-user workspaces verify --workspace <workspace> --require-explicit-outbound`
+9. run `scripts/install_live_mode_systemd_user.sh <workspace>`
+10. rerun `slack-mirror-user user-env check-live`
 
 The browser user bootstrap is per-install, not per-workspace.
 
