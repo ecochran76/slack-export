@@ -2502,3 +2502,18 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
   - `python -m py_compile slack_mirror/service/api.py`
+
+## Turn 176 | 2026-04-16
+
+- Added an authenticated `/logs` browser surface for bounded operator log inspection without opening a terminal.
+- Added `GET /v1/logs` as a thin wrapper over bounded `journalctl --user` reads.
+- The first logs slice supports:
+  - tenant webhooks and daemon units
+  - combined tenant live-unit view
+  - managed `slack-mirror-api.service`
+  - managed `slack-mirror-runtime-report.service`
+- Kept the logs surface poll-first and bounded rather than introducing a streaming tail or SSE transport in the same slice.
+- Updated README and the live-ops runbook to advertise the browser logs page as the supported browser-facing operator seam.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_logs_page_and_api tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`

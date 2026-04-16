@@ -182,6 +182,8 @@ Follow logs:
 journalctl --user -u slack-mirror-webhooks-default.service -u slack-mirror-daemon-default.service -f
 ```
 
+The authenticated browser exposes the same operator seam in bounded poll-first form at `http://slack.localhost/logs`. Use it for recent per-tenant webhooks or daemon output, plus the shared `slack-mirror-api.service` and `slack-mirror-runtime-report.service` logs, when you do not want to hand-run `journalctl`.
+
 Enable auto-start after reboot/login:
 
 ```bash

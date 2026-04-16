@@ -563,6 +563,42 @@ class ApiServerTests(unittest.TestCase):
             index_html.text,
         )
 
+    def test_logs_page_and_api(self):
+        page = requests.get(f"{self.base_url}/logs?tenant=default&source=daemon&limit=50", timeout=5)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Tenant and service logs", page.text)
+        self.assertIn("class='nav-link active' href=\"/logs\"", page.text)
+        self.assertIn("/v1/logs", page.text)
+        self.assertIn("auto refresh every 5 seconds", page.text)
+        self.assertIn("Tenant daemon unit", page.text)
+
+        with patch("slack_mirror.service.api.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(
+                returncode=0,
+                stdout="2026-04-16T10:00:00Z line one\n2026-04-16T10:00:01Z line two\n",
+                stderr="",
+            )
+            logs = requests.get(
+                f"{self.base_url}/v1/logs",
+                params={"tenant": "default", "source": "daemon", "limit": 50},
+                timeout=5,
+            )
+        self.assertEqual(logs.status_code, 200)
+        payload = logs.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["tenant"], "default")
+        self.assertEqual(payload["source"], "daemon")
+        self.assertEqual(payload["source_label"], "Tenant default daemon")
+        self.assertEqual(payload["units"], ["slack-mirror-daemon-default.service"])
+        self.assertEqual(payload["line_count"], 2)
+        self.assertEqual(payload["lines"][0], "2026-04-16T10:00:00Z line one")
+        self.assertIn("journalctl --user --no-pager -o short-iso -n 50 -u slack-mirror-daemon-default.service", payload["command"])
+        self.assertEqual(mock_run.call_args_list[-1].args[0][:6], ["journalctl", "--user", "--no-pager", "-o", "short-iso", "-n"])
+
+        invalid = requests.get(f"{self.base_url}/v1/logs?source=daemon", timeout=5)
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.json()["error"]["code"], "INVALID_LOG_REQUEST")
+
     def test_runtime_reports_endpoint_rejects_invalid_names(self):
         resp = requests.get(f"{self.base_url}/v1/runtime/reports/bad%20name", timeout=5)
         self.assertEqual(resp.status_code, 400)
@@ -792,6 +828,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(search_redirect.status_code, 303)
         self.assertEqual(search_redirect.headers["location"], "/login?next=%2Fsearch&reason=auth_required")
 
+        logs_redirect = requests.get(f"{base_url}/logs", timeout=5, allow_redirects=False)
+        self.assertEqual(logs_redirect.status_code, 303)
+        self.assertEqual(logs_redirect.headers["location"], "/login?next=%2Flogs&reason=auth_required")
+
         export_redirect = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
             timeout=5,
@@ -902,6 +942,12 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("local path", search_page.text)
         self.assertIn("Page ${page} of ${pageCount}", search_page.text)
         self.assertIn("results ${start}-${end} of ${total}", search_page.text)
+
+        logs_page = session.get(f"{base_url}/logs?tenant=default&source=api", timeout=5)
+        self.assertEqual(logs_page.status_code, 200)
+        self.assertIn("Tenant and service logs", logs_page.text)
+        self.assertIn("class='nav-link active' href=\"/logs\"", logs_page.text)
+        self.assertIn("/v1/logs", logs_page.text)
 
         allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
         self.assertEqual(allowed.status_code, 200)

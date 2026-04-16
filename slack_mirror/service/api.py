@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import mimetypes
 import re
+import subprocess
+from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -432,6 +434,7 @@ def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_pat
     nav_items = [
         ("/", "Home", False),
         ("/search", "Search", False),
+        ("/logs", "Logs", False),
         ("/runtime/reports", "Runtime reports", False),
         ("/exports", "Exports", False),
         ("/settings/tenants", "Tenants", False),
@@ -1367,6 +1370,119 @@ def _search_page_html(
     )
 
 
+def _logs_page_html(
+    *,
+    auth_session: FrontendAuthSession,
+    tenant_names: list[str],
+    initial_tenant: str,
+    initial_source: str,
+    initial_limit: int,
+) -> str:
+    options = "".join(
+        f"<option value=\"{escape(name, quote=True)}\"{' selected' if name == initial_tenant else ''}>{escape(name)}</option>"
+        for name in tenant_names
+    )
+    initial_state = json.dumps(
+        {
+            "tenant": initial_tenant,
+            "source": initial_source,
+            "limit": initial_limit,
+        }
+    ).replace("</", "<\\/")
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror Logs</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--accent-soft:#dfeafe;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--bad:#a12828;--bad-soft:#fde5e5;--shadow:0 14px 30px rgba(18,32,51,.08);}"
+        "*{box-sizing:border-box} body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:radial-gradient(circle at top right,#fff8ef 0,transparent 28%),linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        f"{_authenticated_topbar_css()}"
+        ".shell{max-width:1220px;margin:0 auto;padding:32px 20px 48px}.stack{display:grid;gap:18px}"
+        ".card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}"
+        ".section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}"
+        ".section-title h1,.section-title h2{margin:0}.section-title h1{font-size:34px;line-height:1.05}.section-title h2{font-size:20px}"
+        ".lede{margin:0;color:var(--muted);font-size:15px;line-height:1.55;max-width:64rem}.meta{color:var(--muted);font-size:13px;line-height:1.45}"
+        ".form-grid{display:grid;grid-template-columns:1.2fr 1fr .55fr auto;gap:14px;align-items:end}"
+        "label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}select,input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid #c8beb0;background:#fff;color:var(--ink)}"
+        "select:focus,input:focus{outline:2px solid #8ab4ff;outline-offset:2px}.hint{margin-top:6px;color:var(--muted);font-size:12px}.hint.bad{color:var(--bad)}"
+        ".toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:16px}"
+        ".btn{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700;cursor:pointer}"
+        ".btn.secondary{background:#f8f5ef;border-color:var(--line);color:var(--ink)}"
+        ".toggle-row{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}.toggle-row input{width:16px;height:16px}"
+        ".status-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.status-pill{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#ebe4d8;color:#514739}"
+        ".status-pill.ok{background:var(--ok-soft);color:var(--ok)}.status-pill.warn{background:var(--warn-soft);color:var(--warn)}.status-pill.bad{background:var(--bad-soft);color:var(--bad)}"
+        ".empty{padding:18px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
+        ".viewer-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}"
+        ".viewer-meta{display:grid;gap:4px}.log-output{margin:0;padding:18px;border-radius:18px;border:1px solid #d8cdc0;background:#171717;color:#f5f5f5;overflow:auto;max-height:68vh;white-space:pre-wrap;word-break:break-word;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}"
+        "@media (max-width: 900px){.form-grid{grid-template-columns:1fr 1fr}.viewer-head{align-items:flex-start}}"
+        "@media (max-width: 640px){.shell{padding:20px 14px 32px}.section-title h1{font-size:28px}.form-grid{grid-template-columns:1fr}}"
+        "</style></head><body><div class='shell stack'>"
+        f"{_authenticated_topbar_html(auth_session=auth_session, current_path='/logs')}"
+        "<section class='card'>"
+        "<div class='section-title'><h1>Tenant and service logs</h1></div>"
+        "<p class='lede'>Use this page to inspect bounded <code>journalctl --user</code> output for tenant live units and the shared managed services. This is a poll-first operator view, not a streaming tail.</p>"
+        "</section>"
+        "<section class='card'>"
+        "<div class='section-title'><h2>Log source</h2><a id='logs-api-link' href='/v1/logs'>JSON API</a></div>"
+        "<form id='logs-form'>"
+        "<div class='form-grid'>"
+        "<div><label for='logs-source'>Source</label><select id='logs-source' name='source'>"
+        "<option value='tenant_all'>Tenant live units</option>"
+        "<option value='webhooks'>Tenant webhooks unit</option>"
+        "<option value='daemon'>Tenant daemon unit</option>"
+        "<option value='api'>Managed API service</option>"
+        "<option value='runtime-report'>Runtime report service</option>"
+        "</select><div class='hint'>Tenant selections map to the same systemd unit names used by the live-ops runbook.</div></div>"
+        f"<div><label for='logs-tenant'>Tenant</label><select id='logs-tenant' name='tenant'><option value=''>Choose a tenant…</option>{options}</select><div class='hint' id='logs-tenant-help'>Required for tenant unit views; ignored for shared managed services.</div></div>"
+        "<div><label for='logs-limit'>Lines</label><select id='logs-limit' name='limit'><option value='50'>50</option><option value='100'>100</option><option value='200'>200</option><option value='400'>400</option></select><div class='hint'>Bound browser payload size.</div></div>"
+        "<div><button class='btn' id='logs-refresh-button' type='submit'>Refresh logs</button></div>"
+        "</div>"
+        "<div class='toolbar'><div class='meta'>Browser route: <code>/logs</code> · JSON route: <code>/v1/logs</code></div><label class='toggle-row'><input id='logs-auto-refresh' type='checkbox' /> auto refresh every 5 seconds</label></div>"
+        "<div class='hint bad' id='logs-form-error' hidden></div>"
+        "</form>"
+        "<div class='status-row' id='logs-status-row'><span class='status-pill'>Waiting for selection</span></div>"
+        "</section>"
+        "<section class='card'>"
+        "<div class='viewer-head'><div class='viewer-meta'><strong id='logs-viewer-title'>No logs loaded</strong><div class='meta' id='logs-viewer-meta'>Choose a source and refresh.</div></div><div class='meta' id='logs-viewer-command'></div></div>"
+        "<pre class='log-output' id='logs-output'>Choose a source and refresh.</pre>"
+        "</section>"
+        f"<script>const initialLogsState={initial_state};"
+        "const sourceSelect=document.getElementById('logs-source');"
+        "const tenantSelect=document.getElementById('logs-tenant');"
+        "const limitSelect=document.getElementById('logs-limit');"
+        "const refreshButton=document.getElementById('logs-refresh-button');"
+        "const autoRefreshCheckbox=document.getElementById('logs-auto-refresh');"
+        "const formError=document.getElementById('logs-form-error');"
+        "const statusRow=document.getElementById('logs-status-row');"
+        "const viewerTitle=document.getElementById('logs-viewer-title');"
+        "const viewerMeta=document.getElementById('logs-viewer-meta');"
+        "const viewerCommand=document.getElementById('logs-viewer-command');"
+        "const output=document.getElementById('logs-output');"
+        "const apiLink=document.getElementById('logs-api-link');"
+        "let logsPollHandle=null;"
+        f"{_BROWSER_ESCAPE_HTML_JS}"
+        f"{_BROWSER_BUSY_LABEL_JS}"
+        f"{_BROWSER_FETCH_JSON_HELPERS_JS}"
+        "function currentLogsState(){return {source:sourceSelect.value,tenant:tenantSelect.value.trim(),limit:Number(limitSelect.value||100)};}"
+        "function logsNeedsTenant(source){return source==='tenant_all'||source==='webhooks'||source==='daemon';}"
+        "function updateLogsFormState(){const requiresTenant=logsNeedsTenant(sourceSelect.value);tenantSelect.disabled=!requiresTenant||refreshButton.disabled;const help=document.getElementById('logs-tenant-help');if(help)help.textContent=requiresTenant?'Required for the selected tenant unit view.':'Ignored for the selected shared managed service.';}"
+        "function setLogsBusyState(isBusy){sourceSelect.disabled=isBusy;limitSelect.disabled=isBusy;refreshButton.disabled=isBusy;setButtonBusyLabel(refreshButton,isBusy,'loading…');updateLogsFormState();}"
+        "function setLogsError(message){if(message){formError.textContent=message;formError.hidden=false;return;}formError.textContent='';formError.hidden=true;}"
+        "function updateLogsApiLink(state){const params=new URLSearchParams({source:state.source,limit:String(state.limit)});if(state.tenant)params.set('tenant',state.tenant);apiLink.setAttribute('href',`/v1/logs?${params.toString()}`);const browserParams=new URLSearchParams();if(state.source!=='tenant_all')browserParams.set('source',state.source);if(state.tenant)browserParams.set('tenant',state.tenant);if(Number(state.limit)!==100)browserParams.set('limit',String(state.limit));const nextUrl=browserParams.toString()?`/logs?${browserParams.toString()}`:'/logs';window.history.replaceState(null,'',nextUrl);}"
+        "function renderLogsStatus(payload){const pills=[];const units=(payload?.units||[]).map((unit)=>`<span class='status-pill'>${escapeHtml(unit)}</span>`).join('');if(payload?.ok===false){statusRow.innerHTML='<span class=\"status-pill bad\">error</span>';return;}pills.push(`<span class=\"status-pill ok\">${escapeHtml(String(payload?.source_label||'logs'))}</span>`);pills.push(`<span class=\"status-pill\">${Number(payload?.line_count||0)} lines</span>`);if(payload?.truncated)pills.push('<span class=\"status-pill warn\">bounded</span>');statusRow.innerHTML=pills.join('')+(units?` ${units}`:'');}"
+        "function renderLogsPayload(payload){renderLogsStatus(payload);viewerTitle.textContent=String(payload?.source_label||'Logs');viewerMeta.textContent=`Fetched ${String(payload?.fetched_at||'')} · ${Number(payload?.line_count||0)} lines`;viewerCommand.innerHTML=payload?.command?`<code>${escapeHtml(String(payload.command))}</code>`:'';const lines=Array.isArray(payload?.lines)?payload.lines:[];output.textContent=lines.length?lines.join('\\n'):'No journal lines returned for this selection.';}"
+        "async function loadLogs(){const state=currentLogsState();updateLogsApiLink(state);setLogsError('');if(logsNeedsTenant(state.source)&&!state.tenant){setLogsError('Tenant is required for tenant-unit logs.');renderLogsStatus({ok:false});viewerTitle.textContent='No logs loaded';viewerMeta.textContent='Choose a tenant and refresh.';viewerCommand.textContent='';output.textContent='Choose a tenant and refresh.';return;}setLogsBusyState(true);try{const params=new URLSearchParams({source:state.source,limit:String(state.limit)});if(state.tenant)params.set('tenant',state.tenant);const {resp,data}=await fetchJsonResponse(`/v1/logs?${params.toString()}`);if(!resp.ok){const message=responseErrorMessage(data,'Log fetch failed');setLogsError(message);renderLogsStatus({ok:false});viewerTitle.textContent='Log fetch failed';viewerMeta.textContent=message;viewerCommand.textContent='';output.textContent=message;return;}renderLogsPayload(data);}finally{setLogsBusyState(false);}}"
+        "function syncAutoRefresh(){if(logsPollHandle){window.clearInterval(logsPollHandle);logsPollHandle=null;}if(autoRefreshCheckbox.checked){logsPollHandle=window.setInterval(()=>{loadLogs().catch(()=>{});},5000);}}"
+        "sourceSelect.addEventListener('change',()=>{setLogsError('');updateLogsFormState();updateLogsApiLink(currentLogsState());});"
+        "tenantSelect.addEventListener('change',()=>{setLogsError('');updateLogsApiLink(currentLogsState());});"
+        "limitSelect.addEventListener('change',()=>updateLogsApiLink(currentLogsState()));"
+        "autoRefreshCheckbox.addEventListener('change',syncAutoRefresh);"
+        "document.getElementById('logs-form').addEventListener('submit',async(event)=>{event.preventDefault();await loadLogs();});"
+        "sourceSelect.value=initialLogsState.source||'tenant_all';tenantSelect.value=initialLogsState.tenant||tenantSelect.value;limitSelect.value=String(initialLogsState.limit||100);updateLogsFormState();updateLogsApiLink(currentLogsState());if(initialLogsState.tenant||!logsNeedsTenant(initialLogsState.source||'tenant_all')){loadLogs();}"
+        "</script></div></body></html>"
+    )
+
+
 def _preview_html(path: Path, source_url: str) -> str:
     content_type, _ = mimetypes.guess_type(str(path))
     content_type = content_type or "application/octet-stream"
@@ -1448,6 +1564,68 @@ def _parse_json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     return json.loads(body.decode("utf-8"))
 
 
+def _safe_log_limit(value: Any) -> int:
+    try:
+        limit = int(value or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    return max(10, min(limit, 400))
+
+
+def _log_source_label(*, source: str, tenant: str | None) -> str:
+    if source == "api":
+        return "Managed API service"
+    if source == "runtime-report":
+        return "Runtime report service"
+    if source == "webhooks":
+        return f"Tenant {tenant} webhooks"
+    if source == "daemon":
+        return f"Tenant {tenant} daemon"
+    return f"Tenant {tenant} live units"
+
+
+def _log_units_for_request(*, source: str, tenant: str | None) -> list[str]:
+    normalized_source = str(source or "tenant_all").strip().lower()
+    if normalized_source == "api":
+        return ["slack-mirror-api.service"]
+    if normalized_source == "runtime-report":
+        return ["slack-mirror-runtime-report.service"]
+    if normalized_source not in {"tenant_all", "webhooks", "daemon"}:
+        raise ValueError("unknown log source")
+    if not tenant:
+        raise ValueError("tenant is required for tenant log sources")
+    from slack_mirror.service.tenant_onboarding import _tenant_live_units, normalize_tenant_name
+
+    webhooks_unit, daemon_unit = _tenant_live_units(normalize_tenant_name(tenant))
+    if normalized_source == "webhooks":
+        return [webhooks_unit]
+    if normalized_source == "daemon":
+        return [daemon_unit]
+    return [webhooks_unit, daemon_unit]
+
+
+def _read_user_journal(*, units: list[str], limit: int) -> dict[str, Any]:
+    if not units:
+        raise ValueError("at least one unit is required")
+    command = ["journalctl", "--user", "--no-pager", "-o", "short-iso", "-n", str(limit)]
+    for unit in units:
+        command.extend(["-u", unit])
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    stdout = result.stdout or ""
+    stderr = (result.stderr or "").strip()
+    if result.returncode != 0 and not stdout.strip():
+        raise RuntimeError(stderr or f"journalctl failed with exit status {result.returncode}")
+    lines = stdout.splitlines()
+    return {
+        "command": " ".join(command),
+        "lines": lines,
+        "line_count": len(lines),
+        "stderr": stderr,
+        "returncode": result.returncode,
+        "truncated": len(lines) >= limit,
+    }
+
+
 def create_api_server(*, bind: str, port: int, config_path: str | None = None) -> ThreadingHTTPServer:
     service = get_app_service(config_path)
     config = load_config(config_path)
@@ -1490,13 +1668,14 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return False
             if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
                 return False
-            if path in {"/", "/settings", "/settings/tenants", "/search"}:
+            if path in {"/", "/settings", "/settings/tenants", "/search", "/logs"}:
                 return True
             if path.startswith("/v1/workspaces/") and path.endswith("/webhook"):
                 return False
             protected_prefixes = (
                 "/exports",
                 "/v1/exports",
+                "/v1/logs",
                 "/v1/workspaces",
                 "/runtime/reports",
                 "/v1/runtime/reports",
@@ -1717,6 +1896,76 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="tenants.status")
                     return
                 _json_response(self, 200, {"ok": True, "tenants": tenants})
+                return
+
+            if path == "/logs":
+                from slack_mirror.service.tenant_onboarding import tenant_status
+
+                try:
+                    tenants = tenant_status(config_path=config_path)
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="logs.tenants")
+                    return
+                tenant_names = sorted(str(item.get("name") or "").strip() for item in tenants if str(item.get("name") or "").strip())
+                initial_source = str(query.get("source", ["tenant_all"])[0] or "tenant_all").strip().lower()
+                if initial_source not in {"tenant_all", "webhooks", "daemon", "api", "runtime-report"}:
+                    initial_source = "tenant_all"
+                requested_tenant = str(query.get("tenant", [""])[0] or "").strip()
+                initial_tenant = requested_tenant if requested_tenant in tenant_names else (tenant_names[0] if tenant_names else "")
+                initial_limit = _safe_log_limit(query.get("limit", [100])[0] if "limit" in query else 100)
+                _html_response(
+                    self,
+                    200,
+                    _logs_page_html(
+                        auth_session=auth_session,
+                        tenant_names=tenant_names,
+                        initial_tenant=initial_tenant,
+                        initial_source=initial_source,
+                        initial_limit=initial_limit,
+                    ),
+                )
+                return
+
+            if path == "/v1/logs":
+                from slack_mirror.service.tenant_onboarding import tenant_status
+
+                source = str(query.get("source", ["tenant_all"])[0] or "tenant_all").strip().lower()
+                tenant = str(query.get("tenant", [""])[0] or "").strip()
+                limit = _safe_log_limit(query.get("limit", [100])[0] if "limit" in query else 100)
+                try:
+                    tenants = tenant_status(config_path=config_path)
+                    tenant_names = {str(item.get("name") or "").strip() for item in tenants if str(item.get("name") or "").strip()}
+                    if source in {"tenant_all", "webhooks", "daemon"}:
+                        if not tenant:
+                            raise ValueError("tenant is required for tenant log sources")
+                        if tenant not in tenant_names:
+                            raise ValueError(f"unknown tenant: {tenant}")
+                    units = _log_units_for_request(source=source, tenant=tenant or None)
+                    payload = _read_user_journal(units=units, limit=limit)
+                except ValueError as exc:
+                    _error_response(self, 400, "INVALID_LOG_REQUEST", str(exc))
+                    return
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="logs.read", tenant=tenant or None, source=source)
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "source": source,
+                        "tenant": tenant or None,
+                        "source_label": _log_source_label(source=source, tenant=tenant or None),
+                        "units": units,
+                        "limit": limit,
+                        "command": payload["command"],
+                        "lines": payload["lines"],
+                        "line_count": payload["line_count"],
+                        "truncated": payload["truncated"],
+                        "stderr": payload["stderr"],
+                        "fetched_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
                 return
 
             m = re.fullmatch(r"/v1/tenants/([^/]+)/manifest", path)
