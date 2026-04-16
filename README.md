@@ -34,6 +34,7 @@ slack-mirror-user tenants onboard \
   --domain polymerconsul-clo9441 \
   --display-name "Polymer Consulting Group"
 slack-mirror-user tenants status polymer
+slack-mirror-user tenants activate polymer
 ```
 
 The same config-backed onboarding status is available in the authenticated browser at `http://slack.localhost/settings/tenants`.

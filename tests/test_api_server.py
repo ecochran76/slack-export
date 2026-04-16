@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -180,12 +181,34 @@ class ApiServerTests(unittest.TestCase):
         tenant_names = [item["name"] for item in updated.json()["tenants"]]
         self.assertIn("polymer", tenant_names)
 
+        with patch.dict(
+            os.environ,
+            {
+                "SLACK_POLYMER_BOT_TOKEN": "xoxb-polymer",
+                "SLACK_POLYMER_WRITE_BOT_TOKEN": "xoxb-polymer-write",
+                "SLACK_POLYMER_APP_TOKEN": "xapp-polymer",
+                "SLACK_POLYMER_SIGNING_SECRET": "secret-polymer",
+            },
+            clear=False,
+        ):
+            activated = requests.post(
+                f"{self.base_url}/v1/tenants/polymer/activate",
+                json={"skip_live_units": True},
+                headers={"origin": self.base_url},
+                timeout=5,
+            )
+        self.assertEqual(activated.status_code, 200)
+        self.assertTrue(activated.json()["ok"])
+        self.assertTrue(activated.json()["tenant"]["enabled"])
+        self.assertFalse(activated.json()["live_units_installed"])
+
     def test_tenant_settings_page_lists_onboarding_surface(self):
         page = requests.get(f"{self.base_url}/settings/tenants", timeout=5)
         self.assertEqual(page.status_code, 200)
         self.assertIn("Tenant onboarding", page.text)
         self.assertIn("Create disabled scaffold", page.text)
         self.assertIn("/v1/tenants/onboard", page.text)
+        self.assertIn("data-tenant-activate", page.text)
 
     def test_workspace_channels_endpoint_and_exports_picker_ui(self):
         service = get_app_service(str(self.config_path))

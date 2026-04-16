@@ -2285,3 +2285,35 @@ This file is the dated turn log for planning and execution continuity.
   - browser/API auth smoke:
     - `/settings/tenants` redirects to login when unauthenticated
     - `/v1/tenants` returns `401` when unauthenticated
+
+## Turn 165 | 2026-04-15
+
+- Implemented the tenant activation slice for `P09`.
+- Added shared activation service behavior:
+  - blocks activation until required credentials are present
+  - creates a timestamped config backup before enabling
+  - sets `enabled: true`
+  - revalidates config after mutation
+  - syncs the enabled tenant into the DB
+  - wraps live-unit installation through the existing live-mode systemd script
+  - supports `dry_run` and `skip_live_units` for safe rehearsal and tests
+- Added CLI command:
+  - `slack-mirror tenants activate <name>`
+- Tightened activation CLI failures so missing credentials return a concise JSON/plain error instead of a Python traceback.
+- Added protected API route:
+  - `POST /v1/tenants/<name>/activate`
+- Extended `/settings/tenants` so credential-ready disabled tenants can be activated from the browser.
+- Updated install and manifest docs so the supported add-workspace flow now uses `tenants onboard`, `tenants status`, and `tenants activate`.
+- Polymer remains disabled because required Polymer credentials are not present.
+- Validation:
+  - `uv run python -m unittest tests.test_tenant_onboarding tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/tenant_onboarding.py slack_mirror/service/api.py slack_mirror/cli/main.py tests/test_tenant_onboarding.py tests/test_api_server.py`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants activate polymer --dry-run --json`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror user-env update`
+  - `slack-mirror-user tenants status`
+  - `slack-mirror-user tenants activate polymer --dry-run --json`
+  - `slack-mirror-user user-env check-live --json`
+  - browser/API auth smoke:
+    - `/settings/tenants` redirects to login when unauthenticated
+    - `/v1/tenants` returns `401` when unauthenticated

@@ -1,16 +1,20 @@
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import yaml
 
 from slack_mirror.cli.main import cmd_tenants_onboard, cmd_tenants_status
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name
 from slack_mirror.service.tenant_onboarding import (
+    activate_tenant,
+    install_tenant_live_units,
     normalize_slack_domain,
     scaffold_tenant,
     tenant_status,
@@ -110,6 +114,95 @@ class TenantOnboardingTests(unittest.TestCase):
             rendered = json.dumps(row)
             self.assertNotIn("xox", rendered)
 
+    def test_activate_tenant_blocks_until_required_credentials_exist(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+
+            with self.assertRaisesRegex(ValueError, "missing required credentials"):
+                activate_tenant(config_path=cfg, name="polymer", install_live_units=False)
+
+    def test_activate_tenant_enables_and_syncs_without_live_units(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+
+            with patch.dict(
+                os.environ,
+                {
+                    "SLACK_POLYMER_BOT_TOKEN": "xoxb-polymer",
+                    "SLACK_POLYMER_WRITE_BOT_TOKEN": "xoxb-polymer-write",
+                    "SLACK_POLYMER_APP_TOKEN": "xapp-polymer",
+                    "SLACK_POLYMER_SIGNING_SECRET": "secret-polymer",
+                },
+                clear=False,
+            ):
+                result = activate_tenant(config_path=cfg, name="polymer", install_live_units=False)
+
+            self.assertTrue(result.changed)
+            self.assertTrue(Path(result.backup_path).exists())
+            self.assertFalse(result.live_units_installed)
+            raw = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+            polymer = [item for item in raw["workspaces"] if item["name"] == "polymer"][0]
+            self.assertTrue(polymer["enabled"])
+
+            conn = connect(str(root / "mirror.db"))
+            apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"))
+            row = get_workspace_by_name(conn, "polymer")
+            self.assertIsNotNone(row)
+            self.assertIn('"enabled": true', row["config_json"])
+
+    def test_activate_tenant_dry_run_does_not_write(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+
+            with patch.dict(
+                os.environ,
+                {
+                    "SLACK_POLYMER_BOT_TOKEN": "xoxb-polymer",
+                    "SLACK_POLYMER_WRITE_BOT_TOKEN": "xoxb-polymer-write",
+                    "SLACK_POLYMER_APP_TOKEN": "xapp-polymer",
+                    "SLACK_POLYMER_SIGNING_SECRET": "secret-polymer",
+                },
+                clear=False,
+            ):
+                result = activate_tenant(config_path=cfg, name="polymer", dry_run=True)
+
+            self.assertTrue(result.dry_run)
+            self.assertTrue(result.tenant["enabled"])
+            self.assertFalse(result.live_units_installed)
+            raw = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+            polymer = [item for item in raw["workspaces"] if item["name"] == "polymer"][0]
+            self.assertFalse(polymer["enabled"])
+
+    def test_install_tenant_live_units_uses_product_script(self):
+        runner = Mock()
+        with tempfile.TemporaryDirectory() as td:
+            cfg = self._write_config(Path(td))
+            command = install_tenant_live_units(name="default", config_path=cfg, runner=runner)
+
+        self.assertEqual(command[-2:], ["default", str(cfg.resolve())])
+        runner.assert_called_once_with(command, check=True)
+
     def test_cli_tenants_onboard_json(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -134,6 +227,61 @@ class TenantOnboardingTests(unittest.TestCase):
             self.assertTrue(payload["dry_run"])
             self.assertEqual(payload["tenant"]["name"], "polymer")
 
+    def test_cli_tenants_activate_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+            args = SimpleNamespace(config=str(cfg), name="polymer", dry_run=False, skip_live_units=True, json=True)
+
+            with patch.dict(
+                os.environ,
+                {
+                    "SLACK_POLYMER_BOT_TOKEN": "xoxb-polymer",
+                    "SLACK_POLYMER_WRITE_BOT_TOKEN": "xoxb-polymer-write",
+                    "SLACK_POLYMER_APP_TOKEN": "xapp-polymer",
+                    "SLACK_POLYMER_SIGNING_SECRET": "secret-polymer",
+                },
+                clear=False,
+            ):
+                from slack_mirror.cli.main import cmd_tenants_activate
+
+                with redirect_stdout(io.StringIO()) as out:
+                    rc = cmd_tenants_activate(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(out.getvalue())
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["tenant"]["enabled"])
+            self.assertFalse(payload["live_units_installed"])
+
+    def test_cli_tenants_activate_json_reports_missing_credentials_without_traceback(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+            args = SimpleNamespace(config=str(cfg), name="polymer", dry_run=False, skip_live_units=True, json=True)
+
+            from slack_mirror.cli.main import cmd_tenants_activate
+
+            with redirect_stdout(io.StringIO()) as out:
+                rc = cmd_tenants_activate(args)
+
+            self.assertEqual(rc, 1)
+            payload = json.loads(out.getvalue())
+            self.assertFalse(payload["ok"])
+            self.assertIn("missing required credentials", payload["error"]["message"])
+
     def test_cli_tenants_status_plain(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -149,4 +297,3 @@ class TenantOnboardingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

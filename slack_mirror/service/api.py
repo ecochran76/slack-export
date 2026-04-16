@@ -246,6 +246,8 @@ def _requires_same_origin_write(path: str) -> bool:
         return True
     if path == "/v1/tenants/onboard":
         return True
+    if re.fullmatch(r"/v1/tenants/[^/]+/activate", path):
+        return True
     return False
 
 
@@ -428,6 +430,13 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         synced = bool(item.get("db_synced"))
         missing = ", ".join(str(part) for part in item.get("missing_required_credentials") or []) or "-"
         manifest = item.get("manifest") or {}
+        action_html = (
+            f"<button data-tenant-activate='{name}'>Activate + start live units</button>"
+            if credential_ready and not enabled
+            else "<div class='hint'>Activation is available after required credentials are present.</div>"
+            if not enabled
+            else "<div class='hint'>Tenant is enabled. Use live validation for ongoing health.</div>"
+        )
         rows.append(
             "<article class='tenant-card'>"
             f"<div class='tenant-head'><h2>{name}</h2><span class='badge {'badge-ok' if enabled else 'badge-warn'}'>{'enabled' if enabled else 'disabled'}</span></div>"
@@ -438,6 +447,7 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
             f"<div><strong>Next action</strong><div class='meta'><code>{escape(str(item.get('next_action') or 'unknown'))}</code></div></div>"
             f"<div><strong>Manifest</strong><div class='meta'><code>{escape(str(manifest.get('path') or ''))}</code></div></div>"
             "</div>"
+            f"{action_html}"
             "</article>"
         )
     if not rows:
@@ -483,6 +493,7 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "const resp=await fetch('/v1/tenants/onboard',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const data=await resp.json().catch(()=>({error:{message:'Tenant onboarding failed'}}));"
         "if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant onboarding failed',true);return;}showTenantFeedback(`Created ${data.tenant.name}. JSON manifest: ${data.manifest_path}. Next: ${data.tenant.next_action}.`,false);window.setTimeout(()=>window.location.reload(),800);}"
         "finally{button.disabled=false;button.textContent='Create disabled scaffold';}});"
+        "for(const activateButton of document.querySelectorAll('button[data-tenant-activate]')){activateButton.addEventListener('click',async()=>{const name=activateButton.getAttribute('data-tenant-activate');activateButton.disabled=true;activateButton.textContent='activating...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/activate`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const data=await resp.json().catch(()=>({error:{message:'Tenant activation failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant activation failed',true);return;}showTenantFeedback(`Activated ${data.tenant.name}. Next: run live validation.`,false);window.setTimeout(()=>window.location.reload(),800);}finally{activateButton.disabled=false;activateButton.textContent='Activate + start live units';}});}"
         "</script></div></body></html>"
     )
 
@@ -2269,6 +2280,37 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         "config_path": result.config_path,
                         "backup_path": result.backup_path,
                         "manifest_path": result.manifest_path,
+                        "tenant": result.tenant,
+                    },
+                )
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)/activate", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import activate_tenant
+
+                tenant_name = unquote(m.group(1))
+                try:
+                    result = activate_tenant(
+                        config_path=config_path,
+                        name=tenant_name,
+                        dry_run=bool(body.get("dry_run", False)),
+                        install_live_units=not bool(body.get("skip_live_units", False)),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.activate")
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "changed": result.changed,
+                        "dry_run": result.dry_run,
+                        "config_path": result.config_path,
+                        "backup_path": result.backup_path,
+                        "live_units_installed": result.live_units_installed,
+                        "live_unit_command": result.live_unit_command,
                         "tenant": result.tenant,
                     },
                 )

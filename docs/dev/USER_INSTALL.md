@@ -146,10 +146,22 @@ slack-mirror-user tenants onboard \
 slack-mirror-user tenants status polymer
 ```
 
-6. When credentials are present, set `enabled: true`.
+6. When credentials are present, activate the tenant:
+
+```bash
+slack-mirror-user tenants activate polymer
+```
+
+This enables the workspace, syncs it into the DB, and installs or refreshes the per-workspace live units.
+
 7. Run `slack-mirror-user workspaces verify --workspace <workspace> --require-explicit-outbound`.
-8. Run `scripts/install_live_mode_systemd_user.sh <workspace>`.
-9. Rerun `slack-mirror-user user-env check-live`.
+8. Rerun `slack-mirror-user user-env check-live`.
+
+If you need to enable and sync config without starting systemd units, use:
+
+```bash
+slack-mirror-user tenants activate polymer --skip-live-units
+```
 
 The authenticated browser settings surface also exposes tenant onboarding status and scaffold creation at:
 

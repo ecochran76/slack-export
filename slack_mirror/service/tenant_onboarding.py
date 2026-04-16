@@ -4,10 +4,11 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -39,6 +40,20 @@ class TenantOnboardResult:
     dry_run: bool
 
 
+@dataclass(frozen=True)
+class TenantActivateResult:
+    tenant: dict[str, Any]
+    changed: bool
+    config_path: str
+    backup_path: str | None
+    live_units_installed: bool
+    live_unit_command: list[str] | None
+    dry_run: bool
+
+
+RunFn = Callable[..., subprocess.CompletedProcess]
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -53,6 +68,10 @@ def _default_manifest_template() -> Path:
 
 def _default_manifest_output(name: str) -> Path:
     return _repo_root() / "manifests" / f"slack-mirror-socket-mode-{name}.rendered.json"
+
+
+def _live_install_script() -> Path:
+    return _repo_root() / "scripts" / "install_live_mode_systemd_user.sh"
 
 
 def normalize_tenant_name(name: str) -> str:
@@ -117,6 +136,13 @@ def _write_raw_config(path: Path, data: dict[str, Any]) -> None:
     path.write_text(rendered, encoding="utf-8")
 
 
+def _backup_config(path: Path, *, tenant_name: str, operation: str) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup = path.with_name(f"{path.name}.before-{tenant_name}-{operation}-{timestamp}")
+    shutil.copy2(path, backup)
+    return backup
+
+
 def _find_workspace(raw_config: dict[str, Any], name: str) -> dict[str, Any] | None:
     for item in raw_config.get("workspaces") or []:
         if isinstance(item, dict) and item.get("name") == name:
@@ -171,6 +197,24 @@ def _db_synced(config_path: str | Path | None, name: str) -> bool:
         return get_workspace_by_name(conn, name) is not None
     except Exception:
         return False
+
+
+def _sync_tenant_to_db(config_path: str | Path, name: str) -> None:
+    cfg = load_config(config_path)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
+    conn = connect(db_path)
+    apply_migrations(conn, str(_migrations_dir()))
+    for ws in cfg.get("workspaces", []):
+        if ws.get("name") == name:
+            upsert_workspace(
+                conn,
+                name=name,
+                team_id=ws.get("team_id"),
+                domain=ws.get("domain"),
+                config=ws,
+            )
+            return
+    raise ValueError(f"Tenant '{name}' not found in expanded config")
 
 
 def _manifest_status(name: str, manifest_path: str | Path | None = None) -> dict[str, Any]:
@@ -318,29 +362,14 @@ def scaffold_tenant(
 
     backup_path: str | None = None
     if changed and not dry_run:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        backup = resolved.with_name(f"{resolved.name}.before-{tenant_name}-{timestamp}")
-        shutil.copy2(resolved, backup)
+        backup = _backup_config(resolved, tenant_name=tenant_name, operation="onboard")
         _write_raw_config(resolved, raw)
         # Re-read through the normal loader so invalid YAML/env path issues are caught immediately.
         load_config(resolved)
         backup_path = str(backup)
 
     if sync_db and not dry_run:
-        cfg = load_config(resolved)
-        db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
-        conn = connect(db_path)
-        apply_migrations(conn, str(_migrations_dir()))
-        for ws in cfg.get("workspaces", []):
-            if ws.get("name") == tenant_name:
-                upsert_workspace(
-                    conn,
-                    name=tenant_name,
-                    team_id=ws.get("team_id"),
-                    domain=ws.get("domain"),
-                    config=ws,
-                )
-                break
+        _sync_tenant_to_db(resolved, tenant_name)
 
     if not dry_run:
         status = tenant_status(config_path=resolved, name=tenant_name)[0]
@@ -365,5 +394,78 @@ def scaffold_tenant(
         config_path=str(resolved),
         backup_path=backup_path,
         manifest_path=str(manifest),
+        dry_run=dry_run,
+    )
+
+
+def install_tenant_live_units(
+    *,
+    name: str,
+    config_path: str | Path,
+    runner: RunFn = subprocess.run,
+) -> list[str]:
+    tenant_name = normalize_tenant_name(name)
+    script = _live_install_script()
+    if not script.exists():
+        raise FileNotFoundError(f"Live-mode installer script not found: {script}")
+    command = [str(script), tenant_name, str(resolve_config_path(config_path))]
+    runner(command, check=True)
+    return command
+
+
+def activate_tenant(
+    *,
+    config_path: str | Path | None = None,
+    name: str,
+    dry_run: bool = False,
+    install_live_units: bool = True,
+    runner: RunFn = subprocess.run,
+) -> TenantActivateResult:
+    tenant_name = normalize_tenant_name(name)
+    resolved = resolve_config_path(config_path)
+    raw = _load_raw_config(resolved)
+    existing = _find_workspace(raw, tenant_name)
+    if existing is None:
+        raise ValueError(f"Tenant '{tenant_name}' not found in config")
+
+    before_status = tenant_status(config_path=resolved, name=tenant_name)[0]
+    if not before_status.get("credential_ready"):
+        missing = ", ".join(before_status.get("missing_required_credentials") or [])
+        raise ValueError(f"Tenant '{tenant_name}' is missing required credentials: {missing}")
+
+    was_enabled = bool(before_status.get("enabled"))
+    changed = not was_enabled
+    backup_path: str | None = None
+    command: list[str] | None = None
+    live_units_installed = False
+
+    if changed and not dry_run:
+        existing["enabled"] = True
+        backup = _backup_config(resolved, tenant_name=tenant_name, operation="activate")
+        _write_raw_config(resolved, raw)
+        load_config(resolved)
+        _sync_tenant_to_db(resolved, tenant_name)
+        backup_path = str(backup)
+
+    if not changed and not dry_run:
+        _sync_tenant_to_db(resolved, tenant_name)
+
+    if install_live_units:
+        command = [str(_live_install_script()), tenant_name, str(resolved)]
+        if not dry_run:
+            command = install_tenant_live_units(name=tenant_name, config_path=resolved, runner=runner)
+            live_units_installed = True
+
+    status = tenant_status(config_path=resolved, name=tenant_name)[0]
+    if dry_run and changed:
+        status = {**status, "enabled": True, "next_action": "install_live_units" if install_live_units else "run_live_validation"}
+
+    return TenantActivateResult(
+        tenant=status,
+        changed=changed,
+        config_path=str(resolved),
+        backup_path=backup_path,
+        live_units_installed=live_units_installed,
+        live_unit_command=command,
         dry_run=dry_run,
     )

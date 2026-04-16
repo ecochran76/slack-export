@@ -44,12 +44,14 @@ This plan does not include:
   - `slack-mirror tenants onboard`
   - protected `GET /v1/tenants`
   - protected `POST /v1/tenants/onboard`
+  - protected `POST /v1/tenants/<name>/activate`
   - browser tenant onboarding surface at `/settings/tenants`
 - browser `/settings` covers browser-auth policy and session management, with tenant management split to `/settings/tenants`
 - browser `/v1/workspaces` still lists DB-synced workspaces only; tenant onboarding state now lives under `/v1/tenants`
-- per-workspace live service installation still depends on a repo script:
+- `slack-mirror tenants activate` now blocks until required credentials are present, enables the tenant, syncs DB state, and can invoke the product-owned live-unit wrapper over:
   - `scripts/install_live_mode_systemd_user.sh <workspace>`
-- activation is still manual after the credential checkpoint; product-owned activation remains the next critical path item
+- browser activation is available for credential-ready disabled tenants through `/settings/tenants`
+- Polymer activation is still blocked because Polymer credentials are not present yet
 
 ## Target Operator Experience
 
@@ -135,6 +137,10 @@ Browser path:
 - print concise step-by-step operator guidance, including the Slack app manifest path and dotenv destination
 - never echo secret values
 
+Status:
+
+- shipped for `status`, `onboard`, and `activate`
+
 ### Track D | Browser Settings Surface
 
 - expand settings navigation with a tenant-management page
@@ -142,6 +148,10 @@ Browser path:
 - render tenant cards with activation state, credential readiness, live-unit status, and next action
 - add a guided onboarding panel that can generate or link the rendered JSON manifest
 - reuse existing browser helper patterns for busy states, row-local errors, and same-origin mutation checks
+
+Status:
+
+- shipped for redacted status, scaffold creation, and credential-ready activation
 
 ### Track E | Live Activation Integration
 
@@ -155,6 +165,12 @@ Browser path:
   - live validation
 - make failed activation recoverable by leaving the workspace disabled unless the enable step has already passed verification
 
+Status:
+
+- activation now blocks before enabling when required credentials are missing
+- live-unit installation is wrapped by the tenant activation service and can be skipped for tests or staged manual activation
+- remaining work is a real credential-backed activation rehearsal
+
 ### Track F | Documentation And Rehearsal
 
 - update `docs/dev/USER_INSTALL.md`, `docs/CONFIG.md`, and `docs/SLACK_MANIFEST.md` after behavior lands
@@ -167,10 +183,11 @@ Browser path:
 1. Define tenant status and config mutation primitives.
 2. Ship CLI `tenants status` and `tenants onboard --dry-run`.
 3. Ship real disabled scaffold creation through the CLI wizard.
-4. Add activation command after credential-presence checks are deterministic.
-5. Add browser read-only tenant status to settings.
-6. Add browser onboarding and activation actions after the shared mutation path is proven.
-7. Promote the wizard to the canonical docs path.
+4. Add activation command after credential-presence checks are deterministic. Shipped.
+5. Add browser read-only tenant status to settings. Shipped.
+6. Add browser onboarding and activation actions after the shared mutation path is proven. Shipped.
+7. Promote the wizard to the canonical docs path. Shipped for scaffold and activation commands.
+8. Rehearse a real credential-backed activation and close or narrow this lane.
 
 ## Acceptance Criteria
 

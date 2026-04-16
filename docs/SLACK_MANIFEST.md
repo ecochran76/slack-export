@@ -32,6 +32,12 @@ The same flow is available from the authenticated browser settings page:
 
 - `http://slack.localhost/settings/tenants`
 
+After the required credentials are stored in the configured dotenv file, activate the tenant with:
+
+```bash
+slack-mirror-user tenants activate polymer
+```
+
 For a live Socket Mode workspace:
 
 ```bash

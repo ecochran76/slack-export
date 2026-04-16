@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 import time
 from pathlib import Path
 import sqlite3
@@ -1642,7 +1643,7 @@ _slack_mirror_complete() {
   local mcp_sub="serve"
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
-  local tenants_sub="status onboard"
+  local tenants_sub="status onboard activate"
   local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1694,7 +1695,7 @@ except Exception:
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
         COMPREPLY=( $(compgen -W "$tenants_sub" -- "$cur") )
       else
-        COMPREPLY=( $(compgen -W "--name --domain --display-name --manifest-path --dry-run --no-sync --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--name --domain --display-name --manifest-path --dry-run --no-sync --skip-live-units --json" -- "$cur") )
       fi
       ;;
     channels)
@@ -1809,7 +1810,7 @@ _slack_mirror() {
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
   mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
-  tenants_sub=(status onboard)
+  tenants_sub=(status onboard activate)
 
   if (( CURRENT == 2 )); then
     _describe 'command' top
@@ -1882,6 +1883,7 @@ _slack_mirror() {
         '--manifest-path[rendered JSON manifest path]:path:_files' \
         '--dry-run[show intended scaffold without writing]' \
         '--no-sync[do not sync scaffold into DB]' \
+        '--skip-live-units[do not install/start live systemd units]' \
         '--json[json output]'
       ;;
     channels)
@@ -2124,6 +2126,48 @@ def cmd_tenants_onboard(args: argparse.Namespace) -> int:
     for key in sorted(placeholders):
         print(f"  {key}: {placeholders[key]}")
     print(f"Next action: {result.tenant.get('next_action')}")
+    return 0
+
+
+def cmd_tenants_activate(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import activate_tenant
+
+    try:
+        result = activate_tenant(
+            config_path=args.config,
+            name=args.name,
+            dry_run=bool(args.dry_run),
+            install_live_units=not bool(args.skip_live_units),
+        )
+    except Exception as exc:  # noqa: BLE001
+        if args.json:
+            print(json.dumps({"ok": False, "error": {"message": str(exc)}}, indent=2))
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    payload = {
+        "ok": True,
+        "changed": result.changed,
+        "dry_run": result.dry_run,
+        "config_path": result.config_path,
+        "backup_path": result.backup_path,
+        "live_units_installed": result.live_units_installed,
+        "live_unit_command": result.live_unit_command,
+        "tenant": result.tenant,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(f"Tenant: {result.tenant.get('name')}")
+    print(f"Config: {result.config_path}")
+    if result.backup_path:
+        print(f"Backup: {result.backup_path}")
+    if result.live_unit_command:
+        print(f"Live units command: {' '.join(result.live_unit_command)}")
+    print(f"Enabled: {str(bool(result.tenant.get('enabled'))).lower()}")
+    print(f"Live units installed: {str(bool(result.live_units_installed)).lower()}")
+    print("Next validation: slack-mirror-user user-env check-live --json")
     return 0
 
 
@@ -2518,6 +2562,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_tenants_onboard.add_argument("--no-sync", action="store_true", help="do not sync the disabled scaffold into the DB")
     p_tenants_onboard.add_argument("--json", action="store_true", help="json output")
     p_tenants_onboard.set_defaults(func=cmd_tenants_onboard)
+    p_tenants_activate = tenants_sub.add_parser("activate", help="enable a credential-ready tenant and optionally install live units")
+    p_tenants_activate.add_argument("name", help="local tenant/workspace name")
+    p_tenants_activate.add_argument("--dry-run", action="store_true", help="validate activation readiness without writing config or starting units")
+    p_tenants_activate.add_argument("--skip-live-units", action="store_true", help="enable and sync config without installing live systemd units")
+    p_tenants_activate.add_argument("--json", action="store_true", help="json output")
+    p_tenants_activate.set_defaults(func=cmd_tenants_activate)
 
     user_env = sub.add_parser("user-env", help="supported user-scope install/update commands")
     user_env_sub = user_env.add_subparsers(dest="user_env_cmd")
