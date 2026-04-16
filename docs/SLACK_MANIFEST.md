@@ -19,6 +19,19 @@ Prefer JSON for Slack's copy/paste app-manifest flow. YAML is supported by Slack
 
 ## 1) Render a workspace-specific manifest
 
+For a managed install, prefer the tenant wizard because it renders the JSON manifest and creates a disabled workspace scaffold in one step:
+
+```bash
+slack-mirror-user tenants onboard \
+  --name polymer \
+  --domain polymerconsul-clo9441 \
+  --display-name "Polymer Consulting Group"
+```
+
+The same flow is available from the authenticated browser settings page:
+
+- `http://slack.localhost/settings/tenants`
+
 For a live Socket Mode workspace:
 
 ```bash

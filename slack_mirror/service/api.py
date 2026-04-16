@@ -244,6 +244,8 @@ def _requires_same_origin_write(path: str) -> bool:
         return True
     if re.fullmatch(r"/v1/exports/[^/]+", path):
         return True
+    if path == "/v1/tenants/onboard":
+        return True
     return False
 
 
@@ -396,6 +398,7 @@ def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_pat
         ("/search", "Search", False),
         ("/runtime/reports", "Runtime reports", False),
         ("/exports", "Exports", False),
+        ("/settings/tenants", "Tenants", False),
         ("/settings", "Settings", False),
         ("/logout", "Logout", True),
     ]
@@ -412,6 +415,75 @@ def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_pat
         f"<div class='auth-identity'>Signed in as <strong>{escape(user_label)}</strong> · username <code>{escape(str(auth_session.username or ''))}</code></div>"
         f"<nav class='auth-nav'>{''.join(links)}</nav>"
         "</div>"
+    )
+
+
+def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[dict[str, Any]]) -> str:
+    rows = []
+    for item in tenants:
+        name = escape(str(item.get("name") or "unknown"))
+        domain = escape(str(item.get("domain") or ""))
+        enabled = bool(item.get("enabled"))
+        credential_ready = bool(item.get("credential_ready"))
+        synced = bool(item.get("db_synced"))
+        missing = ", ".join(str(part) for part in item.get("missing_required_credentials") or []) or "-"
+        manifest = item.get("manifest") or {}
+        rows.append(
+            "<article class='tenant-card'>"
+            f"<div class='tenant-head'><h2>{name}</h2><span class='badge {'badge-ok' if enabled else 'badge-warn'}'>{'enabled' if enabled else 'disabled'}</span></div>"
+            f"<div class='meta'>Slack domain <code>{domain}</code></div>"
+            "<div class='tenant-grid'>"
+            f"<div><strong>Credentials</strong><div class='meta'>{'ready' if credential_ready else 'missing'} · missing <code>{escape(missing)}</code></div></div>"
+            f"<div><strong>DB sync</strong><div class='meta'><code>{str(synced).lower()}</code></div></div>"
+            f"<div><strong>Next action</strong><div class='meta'><code>{escape(str(item.get('next_action') or 'unknown'))}</code></div></div>"
+            f"<div><strong>Manifest</strong><div class='meta'><code>{escape(str(manifest.get('path') or ''))}</code></div></div>"
+            "</div>"
+            "</article>"
+        )
+    if not rows:
+        rows.append("<div class='empty'>No tenants are configured yet.</div>")
+
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Slack Mirror Tenants</title>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<style>"
+        ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--bad:#a12828;--bad-soft:#fde5e5;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--shadow:0 14px 30px rgba(18,32,51,.08);}"
+        "*{box-sizing:border-box}body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        f"{_authenticated_topbar_css()}"
+        ".shell{max-width:1120px;margin:0 auto;padding:28px 18px 40px}.top{margin-bottom:18px}.eyebrow{display:inline-block;padding:6px 10px;border-radius:999px;background:#ebe4d8;color:#514739;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}"
+        "h1{margin:8px 0;font-size:34px}h2{margin:0;font-size:20px}.meta{color:var(--muted);font-size:13px;line-height:1.45}code{background:#efe7da;border:1px solid #dfd3c2;padding:2px 6px;border-radius:8px;font-size:12px}"
+        ".layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card,.tenant-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}.stack{display:grid;gap:14px}.tenant-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.tenant-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}"
+        ".badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}"
+        "label{display:block;margin:12px 0 6px;font-weight:700}input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fffdf9;color:var(--ink)}button{margin-top:14px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700;cursor:pointer}.hint{margin-top:8px;color:var(--muted);font-size:13px}.empty{padding:16px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
+        "#tenant-feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px}.feedback-ok{display:block!important;background:var(--ok-soft);color:var(--ok)}.feedback-bad{display:block!important;background:var(--bad-soft);color:var(--bad)}"
+        "@media (max-width: 860px){.layout,.tenant-grid{grid-template-columns:1fr}}"
+        "</style></head><body><div class='shell'>"
+        f"{_authenticated_topbar_html(auth_session=auth_session, current_path='/settings/tenants')}"
+        "<div class='top'><span class='eyebrow'>Settings</span><h1>Tenant onboarding</h1>"
+        "<div class='meta'>Manage Slack Mirror tenants from the same config-backed workflow used by the CLI. Secret values are never displayed here.</div></div>"
+        "<div class='layout'>"
+        "<section class='card'><h2>Add tenant scaffold</h2>"
+        "<div class='meta'>This creates a disabled workspace block, renders a JSON Slack app manifest, syncs the DB, and stops at the credential checkpoint.</div>"
+        "<form id='tenant-onboard-form'>"
+        "<label for='tenant-name'>Tenant name</label><input id='tenant-name' name='name' placeholder='polymer' required>"
+        "<label for='tenant-domain'>Slack domain or URL</label><input id='tenant-domain' name='domain' placeholder='https://example.slack.com' required>"
+        "<label for='tenant-display-name'>Display name</label><input id='tenant-display-name' name='display_name' placeholder='Example Company'>"
+        "<button id='tenant-onboard-button' type='submit'>Create disabled scaffold</button>"
+        "<div class='hint'>After scaffold creation, use the JSON manifest in Slack, then store the listed env vars in the configured dotenv file.</div>"
+        "<div id='tenant-feedback'></div>"
+        "</form></section>"
+        f"<section class='stack' id='tenant-list'>{''.join(rows)}</section>"
+        "</div>"
+        "<script>"
+        "const form=document.getElementById('tenant-onboard-form');const feedback=document.getElementById('tenant-feedback');const button=document.getElementById('tenant-onboard-button');"
+        "function showTenantFeedback(message,isError){feedback.textContent=message;feedback.className=isError?'feedback-bad':'feedback-ok';}"
+        "form.addEventListener('submit',async(event)=>{event.preventDefault();showTenantFeedback('',false);button.disabled=true;button.textContent='creating...';"
+        "try{const payload={name:document.getElementById('tenant-name').value.trim(),domain:document.getElementById('tenant-domain').value.trim(),display_name:document.getElementById('tenant-display-name').value.trim()||undefined};"
+        "const resp=await fetch('/v1/tenants/onboard',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const data=await resp.json().catch(()=>({error:{message:'Tenant onboarding failed'}}));"
+        "if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant onboarding failed',true);return;}showTenantFeedback(`Created ${data.tenant.name}. JSON manifest: ${data.manifest_path}. Next: ${data.tenant.next_action}.`,false);window.setTimeout(()=>window.location.reload(),800);}"
+        "finally{button.disabled=false;button.textContent='Create disabled scaffold';}});"
+        "</script></div></body></html>"
     )
 
 
@@ -1360,7 +1432,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return False
             if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
                 return False
-            if path in {"/", "/settings", "/search"}:
+            if path in {"/", "/settings", "/settings/tenants", "/search"}:
                 return True
             if path.startswith("/v1/workspaces/") and path.endswith("/webhook"):
                 return False
@@ -1372,6 +1444,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 "/v1/runtime/reports",
                 "/v1/runtime/status",
                 "/v1/runtime/live-validation",
+                "/v1/tenants",
             )
             return any(path == prefix or path.startswith(f"{prefix}/") for prefix in protected_prefixes)
 
@@ -1564,6 +1637,28 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         sessions=sessions,
                     ),
                 )
+                return
+
+            if path == "/settings/tenants":
+                from slack_mirror.service.tenant_onboarding import tenant_status
+
+                try:
+                    tenants = tenant_status(config_path=config_path)
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.status")
+                    return
+                _html_response(self, 200, _tenant_settings_html(auth_session=auth_session, tenants=tenants))
+                return
+
+            if path == "/v1/tenants":
+                from slack_mirror.service.tenant_onboarding import tenant_status
+
+                try:
+                    tenants = tenant_status(config_path=config_path)
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.status")
+                    return
+                _json_response(self, 200, {"ok": True, "tenants": tenants})
                 return
 
             if path == "/search":
@@ -2149,6 +2244,34 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="exports.create")
                     return
                 _json_response(self, 201, {"ok": True, "export": payload})
+                return
+
+            if path == "/v1/tenants/onboard":
+                from slack_mirror.service.tenant_onboarding import scaffold_tenant
+
+                try:
+                    result = scaffold_tenant(
+                        config_path=config_path,
+                        name=str(body.get("name") or ""),
+                        domain=str(body.get("domain") or ""),
+                        display_name=str(body.get("display_name") or "") or None,
+                        manifest_path=str(body.get("manifest_path") or "") or None,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.onboard")
+                    return
+                _json_response(
+                    self,
+                    201,
+                    {
+                        "ok": True,
+                        "changed": result.changed,
+                        "config_path": result.config_path,
+                        "backup_path": result.backup_path,
+                        "manifest_path": result.manifest_path,
+                        "tenant": result.tenant,
+                    },
+                )
                 return
 
             m = re.fullmatch(r"/v1/exports/([^/]+)/rename", path)

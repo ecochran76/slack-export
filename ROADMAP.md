@@ -195,3 +195,21 @@ Current state:
 - repo code and the managed install now skip disabled workspace scaffolds during default `workspaces verify`, matching live-validation behavior
 - explicit verification reports Polymer as disabled until credentials are available and the workspace is activated
 - activation is blocked on Polymer Slack credentials
+
+## P09 | Tenant Onboarding Wizard And Settings
+
+Status: OPEN
+
+Purpose:
+- make new tenant/workspace setup a guided product workflow instead of a manual sequence spread across docs, config editing, Slack app setup, dotenv storage, DB sync, systemd scripts, and validation commands
+- expose tenant management and onboarding state in the authenticated browser settings surface
+
+Actionable plans:
+- `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
+
+Current state:
+- multi-workspace config, DB sync, explicit credential verification, disabled workspace scaffolds, per-workspace live units, and managed live validation already exist
+- the Polymer onboarding rehearsal exposed that a real tenant path still requires too many manual steps and too much chat/doc memory
+- `/settings` exists but only covers browser-auth policy and sessions, not tenant/workspace management
+- `/v1/workspaces` lists DB-synced workspaces but does not expose full config, credential-readiness, manifest, activation, or live-unit state
+- this lane is open to build shared onboarding primitives, a one-shot CLI wizard, and a browser tenant-management/settings surface

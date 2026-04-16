@@ -26,6 +26,18 @@ Use these companion docs for detail, not as separate competing entrypoints:
 - config fields and token semantics: [docs/CONFIG.md](/home/ecochran76/workspace.local/slack-export/docs/CONFIG.md)
 - live per-workspace services: [docs/dev/LIVE_MODE.md](/home/ecochran76/workspace.local/slack-export/docs/dev/LIVE_MODE.md)
 
+For adding another tenant/workspace to an existing managed install, prefer the guided scaffold path:
+
+```bash
+slack-mirror-user tenants onboard \
+  --name polymer \
+  --domain polymerconsul-clo9441 \
+  --display-name "Polymer Consulting Group"
+slack-mirror-user tenants status polymer
+```
+
+The same config-backed onboarding status is available in the authenticated browser at `http://slack.localhost/settings/tenants`.
+
 ## Current Live Topology
 
 For unattended live operation, the supported systemd user-service topology is:

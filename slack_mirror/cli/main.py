@@ -1637,11 +1637,12 @@ _slack_mirror_complete() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
   }
 
-  local top="mirror workspaces channels search docs completion api mcp release user-env version"
+  local top="mirror workspaces tenants channels search docs completion api mcp release user-env version"
   local api_sub="serve"
   local mcp_sub="serve"
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
+  local tenants_sub="status onboard"
   local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1687,6 +1688,13 @@ except Exception:
         COMPREPLY=( $(compgen -W "$ws_sub" -- "$cur") )
       else
         COMPREPLY=( $(compgen -W "--workspace --json" -- "$cur") )
+      fi
+      ;;
+    tenants)
+      if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
+        COMPREPLY=( $(compgen -W "$tenants_sub" -- "$cur") )
+      else
+        COMPREPLY=( $(compgen -W "--name --domain --display-name --manifest-path --dry-run --no-sync --json" -- "$cur") )
       fi
       ;;
     channels)
@@ -1793,14 +1801,15 @@ except Exception:
 }
 
 _slack_mirror() {
-  local -a top mirror_sub ws_sub api_sub mcp_sub release_sub user_env_sub
-  top=(mirror workspaces channels search docs completion api mcp release user-env version)
+  local -a top mirror_sub ws_sub tenants_sub api_sub mcp_sub release_sub user_env_sub
+  top=(mirror workspaces tenants channels search docs completion api mcp release user-env version)
   api_sub=(serve)
   mcp_sub=(serve)
   release_sub=(check)
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
   mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
+  tenants_sub=(status onboard)
 
   if (( CURRENT == 2 )); then
     _describe 'command' top
@@ -1860,6 +1869,20 @@ _slack_mirror() {
         return
       fi
       _arguments '--workspace[workspace name]:workspace:_slack_mirror_workspaces' '--json[json output]'
+      ;;
+    tenants)
+      if (( CURRENT == 3 )); then
+        _describe 'tenants command' tenants_sub
+        return
+      fi
+      _arguments \
+        '--name[local tenant/workspace name]:name:' \
+        '--domain[Slack workspace subdomain or URL]:domain:' \
+        '--display-name[human-facing tenant name]:display name:' \
+        '--manifest-path[rendered JSON manifest path]:path:_files' \
+        '--dry-run[show intended scaffold without writing]' \
+        '--no-sync[do not sync scaffold into DB]' \
+        '--json[json output]'
       ;;
     channels)
       _arguments '--json[json output]'
@@ -2043,6 +2066,65 @@ def cmd_user_env_provision_frontend_user(args: argparse.Namespace) -> int:
         reset_password=bool(args.reset_password),
         json_output=bool(args.json),
     )
+
+
+def cmd_tenants_status(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import tenant_status
+
+    rows = tenant_status(config_path=args.config, name=args.name)
+    if args.json:
+        print(json.dumps({"ok": True, "tenants": rows}, indent=2))
+        return 0
+    for item in rows:
+        missing = ",".join(item.get("missing_required_credentials") or []) or "-"
+        print(
+            f"{item.get('name')}\t"
+            f"{'enabled' if item.get('enabled') else 'disabled'}\t"
+            f"credentials={'ready' if item.get('credential_ready') else 'missing'}\t"
+            f"db_synced={str(bool(item.get('db_synced'))).lower()}\t"
+            f"missing={missing}\t"
+            f"next={item.get('next_action')}"
+        )
+    return 0
+
+
+def cmd_tenants_onboard(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import scaffold_tenant
+
+    result = scaffold_tenant(
+        config_path=args.config,
+        name=args.name,
+        domain=args.domain,
+        display_name=args.display_name,
+        manifest_path=args.manifest_path,
+        dry_run=bool(args.dry_run),
+        sync_db=not bool(args.no_sync),
+    )
+    payload = {
+        "ok": True,
+        "changed": result.changed,
+        "dry_run": result.dry_run,
+        "config_path": result.config_path,
+        "backup_path": result.backup_path,
+        "manifest_path": result.manifest_path,
+        "tenant": result.tenant,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(f"Tenant: {result.tenant.get('name')}")
+    print(f"Config: {result.config_path}")
+    if result.backup_path:
+        print(f"Backup: {result.backup_path}")
+    print(f"JSON manifest: {result.manifest_path}")
+    print("Slack app: https://api.slack.com/apps -> Create New App -> From an app manifest")
+    print("Credential storage: add the listed env vars to the configured dotenv file; do not commit secrets.")
+    placeholders = result.tenant.get("credential_placeholders") or {}
+    for key in sorted(placeholders):
+        print(f"  {key}: {placeholders[key]}")
+    print(f"Next action: {result.tenant.get('next_action')}")
+    return 0
 
 
 def cmd_serve_api(args: argparse.Namespace) -> int:
@@ -2420,6 +2502,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="fail when pyproject version is still a development version",
     )
     p_release_check.set_defaults(func=cmd_release_check)
+
+    tenants = sub.add_parser("tenants", help="tenant onboarding and management commands")
+    tenants_sub = tenants.add_subparsers(dest="tenants_cmd")
+    p_tenants_status = tenants_sub.add_parser("status", help="show redacted tenant onboarding status")
+    p_tenants_status.add_argument("name", nargs="?", default=None, help="optional tenant/workspace name")
+    p_tenants_status.add_argument("--json", action="store_true", help="json output")
+    p_tenants_status.set_defaults(func=cmd_tenants_status)
+    p_tenants_onboard = tenants_sub.add_parser("onboard", help="scaffold a disabled tenant and render its JSON Slack app manifest")
+    p_tenants_onboard.add_argument("--name", required=True, help="local tenant/workspace name")
+    p_tenants_onboard.add_argument("--domain", required=True, help="Slack workspace subdomain or https://...slack.com URL")
+    p_tenants_onboard.add_argument("--display-name", default=None, help="human-facing tenant name for the Slack app manifest")
+    p_tenants_onboard.add_argument("--manifest-path", default=None, help="optional rendered JSON manifest path")
+    p_tenants_onboard.add_argument("--dry-run", action="store_true", help="show intended scaffold without writing config or manifest")
+    p_tenants_onboard.add_argument("--no-sync", action="store_true", help="do not sync the disabled scaffold into the DB")
+    p_tenants_onboard.add_argument("--json", action="store_true", help="json output")
+    p_tenants_onboard.set_defaults(func=cmd_tenants_onboard)
 
     user_env = sub.add_parser("user-env", help="supported user-scope install/update commands")
     user_env_sub = user_env.add_subparsers(dest="user_env_cmd")

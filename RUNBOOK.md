@@ -2229,3 +2229,59 @@ This file is the dated turn log for planning and execution continuity.
   - `python3 -m json.tool manifests/slack-mirror-socket-mode-polymer.rendered.json`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 163 | 2026-04-15
+
+- Promoted tenant onboarding friction from the Polymer-specific rehearsal into a reusable product lane.
+- Opened:
+  - `P09 | Tenant Onboarding Wizard And Settings`
+  - `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
+- Planned a one-shot CLI wizard that stages tenant onboarding through:
+  - disabled scaffold creation
+  - tenant-specific JSON Slack app manifest presentation
+  - explicit credential checkpoint
+  - DB sync
+  - activation
+  - per-workspace live-unit install
+  - managed live validation
+- Planned a browser settings expansion so `/settings` or `/settings/tenants` can show tenant config state, credential-readiness state, DB sync, live-unit state, validation status, and safe onboarding actions.
+- Kept Polymer activation as `P08` because it is a real tenant operation blocked on credentials; kept reusable product workflow work in `P09`.
+- Validation:
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`
+
+## Turn 164 | 2026-04-15
+
+- Implemented the first `P09` tenant-onboarding wizard slice.
+- Added shared tenant-onboarding service primitives for:
+  - tenant-name and Slack-domain normalization
+  - deterministic `SLACK_<TENANT>_*` credential placeholders
+  - redacted credential readiness status
+  - disabled workspace scaffold creation
+  - timestamped config backups before mutation
+  - tenant-specific JSON Slack app manifest rendering
+  - DB sync for the disabled scaffold
+- Added CLI commands:
+  - `slack-mirror tenants status`
+  - `slack-mirror tenants onboard`
+- Added protected browser/API surfaces:
+  - `GET /v1/tenants`
+  - `POST /v1/tenants/onboard`
+  - `/settings/tenants`
+- Updated onboarding docs to make the tenant wizard the preferred path for adding another workspace while keeping manual activation explicit after credentials are stored.
+- Remaining `P09` critical path:
+  - product-owned `tenants activate`
+  - live-unit installation wrapper
+  - browser activation action after activation semantics are proven
+- Validation:
+  - `uv run python -m unittest tests.test_tenant_onboarding tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/tenant_onboarding.py slack_mirror/service/api.py slack_mirror/cli/main.py tests/test_tenant_onboarding.py tests/test_api_server.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror tenants --help`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants status`
+  - `uv run slack-mirror user-env update`
+  - `slack-mirror-user tenants status`
+  - `slack-mirror-user user-env check-live --json`
+  - browser/API auth smoke:
+    - `/settings/tenants` redirects to login when unauthenticated
+    - `/v1/tenants` returns `401` when unauthenticated

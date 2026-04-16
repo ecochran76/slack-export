@@ -149,6 +149,44 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertIn("summary", status.json())
 
+    def test_tenant_status_and_onboard_api(self):
+        tenants = requests.get(f"{self.base_url}/v1/tenants", timeout=5)
+        self.assertEqual(tenants.status_code, 200)
+        self.assertTrue(tenants.json()["ok"])
+        self.assertEqual(tenants.json()["tenants"][0]["name"], "default")
+        self.assertNotIn("xoxb-test-token", json.dumps(tenants.json()))
+
+        manifest_path = self.root / "polymer.rendered.json"
+        created = requests.post(
+            f"{self.base_url}/v1/tenants/onboard",
+            json={
+                "name": "polymer",
+                "domain": "https://polymerconsul-clo9441.slack.com",
+                "display_name": "Polymer Consulting Group",
+                "manifest_path": str(manifest_path),
+            },
+            headers={"origin": self.base_url},
+            timeout=5,
+        )
+        self.assertEqual(created.status_code, 201)
+        payload = created.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["tenant"]["name"], "polymer")
+        self.assertEqual(payload["tenant"]["next_action"], "credentials_required")
+        self.assertTrue(manifest_path.exists())
+
+        updated = requests.get(f"{self.base_url}/v1/tenants", timeout=5)
+        self.assertEqual(updated.status_code, 200)
+        tenant_names = [item["name"] for item in updated.json()["tenants"]]
+        self.assertIn("polymer", tenant_names)
+
+    def test_tenant_settings_page_lists_onboarding_surface(self):
+        page = requests.get(f"{self.base_url}/settings/tenants", timeout=5)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Tenant onboarding", page.text)
+        self.assertIn("Create disabled scaffold", page.text)
+        self.assertIn("/v1/tenants/onboard", page.text)
+
     def test_workspace_channels_endpoint_and_exports_picker_ui(self):
         service = get_app_service(str(self.config_path))
         conn = service.connect()
@@ -642,6 +680,13 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(settings_redirect.status_code, 303)
         self.assertEqual(settings_redirect.headers["location"], "/login?next=%2Fsettings&reason=auth_required")
 
+        tenant_settings_redirect = requests.get(f"{base_url}/settings/tenants", timeout=5, allow_redirects=False)
+        self.assertEqual(tenant_settings_redirect.status_code, 303)
+        self.assertEqual(
+            tenant_settings_redirect.headers["location"],
+            "/login?next=%2Fsettings%2Ftenants&reason=auth_required",
+        )
+
         search_redirect = requests.get(f"{base_url}/search", timeout=5, allow_redirects=False)
         self.assertEqual(search_redirect.status_code, 303)
         self.assertEqual(search_redirect.headers["location"], "/login?next=%2Fsearch&reason=auth_required")
@@ -722,6 +767,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertNotIn("window.location.reload()", settings.text)
         self.assertIn("markSessionInactive", settings.text)
         self.assertIn("reason:'session_revoked'", settings.text)
+
+        tenant_settings = session.get(f"{base_url}/settings/tenants", timeout=5)
+        self.assertEqual(tenant_settings.status_code, 200)
+        self.assertIn("Tenant onboarding", tenant_settings.text)
+        self.assertIn("class='nav-link active' href=\"/settings/tenants\"", tenant_settings.text)
 
         search_page = session.get(
             f"{base_url}/search?query=incident%20review&scope=workspace&workspace=default&mode=hybrid&limit=10&kind=ocr_text&source_kind=file",

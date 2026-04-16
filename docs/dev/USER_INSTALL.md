@@ -128,16 +128,32 @@ slack-mirror-user user-env snapshot-report --name first-install --json
 
 When the install already exists and you are onboarding an additional workspace:
 
-1. render a workspace-specific Slack app manifest from `manifests/slack-mirror-socket-mode.yaml`
-2. create the Slack app at `https://api.slack.com/apps` from that rendered manifest
-3. collect the team ID, bot token, app token, signing secret, and optional user token
-4. store those values in the configured dotenv file
-5. add the new workspace block to `~/.config/slack-mirror/config.yaml` as `enabled: false`
-6. run `slack-mirror-user workspaces sync-config`
-7. when credentials are present, set `enabled: true`
-8. run `slack-mirror-user workspaces verify --workspace <workspace> --require-explicit-outbound`
-9. run `scripts/install_live_mode_systemd_user.sh <workspace>`
-10. rerun `slack-mirror-user user-env check-live`
+1. Create the disabled tenant scaffold and rendered JSON Slack app manifest:
+
+```bash
+slack-mirror-user tenants onboard \
+  --name polymer \
+  --domain polymerconsul-clo9441 \
+  --display-name "Polymer Consulting Group"
+```
+
+2. Create the Slack app at `https://api.slack.com/apps` from the rendered JSON manifest printed by the command.
+3. Collect the team ID, bot token, app token, signing secret, and optional user token.
+4. Store those values in the configured dotenv file.
+5. Review redacted readiness:
+
+```bash
+slack-mirror-user tenants status polymer
+```
+
+6. When credentials are present, set `enabled: true`.
+7. Run `slack-mirror-user workspaces verify --workspace <workspace> --require-explicit-outbound`.
+8. Run `scripts/install_live_mode_systemd_user.sh <workspace>`.
+9. Rerun `slack-mirror-user user-env check-live`.
+
+The authenticated browser settings surface also exposes tenant onboarding status and scaffold creation at:
+
+- `http://slack.localhost/settings/tenants`
 
 The browser user bootstrap is per-install, not per-workspace.
 
