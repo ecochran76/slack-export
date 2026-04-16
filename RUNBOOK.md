@@ -2214,3 +2214,18 @@ This file is the dated turn log for planning and execution continuity.
   - `python3 scripts/render_slack_manifest.py --template manifests/slack-mirror-socket-mode.yaml --output manifests/slack-mirror-socket-mode-polymer.rendered.yaml`
   - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git status --short`
+
+## Turn 162 | 2026-04-15
+
+- Switched the operator-facing Polymer Slack app manifest path from YAML to JSON because JSON is less brittle for copy/paste in Slack's app-manifest UI and other browser/chat environments.
+- Rendered and validated:
+  - `manifests/slack-mirror-socket-mode-polymer.rendered.json`
+- Updated `docs/SLACK_MANIFEST.md` to prefer the JSON Socket Mode template:
+  - `manifests/slack-mirror-socket-mode.json`
+- Kept YAML templates available as equivalents, but no longer present YAML as the preferred paste artifact.
+- Updated the Polymer onboarding plan to point to the JSON rendered manifest.
+- Validation:
+  - `python3 scripts/render_slack_manifest.py --template manifests/slack-mirror-socket-mode.json --output manifests/slack-mirror-socket-mode-polymer.rendered.json`
+  - `python3 -m json.tool manifests/slack-mirror-socket-mode-polymer.rendered.json`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git status --short`

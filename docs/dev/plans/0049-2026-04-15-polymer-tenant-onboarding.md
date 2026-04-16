@@ -52,14 +52,14 @@ This plan does not include exfiltrating or inventing Slack credentials.
   - `polymer	disabled`
 - `slack-mirror-user user-env check-live --json` passes with the pre-existing `EMBEDDING_PENDING` warning for `default`
 - the Slack app manifest workflow now documents the credential acquisition path and the Polymer rendered manifest path:
-  - `manifests/slack-mirror-socket-mode-polymer.rendered.yaml`
+  - `manifests/slack-mirror-socket-mode-polymer.rendered.json`
 
 ## Remaining Work
 
 ### Track A | Credential Readiness
 
 - create the Polymer Slack app at `https://api.slack.com/apps` from:
-  - `manifests/slack-mirror-socket-mode-polymer.rendered.yaml`
+  - `manifests/slack-mirror-socket-mode-polymer.rendered.json`
 - obtain or configure the Polymer Slack credentials:
   - team ID
   - bot read token

@@ -5,14 +5,17 @@ For live Slack Mirror installs, prefer the Socket Mode manifest so the local ser
 
 ## Files
 
-- Preferred live-mode template: `manifests/slack-mirror-socket-mode.yaml`
+- Preferred live-mode template: `manifests/slack-mirror-socket-mode.json`
+- YAML equivalent: `manifests/slack-mirror-socket-mode.yaml`
 - Legacy HTTP-events template: `manifests/slack-app.yaml`
 - Renderer: `scripts/render_slack_manifest.py`
 - Rendered output examples:
-  - `manifests/slack-mirror-socket-mode.rendered.yaml`
+  - `manifests/slack-mirror-socket-mode.rendered.json`
   - `manifests/slack-app.rendered.yaml`
 - Polymer rendered manifest:
-  - `manifests/slack-mirror-socket-mode-polymer.rendered.yaml`
+  - `manifests/slack-mirror-socket-mode-polymer.rendered.json`
+
+Prefer JSON for Slack's copy/paste app-manifest flow. YAML is supported by Slack, but JSON is less brittle in browser text areas and chat/terminal copy paths.
 
 ## 1) Render a workspace-specific manifest
 
@@ -24,8 +27,8 @@ export SLACK_MIRROR_BOT_DISPLAY_NAME="Slack Mirror"
 export SLACK_MIRROR_REDIRECT_URL="https://localhost:3000/slack/oauth/callback"
 
 python3 scripts/render_slack_manifest.py \
-  --template manifests/slack-mirror-socket-mode.yaml \
-  --output manifests/slack-mirror-socket-mode-polymer.rendered.yaml
+  --template manifests/slack-mirror-socket-mode.json \
+  --output manifests/slack-mirror-socket-mode-polymer.rendered.json
 ```
 
 For the older HTTP Events API path, use `manifests/slack-app.yaml` and set `SLACK_EVENTS_URL` to a reachable HTTPS endpoint. The current live-mode topology uses Socket Mode instead.
@@ -36,7 +39,7 @@ For the older HTTP Events API path, use `manifests/slack-app.yaml` and set `SLAC
 2. Click **Create New App**.
 3. Choose **From an app manifest**.
 4. Select the target workspace.
-5. Paste the rendered manifest YAML, for example `manifests/slack-mirror-socket-mode-polymer.rendered.yaml`.
+5. Paste the rendered manifest JSON, for example `manifests/slack-mirror-socket-mode-polymer.rendered.json`.
 6. Create the app.
 
 ## 3) Install the app and collect credentials
