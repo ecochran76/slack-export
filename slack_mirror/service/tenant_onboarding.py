@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -424,6 +425,56 @@ def _tenant_live_unit_states(name: str) -> dict[str, str]:
     }
 
 
+def _tenant_db_stats(config_path: Path, name: str) -> dict[str, Any]:
+    expanded = load_config(config_path)
+    db_path = Path(str(expanded.get("storage", {}).get("db_path") or "")).expanduser()
+    if not db_path.exists():
+        return {
+            "present": False,
+            "channels": 0,
+            "messages": 0,
+            "files": 0,
+            "attachment_text": 0,
+            "ocr_text": 0,
+            "embedding_pending": 0,
+            "embedding_errors": 0,
+            "derived_pending": 0,
+            "derived_errors": 0,
+        }
+    conn = sqlite3.connect(db_path, timeout=10)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM channels c JOIN workspaces w ON w.id = c.workspace_id WHERE w.name = ?) AS channels,
+              (SELECT COUNT(*) FROM messages m JOIN workspaces w ON w.id = m.workspace_id WHERE w.name = ? AND m.deleted = 0) AS messages,
+              (SELECT COUNT(*) FROM files f JOIN workspaces w ON w.id = f.workspace_id WHERE w.name = ?) AS files,
+              (SELECT COUNT(*) FROM derived_text dt JOIN workspaces w ON w.id = dt.workspace_id WHERE w.name = ? AND dt.derivation_kind = 'attachment_text') AS attachment_text,
+              (SELECT COUNT(*) FROM derived_text dt JOIN workspaces w ON w.id = dt.workspace_id WHERE w.name = ? AND dt.derivation_kind = 'ocr_text') AS ocr_text,
+              (SELECT COUNT(*) FROM embedding_jobs ej JOIN workspaces w ON w.id = ej.workspace_id WHERE w.name = ? AND ej.status = 'pending') AS embedding_pending,
+              (SELECT COUNT(*) FROM embedding_jobs ej JOIN workspaces w ON w.id = ej.workspace_id WHERE w.name = ? AND ej.status = 'error') AS embedding_errors,
+              (SELECT COUNT(*) FROM derived_text_jobs dj JOIN workspaces w ON w.id = dj.workspace_id WHERE w.name = ? AND dj.status = 'pending') AS derived_pending,
+              (SELECT COUNT(*) FROM derived_text_jobs dj JOIN workspaces w ON w.id = dj.workspace_id WHERE w.name = ? AND dj.status = 'error') AS derived_errors
+            """,
+            (name, name, name, name, name, name, name, name, name),
+        ).fetchone()
+        return {
+            "present": True,
+            "channels": int(row["channels"] or 0),
+            "messages": int(row["messages"] or 0),
+            "files": int(row["files"] or 0),
+            "attachment_text": int(row["attachment_text"] or 0),
+            "ocr_text": int(row["ocr_text"] or 0),
+            "embedding_pending": int(row["embedding_pending"] or 0),
+            "embedding_errors": int(row["embedding_errors"] or 0),
+            "derived_pending": int(row["derived_pending"] or 0),
+            "derived_errors": int(row["derived_errors"] or 0),
+        }
+    finally:
+        conn.close()
+
+
 def _tenant_sync_health(*, config_path: Path, name: str, enabled: bool) -> dict[str, Any]:
     reconcile_state = load_reconcile_state(config_path, workspace=name, auth_mode="user")
     if not enabled:
@@ -573,6 +624,58 @@ def _tenant_validation_status(
     )
 
 
+def _tenant_backfill_status(*, enabled: bool, db_stats: dict[str, Any], sync_health: dict[str, Any]) -> dict[str, Any]:
+    if not enabled:
+        return {
+            "label": "disabled",
+            "tone": "neutral",
+            "summary": "Backfill is idle while the tenant is disabled.",
+            "detail": "Activate the tenant before running bounded backfill or reconcile work.",
+        }
+    embedding_pending = int(db_stats.get("embedding_pending") or 0)
+    embedding_errors = int(db_stats.get("embedding_errors") or 0)
+    derived_pending = int(db_stats.get("derived_pending") or 0)
+    derived_errors = int(db_stats.get("derived_errors") or 0)
+    reconcile = dict(sync_health.get("reconcile") or {})
+    attempted = int(reconcile.get("attempted") or 0)
+    downloaded = int(reconcile.get("downloaded") or 0)
+    warnings = int(reconcile.get("warnings") or 0)
+    failed = int(reconcile.get("failed") or 0)
+    if embedding_errors or derived_errors or failed:
+        return {
+            "label": "error",
+            "tone": "bad",
+            "summary": f"Backfill queues or reconcile work have errors ({embedding_errors + derived_errors + failed}).",
+            "detail": (
+                f"reconcile downloaded={downloaded} warnings={warnings} failed={failed} · "
+                f"embedding errors={embedding_errors} · derived-text errors={derived_errors}"
+            ),
+        }
+    if embedding_pending or derived_pending:
+        return {
+            "label": "queued",
+            "tone": "warn",
+            "summary": f"Background enrichment is queued ({embedding_pending + derived_pending} pending jobs).",
+            "detail": (
+                f"embedding pending={embedding_pending} · derived-text pending={derived_pending} · "
+                f"last reconcile attempted={attempted} downloaded={downloaded}"
+            ),
+        }
+    if attempted or downloaded:
+        return {
+            "label": "current",
+            "tone": "ok",
+            "summary": "Backfill and reconcile state are current.",
+            "detail": f"last reconcile attempted={attempted} downloaded={downloaded} warnings={warnings} failed={failed}",
+        }
+    return {
+        "label": "idle",
+        "tone": "neutral",
+        "summary": "No recent bounded backfill or reconcile work is recorded.",
+        "detail": "Run bounded backfill to seed mirrored history for this tenant.",
+    }
+
+
 def tenant_status(
     *,
     config_path: str | Path | None = None,
@@ -599,6 +702,7 @@ def tenant_status(
         enabled = bool(expanded_ws.get("enabled", raw_ws.get("enabled", True)) is not False)
         synced = _db_synced(resolved, ws_name)
         live_units = _tenant_live_unit_states(ws_name)
+        db_stats = _tenant_db_stats(resolved, ws_name)
         sync_health = _tenant_sync_health(config_path=resolved, name=ws_name, enabled=enabled)
         validation_status, health = _tenant_validation_status(
             enabled=enabled,
@@ -607,11 +711,14 @@ def tenant_status(
             live_units=live_units,
             sync_health=sync_health,
         )
+        backfill_status = _tenant_backfill_status(enabled=enabled, db_stats=db_stats, sync_health=sync_health)
         next_action = "ready_to_activate"
         if enabled:
             live_states = {str(value or "unknown") for value in live_units.values()}
             if "active" not in live_states:
                 next_action = "start_live_sync"
+            elif str(backfill_status.get("label") or "") in {"queued", "error"}:
+                next_action = "inspect_backfill_status"
             elif validation_status == "warning":
                 next_action = "inspect_sync_health"
             else:
@@ -633,7 +740,9 @@ def tenant_status(
                 "manifest": _manifest_status(ws_name),
                 "validation_status": validation_status,
                 "live_units": live_units,
+                "db_stats": db_stats,
                 "sync_health": sync_health,
+                "backfill_status": backfill_status,
                 "health": health,
                 "next_action": next_action,
             }

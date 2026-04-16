@@ -2467,3 +2467,14 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
   - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`
+
+## Turn 173 | 2026-04-16
+
+- Expanded tenant-tile operator status so `/settings/tenants` now shows:
+  - mirrored DB counts for channels, messages, files, attachment text, and OCR text
+  - queue/backfill indicators for pending and error embedding / derived-text jobs
+  - a dedicated backfill status block derived from queue state plus reconcile state
+- Kept the status wiring inside `tenant_onboarding.py` so the browser and CLI-facing tenant status payload continue to share one status seam.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`
