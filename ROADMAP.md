@@ -208,8 +208,8 @@ Actionable plans:
 - `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
 
 Current state:
-- shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, and activation over CLI and protected API routes
-- `slack-mirror-user tenants onboard`, `tenants credentials`, `tenants status`, and `tenants activate` are now the product-owned add-workspace path
-- `/settings/tenants` now exposes config-backed tenant status, scaffold creation, local credential installation, and credential-ready activation in the authenticated browser
+- shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
+- `slack-mirror-user tenants onboard`, `tenants credentials`, `tenants status`, `tenants activate`, `tenants live`, `tenants backfill`, and `tenants retire` are now the product-owned add-workspace and tenant-management path
+- `/settings/tenants` now exposes config-backed tenant status, scaffold creation, local credential installation, credential-ready activation, live sync start/restart/stop, bounded backfill, and guarded retirement in the authenticated browser
 - credential installation writes only to the configured dotenv file, backs it up when changed, and never echoes secret values in status/API output
 - remaining work is a real credential-backed Polymer activation rehearsal and any follow-up polish found by that live path

@@ -17,7 +17,10 @@ from slack_mirror.service.tenant_onboarding import (
     activate_tenant,
     install_tenant_live_units,
     install_tenant_credentials,
+    manage_tenant_live_units,
     normalize_slack_domain,
+    retire_tenant,
+    run_tenant_backfill,
     scaffold_tenant,
     tenant_status,
 )
@@ -233,6 +236,110 @@ class TenantOnboardingTests(unittest.TestCase):
 
         self.assertEqual(command[-2:], ["default", str(cfg.resolve())])
         runner.assert_called_once_with(command, check=True)
+
+    def test_manage_tenant_live_units_dry_run_returns_commands(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+
+            result = manage_tenant_live_units(config_path=cfg, name="default", action="restart", dry_run=True)
+
+            self.assertEqual(result.action, "restart")
+            self.assertEqual(
+                result.commands[0],
+                [
+                    "systemctl",
+                    "--user",
+                    "restart",
+                    "slack-mirror-webhooks-default.service",
+                    "slack-mirror-daemon-default.service",
+                ],
+            )
+
+    def test_run_tenant_backfill_dry_run_requires_enabled_and_bounds_command(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+
+            result = run_tenant_backfill(config_path=cfg, name="default", dry_run=True, channel_limit=5)
+
+            self.assertIn("mirror", result.commands[0])
+            self.assertIn("backfill", result.commands[0])
+            self.assertIn("--channel-limit", result.commands[0])
+            self.assertIn("5", result.commands[0])
+
+    def test_retire_tenant_dry_run_reports_db_counts_without_writing(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="retireme",
+                domain="retireme-team",
+                manifest_path=root / "retireme.json",
+            )
+
+            conn = connect(str(root / "mirror.db"))
+            apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"))
+            ws = get_workspace_by_name(conn, "retireme")
+            self.assertIsNotNone(ws)
+            conn.execute(
+                "INSERT INTO users(workspace_id, user_id, username) VALUES (?, 'U1', 'user1')",
+                (int(ws["id"]),),
+            )
+            conn.commit()
+
+            result = retire_tenant(config_path=cfg, name="retireme", delete_db=True, dry_run=True)
+
+            self.assertTrue(result.dry_run)
+            self.assertTrue(result.db_deleted)
+            self.assertEqual(result.db_counts["users"], 1)
+            raw = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+            self.assertIn("retireme", [item["name"] for item in raw["workspaces"]])
+
+    def test_retire_tenant_deletes_config_and_workspace_db_rows(self):
+        runner = Mock()
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root)
+            scaffold_tenant(
+                config_path=cfg,
+                name="retireme",
+                domain="retireme-team",
+                manifest_path=root / "retireme.json",
+            )
+            conn = connect(str(root / "mirror.db"))
+            apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"))
+            ws = get_workspace_by_name(conn, "retireme")
+            self.assertIsNotNone(ws)
+            workspace_id = int(ws["id"])
+            conn.execute(
+                "INSERT INTO outbound_actions(workspace_id, kind, channel_id, text) VALUES (?, 'message', 'C1', 'hi')",
+                (workspace_id,),
+            )
+            conn.execute(
+                "INSERT INTO listeners(workspace_id, name) VALUES (?, 'listener')",
+                (workspace_id,),
+            )
+            conn.commit()
+
+            result = retire_tenant(config_path=cfg, name="retireme", delete_db=True, runner=runner)
+
+            self.assertTrue(result.changed)
+            self.assertTrue(result.db_deleted)
+            self.assertTrue(Path(result.backup_path).exists())
+            runner.assert_called_once()
+            raw = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+            self.assertNotIn("retireme", [item["name"] for item in raw["workspaces"]])
+            self.assertIsNone(get_workspace_by_name(conn, "retireme"))
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) AS c FROM outbound_actions WHERE workspace_id = ?", (workspace_id,)).fetchone()["c"],
+                0,
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) AS c FROM listeners WHERE workspace_id = ?", (workspace_id,)).fetchone()["c"],
+                0,
+            )
 
     def test_install_tenant_credentials_writes_dotenv_and_redacts_result(self):
         with tempfile.TemporaryDirectory() as td:

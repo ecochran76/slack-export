@@ -211,6 +211,35 @@ class ApiServerTests(unittest.TestCase):
         self.assertTrue(activated.json()["tenant"]["enabled"])
         self.assertFalse(activated.json()["live_units_installed"])
 
+        live = requests.post(
+            f"{self.base_url}/v1/tenants/polymer/live",
+            json={"action": "restart", "dry_run": True},
+            headers={"origin": self.base_url},
+            timeout=5,
+        )
+        self.assertEqual(live.status_code, 200)
+        self.assertEqual(live.json()["action"], "restart")
+        self.assertIn("slack-mirror-daemon-polymer.service", live.json()["commands"][0])
+
+        backfill = requests.post(
+            f"{self.base_url}/v1/tenants/polymer/backfill",
+            json={"dry_run": True, "channel_limit": 3},
+            headers={"origin": self.base_url},
+            timeout=5,
+        )
+        self.assertEqual(backfill.status_code, 200)
+        self.assertEqual(backfill.json()["action"], "backfill")
+        self.assertIn("--channel-limit", backfill.json()["commands"][0])
+
+        retire = requests.post(
+            f"{self.base_url}/v1/tenants/polymer/retire",
+            json={"confirm": "polymer", "delete_db": True, "dry_run": True},
+            headers={"origin": self.base_url},
+            timeout=5,
+        )
+        self.assertEqual(retire.status_code, 200)
+        self.assertTrue(retire.json()["db_deleted"])
+
     def test_tenant_settings_page_lists_onboarding_surface(self):
         page = requests.get(f"{self.base_url}/settings/tenants", timeout=5)
         self.assertEqual(page.status_code, 200)
@@ -220,6 +249,9 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("/credentials", page.text)
         self.assertIn("Install credentials", page.text)
         self.assertIn("data-tenant-activate", page.text)
+        self.assertIn("data-tenant-live", page.text)
+        self.assertIn("data-tenant-backfill", page.text)
+        self.assertIn("data-tenant-retire", page.text)
 
     def test_workspace_channels_endpoint_and_exports_picker_ui(self):
         service = get_app_service(str(self.config_path))

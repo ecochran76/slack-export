@@ -250,6 +250,8 @@ def _requires_same_origin_write(path: str) -> bool:
         return True
     if re.fullmatch(r"/v1/tenants/[^/]+/activate", path):
         return True
+    if re.fullmatch(r"/v1/tenants/[^/]+/(live|backfill|retire)", path):
+        return True
     return False
 
 
@@ -433,11 +435,21 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         missing = ", ".join(str(part) for part in item.get("missing_required_credentials") or []) or "-"
         manifest = item.get("manifest") or {}
         action_html = (
-            f"<button data-tenant-activate='{name}'>Activate + start live units</button>"
+            f"<button data-tenant-activate='{name}'>Activate + start live units</button><div class='hint'>Credentials are ready. Activation is the step that changes this tile from disabled to enabled.</div>"
             if credential_ready and not enabled
             else "<div class='hint'>Activation is available after required credentials are present.</div>"
             if not enabled
             else "<div class='hint'>Tenant is enabled. Use live validation for ongoing health.</div>"
+        )
+        live_controls = (
+            f"<div class='button-row'><button data-tenant-live='{name}' data-live-action='start'>Start / install live sync</button>"
+            f"<button data-tenant-live='{name}' data-live-action='restart'>Restart live sync</button>"
+            f"<button data-tenant-live='{name}' data-live-action='stop'>Stop live sync</button></div>"
+            f"<div class='button-row'><button data-tenant-backfill='{name}'>Run bounded backfill</button>"
+            f"<button class='danger' title='Retire tenant' data-tenant-retire='{name}'>&#128465; Retire tenant</button></div>"
+            if enabled
+            else f"<div class='button-row'><button class='danger' title='Retire tenant' data-tenant-retire='{name}'>&#128465; Retire tenant</button></div>"
+            "<div class='hint'>Live sync and backfill controls appear after activation.</div>"
         )
         rows.append(
             "<article class='tenant-card'>"
@@ -450,6 +462,7 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
             f"<div><strong>Manifest</strong><div class='meta'><code>{escape(str(manifest.get('path') or ''))}</code></div></div>"
             "</div>"
             f"{action_html}"
+            f"{live_controls}"
             "</article>"
         )
     if not rows:
@@ -467,7 +480,7 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "h1{margin:8px 0;font-size:34px}h2{margin:0;font-size:20px}.meta{color:var(--muted);font-size:13px;line-height:1.45}code{background:#efe7da;border:1px solid #dfd3c2;padding:2px 6px;border-radius:8px;font-size:12px}"
         ".layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card,.tenant-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}.stack{display:grid;gap:14px}.tenant-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.tenant-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}"
         ".badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}"
-        "label{display:block;margin:12px 0 6px;font-weight:700}input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fffdf9;color:var(--ink)}button{margin-top:14px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700;cursor:pointer}.hint{margin-top:8px;color:var(--muted);font-size:13px}.empty{padding:16px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
+        "label{display:block;margin:12px 0 6px;font-weight:700}input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fffdf9;color:var(--ink)}button{margin-top:14px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700;cursor:pointer}.button-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.button-row button{margin-top:0}.danger{border-color:#efb5b5;background:#fff1f1;color:var(--bad)}.hint{margin-top:8px;color:var(--muted);font-size:13px}.empty{padding:16px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
         "#tenant-feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px}.feedback-ok{display:block!important;background:var(--ok-soft);color:var(--ok)}.feedback-bad{display:block!important;background:var(--bad-soft);color:var(--bad)}"
         "@media (max-width: 860px){.layout,.tenant-grid{grid-template-columns:1fr}}"
         "</style></head><body><div class='shell'>"
@@ -512,6 +525,9 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "finally{button.disabled=false;button.textContent='Create disabled scaffold';}});"
         "credentialsForm.addEventListener('submit',async(event)=>{event.preventDefault();credentialsButton.disabled=true;credentialsButton.textContent='installing...';try{const name=document.getElementById('credential-tenant-name').value.trim();const credentials={};for(const id of ['team_id','token','outbound_token','user_token','outbound_user_token','app_token','signing_secret']){const node=document.querySelector(`#tenant-credentials-form [name=\"${id}\"]`);const value=(node?.value||'').trim();if(value)credentials[id]=value;}const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/credentials`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({credentials})});const data=await resp.json().catch(()=>({error:{message:'Credential install failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Credential install failed',true);return;}showTenantFeedback(`Installed ${data.installed_keys.length} credential key(s). Readiness: ${data.tenant.credential_ready?'ready':'missing'}.`,false);credentialsForm.reset();window.setTimeout(()=>window.location.reload(),900);}finally{credentialsButton.disabled=false;credentialsButton.textContent='Install credentials';}});"
         "for(const activateButton of document.querySelectorAll('button[data-tenant-activate]')){activateButton.addEventListener('click',async()=>{const name=activateButton.getAttribute('data-tenant-activate');activateButton.disabled=true;activateButton.textContent='activating...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/activate`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const data=await resp.json().catch(()=>({error:{message:'Tenant activation failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant activation failed',true);return;}showTenantFeedback(`Activated ${data.tenant.name}. Next: run live validation.`,false);window.setTimeout(()=>window.location.reload(),800);}finally{activateButton.disabled=false;activateButton.textContent='Activate + start live units';}});}"
+        "for(const liveButton of document.querySelectorAll('button[data-tenant-live]')){liveButton.addEventListener('click',async()=>{const name=liveButton.getAttribute('data-tenant-live');const action=liveButton.getAttribute('data-live-action');const label=liveButton.textContent;liveButton.disabled=true;liveButton.textContent='working...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/live`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const data=await resp.json().catch(()=>({error:{message:'Live action failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Live action failed',true);return;}showTenantFeedback(`Live action ${data.action} completed for ${data.tenant.name}.`,false);}finally{liveButton.disabled=false;liveButton.textContent=label;}});}"
+        "for(const backfillButton of document.querySelectorAll('button[data-tenant-backfill]')){backfillButton.addEventListener('click',async()=>{const name=backfillButton.getAttribute('data-tenant-backfill');backfillButton.disabled=true;backfillButton.textContent='backfilling...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/backfill`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({auth_mode:'user',include_messages:true,include_files:false,channel_limit:10})});const data=await resp.json().catch(()=>({error:{message:'Backfill failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Backfill failed',true);return;}showTenantFeedback(`Bounded backfill completed for ${data.tenant.name}.`,false);}finally{backfillButton.disabled=false;backfillButton.textContent='Run bounded backfill';}});}"
+        "for(const retireButton of document.querySelectorAll('button[data-tenant-retire]')){retireButton.addEventListener('click',async()=>{const name=retireButton.getAttribute('data-tenant-retire');const confirmName=window.prompt(`Type ${name} to retire this tenant. This removes it from config. To also delete mirrored DB rows, type ${name} DELETE_DB.`);if(!confirmName)return;const deleteDb=confirmName===`${name} DELETE_DB`;if(confirmName!==name&&!deleteDb){showTenantFeedback('Retire cancelled: confirmation did not match.',true);return;}retireButton.disabled=true;retireButton.textContent='retiring...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/retire`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:name,delete_db:deleteDb})});const data=await resp.json().catch(()=>({error:{message:'Retire failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Retire failed',true);return;}showTenantFeedback(`Retired ${data.tenant.name}. DB deleted: ${data.db_deleted?'yes':'no'}.`,false);window.setTimeout(()=>window.location.reload(),900);}finally{retireButton.disabled=false;retireButton.textContent='Retire tenant';}});}"
         "</script></div></body></html>"
     )
 
@@ -2360,6 +2376,101 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         "backup_path": result.backup_path,
                         "live_units_installed": result.live_units_installed,
                         "live_unit_command": result.live_unit_command,
+                        "tenant": result.tenant,
+                    },
+                )
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)/live", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import manage_tenant_live_units
+
+                tenant_name = unquote(m.group(1))
+                try:
+                    result = manage_tenant_live_units(
+                        config_path=config_path,
+                        name=tenant_name,
+                        action=str(body.get("action") or ""),
+                        dry_run=bool(body.get("dry_run", False)),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.live")
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "action": result.action,
+                        "dry_run": result.dry_run,
+                        "commands": result.commands,
+                        "tenant": result.tenant,
+                    },
+                )
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)/backfill", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import run_tenant_backfill
+
+                tenant_name = unquote(m.group(1))
+                try:
+                    result = run_tenant_backfill(
+                        config_path=config_path,
+                        name=tenant_name,
+                        auth_mode=str(body.get("auth_mode") or "user"),
+                        include_messages=bool(body.get("include_messages", True)),
+                        include_files=bool(body.get("include_files", False)),
+                        channel_limit=int(body.get("channel_limit") or 10),
+                        dry_run=bool(body.get("dry_run", False)),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.backfill")
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "action": result.action,
+                        "dry_run": result.dry_run,
+                        "commands": result.commands,
+                        "tenant": result.tenant,
+                    },
+                )
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)/retire", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import retire_tenant
+
+                tenant_name = unquote(m.group(1))
+                if str(body.get("confirm") or "") != tenant_name:
+                    _error_response(self, 400, "BAD_REQUEST", "confirm must exactly match tenant name")
+                    return
+                try:
+                    result = retire_tenant(
+                        config_path=config_path,
+                        name=tenant_name,
+                        delete_db=bool(body.get("delete_db", False)),
+                        stop_live_units=bool(body.get("stop_live_units", True)),
+                        dry_run=bool(body.get("dry_run", False)),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.retire")
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "changed": result.changed,
+                        "dry_run": result.dry_run,
+                        "config_path": result.config_path,
+                        "backup_path": result.backup_path,
+                        "db_deleted": result.db_deleted,
+                        "db_counts": result.db_counts,
+                        "live_unit_commands": result.live_unit_commands,
                         "tenant": result.tenant,
                     },
                 )

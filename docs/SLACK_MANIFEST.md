@@ -14,6 +14,8 @@ For live Slack Mirror installs, prefer the Socket Mode manifest so the local ser
   - `manifests/slack-app.rendered.yaml`
 - Polymer rendered manifest:
   - `manifests/slack-mirror-socket-mode-polymer.rendered.json`
+- PCG rendered manifest:
+  - `manifests/slack-mirror-socket-mode-pcg.rendered.json`
 
 Prefer JSON for Slack's copy/paste app-manifest flow. YAML is supported by Slack, but JSON is less brittle in browser text areas and chat/terminal copy paths.
 

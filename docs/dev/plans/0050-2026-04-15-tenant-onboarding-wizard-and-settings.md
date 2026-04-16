@@ -47,6 +47,9 @@ This plan does not include:
   - protected `POST /v1/tenants/onboard`
   - protected `POST /v1/tenants/<name>/credentials`
   - protected `POST /v1/tenants/<name>/activate`
+  - protected `POST /v1/tenants/<name>/live`
+  - protected `POST /v1/tenants/<name>/backfill`
+  - protected `POST /v1/tenants/<name>/retire`
   - browser tenant onboarding surface at `/settings/tenants`
 - browser `/settings` covers browser-auth policy and session management, with tenant management split to `/settings/tenants`
 - browser `/v1/workspaces` still lists DB-synced workspaces only; tenant onboarding state now lives under `/v1/tenants`
@@ -54,6 +57,7 @@ This plan does not include:
   - `scripts/install_live_mode_systemd_user.sh <workspace>`
 - browser activation is available for credential-ready disabled tenants through `/settings/tenants`
 - credential installation is now available through the CLI and `/settings/tenants`; it writes only to the configured dotenv file, backs up existing dotenv content, and reports installed variable names without echoing secret values
+- `/settings/tenants` now exposes live-sync start/restart/stop controls, a bounded backfill action, and a guarded retire flow with optional DB-row deletion
 - Polymer activation is still blocked because Polymer credentials are not present yet
 
 ## Target Operator Experience
@@ -106,6 +110,7 @@ Browser path:
 - onboarding should present the JSON manifest and credential checklist without exposing secret values
 - unsafe mutations should require explicit browser-auth and same-origin checks, matching existing manager pages
 - activation from the browser should be limited to state transitions and validation; secret entry should either be avoided or use a local-only, redacted write path with clear storage semantics
+- tenant retirement should be guarded by explicit name confirmation and a separate DB-deletion intent
 
 ## Implementation Tracks
 
@@ -156,11 +161,12 @@ Status:
 - render tenant cards with activation state, credential readiness, live-unit status, and next action
 - add a guided onboarding panel that can generate or link the rendered JSON manifest
 - add a credential install form that writes to the configured local dotenv without rendering stored secrets
+- add guarded retire, live-sync, and bounded backfill controls to the tenant cards
 - reuse existing browser helper patterns for busy states, row-local errors, and same-origin mutation checks
 
 Status:
 
-- shipped for redacted status, scaffold creation, local credential installation, and credential-ready activation
+- shipped for redacted status, scaffold creation, local credential installation, credential-ready activation, live-sync controls, bounded backfill, and guarded retirement
 
 ### Track E | Live Activation Integration
 
@@ -196,8 +202,9 @@ Status:
 5. Add browser read-only tenant status to settings. Shipped.
 6. Add browser onboarding and activation actions after the shared mutation path is proven. Shipped.
 7. Add a safe product-owned credential installation step so operators do not hand-edit dotenv syntax. Shipped.
-8. Promote the wizard to the canonical docs path. Shipped for scaffold, credential, and activation commands.
-9. Rehearse a real credential-backed activation and close or narrow this lane.
+8. Add tenant-management hardening from live onboarding feedback: clearer ready-to-activate state, live controls, bounded backfill, and guarded retire/delete. Shipped.
+9. Promote the wizard to the canonical docs path. Shipped for scaffold, credential, activation, live, backfill, and retire commands.
+10. Rehearse a real credential-backed activation and close or narrow this lane.
 
 ## Acceptance Criteria
 
@@ -209,6 +216,7 @@ Status:
 - activation is blocked until required credentials are present
 - activation can enable the tenant, sync DB state, install live units, and run validation
 - `/settings` or `/settings/tenants` shows tenant onboarding and runtime state from the same shared model
+- `/settings/tenants` can start/restart/stop live sync, launch a bounded backfill, and retire a tenant through guarded confirmation
 - existing active workspaces remain unaffected by a disabled or failed new-tenant scaffold
 
 ## Validation Plan

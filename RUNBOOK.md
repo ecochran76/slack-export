@@ -2351,3 +2351,45 @@ This file is the dated turn log for planning and execution continuity.
   - `slack-mirror-user tenants credentials polymer --dry-run --credentials-json '{"token":"dummy-bot","outbound_token":"dummy-write","app_token":"dummy-app","signing_secret":"dummy-secret"}' --json`
   - `slack-mirror-user tenants status polymer --json`
   - `slack-mirror-user user-env check-live --json`
+
+## Turn 167 | 2026-04-15
+
+- Followed up on live `pcg` onboarding feedback.
+- Confirmed `pcg` credentials were recorded and Slack-accepted without printing token values:
+  - required credential presence was complete
+  - bot and write bot tokens passed `auth.test`
+  - user and write user tokens passed `auth.test`
+  - app token opened a Socket Mode connection URL
+  - signing secret was present
+- Kept the activation contract explicit: credential install makes the tenant `ready_to_activate`; activation is the separate step that changes the tile from disabled to enabled.
+- Added tenant-management hardening:
+  - clearer ready-to-activate copy on disabled but credential-ready tenant tiles
+  - live-sync controls for enabled tenants: start/install, restart, stop
+  - bounded backfill control for enabled tenants
+  - guarded retire control with name confirmation
+  - optional DB-row deletion when the operator confirms `<tenant> DELETE_DB`
+- Added CLI/API support:
+  - `slack-mirror tenants live <name> start|restart|stop`
+  - `slack-mirror tenants backfill <name>`
+  - `slack-mirror tenants retire <name> --confirm <name> [--delete-db]`
+  - `POST /v1/tenants/<name>/live`
+  - `POST /v1/tenants/<name>/backfill`
+  - `POST /v1/tenants/<name>/retire`
+- Rendered and tracked the repo `pcg` manifest, then re-rendered the managed `pcg` manifest idempotently so tenant status now reports:
+  - `manifest.exists: true`
+  - `next_action: ready_to_activate`
+- Validation:
+  - `uv run python -m unittest tests.test_tenant_onboarding tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python -m py_compile slack_mirror/service/tenant_onboarding.py slack_mirror/service/api.py slack_mirror/cli/main.py tests/test_tenant_onboarding.py tests/test_api_server.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants live pcg restart --dry-run --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants backfill pcg --dry-run --channel-limit 3 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants retire pcg --confirm pcg --delete-db --dry-run --json`
+  - `uv run slack-mirror user-env update`
+  - `slack-mirror-user tenants live pcg restart --dry-run --json`
+  - `slack-mirror-user tenants backfill pcg --dry-run --channel-limit 3 --json`
+  - `slack-mirror-user tenants retire pcg --confirm pcg --delete-db --dry-run --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants onboard --name pcg --domain polymerconsul-clo9441 --display-name "Polymer Consulting Group" --manifest-path manifests/slack-mirror-socket-mode-pcg.rendered.json --json`
+  - `slack-mirror-user tenants onboard --name pcg --domain polymerconsul-clo9441 --display-name "Polymer Consulting Group" --json`
+  - `slack-mirror-user tenants status pcg --json`
+  - `slack-mirror-user user-env check-live --json`

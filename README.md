@@ -39,6 +39,7 @@ slack-mirror-user tenants activate polymer
 ```
 
 The same config-backed onboarding and local credential-install flow is available in the authenticated browser at `http://slack.localhost/settings/tenants`.
+Tenant tiles on that page also expose guarded activation, bounded backfill, live-sync start/restart/stop, and guarded tenant retirement controls.
 
 ## Current Live Topology
 

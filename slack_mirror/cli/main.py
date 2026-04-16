@@ -1643,7 +1643,7 @@ _slack_mirror_complete() {
   local mcp_sub="serve"
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
-  local tenants_sub="status onboard credentials activate"
+  local tenants_sub="status onboard credentials activate live backfill retire"
   local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1810,7 +1810,7 @@ _slack_mirror() {
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
   mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
-  tenants_sub=(status onboard credentials activate)
+  tenants_sub=(status onboard credentials activate live backfill retire)
 
   if (( CURRENT == 2 )); then
     _describe 'command' top
@@ -2232,6 +2232,120 @@ def cmd_tenants_credentials(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tenants_live(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import manage_tenant_live_units
+
+    try:
+        result = manage_tenant_live_units(
+            config_path=args.config,
+            name=args.name,
+            action=args.action,
+            dry_run=bool(args.dry_run),
+        )
+    except Exception as exc:  # noqa: BLE001
+        if args.json:
+            print(json.dumps({"ok": False, "error": {"message": str(exc)}}, indent=2))
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    payload = {
+        "ok": True,
+        "action": result.action,
+        "dry_run": result.dry_run,
+        "commands": result.commands,
+        "tenant": result.tenant,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"Tenant: {result.tenant.get('name')}")
+        print(f"Live action: {result.action}")
+        for command in result.commands:
+            print("Command: " + " ".join(command))
+    return 0
+
+
+def cmd_tenants_backfill(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import run_tenant_backfill
+
+    try:
+        result = run_tenant_backfill(
+            config_path=args.config,
+            name=args.name,
+            auth_mode=args.auth_mode,
+            include_messages=bool(args.include_messages),
+            include_files=bool(args.include_files),
+            channel_limit=int(args.channel_limit),
+            dry_run=bool(args.dry_run),
+        )
+    except Exception as exc:  # noqa: BLE001
+        if args.json:
+            print(json.dumps({"ok": False, "error": {"message": str(exc)}}, indent=2))
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    payload = {
+        "ok": True,
+        "action": result.action,
+        "dry_run": result.dry_run,
+        "commands": result.commands,
+        "tenant": result.tenant,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"Tenant: {result.tenant.get('name')}")
+        for command in result.commands:
+            print("Command: " + " ".join(command))
+    return 0
+
+
+def cmd_tenants_retire(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import retire_tenant
+
+    if args.confirm != args.name:
+        message = "--confirm must exactly match the tenant name"
+        if args.json:
+            print(json.dumps({"ok": False, "error": {"message": message}}, indent=2))
+        else:
+            print(f"ERROR: {message}", file=sys.stderr)
+        return 1
+    try:
+        result = retire_tenant(
+            config_path=args.config,
+            name=args.name,
+            delete_db=bool(args.delete_db),
+            stop_live_units=not bool(args.keep_live_units),
+            dry_run=bool(args.dry_run),
+        )
+    except Exception as exc:  # noqa: BLE001
+        if args.json:
+            print(json.dumps({"ok": False, "error": {"message": str(exc)}}, indent=2))
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    payload = {
+        "ok": True,
+        "changed": result.changed,
+        "dry_run": result.dry_run,
+        "config_path": result.config_path,
+        "backup_path": result.backup_path,
+        "db_deleted": result.db_deleted,
+        "db_counts": result.db_counts,
+        "live_unit_commands": result.live_unit_commands,
+        "tenant": result.tenant,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"Retired tenant: {result.tenant.get('name')}")
+        print(f"Config: {result.config_path}")
+        if result.backup_path:
+            print(f"Backup: {result.backup_path}")
+        print(f"DB deleted: {str(result.db_deleted).lower()}")
+    return 0
+
+
 def cmd_serve_api(args: argparse.Namespace) -> int:
     from slack_mirror.core.config import load_config
     from slack_mirror.service.api import run_api_server
@@ -2641,6 +2755,30 @@ def build_parser() -> argparse.ArgumentParser:
     p_tenants_activate.add_argument("--skip-live-units", action="store_true", help="enable and sync config without installing live systemd units")
     p_tenants_activate.add_argument("--json", action="store_true", help="json output")
     p_tenants_activate.set_defaults(func=cmd_tenants_activate)
+    p_tenants_live = tenants_sub.add_parser("live", help="manage tenant live sync systemd units")
+    p_tenants_live.add_argument("name", help="local tenant/workspace name")
+    p_tenants_live.add_argument("action", choices=["start", "restart", "stop"], help="live sync action")
+    p_tenants_live.add_argument("--dry-run", action="store_true", help="show commands without running them")
+    p_tenants_live.add_argument("--json", action="store_true", help="json output")
+    p_tenants_live.set_defaults(func=cmd_tenants_live)
+    p_tenants_backfill = tenants_sub.add_parser("backfill", help="run a bounded tenant backfill")
+    p_tenants_backfill.add_argument("name", help="local tenant/workspace name")
+    p_tenants_backfill.add_argument("--auth-mode", choices=["bot", "user"], default="user", help="token mode for backfill")
+    p_tenants_backfill.add_argument("--include-messages", action="store_true", default=True, help="include message history")
+    p_tenants_backfill.add_argument("--no-messages", action="store_false", dest="include_messages", help="skip message history")
+    p_tenants_backfill.add_argument("--include-files", action="store_true", help="include files and canvases metadata")
+    p_tenants_backfill.add_argument("--channel-limit", type=int, default=10, help="bounded channel limit for browser-safe starts")
+    p_tenants_backfill.add_argument("--dry-run", action="store_true", help="show command without running it")
+    p_tenants_backfill.add_argument("--json", action="store_true", help="json output")
+    p_tenants_backfill.set_defaults(func=cmd_tenants_backfill)
+    p_tenants_retire = tenants_sub.add_parser("retire", help="guarded tenant removal from config with optional DB deletion")
+    p_tenants_retire.add_argument("name", help="local tenant/workspace name")
+    p_tenants_retire.add_argument("--confirm", required=True, help="must exactly match the tenant name")
+    p_tenants_retire.add_argument("--delete-db", action="store_true", help="delete mirrored DB rows for this tenant")
+    p_tenants_retire.add_argument("--keep-live-units", action="store_true", help="do not stop live units before retiring")
+    p_tenants_retire.add_argument("--dry-run", action="store_true", help="show planned retirement without writing config or DB")
+    p_tenants_retire.add_argument("--json", action="store_true", help="json output")
+    p_tenants_retire.set_defaults(func=cmd_tenants_retire)
 
     user_env = sub.add_parser("user-env", help="supported user-scope install/update commands")
     user_env_sub = user_env.add_subparsers(dest="user_env_cmd")

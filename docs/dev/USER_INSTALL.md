@@ -181,6 +181,9 @@ The authenticated browser settings surface also exposes tenant onboarding status
 - `http://slack.localhost/settings/tenants`
 
 That page also provides a local credential-install form for the same fields. It posts to the local authenticated API, writes the configured dotenv file, and does not render stored secret values back into the page.
+After credentials are installed, the tenant tile should show `ready_to_activate`; activation is the explicit step that changes the tenant from disabled to enabled.
+Enabled tenant tiles also expose live-sync controls and a bounded backfill button.
+The retire control is guarded: type the tenant name to remove the config entry, or type `<tenant> DELETE_DB` to also delete mirrored DB rows for that tenant.
 
 The browser user bootstrap is per-install, not per-workspace.
 

@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,6 +60,26 @@ class TenantCredentialInstallResult:
     backup_path: str | None
     installed_keys: list[str]
     skipped_keys: list[str]
+    dry_run: bool
+
+
+@dataclass(frozen=True)
+class TenantRetireResult:
+    tenant: dict[str, Any]
+    changed: bool
+    config_path: str
+    backup_path: str | None
+    db_deleted: bool
+    db_counts: dict[str, int]
+    live_unit_commands: list[list[str]]
+    dry_run: bool
+
+
+@dataclass(frozen=True)
+class TenantCommandResult:
+    tenant: dict[str, Any]
+    action: str
+    commands: list[list[str]]
     dry_run: bool
 
 
@@ -284,6 +305,106 @@ def _sync_tenant_to_db(config_path: str | Path, name: str) -> None:
             )
             return
     raise ValueError(f"Tenant '{name}' not found in expanded config")
+
+
+def _tenant_db_counts(conn, workspace_id: int) -> dict[str, int]:
+    tables = (
+        "users",
+        "channels",
+        "messages",
+        "files",
+        "canvases",
+        "events",
+        "sync_state",
+        "content_chunks",
+        "embeddings",
+        "channel_members",
+        "message_embeddings",
+        "embedding_jobs",
+        "outbound_actions",
+        "listeners",
+        "listener_deliveries",
+        "derived_text",
+        "derived_text_jobs",
+        "derived_text_chunks",
+    )
+    counts: dict[str, int] = {}
+    for table in tables:
+        try:
+            row = conn.execute(f"SELECT COUNT(*) AS c FROM {table} WHERE workspace_id = ?", (workspace_id,)).fetchone()
+        except Exception:
+            continue
+        counts[table] = int(row["c"] if row else 0)
+    return counts
+
+
+def _delete_tenant_db_rows(config_path: str | Path, name: str, *, dry_run: bool) -> tuple[bool, dict[str, int]]:
+    cfg = load_config(config_path)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
+    conn = connect(db_path)
+    apply_migrations(conn, str(_migrations_dir()))
+    row = get_workspace_by_name(conn, name)
+    if row is None:
+        return False, {}
+    workspace_id = int(row["id"])
+    counts = _tenant_db_counts(conn, workspace_id)
+    if dry_run:
+        return True, counts
+    with conn:
+        # FTS tables are virtual and are not covered by ON DELETE CASCADE.
+        conn.execute("DELETE FROM messages_fts WHERE workspace_id = ?", (workspace_id,))
+        conn.execute("DELETE FROM content_chunks_fts WHERE workspace_name = ?", (name,))
+        conn.execute("DELETE FROM derived_text_fts WHERE workspace_id = ?", (workspace_id,))
+        conn.execute("DELETE FROM derived_text_chunks_fts WHERE workspace_id = ?", (workspace_id,))
+        # Some operational tables predate workspace FKs; remove them explicitly.
+        for table in (
+            "listener_deliveries",
+            "listeners",
+            "outbound_actions",
+            "derived_text_chunks",
+            "derived_text_jobs",
+            "derived_text",
+            "embedding_jobs",
+            "message_embeddings",
+            "channel_members",
+            "embeddings",
+            "content_chunks",
+            "events",
+            "sync_state",
+            "files",
+            "canvases",
+            "messages",
+            "users",
+            "channels",
+        ):
+            conn.execute(f"DELETE FROM {table} WHERE workspace_id = ?", (workspace_id,))
+        conn.execute("DELETE FROM workspaces WHERE id = ?", (workspace_id,))
+    return True, counts
+
+
+def _tenant_live_units(name: str) -> list[str]:
+    tenant_name = normalize_tenant_name(name)
+    return [f"slack-mirror-webhooks-{tenant_name}.service", f"slack-mirror-daemon-{tenant_name}.service"]
+
+
+def _systemctl_user_command(action: str, name: str) -> list[str]:
+    if action not in {"restart", "stop"}:
+        raise ValueError(f"unsupported live unit action: {action}")
+    return ["systemctl", "--user", action, *_tenant_live_units(name)]
+
+
+def _slack_mirror_command(config_path: str | Path) -> list[str]:
+    wrapper = shutil.which("slack-mirror-user")
+    managed_config = (Path.home() / ".config" / "slack-mirror" / "config.yaml").resolve()
+    try:
+        if wrapper and Path(config_path).expanduser().resolve() == managed_config:
+            return [wrapper]
+    except FileNotFoundError:
+        pass
+    console = shutil.which("slack-mirror")
+    if console:
+        return [console, "--config", str(resolve_config_path(config_path))]
+    return [sys.executable, "-m", "slack_mirror.cli.main", "--config", str(resolve_config_path(config_path))]
 
 
 def _manifest_status(name: str, manifest_path: str | Path | None = None) -> dict[str, Any]:
@@ -596,5 +717,132 @@ def install_tenant_credentials(
         backup_path=str(backup) if backup else None,
         installed_keys=sorted(dotenv_values),
         skipped_keys=sorted(item for item in skipped if item),
+        dry_run=dry_run,
+    )
+
+
+def manage_tenant_live_units(
+    *,
+    config_path: str | Path | None = None,
+    name: str,
+    action: str,
+    dry_run: bool = False,
+    runner: RunFn = subprocess.run,
+) -> TenantCommandResult:
+    tenant_name = normalize_tenant_name(name)
+    resolved = resolve_config_path(config_path)
+    tenant = tenant_status(config_path=resolved, name=tenant_name)[0]
+    if action == "start":
+        command = [str(_live_install_script()), tenant_name, str(resolved)]
+        commands = [command]
+        if not dry_run:
+            install_tenant_live_units(name=tenant_name, config_path=resolved, runner=runner)
+    elif action in {"restart", "stop"}:
+        command = _systemctl_user_command(action, tenant_name)
+        commands = [command]
+        if not dry_run:
+            runner(command, check=True)
+    else:
+        raise ValueError("live action must be one of: start, restart, stop")
+    return TenantCommandResult(tenant=tenant, action=action, commands=commands, dry_run=dry_run)
+
+
+def run_tenant_backfill(
+    *,
+    config_path: str | Path | None = None,
+    name: str,
+    auth_mode: str = "user",
+    include_messages: bool = True,
+    include_files: bool = False,
+    channel_limit: int = 10,
+    dry_run: bool = False,
+    runner: RunFn = subprocess.run,
+) -> TenantCommandResult:
+    tenant_name = normalize_tenant_name(name)
+    resolved = resolve_config_path(config_path)
+    tenant = tenant_status(config_path=resolved, name=tenant_name)[0]
+    if not dry_run and not tenant.get("enabled"):
+        raise ValueError(f"Tenant '{tenant_name}' must be enabled before backfill")
+    if auth_mode not in {"bot", "user"}:
+        raise ValueError("auth_mode must be 'bot' or 'user'")
+    if channel_limit < 1 or channel_limit > 1000:
+        raise ValueError("channel_limit must be between 1 and 1000")
+    command = [
+        *_slack_mirror_command(resolved),
+        "mirror",
+        "backfill",
+        "--workspace",
+        tenant_name,
+        "--auth-mode",
+        auth_mode,
+        "--channel-limit",
+        str(channel_limit),
+    ]
+    if include_messages:
+        command.append("--include-messages")
+    if include_files:
+        command.append("--include-files")
+    if not include_messages and not include_files:
+        # Users/channels bootstrap only.
+        pass
+    if not dry_run:
+        runner(command, check=True)
+    return TenantCommandResult(tenant=tenant, action="backfill", commands=[command], dry_run=dry_run)
+
+
+def retire_tenant(
+    *,
+    config_path: str | Path | None = None,
+    name: str,
+    delete_db: bool = False,
+    stop_live_units: bool = True,
+    dry_run: bool = False,
+    runner: RunFn = subprocess.run,
+) -> TenantRetireResult:
+    tenant_name = normalize_tenant_name(name)
+    resolved = resolve_config_path(config_path)
+    raw = _load_raw_config(resolved)
+    workspaces = raw.get("workspaces") or []
+    if not isinstance(workspaces, list):
+        raise ValueError("config workspaces must be a list")
+    existing = _find_workspace(raw, tenant_name)
+    if existing is None:
+        raise ValueError(f"Tenant '{tenant_name}' not found in config")
+    if tenant_name in {"default", "soylei"}:
+        raise ValueError(f"Tenant '{tenant_name}' is protected from browser retirement")
+
+    before_status = tenant_status(config_path=resolved, name=tenant_name)[0]
+    live_commands: list[list[str]] = []
+    if stop_live_units:
+        live_commands.append(_systemctl_user_command("stop", tenant_name))
+
+    db_deleted = False
+    db_counts: dict[str, int] = {}
+    if delete_db:
+        db_deleted, db_counts = _delete_tenant_db_rows(resolved, tenant_name, dry_run=True)
+
+    backup_path: str | None = None
+    if not dry_run:
+        if stop_live_units:
+            for command in live_commands:
+                runner(command, check=False)
+        if delete_db:
+            db_deleted, db_counts = _delete_tenant_db_rows(resolved, tenant_name, dry_run=False)
+        raw["workspaces"] = [
+            item for item in workspaces if not (isinstance(item, dict) and item.get("name") == tenant_name)
+        ]
+        backup = _backup_config(resolved, tenant_name=tenant_name, operation="retire")
+        _write_raw_config(resolved, raw)
+        load_config(resolved)
+        backup_path = str(backup)
+
+    return TenantRetireResult(
+        tenant=before_status,
+        changed=True,
+        config_path=str(resolved),
+        backup_path=backup_path,
+        db_deleted=db_deleted,
+        db_counts=db_counts,
+        live_unit_commands=live_commands,
         dry_run=dry_run,
     )
