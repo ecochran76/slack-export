@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -255,6 +256,20 @@ class TenantOnboardingTests(unittest.TestCase):
                     "slack-mirror-daemon-default.service",
                 ],
             )
+
+    def test_install_tenant_live_units_wraps_called_process_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = self._write_config(Path(td))
+
+            def failing_runner(*args, **kwargs):
+                raise subprocess.CalledProcessError(
+                    1,
+                    args[0],
+                    stderr="Job for slack-mirror-webhooks-default.service failed because the control process exited with error code.",
+                )
+
+            with self.assertRaisesRegex(RuntimeError, "Live-sync install failed for tenant 'default'"):
+                install_tenant_live_units(name="default", config_path=cfg, runner=failing_runner)
 
     def test_run_tenant_backfill_dry_run_requires_enabled_and_bounds_command(self):
         with tempfile.TemporaryDirectory() as td:

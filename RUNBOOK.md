@@ -2517,3 +2517,13 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_logs_page_and_api tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+
+## Turn 177 | 2026-04-16
+
+- Moved tenant live-action feedback off the shared onboarding scaffold banner and into the affected tenant tile on `/settings/tenants`.
+- Kept scaffold and credential-install outcomes on the onboarding panel, but tenant-local actions now render tenant-local outcome messages.
+- Hardened live-unit command failures so install/restart/stop actions no longer surface the raw Python `CalledProcessError` string directly.
+- Live-unit failures now return a tenant-scoped operator hint that points to the matching `journalctl --user` command.
+- Validation:
+  - `uv run python -m unittest tests.test_tenant_onboarding.TenantOnboardingTests.test_install_tenant_live_units_uses_product_script tests.test_tenant_onboarding.TenantOnboardingTests.test_install_tenant_live_units_wraps_called_process_error tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py tests/test_tenant_onboarding.py`

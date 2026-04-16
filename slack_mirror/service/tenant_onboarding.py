@@ -115,6 +115,22 @@ def _live_install_script() -> Path:
     return _repo_root() / "scripts" / "install_live_mode_systemd_user.sh"
 
 
+def _run_checked_command(command: list[str], *, runner: RunFn, failure_hint: str) -> None:
+    try:
+        if runner is subprocess.run:
+            runner(command, check=True, text=True, capture_output=True)
+        else:
+            runner(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        stderr = str(getattr(exc, "stderr", "") or "").strip()
+        stdout = str(getattr(exc, "stdout", "") or "").strip()
+        detail = stderr or stdout
+        if detail:
+            detail = detail.splitlines()[-1]
+            raise RuntimeError(f"{failure_hint}: {detail}") from exc
+        raise RuntimeError(failure_hint) from exc
+
+
 def normalize_tenant_name(name: str) -> str:
     normalized = re.sub(r"[^a-z0-9_-]+", "-", str(name or "").strip().casefold()).strip("-_")
     if not _NAME_PATTERN.fullmatch(normalized):
@@ -900,7 +916,15 @@ def install_tenant_live_units(
     if not script.exists():
         raise FileNotFoundError(f"Live-mode installer script not found: {script}")
     command = [str(script), tenant_name, str(resolve_config_path(config_path))]
-    runner(command, check=True)
+    _run_checked_command(
+        command,
+        runner=runner,
+        failure_hint=(
+            f"Live-sync install failed for tenant '{tenant_name}'. "
+            f"Inspect `journalctl --user -u slack-mirror-webhooks-{tenant_name}.service "
+            f"-u slack-mirror-daemon-{tenant_name}.service -n 50`"
+        ),
+    )
     return command
 
 
@@ -1042,7 +1066,15 @@ def manage_tenant_live_units(
         command = _systemctl_user_command(action, tenant_name)
         commands = [command]
         if not dry_run:
-            runner(command, check=True)
+            _run_checked_command(
+                command,
+                runner=runner,
+                failure_hint=(
+                    f"Live-sync action '{action}' failed for tenant '{tenant_name}'. "
+                    f"Inspect `journalctl --user -u slack-mirror-webhooks-{tenant_name}.service "
+                    f"-u slack-mirror-daemon-{tenant_name}.service -n 50`"
+                ),
+            )
     else:
         raise ValueError("live action must be one of: start, restart, stop")
     return TenantCommandResult(tenant=tenant, action=action, commands=commands, dry_run=dry_run)
