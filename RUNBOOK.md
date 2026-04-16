@@ -2491,3 +2491,14 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_snapshot_runtime_report_writes_operator_summary tests.test_user_env.UserEnvTests.test_snapshot_runtime_report_json_outputs_machine_readable_payload -v`
   - `python -m py_compile slack_mirror/service/runtime_report_user_env.py tests/test_user_env.py`
   - `uv run slack-mirror user-env snapshot-report --name scheduled-runtime-report --json`
+
+## Turn 175 | 2026-04-16
+
+- Refined `/settings/tenants` action rendering so the live-sync controls are closer to actual unit state:
+  - `Start live sync` now appears only when neither live unit is active
+  - `Restart live sync` and `Stop live sync` appear only while a live unit is active
+- Added short-lived transient action state and bounded polling after tenant activation, live actions, and bounded backfill.
+- The tenant tiles now refresh automatically for a short window after those actions so unit state, queue counts, and DB stats settle without a manual page refresh.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/api.py`
