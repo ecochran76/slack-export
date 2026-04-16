@@ -2454,3 +2454,16 @@ This file is the dated turn log for planning and execution continuity.
   - `/home/ecochran76/.local/share/slack-mirror/venv/bin/pip install --upgrade /home/ecochran76/workspace.local/slack-export`
   - `slack-mirror-user user-env update`
   - `slack-mirror-user user-env check-live --json`
+
+## Turn 172 | 2026-04-16
+
+- Tightened the tenant-management browser surface so tenant tiles now span the full content width instead of sharing a half-width grid column with the onboarding forms.
+- Replaced placeholder tenant tile status with live operator-facing state derived from the existing tenant/runtime seams:
+  - actual per-tenant live unit states for `webhooks` and `daemon`
+  - reconcile/sync summaries and warning/failure counts
+  - derived tenant health and validation labels
+- Updated tenant-card actions so activation, live start/stop/restart, and bounded backfill are shown based on tenant state instead of only the coarse enabled/disabled toggle.
+- Added the authenticated topbar shell to `/runtime/reports` so browser navigation is consistent with the other protected pages.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`

@@ -15,6 +15,8 @@ import yaml
 
 from slack_mirror.core.config import load_config, resolve_config_path
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name, upsert_workspace
+from slack_mirror.service.runtime_heartbeat import load_reconcile_state
+from slack_mirror.service.user_env import _systemctl_state
 
 _ENV_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)(?::-([^}]*))?\}")
 _NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{1,62}$")
@@ -414,6 +416,163 @@ def _manifest_status(name: str, manifest_path: str | Path | None = None) -> dict
     return {"path": str(path), "exists": path.exists()}
 
 
+def _tenant_live_unit_states(name: str) -> dict[str, str]:
+    webhooks_unit, daemon_unit = _tenant_live_units(name)
+    return {
+        "webhooks": _systemctl_state(subprocess.run, webhooks_unit),
+        "daemon": _systemctl_state(subprocess.run, daemon_unit),
+    }
+
+
+def _tenant_sync_health(*, config_path: Path, name: str, enabled: bool) -> dict[str, Any]:
+    reconcile_state = load_reconcile_state(config_path, workspace=name, auth_mode="user")
+    if not enabled:
+        return {
+            "label": "disabled",
+            "tone": "neutral",
+            "summary": "Tenant is disabled. Activate it after credentials are installed.",
+            "detail": "No live validation is expected while the tenant is disabled.",
+            "reconcile": {
+                "state_present": False,
+                "attempted": 0,
+                "downloaded": 0,
+                "warnings": 0,
+                "failed": 0,
+            },
+        }
+    if not reconcile_state:
+        return {
+            "label": "attention",
+            "tone": "warn",
+            "summary": "No recent reconcile state is recorded.",
+            "detail": "Run bounded backfill or reconcile-files to populate sync state.",
+            "reconcile": {
+                "state_present": False,
+                "attempted": 0,
+                "downloaded": 0,
+                "warnings": 0,
+                "failed": 0,
+            },
+        }
+    attempted = int(reconcile_state.get("attempted") or 0)
+    downloaded = int(reconcile_state.get("downloaded") or 0)
+    warnings = int(reconcile_state.get("warnings") or 0)
+    failed = int(reconcile_state.get("failed") or 0)
+    if failed:
+        label = "error"
+        tone = "bad"
+        summary = f"Last reconcile recorded {failed} failure(s)."
+    elif warnings:
+        label = "warning"
+        tone = "warn"
+        summary = f"Last reconcile recorded {warnings} warning(s)."
+    elif downloaded or attempted:
+        label = "healthy"
+        tone = "ok"
+        summary = f"Last reconcile downloaded {downloaded} item(s) across {attempted} attempt(s)."
+    else:
+        label = "idle"
+        tone = "neutral"
+        summary = "Reconcile state exists but no recent sync work was recorded."
+    return {
+        "label": label,
+        "tone": tone,
+        "summary": summary,
+        "detail": str(reconcile_state.get("iso_utc") or "") or "No reconcile timestamp recorded.",
+        "reconcile": {
+            "state_present": True,
+            "attempted": attempted,
+            "downloaded": downloaded,
+            "warnings": warnings,
+            "failed": failed,
+        },
+    }
+
+
+def _tenant_validation_status(
+    *,
+    enabled: bool,
+    credential_ready: bool,
+    db_synced: bool,
+    live_units: dict[str, str],
+    sync_health: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    if not enabled:
+        return (
+            "disabled",
+            {
+                "tone": "warn" if credential_ready else "neutral",
+                "summary": "Tenant is disabled.",
+                "detail": "Activate the tenant to start live sync and validation.",
+            },
+        )
+    if not credential_ready:
+        return (
+            "credentials_required",
+            {
+                "tone": "bad",
+                "summary": "Required credentials are missing.",
+                "detail": "Install the missing Slack credentials before activation or live sync.",
+            },
+        )
+    if not db_synced:
+        return (
+            "db_sync_required",
+            {
+                "tone": "warn",
+                "summary": "Config is not synced into the DB.",
+                "detail": "Run workspace sync or re-activate the tenant so DB state matches config.",
+            },
+        )
+    live_states = {str(value or "unknown") for value in live_units.values()}
+    if "failed" in live_states:
+        return (
+            "live_error",
+            {
+                "tone": "bad",
+                "summary": "One or more live units are failed.",
+                "detail": "Restart the failed live unit and inspect its journal if it does not recover.",
+            },
+        )
+    if "active" not in live_states:
+        return (
+            "live_stopped",
+            {
+                "tone": "warn",
+                "summary": "Live sync is not running.",
+                "detail": "Start or install live sync to restore steady-state ingest.",
+            },
+        )
+    sync_label = str(sync_health.get("label") or "")
+    sync_tone = str(sync_health.get("tone") or "neutral")
+    if sync_label == "error":
+        return (
+            "warning",
+            {
+                "tone": "bad",
+                "summary": str(sync_health.get("summary") or "Recent sync work reported failures."),
+                "detail": str(sync_health.get("detail") or ""),
+            },
+        )
+    if sync_tone == "warn":
+        return (
+            "warning",
+            {
+                "tone": "warn",
+                "summary": str(sync_health.get("summary") or "Recent sync work reported warnings."),
+                "detail": str(sync_health.get("detail") or ""),
+            },
+        )
+    return (
+        "healthy",
+        {
+            "tone": "ok",
+            "summary": "Live sync is active.",
+            "detail": str(sync_health.get("summary") or ""),
+        },
+    )
+
+
 def tenant_status(
     *,
     config_path: str | Path | None = None,
@@ -439,9 +598,24 @@ def tenant_status(
         credentials = _credential_status(raw_ws, expanded_ws)
         enabled = bool(expanded_ws.get("enabled", raw_ws.get("enabled", True)) is not False)
         synced = _db_synced(resolved, ws_name)
+        live_units = _tenant_live_unit_states(ws_name)
+        sync_health = _tenant_sync_health(config_path=resolved, name=ws_name, enabled=enabled)
+        validation_status, health = _tenant_validation_status(
+            enabled=enabled,
+            credential_ready=credentials["ready"],
+            db_synced=synced,
+            live_units=live_units,
+            sync_health=sync_health,
+        )
         next_action = "ready_to_activate"
         if enabled:
-            next_action = "monitor_live_validation"
+            live_states = {str(value or "unknown") for value in live_units.values()}
+            if "active" not in live_states:
+                next_action = "start_live_sync"
+            elif validation_status == "warning":
+                next_action = "inspect_sync_health"
+            else:
+                next_action = "monitor_live_validation"
         elif not credentials["ready"]:
             next_action = "credentials_required"
         elif not synced:
@@ -457,8 +631,10 @@ def tenant_status(
                 "credential_ready": credentials["ready"],
                 "missing_required_credentials": credentials["missing_required"],
                 "manifest": _manifest_status(ws_name),
-                "validation_status": "unknown",
-                "live_units": {"webhooks": "unknown", "daemon": "unknown"},
+                "validation_status": validation_status,
+                "live_units": live_units,
+                "sync_health": sync_health,
+                "health": health,
                 "next_action": next_action,
             }
         )

@@ -421,7 +421,14 @@ def _authenticated_topbar_css() -> str:
 
 
 def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_path: str) -> str:
-    user_label = auth_session.display_name or auth_session.username or "Authenticated user"
+    if auth_session.authenticated:
+        user_label = auth_session.display_name or auth_session.username or "Authenticated user"
+        identity_html = (
+            f"Signed in as <strong>{escape(user_label)}</strong> · username <code>{escape(str(auth_session.username or ''))}</code>"
+        )
+    else:
+        user_label = "Local access"
+        identity_html = "Local browser access is enabled for this install."
     nav_items = [
         ("/", "Home", False),
         ("/search", "Search", False),
@@ -441,7 +448,7 @@ def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_pat
         links.append(f"<a class='{' '.join(classes)}' href=\"{href}\">{escape(label)}</a>")
     return (
         "<div class='auth-topbar'>"
-        f"<div class='auth-identity'>Signed in as <strong>{escape(user_label)}</strong> · username <code>{escape(str(auth_session.username or ''))}</code></div>"
+        f"<div class='auth-identity'>{identity_html}</div>"
         f"<nav class='auth-nav'>{''.join(links)}</nav>"
         "</div>"
     )
@@ -460,8 +467,9 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         f"{_authenticated_topbar_css()}"
         ".shell{max-width:1120px;margin:0 auto;padding:28px 18px 40px}.top{margin-bottom:18px}.eyebrow{display:inline-block;padding:6px 10px;border-radius:999px;background:#ebe4d8;color:#514739;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}"
         "h1{margin:8px 0;font-size:34px}h2{margin:0;font-size:20px}.meta{color:var(--muted);font-size:13px;line-height:1.45}code{background:#efe7da;border:1px solid #dfd3c2;padding:2px 6px;border-radius:8px;font-size:12px}"
-        ".layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card,.tenant-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}.stack{display:grid;gap:14px}.tenant-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.tenant-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}"
-        ".badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}"
+        ".layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}.layout-full{grid-column:1 / -1}.card,.tenant-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px}.stack{display:grid;gap:14px}.tenant-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.tenant-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}.tenant-card .button-row{margin-top:14px}"
+        ".badge{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1}.badge-ok{background:var(--ok-soft);color:var(--ok)}.badge-warn{background:var(--warn-soft);color:var(--warn)}.badge-bad{background:var(--bad-soft);color:var(--bad)}.badge-neutral{background:#ebe4d8;color:#514739}"
+        ".status-block{padding:12px 14px;border:1px solid #e6ddd2;border-radius:16px;background:#fcfaf6}.status-block strong{display:block;margin-bottom:6px}.status-strip{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}.status-pill{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}.status-pill.ok{background:var(--ok-soft);color:var(--ok)}.status-pill.warn{background:var(--warn-soft);color:var(--warn)}.status-pill.bad{background:var(--bad-soft);color:var(--bad)}.status-pill.neutral{background:#ebe4d8;color:#514739}"
         "label{display:block;margin:12px 0 6px;font-weight:700}input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fffdf9;color:var(--ink)}button{margin-top:14px;padding:11px 14px;border-radius:14px;border:1px solid #b7c9ee;background:#edf4ff;color:var(--accent);font-weight:700;cursor:pointer}.button-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.button-row button{margin-top:0}.danger{border-color:#efb5b5;background:#fff1f1;color:var(--bad)}.hint{margin-top:8px;color:var(--muted);font-size:13px}.empty{padding:16px;border:1px dashed #d6cbbb;border-radius:16px;color:var(--muted);background:#fbf7f0}"
         ".collapsible-card{padding:0;overflow:hidden}.collapsible-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;list-style:none;cursor:pointer;padding:22px}.collapsible-summary::-webkit-details-marker{display:none}.collapsible-copy{min-width:0}.collapsible-summary h2{margin:0 0 6px}.collapsible-chevron{flex:0 0 auto;color:var(--muted);font-size:20px;line-height:1;transform:rotate(0deg);transition:transform .18s ease}.collapsible-card[open] .collapsible-chevron{transform:rotate(90deg)}.collapsible-body{padding:0 22px 22px;border-top:1px solid #efe5d8}"
         "#tenant-feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:14px}.feedback-ok{display:block!important;background:var(--ok-soft);color:var(--ok)}.feedback-bad{display:block!important;background:var(--bad-soft);color:var(--bad)}"
@@ -496,7 +504,7 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "<button id='tenant-credentials-button' type='submit'>Install credentials</button>"
         "<div class='hint'>Leave optional fields blank. Use write-token fields only when write actions are intentionally enabled.</div>"
         "</form></div></details>"
-        "<section class='stack' id='tenant-list'></section>"
+        "<section class='stack layout-full' id='tenant-list'></section>"
         "</div>"
         "<script>"
         f"const initialTenants={tenants_json};"
@@ -505,7 +513,9 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "const credentialsForm=document.getElementById('tenant-credentials-form');const credentialsButton=document.getElementById('tenant-credentials-button');"
         "function showTenantFeedback(message,isError){feedback.textContent=message;feedback.className=isError?'feedback-bad':'feedback-ok';}"
         f"{_BROWSER_DIALOG_JS}"
-        "function tenantCardHtml(item){const name=String(item.name||'unknown');const domain=String(item.domain||'');const enabled=!!item.enabled;const credentialReady=!!item.credential_ready;const synced=!!item.db_synced;const missing=(item.missing_required_credentials||[]).join(', ')||'-';const manifest=item.manifest||{};const actionHtml=credentialReady&&!enabled?`<button data-tenant-activate=\"${name}\">Activate + start live units</button><div class='hint'>Credentials are ready. Activation is the step that changes this tile from disabled to enabled.</div>`:!enabled?`<div class='hint'>Activation is available after required credentials are present.</div>`:`<div class='hint'>Tenant is enabled. Use live validation for ongoing health.</div>`;const manifestButton=`<button data-tenant-copy-manifest=\"${name}\">Copy Manifest JSON</button><div class='hint'>Slack only accepts pasted manifest JSON. This copies the rendered manifest to your clipboard.</div>`;const liveControls=enabled?`<div class='button-row'><button data-tenant-live=\"${name}\" data-live-action='start'>Start / install live sync</button><button data-tenant-live=\"${name}\" data-live-action='restart'>Restart live sync</button><button data-tenant-live=\"${name}\" data-live-action='stop'>Stop live sync</button></div><div class='button-row'><button data-tenant-backfill=\"${name}\">Run bounded backfill</button><button class='danger' title='Retire tenant' data-tenant-retire=\"${name}\">&#128465; Retire tenant</button></div>`:`<div class='button-row'><button class='danger' title='Retire tenant' data-tenant-retire=\"${name}\">&#128465; Retire tenant</button></div><div class='hint'>Live sync and backfill controls appear after activation.</div>`;return `<article class='tenant-card' data-tenant-card=\"${name}\"><div class='tenant-head'><h2>${name}</h2><span class='badge ${enabled?'badge-ok':'badge-warn'}'>${enabled?'enabled':'disabled'}</span></div><div class='meta'>Slack domain <code>${domain}</code></div><div class='tenant-grid'><div><strong>Credentials</strong><div class='meta'>${credentialReady?'ready':'missing'} · missing <code>${missing}</code></div></div><div><strong>DB sync</strong><div class='meta'><code>${String(synced).toLowerCase()}</code></div></div><div><strong>Next action</strong><div class='meta'><code>${String(item.next_action||'unknown')}</code></div></div><div><strong>Manifest</strong><div class='meta'>${manifestButton}<div class='hint'><code>${String(manifest.path||'')}</code></div></div></div></div>${actionHtml}${liveControls}</article>`;}"
+        "function badgeClass(tone){if(tone==='ok')return 'badge-ok';if(tone==='bad')return 'badge-bad';if(tone==='neutral')return 'badge-neutral';return 'badge-warn';}"
+        "function pillClass(tone){if(tone==='ok')return 'status-pill ok';if(tone==='bad')return 'status-pill bad';if(tone==='neutral')return 'status-pill neutral';return 'status-pill warn';}"
+        "function tenantCardHtml(item){const name=String(item.name||'unknown');const domain=String(item.domain||'');const enabled=!!item.enabled;const credentialReady=!!item.credential_ready;const synced=!!item.db_synced;const missing=(item.missing_required_credentials||[]).join(', ')||'-';const manifest=item.manifest||{};const nextAction=String(item.next_action||'unknown');const health=item.health||{};const syncHealth=item.sync_health||{};const liveUnits=item.live_units||{};const validationStatus=String(item.validation_status||'unknown');const webhooksState=String(liveUnits.webhooks||'unknown');const daemonState=String(liveUnits.daemon||'unknown');const healthTone=String(health.tone||'neutral');const syncTone=String(syncHealth.tone||'neutral');const canActivate=nextAction==='ready_to_activate';const canStartLive=enabled&&(nextAction==='start_live_sync'||webhooksState!=='active'||daemonState!=='active');const canRestartLive=enabled&&(webhooksState==='active'||daemonState==='active');const canStopLive=enabled&&(webhooksState==='active'||daemonState==='active');const canBackfill=enabled&&synced;const manifestButton=`<button data-tenant-copy-manifest=\"${name}\">Copy Manifest JSON</button><div class='hint'>Slack only accepts pasted manifest JSON. This copies the rendered manifest to your clipboard.</div>`;let actionRows='';if(canActivate){actionRows+=`<div class='button-row'><button data-tenant-activate=\"${name}\">Activate + start live units</button></div><div class='hint'>Credentials and config are ready. Activation enables the tenant and installs the live units.</div>`;}else if(!enabled){actionRows+=`<div class='hint'>Activation appears when credentials are ready and the tenant is synced into the DB.</div>`;}const liveButtons=[];if(canStartLive)liveButtons.push(`<button data-tenant-live=\"${name}\" data-live-action='start'>Start / install live sync</button>`);if(enabled)liveButtons.push(`<button data-tenant-live=\"${name}\" data-live-action='restart'>Restart live sync</button>`);if(canStopLive)liveButtons.push(`<button data-tenant-live=\"${name}\" data-live-action='stop'>Stop live sync</button>`);if(liveButtons.length)actionRows+=`<div class='button-row'>${liveButtons.join('')}</div>`;const workButtons=[];if(canBackfill)workButtons.push(`<button data-tenant-backfill=\"${name}\">Run bounded backfill</button>`);workButtons.push(`<button class='danger' title='Retire tenant' data-tenant-retire=\"${name}\">&#128465; Retire tenant</button>`);actionRows+=`<div class='button-row'>${workButtons.join('')}</div>`;return `<article class='tenant-card tenant-card-full' data-tenant-card=\"${name}\"><div class='tenant-head'><h2>${name}</h2><span class='badge ${badgeClass(enabled?'ok':'warn')}'>${enabled?'enabled':'disabled'}</span></div><div class='meta'>Slack domain <code>${domain}</code></div><div class='tenant-grid'><div class='status-block'><strong>Credentials</strong><div class='meta'>${credentialReady?'ready':'missing'} · missing <code>${missing}</code></div><div class='status-strip'><span class='${pillClass(credentialReady?'ok':'warn')}'>${credentialReady?'ready':'needs credentials'}</span></div></div><div class='status-block'><strong>Sync status</strong><div class='meta'>${String(syncHealth.summary||'No sync status available.')}</div><div class='hint'>${String(syncHealth.detail||'')}</div><div class='status-strip'><span class='${pillClass(syncTone)}'>${String(syncHealth.label||'unknown')}</span><span class='status-pill neutral'>DB ${String(synced).toLowerCase()}</span></div></div><div class='status-block'><strong>Health</strong><div class='meta'>${String(health.summary||'No health status available.')}</div><div class='hint'>${String(health.detail||'')}</div><div class='status-strip'><span class='${pillClass(healthTone)}'>${validationStatus}</span><span class='status-pill neutral'>webhooks ${webhooksState}</span><span class='status-pill neutral'>daemon ${daemonState}</span></div></div><div class='status-block'><strong>Next action</strong><div class='meta'><code>${nextAction}</code></div></div><div class='status-block'><strong>Manifest</strong><div class='meta'>${manifestButton}<div class='hint'><code>${String(manifest.path||'')}</code></div></div></div></div>${actionRows}</article>`;}"
         "function bindTenantActions(){for(const manifestButton of document.querySelectorAll('button[data-tenant-copy-manifest]')){manifestButton.onclick=async()=>{const name=manifestButton.getAttribute('data-tenant-copy-manifest');const label=manifestButton.textContent;manifestButton.disabled=true;manifestButton.textContent='copying...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/manifest`);const data=await resp.json().catch(()=>({error:{message:'Manifest copy failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Manifest copy failed',true);return;}await navigator.clipboard.writeText(String(data.content||''));showTenantFeedback(`Copied manifest JSON for ${name}.`,false);}catch(error){showTenantFeedback('Clipboard write failed on this browser.',true);}finally{manifestButton.disabled=false;manifestButton.textContent=label;}};}for(const activateButton of document.querySelectorAll('button[data-tenant-activate]')){activateButton.onclick=async()=>{const name=activateButton.getAttribute('data-tenant-activate');activateButton.disabled=true;activateButton.textContent='activating...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/activate`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const data=await resp.json().catch(()=>({error:{message:'Tenant activation failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant activation failed',true);return;}showTenantFeedback(`Activated ${data.tenant.name}. Next: run live validation.`,false);await refreshTenants();}finally{activateButton.disabled=false;activateButton.textContent='Activate + start live units';}};}for(const liveButton of document.querySelectorAll('button[data-tenant-live]')){liveButton.onclick=async()=>{const name=liveButton.getAttribute('data-tenant-live');const action=liveButton.getAttribute('data-live-action');const label=liveButton.textContent;liveButton.disabled=true;liveButton.textContent='working...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/live`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const data=await resp.json().catch(()=>({error:{message:'Live action failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Live action failed',true);return;}showTenantFeedback(`Live action ${data.action} completed for ${data.tenant.name}.`,false);await refreshTenants();}finally{liveButton.disabled=false;liveButton.textContent=label;}};}for(const backfillButton of document.querySelectorAll('button[data-tenant-backfill]')){backfillButton.onclick=async()=>{const name=backfillButton.getAttribute('data-tenant-backfill');backfillButton.disabled=true;backfillButton.textContent='backfilling...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/backfill`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({auth_mode:'user',include_messages:true,include_files:false,channel_limit:10})});const data=await resp.json().catch(()=>({error:{message:'Backfill failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Backfill failed',true);return;}showTenantFeedback(`Bounded backfill completed for ${data.tenant.name}.`,false);await refreshTenants();}finally{backfillButton.disabled=false;backfillButton.textContent='Run bounded backfill';}};}for(const retireButton of document.querySelectorAll('button[data-tenant-retire]')){retireButton.onclick=async()=>{const name=retireButton.getAttribute('data-tenant-retire');const decision=await requestBrowserDialog({title:`Retire tenant ${name}`,message:'This removes the tenant from config. Type the tenant name to confirm. Optionally also delete mirrored DB rows for the retired tenant.',inputLabel:'Confirm tenant name',inputPlaceholder:name,requiredText:name,requiredTextError:`Type ${name} to retire this tenant.`,checkboxLabel:'Also delete mirrored DB rows for this tenant',confirmLabel:'Retire tenant',cancelLabel:'Cancel',danger:true});if(!decision.confirmed)return;retireButton.disabled=true;retireButton.textContent='retiring...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/retire`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:name,delete_db:decision.checked})});const data=await resp.json().catch(()=>({error:{message:'Retire failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Retire failed',true);return;}showTenantFeedback(`Retired ${data.tenant.name}. DB deleted: ${data.db_deleted?'yes':'no'}.`,false);await refreshTenants();}finally{retireButton.disabled=false;retireButton.textContent='Retire tenant';}};}}"
         "function renderTenantList(tenants){if(!tenants.length){tenantList.innerHTML=\"<div class='empty'>No tenants are configured yet.</div>\";return;}tenantList.innerHTML=tenants.map(tenantCardHtml).join('');bindTenantActions();}"
         "async function refreshTenants(){const resp=await fetch('/v1/tenants');const data=await resp.json().catch(()=>({tenants:[]}));if(!resp.ok){throw new Error(data.error?.message||'Tenant refresh failed');}renderTenantList(data.tenants||[]);}"
@@ -671,6 +681,7 @@ def _render_create_field_helper_js(*, manager_name: str, fields_js: str, descrip
 def _runtime_reports_index_html(
     reports: list[dict[str, Any]],
     *,
+    auth_session: FrontendAuthSession,
     base_url_choices: list[dict[str, str]] | None = None,
 ) -> str:
     report_create_field_helper_js = _render_create_field_helper_js(
@@ -739,11 +750,14 @@ def _runtime_reports_index_html(
         "<title>Slack Mirror Runtime Reports</title>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<style>"
-        "body{font-family:Arial,sans-serif;margin:24px;background:#f8fafc;color:#0f172a}"
+        ":root{--bg:#f4efe7;--panel:#fffdf9;--ink:#122033;--muted:#5f6c7b;--line:#d9d0c3;--accent:#0b57d0;--bad:#a12828;--bad-soft:#fde5e5;--ok:#1f7a44;--ok-soft:#ddefe3;--warn:#a05a00;--warn-soft:#fff0db;--shadow:0 14px 30px rgba(18,32,51,.08);}"
+        "*{box-sizing:border-box}body{margin:0;font-family:\"Aptos\",\"Segoe UI\",Arial,sans-serif;background:linear-gradient(180deg,#f6f1e9 0,#efe7dc 100%);color:var(--ink)}"
+        f"{_authenticated_topbar_css()}"
+        ".shell{max-width:1180px;margin:0 auto;padding:28px 18px 40px}"
         "h1{margin:0 0 12px}"
         "p{line-height:1.5}"
         ".layout{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:18px;align-items:start}"
-        ".panel{background:#fff;border:1px solid #dbe2ea;border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(15,23,42,.06)}"
+        ".panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}"
         ".panel h2{margin:0 0 12px;font-size:18px}"
         ".feedback{display:none;margin:0 0 16px;padding:10px 12px;border-radius:10px;font-size:14px}"
         ".feedback.show{display:block}.feedback.ok{background:#ecfdf3;border:1px solid #b7ebc6;color:#166534}.feedback.bad{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}"
@@ -772,7 +786,8 @@ def _runtime_reports_index_html(
         "a:hover{text-decoration:underline}"
         "code{background:#e2e8f0;padding:1px 5px;border-radius:6px}"
         "@media (max-width:900px){.layout{grid-template-columns:1fr}}"
-        "</style></head><body>"
+        "</style></head><body><div class='shell'>"
+        f"{_authenticated_topbar_html(auth_session=auth_session, current_path='/runtime/reports')}"
         "<h1>Slack Mirror Runtime Reports</h1>"
         "<p>Latest managed runtime snapshots published by <code>user-env snapshot-report</code>. The newest report is highlighted and linked through the stable <code>/runtime/reports/latest</code> alias.</p>"
         "<div id='report-feedback' class='feedback' role='status' aria-live='polite'></div>"
@@ -851,7 +866,7 @@ def _runtime_reports_index_html(
         "function removeReportRow(name){const row=document.getElementById(`report-row-${name}`);if(row)row.remove();const tbody=document.getElementById('report-table-body');if(tbody&&!tbody.querySelector('tr'))ensureReportEmptyStateRow();}"
         "bindReportRowActions(document);"
         "</script>"
-        "</body></html>"
+        "</div></body></html>"
     )
 
 
@@ -1880,7 +1895,11 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _html_response(
                     self,
                     200,
-                    _runtime_reports_index_html(reports, base_url_choices=payload.base_url_choices),
+                    _runtime_reports_index_html(
+                        reports,
+                        auth_session=auth_session,
+                        base_url_choices=payload.base_url_choices,
+                    ),
                 )
                 return
 
