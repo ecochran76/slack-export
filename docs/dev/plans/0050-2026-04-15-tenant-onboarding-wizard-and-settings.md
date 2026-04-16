@@ -61,6 +61,7 @@ This plan does not include:
 - `/settings/tenants` now exposes live-sync start/restart/stop controls, a bounded backfill action, and a guarded retire flow with optional DB-row deletion
 - `/settings/tenants` now refreshes tenant cards in place after onboarding actions instead of requiring a full page reload
 - the manifest surface now supports direct clipboard copy of the rendered JSON manifest so operators can paste it into Slack's app-manifest page without opening the file manually
+- guarded delete/retire flows now use in-page modal dialogs instead of browser-native prompt/confirm primitives
 - Polymer activation is still blocked because Polymer credentials are not present yet
 
 ## Target Operator Experience

@@ -262,6 +262,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("data-tenant-live", page.text)
         self.assertIn("data-tenant-backfill", page.text)
         self.assertIn("data-tenant-retire", page.text)
+        self.assertIn("requestBrowserDialog(", page.text)
+        self.assertIn("browser-action-dialog", page.text)
+        self.assertIn("showModal()", page.text)
+        self.assertNotIn("window.prompt(", page.text)
         self.assertNotIn("window.location.reload()", page.text)
         self.assertIn("refreshTenants()", page.text)
 
@@ -527,6 +531,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("report-empty-row", index_html.text)
         self.assertIn("ensureReportEmptyStateRow(", index_html.text)
         self.assertIn("itemLabel:'runtime report'", index_html.text)
+        self.assertIn("requestBrowserDialog(", index_html.text)
+        self.assertIn("browser-action-dialog", index_html.text)
+        self.assertIn("showModal()", index_html.text)
+        self.assertNotIn("window.confirm(", index_html.text)
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
             index_html.text,
@@ -1521,6 +1529,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("button.dataset.busy==='true'", exports_index.text)
         self.assertIn("Created export", exports_index.text)
         self.assertIn("itemLabel:'export'", exports_index.text)
+        self.assertIn("requestBrowserDialog(", exports_index.text)
+        self.assertIn("browser-action-dialog", exports_index.text)
+        self.assertIn("showModal()", exports_index.text)
+        self.assertNotIn("window.confirm(", exports_index.text)
         self.assertNotIn(
             "if(resp.ok){window.location.reload();return;}const data=await resp.json().catch(()=>({error:{message:'Create failed'}}));",
             exports_index.text,

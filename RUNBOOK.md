@@ -2412,3 +2412,16 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
   - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`
+
+## Turn 169 | 2026-04-16
+
+- Replaced the remaining browser-native prompt/confirm flows with a shared in-page modal dialog helper.
+- The shared browser manager helper used by `/runtime/reports` and `/exports` now confirms destructive delete actions through a reusable `<dialog>` flow instead of `window.confirm(...)`.
+- `/settings/tenants` now retires tenants through the same in-page dialog system instead of `window.prompt(...)`.
+- The tenant retire modal now:
+  - requires the operator to type the tenant name
+  - exposes DB-row deletion as an explicit checkbox instead of the old `<tenant> DELETE_DB` magic string
+- Updated install and planning docs so the retire workflow matches the shipped browser behavior.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
