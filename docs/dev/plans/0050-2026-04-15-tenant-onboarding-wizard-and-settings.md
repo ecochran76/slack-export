@@ -42,8 +42,10 @@ This plan does not include:
   - shared redacted tenant status and config mutation service
   - `slack-mirror tenants status`
   - `slack-mirror tenants onboard`
+  - `slack-mirror tenants credentials`
   - protected `GET /v1/tenants`
   - protected `POST /v1/tenants/onboard`
+  - protected `POST /v1/tenants/<name>/credentials`
   - protected `POST /v1/tenants/<name>/activate`
   - browser tenant onboarding surface at `/settings/tenants`
 - browser `/settings` covers browser-auth policy and session management, with tenant management split to `/settings/tenants`
@@ -51,6 +53,7 @@ This plan does not include:
 - `slack-mirror tenants activate` now blocks until required credentials are present, enables the tenant, syncs DB state, and can invoke the product-owned live-unit wrapper over:
   - `scripts/install_live_mode_systemd_user.sh <workspace>`
 - browser activation is available for credential-ready disabled tenants through `/settings/tenants`
+- credential installation is now available through the CLI and `/settings/tenants`; it writes only to the configured dotenv file, backs up existing dotenv content, and reports installed variable names without echoing secret values
 - Polymer activation is still blocked because Polymer credentials are not present yet
 
 ## Target Operator Experience
@@ -78,6 +81,11 @@ The wizard should:
 After credentials are present:
 
 ```bash
+slack-mirror-user tenants credentials polymer \
+  --credential token=xoxb-... \
+  --credential outbound_token=xoxb-... \
+  --credential app_token=xapp-... \
+  --credential signing_secret=...
 slack-mirror-user tenants activate polymer
 ```
 
@@ -139,7 +147,7 @@ Browser path:
 
 Status:
 
-- shipped for `status`, `onboard`, and `activate`
+- shipped for `status`, `onboard`, `credentials`, and `activate`
 
 ### Track D | Browser Settings Surface
 
@@ -147,11 +155,12 @@ Status:
 - add protected API routes for tenant status and safe onboarding actions
 - render tenant cards with activation state, credential readiness, live-unit status, and next action
 - add a guided onboarding panel that can generate or link the rendered JSON manifest
+- add a credential install form that writes to the configured local dotenv without rendering stored secrets
 - reuse existing browser helper patterns for busy states, row-local errors, and same-origin mutation checks
 
 Status:
 
-- shipped for redacted status, scaffold creation, and credential-ready activation
+- shipped for redacted status, scaffold creation, local credential installation, and credential-ready activation
 
 ### Track E | Live Activation Integration
 
@@ -186,14 +195,16 @@ Status:
 4. Add activation command after credential-presence checks are deterministic. Shipped.
 5. Add browser read-only tenant status to settings. Shipped.
 6. Add browser onboarding and activation actions after the shared mutation path is proven. Shipped.
-7. Promote the wizard to the canonical docs path. Shipped for scaffold and activation commands.
-8. Rehearse a real credential-backed activation and close or narrow this lane.
+7. Add a safe product-owned credential installation step so operators do not hand-edit dotenv syntax. Shipped.
+8. Promote the wizard to the canonical docs path. Shipped for scaffold, credential, and activation commands.
+9. Rehearse a real credential-backed activation and close or narrow this lane.
 
 ## Acceptance Criteria
 
 - a new tenant can be scaffolded with one command without manually editing `config.yaml`
 - the wizard renders or points to a tenant-specific JSON Slack app manifest
 - the wizard tells the operator exactly which Slack UI pages produce each required credential
+- the wizard can install copied Slack credentials into the configured dotenv file without printing secret values
 - credentials are checked for presence without printing secret values
 - activation is blocked until required credentials are present
 - activation can enable the tenant, sync DB state, install live units, and run validation
@@ -203,7 +214,7 @@ Status:
 ## Validation Plan
 
 - unit tests for tenant status, config mutation, idempotent reruns, and redaction
-- CLI tests for `tenants onboard --dry-run`, scaffold creation, status JSON, and activation blocking
+- CLI tests for `tenants onboard --dry-run`, scaffold creation, credential installation, status JSON, and activation blocking
 - API tests for protected tenant-management routes
 - browser HTML/API smoke for the settings tenant page
 - targeted live rehearsal with Polymer:

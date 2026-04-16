@@ -51,11 +51,28 @@ class TenantActivateResult:
     dry_run: bool
 
 
+@dataclass(frozen=True)
+class TenantCredentialInstallResult:
+    tenant: dict[str, Any]
+    changed: bool
+    dotenv_path: str
+    backup_path: str | None
+    installed_keys: list[str]
+    skipped_keys: list[str]
+    dry_run: bool
+
+
 RunFn = Callable[..., subprocess.CompletedProcess]
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    package_root = Path(__file__).resolve().parents[2]
+    if (package_root / "manifests" / "slack-mirror-socket-mode.json").exists():
+        return package_root
+    managed_app = Path.home() / ".local" / "share" / "slack-mirror" / "app"
+    if (managed_app / "manifests" / "slack-mirror-socket-mode.json").exists():
+        return managed_app
+    return package_root
 
 
 def _migrations_dir() -> Path:
@@ -159,6 +176,58 @@ def _env_placeholder(value: Any) -> str | None:
 
 def _has_secretish_value(value: Any) -> bool:
     return bool(str(value or "").strip())
+
+
+def _dotenv_path_for_config(raw_config: dict[str, Any], config_path: Path) -> Path:
+    dotenv = str(raw_config.get("dotenv") or "").strip()
+    if not dotenv:
+        raise ValueError("config does not define dotenv; add a dotenv path before installing credentials")
+    path = Path(dotenv).expanduser()
+    if not path.is_absolute():
+        path = (config_path.parent / path).resolve()
+    return path
+
+
+def _backup_dotenv(path: Path, *, tenant_name: str) -> Path | None:
+    if not path.exists():
+        return None
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup = path.with_name(f"{path.name}.before-{tenant_name}-credentials-{timestamp}")
+    shutil.copy2(path, backup)
+    return backup
+
+
+def _quote_dotenv_value(value: str) -> str:
+    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _upsert_dotenv_values(path: Path, values: dict[str, str], *, dry_run: bool) -> bool:
+    existing_lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    key_pattern = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=")
+    seen: set[str] = set()
+    changed = False
+    output: list[str] = []
+    for line in existing_lines:
+        match = key_pattern.match(line.strip())
+        key = match.group(1) if match else None
+        if key in values:
+            next_line = f"{key}={_quote_dotenv_value(values[key])}"
+            output.append(next_line)
+            seen.add(key)
+            changed = changed or line != next_line
+        else:
+            output.append(line)
+    missing = [key for key in values if key not in seen]
+    if missing and output and output[-1].strip():
+        output.append("")
+    for key in missing:
+        output.append(f"{key}={_quote_dotenv_value(values[key])}")
+        changed = True
+    if changed and not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(output).rstrip() + "\n", encoding="utf-8")
+    return changed
 
 
 def _credential_status(raw_ws: dict[str, Any] | None, expanded_ws: dict[str, Any] | None) -> dict[str, Any]:
@@ -467,5 +536,65 @@ def activate_tenant(
         backup_path=backup_path,
         live_units_installed=live_units_installed,
         live_unit_command=command,
+        dry_run=dry_run,
+    )
+
+
+def install_tenant_credentials(
+    *,
+    config_path: str | Path | None = None,
+    name: str,
+    credentials: dict[str, str],
+    dry_run: bool = False,
+) -> TenantCredentialInstallResult:
+    tenant_name = normalize_tenant_name(name)
+    resolved = resolve_config_path(config_path)
+    raw = _load_raw_config(resolved)
+    raw_ws = _find_workspace(raw, tenant_name)
+    if raw_ws is None:
+        raise ValueError(f"Tenant '{tenant_name}' not found in config")
+
+    placeholders = tenant_credential_placeholders(tenant_name)
+    accepted_by_field = {field: env_key for field, env_key in placeholders.items()}
+    accepted_by_env = {env_key: field for field, env_key in placeholders.items()}
+    dotenv_values: dict[str, str] = {}
+    skipped: list[str] = []
+    for key, value in credentials.items():
+        raw_key = str(key or "").strip()
+        raw_value = str(value or "").strip()
+        if not raw_key or not raw_value:
+            skipped.append(raw_key)
+            continue
+        field = raw_key if raw_key in accepted_by_field else accepted_by_env.get(raw_key)
+        if field is None:
+            skipped.append(raw_key)
+            continue
+        dotenv_values[accepted_by_field[field]] = raw_value
+    if not dotenv_values:
+        raise ValueError(f"No recognized credentials provided for tenant '{tenant_name}'")
+
+    dotenv_path = _dotenv_path_for_config(raw, resolved)
+    backup = None if dry_run else _backup_dotenv(dotenv_path, tenant_name=tenant_name)
+    changed = _upsert_dotenv_values(dotenv_path, dotenv_values, dry_run=dry_run)
+
+    original_env = {key: os.environ.get(key) for key in dotenv_values}
+    try:
+        for key, value in dotenv_values.items():
+            os.environ[key] = value
+        status = tenant_status(config_path=resolved, name=tenant_name)[0]
+    finally:
+        for key, value in original_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    return TenantCredentialInstallResult(
+        tenant=status,
+        changed=changed,
+        dotenv_path=str(dotenv_path),
+        backup_path=str(backup) if backup else None,
+        installed_keys=sorted(dotenv_values),
+        skipped_keys=sorted(item for item in skipped if item),
         dry_run=dry_run,
     )

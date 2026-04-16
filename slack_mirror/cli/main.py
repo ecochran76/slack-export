@@ -1643,7 +1643,7 @@ _slack_mirror_complete() {
   local mcp_sub="serve"
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
-  local tenants_sub="status onboard activate"
+  local tenants_sub="status onboard credentials activate"
   local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
@@ -1695,7 +1695,7 @@ except Exception:
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
         COMPREPLY=( $(compgen -W "$tenants_sub" -- "$cur") )
       else
-        COMPREPLY=( $(compgen -W "--name --domain --display-name --manifest-path --dry-run --no-sync --skip-live-units --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--name --domain --display-name --manifest-path --dry-run --no-sync --credential --credentials-json --skip-live-units --json" -- "$cur") )
       fi
       ;;
     channels)
@@ -1810,7 +1810,7 @@ _slack_mirror() {
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
   mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
-  tenants_sub=(status onboard activate)
+  tenants_sub=(status onboard credentials activate)
 
   if (( CURRENT == 2 )); then
     _describe 'command' top
@@ -1883,6 +1883,8 @@ _slack_mirror() {
         '--manifest-path[rendered JSON manifest path]:path:_files' \
         '--dry-run[show intended scaffold without writing]' \
         '--no-sync[do not sync scaffold into DB]' \
+        '--credential[field=value or ENV=value credential assignment]' \
+        '--credentials-json[JSON object of credential assignments]:json:' \
         '--skip-live-units[do not install/start live systemd units]' \
         '--json[json output]'
       ;;
@@ -2168,6 +2170,65 @@ def cmd_tenants_activate(args: argparse.Namespace) -> int:
     print(f"Enabled: {str(bool(result.tenant.get('enabled'))).lower()}")
     print(f"Live units installed: {str(bool(result.live_units_installed)).lower()}")
     print("Next validation: slack-mirror-user user-env check-live --json")
+    return 0
+
+
+def _credential_args_to_dict(args: argparse.Namespace) -> dict[str, str]:
+    credentials: dict[str, str] = {}
+    if getattr(args, "credentials_json", None):
+        parsed = json.loads(str(args.credentials_json))
+        if not isinstance(parsed, dict):
+            raise ValueError("--credentials-json must be a JSON object")
+        credentials.update({str(k): str(v) for k, v in parsed.items()})
+    for item in getattr(args, "credential", []) or []:
+        text = str(item)
+        if "=" not in text:
+            raise ValueError("--credential values must use KEY=VALUE")
+        key, value = text.split("=", 1)
+        credentials[key.strip()] = value.strip()
+    return credentials
+
+
+def cmd_tenants_credentials(args: argparse.Namespace) -> int:
+    from slack_mirror.service.tenant_onboarding import install_tenant_credentials
+
+    try:
+        result = install_tenant_credentials(
+            config_path=args.config,
+            name=args.name,
+            credentials=_credential_args_to_dict(args),
+            dry_run=bool(args.dry_run),
+        )
+    except Exception as exc:  # noqa: BLE001
+        if args.json:
+            print(json.dumps({"ok": False, "error": {"message": str(exc)}}, indent=2))
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    payload = {
+        "ok": True,
+        "changed": result.changed,
+        "dry_run": result.dry_run,
+        "dotenv_path": result.dotenv_path,
+        "backup_path": result.backup_path,
+        "installed_keys": result.installed_keys,
+        "skipped_keys": result.skipped_keys,
+        "tenant": result.tenant,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(f"Tenant: {result.tenant.get('name')}")
+    print(f"Dotenv: {result.dotenv_path}")
+    if result.backup_path:
+        print(f"Backup: {result.backup_path}")
+    print(f"Installed keys: {', '.join(result.installed_keys) or '-'}")
+    if result.skipped_keys:
+        print(f"Skipped keys: {', '.join(result.skipped_keys)}")
+    print(f"Credential readiness: {'ready' if result.tenant.get('credential_ready') else 'missing'}")
+    print(f"Next action: {result.tenant.get('next_action')}")
     return 0
 
 
@@ -2562,6 +2623,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_tenants_onboard.add_argument("--no-sync", action="store_true", help="do not sync the disabled scaffold into the DB")
     p_tenants_onboard.add_argument("--json", action="store_true", help="json output")
     p_tenants_onboard.set_defaults(func=cmd_tenants_onboard)
+    p_tenants_credentials = tenants_sub.add_parser("credentials", help="install tenant Slack credentials into the configured dotenv")
+    p_tenants_credentials.add_argument("name", help="local tenant/workspace name")
+    p_tenants_credentials.add_argument(
+        "--credential",
+        action="append",
+        default=[],
+        help="credential assignment as field=value or ENV_VAR=value; repeatable",
+    )
+    p_tenants_credentials.add_argument("--credentials-json", default=None, help="JSON object of credential assignments")
+    p_tenants_credentials.add_argument("--dry-run", action="store_true", help="validate credential install without writing dotenv")
+    p_tenants_credentials.add_argument("--json", action="store_true", help="json output")
+    p_tenants_credentials.set_defaults(func=cmd_tenants_credentials)
     p_tenants_activate = tenants_sub.add_parser("activate", help="enable a credential-ready tenant and optionally install live units")
     p_tenants_activate.add_argument("name", help="local tenant/workspace name")
     p_tenants_activate.add_argument("--dry-run", action="store_true", help="validate activation readiness without writing config or starting units")

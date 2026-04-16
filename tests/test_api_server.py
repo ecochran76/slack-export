@@ -36,6 +36,7 @@ class ApiServerTests(unittest.TestCase):
             "\n".join(
                 [
                     "version: 1",
+                    f"dotenv: {self.root / 'tenant.env'}",
                     "storage:",
                     f"  db_path: {self.db_path}",
                     "workspaces:",
@@ -55,6 +56,7 @@ class ApiServerTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        (self.root / "tenant.env").write_text("", encoding="utf-8")
         self.server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -181,22 +183,29 @@ class ApiServerTests(unittest.TestCase):
         tenant_names = [item["name"] for item in updated.json()["tenants"]]
         self.assertIn("polymer", tenant_names)
 
-        with patch.dict(
-            os.environ,
-            {
-                "SLACK_POLYMER_BOT_TOKEN": "xoxb-polymer",
-                "SLACK_POLYMER_WRITE_BOT_TOKEN": "xoxb-polymer-write",
-                "SLACK_POLYMER_APP_TOKEN": "xapp-polymer",
-                "SLACK_POLYMER_SIGNING_SECRET": "secret-polymer",
+        credentials = requests.post(
+            f"{self.base_url}/v1/tenants/polymer/credentials",
+            json={
+                "credentials": {
+                    "token": "xoxb-polymer",
+                    "outbound_token": "xoxb-polymer-write",
+                    "app_token": "xapp-polymer",
+                    "signing_secret": "secret-polymer",
+                }
             },
-            clear=False,
-        ):
-            activated = requests.post(
-                f"{self.base_url}/v1/tenants/polymer/activate",
-                json={"skip_live_units": True},
-                headers={"origin": self.base_url},
-                timeout=5,
-            )
+            headers={"origin": self.base_url},
+            timeout=5,
+        )
+        self.assertEqual(credentials.status_code, 200)
+        self.assertTrue(credentials.json()["tenant"]["credential_ready"])
+        self.assertNotIn("xoxb-polymer", json.dumps(credentials.json()))
+
+        activated = requests.post(
+            f"{self.base_url}/v1/tenants/polymer/activate",
+            json={"skip_live_units": True},
+            headers={"origin": self.base_url},
+            timeout=5,
+        )
         self.assertEqual(activated.status_code, 200)
         self.assertTrue(activated.json()["ok"])
         self.assertTrue(activated.json()["tenant"]["enabled"])
@@ -208,6 +217,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Tenant onboarding", page.text)
         self.assertIn("Create disabled scaffold", page.text)
         self.assertIn("/v1/tenants/onboard", page.text)
+        self.assertIn("/credentials", page.text)
+        self.assertIn("Install credentials", page.text)
         self.assertIn("data-tenant-activate", page.text)
 
     def test_workspace_channels_endpoint_and_exports_picker_ui(self):

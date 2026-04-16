@@ -48,7 +48,7 @@ Per-workspace steps:
 
 - add a workspace entry under `workspaces:`
 - create a private Slack app for that workspace from the manifest in `manifests/`
-- store that workspace's Slack credentials in the configured dotenv file
+- install that workspace's Slack credentials into the configured dotenv file with `tenants credentials`
 - `slack-mirror-user workspaces sync-config`
 - `slack-mirror-user workspaces verify --require-explicit-outbound`
 - `scripts/install_live_mode_systemd_user.sh <workspace>`
@@ -139,7 +139,20 @@ slack-mirror-user tenants onboard \
 
 2. Create the Slack app at `https://api.slack.com/apps` from the rendered JSON manifest printed by the command.
 3. Collect the team ID, bot token, app token, signing secret, and optional user token.
-4. Store those values in the configured dotenv file.
+4. Install those values into the configured dotenv file without editing YAML or echoing secrets in status output:
+
+```bash
+slack-mirror-user tenants credentials polymer \
+  --credential team_id=T... \
+  --credential token=xoxb-... \
+  --credential outbound_token=xoxb-... \
+  --credential app_token=xapp-... \
+  --credential signing_secret=...
+```
+
+Optional user-token fields are `user_token=xoxp-...` and `outbound_user_token=xoxp-...`.
+The command writes the deterministic `SLACK_<WORKSPACE>_*` variables into the dotenv path configured by `~/.config/slack-mirror/config.yaml`, creates a timestamped backup when the file already exists, and reports only installed variable names plus redacted readiness.
+
 5. Review redacted readiness:
 
 ```bash
@@ -166,6 +179,8 @@ slack-mirror-user tenants activate polymer --skip-live-units
 The authenticated browser settings surface also exposes tenant onboarding status and scaffold creation at:
 
 - `http://slack.localhost/settings/tenants`
+
+That page also provides a local credential-install form for the same fields. It posts to the local authenticated API, writes the configured dotenv file, and does not render stored secret values back into the page.
 
 The browser user bootstrap is per-install, not per-workspace.
 

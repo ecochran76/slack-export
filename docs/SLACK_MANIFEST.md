@@ -32,7 +32,7 @@ The same flow is available from the authenticated browser settings page:
 
 - `http://slack.localhost/settings/tenants`
 
-After the required credentials are stored in the configured dotenv file, activate the tenant with:
+After the required credentials are installed into the configured dotenv file, activate the tenant with:
 
 ```bash
 slack-mirror-user tenants activate polymer
@@ -93,7 +93,7 @@ SLACK_POLYMER_APP_TOKEN=
 SLACK_POLYMER_SIGNING_SECRET=
 ```
 
-## 4) Store credentials
+## 4) Install credentials
 
 Do not put Slack secrets directly in tracked repo files.
 
@@ -103,7 +103,26 @@ For this managed install, `~/.config/slack-mirror/config.yaml` loads:
 dotenv: ~/credentials/API-keys.env
 ```
 
-Store Polymer credentials in that dotenv file:
+Prefer the product credential installer so onboarding does not require hand-editing dotenv syntax:
+
+```bash
+slack-mirror-user tenants credentials polymer \
+  --credential team_id=T... \
+  --credential token=xoxb-... \
+  --credential outbound_token=xoxb-... \
+  --credential user_token=xoxp-... \
+  --credential outbound_user_token=xoxp-... \
+  --credential app_token=xapp-... \
+  --credential signing_secret=...
+```
+
+The accepted field names are `team_id`, `token`, `outbound_token`, `user_token`, `outbound_user_token`, `app_token`, and `signing_secret`.
+The command maps them to the deterministic `SLACK_<WORKSPACE>_*` variables, writes or updates the configured dotenv file, creates a timestamped backup when replacing an existing file, and reports only redacted readiness.
+It also accepts the env var names directly, for example `--credential SLACK_POLYMER_BOT_TOKEN=xoxb-...`.
+
+The authenticated browser page at `http://slack.localhost/settings/tenants` provides the same local credential-install path.
+
+Manual fallback for Polymer is to edit the dotenv file directly:
 
 ```bash
 cat >> ~/credentials/API-keys.env <<'EOF'
@@ -137,10 +156,14 @@ workspaces:
     enabled: false
 ```
 
-After the env vars are present:
+After the env vars are present, prefer the activation command:
 
-1. set `enabled: true`
-2. run:
+```bash
+slack-mirror-user tenants activate polymer
+```
+
+That command sets `enabled: true`, syncs config into the DB, and installs or refreshes live units after required credentials are present.
+Manual fallback:
 
 ```bash
 slack-mirror-user workspaces sync-config

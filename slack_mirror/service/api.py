@@ -246,6 +246,8 @@ def _requires_same_origin_write(path: str) -> bool:
         return True
     if path == "/v1/tenants/onboard":
         return True
+    if re.fullmatch(r"/v1/tenants/[^/]+/credentials", path):
+        return True
     if re.fullmatch(r"/v1/tenants/[^/]+/activate", path):
         return True
     return False
@@ -483,16 +485,32 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "<div class='hint'>After scaffold creation, use the JSON manifest in Slack, then store the listed env vars in the configured dotenv file.</div>"
         "<div id='tenant-feedback'></div>"
         "</form></section>"
+        "<section class='card'><h2>Install credentials</h2>"
+        "<div class='meta'>Paste credentials only on this local settings page. Values are written to the configured dotenv and are never rendered back.</div>"
+        "<form id='tenant-credentials-form'>"
+        "<label for='credential-tenant-name'>Tenant name</label><input id='credential-tenant-name' name='name' placeholder='polymer' required>"
+        "<label for='credential-bot-token'>Bot token</label><input id='credential-bot-token' name='token' type='password' placeholder='xoxb-...' autocomplete='new-password'>"
+        "<label for='credential-write-bot-token'>Write bot token</label><input id='credential-write-bot-token' name='outbound_token' type='password' placeholder='xoxb-...' autocomplete='new-password'>"
+        "<label for='credential-app-token'>Socket Mode app token</label><input id='credential-app-token' name='app_token' type='password' placeholder='xapp-...' autocomplete='new-password'>"
+        "<label for='credential-signing-secret'>Signing secret</label><input id='credential-signing-secret' name='signing_secret' type='password' placeholder='secret' autocomplete='new-password'>"
+        "<label for='credential-team-id'>Team ID</label><input id='credential-team-id' name='team_id' placeholder='T...' autocomplete='off'>"
+        "<label for='credential-user-token'>User token</label><input id='credential-user-token' name='user_token' type='password' placeholder='xoxp-...' autocomplete='new-password'>"
+        "<label for='credential-write-user-token'>Write user token</label><input id='credential-write-user-token' name='outbound_user_token' type='password' placeholder='xoxp-...' autocomplete='new-password'>"
+        "<button id='tenant-credentials-button' type='submit'>Install credentials</button>"
+        "<div class='hint'>Leave optional fields blank. Use write-token fields only when write actions are intentionally enabled.</div>"
+        "</form></section>"
         f"<section class='stack' id='tenant-list'>{''.join(rows)}</section>"
         "</div>"
         "<script>"
         "const form=document.getElementById('tenant-onboard-form');const feedback=document.getElementById('tenant-feedback');const button=document.getElementById('tenant-onboard-button');"
+        "const credentialsForm=document.getElementById('tenant-credentials-form');const credentialsButton=document.getElementById('tenant-credentials-button');"
         "function showTenantFeedback(message,isError){feedback.textContent=message;feedback.className=isError?'feedback-bad':'feedback-ok';}"
         "form.addEventListener('submit',async(event)=>{event.preventDefault();showTenantFeedback('',false);button.disabled=true;button.textContent='creating...';"
         "try{const payload={name:document.getElementById('tenant-name').value.trim(),domain:document.getElementById('tenant-domain').value.trim(),display_name:document.getElementById('tenant-display-name').value.trim()||undefined};"
         "const resp=await fetch('/v1/tenants/onboard',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const data=await resp.json().catch(()=>({error:{message:'Tenant onboarding failed'}}));"
         "if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant onboarding failed',true);return;}showTenantFeedback(`Created ${data.tenant.name}. JSON manifest: ${data.manifest_path}. Next: ${data.tenant.next_action}.`,false);window.setTimeout(()=>window.location.reload(),800);}"
         "finally{button.disabled=false;button.textContent='Create disabled scaffold';}});"
+        "credentialsForm.addEventListener('submit',async(event)=>{event.preventDefault();credentialsButton.disabled=true;credentialsButton.textContent='installing...';try{const name=document.getElementById('credential-tenant-name').value.trim();const credentials={};for(const id of ['team_id','token','outbound_token','user_token','outbound_user_token','app_token','signing_secret']){const node=document.querySelector(`#tenant-credentials-form [name=\"${id}\"]`);const value=(node?.value||'').trim();if(value)credentials[id]=value;}const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/credentials`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({credentials})});const data=await resp.json().catch(()=>({error:{message:'Credential install failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Credential install failed',true);return;}showTenantFeedback(`Installed ${data.installed_keys.length} credential key(s). Readiness: ${data.tenant.credential_ready?'ready':'missing'}.`,false);credentialsForm.reset();window.setTimeout(()=>window.location.reload(),900);}finally{credentialsButton.disabled=false;credentialsButton.textContent='Install credentials';}});"
         "for(const activateButton of document.querySelectorAll('button[data-tenant-activate]')){activateButton.addEventListener('click',async()=>{const name=activateButton.getAttribute('data-tenant-activate');activateButton.disabled=true;activateButton.textContent='activating...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/activate`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const data=await resp.json().catch(()=>({error:{message:'Tenant activation failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant activation failed',true);return;}showTenantFeedback(`Activated ${data.tenant.name}. Next: run live validation.`,false);window.setTimeout(()=>window.location.reload(),800);}finally{activateButton.disabled=false;activateButton.textContent='Activate + start live units';}});}"
         "</script></div></body></html>"
     )
@@ -2280,6 +2298,37 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         "config_path": result.config_path,
                         "backup_path": result.backup_path,
                         "manifest_path": result.manifest_path,
+                        "tenant": result.tenant,
+                    },
+                )
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)/credentials", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import install_tenant_credentials
+
+                tenant_name = unquote(m.group(1))
+                try:
+                    result = install_tenant_credentials(
+                        config_path=config_path,
+                        name=tenant_name,
+                        credentials=dict(body.get("credentials") or {}),
+                        dry_run=bool(body.get("dry_run", False)),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.credentials")
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "changed": result.changed,
+                        "dry_run": result.dry_run,
+                        "dotenv_path": result.dotenv_path,
+                        "backup_path": result.backup_path,
+                        "installed_keys": result.installed_keys,
+                        "skipped_keys": result.skipped_keys,
                         "tenant": result.tenant,
                     },
                 )

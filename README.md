@@ -33,11 +33,12 @@ slack-mirror-user tenants onboard \
   --name polymer \
   --domain polymerconsul-clo9441 \
   --display-name "Polymer Consulting Group"
+slack-mirror-user tenants credentials polymer --credential token=... --credential outbound_token=... --credential app_token=... --credential signing_secret=...
 slack-mirror-user tenants status polymer
 slack-mirror-user tenants activate polymer
 ```
 
-The same config-backed onboarding status is available in the authenticated browser at `http://slack.localhost/settings/tenants`.
+The same config-backed onboarding and local credential-install flow is available in the authenticated browser at `http://slack.localhost/settings/tenants`.
 
 ## Current Live Topology
 

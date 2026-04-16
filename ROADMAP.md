@@ -208,8 +208,8 @@ Actionable plans:
 - `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
 
 Current state:
-- multi-workspace config, DB sync, explicit credential verification, disabled workspace scaffolds, per-workspace live units, and managed live validation already exist
-- the Polymer onboarding rehearsal exposed that a real tenant path still requires too many manual steps and too much chat/doc memory
-- `/settings` exists but only covers browser-auth policy and sessions, not tenant/workspace management
-- `/v1/workspaces` lists DB-synced workspaces but does not expose full config, credential-readiness, manifest, activation, or live-unit state
-- this lane is open to build shared onboarding primitives, a one-shot CLI wizard, and a browser tenant-management/settings surface
+- shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, and activation over CLI and protected API routes
+- `slack-mirror-user tenants onboard`, `tenants credentials`, `tenants status`, and `tenants activate` are now the product-owned add-workspace path
+- `/settings/tenants` now exposes config-backed tenant status, scaffold creation, local credential installation, and credential-ready activation in the authenticated browser
+- credential installation writes only to the configured dotenv file, backs it up when changed, and never echoes secret values in status/API output
+- remaining work is a real credential-backed Polymer activation rehearsal and any follow-up polish found by that live path

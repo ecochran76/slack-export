@@ -2317,3 +2317,37 @@ This file is the dated turn log for planning and execution continuity.
   - browser/API auth smoke:
     - `/settings/tenants` redirects to login when unauthenticated
     - `/v1/tenants` returns `401` when unauthenticated
+
+## Turn 166 | 2026-04-15
+
+- Implemented the tenant credential-install slice for `P09`.
+- Added shared credential installation behavior:
+  - accepts field names such as `token`, `outbound_token`, `app_token`, and `signing_secret`
+  - also accepts deterministic env var names such as `SLACK_POLYMER_BOT_TOKEN`
+  - writes or updates the configured dotenv file
+  - creates a timestamped dotenv backup before non-dry-run writes when the file already exists
+  - returns installed variable names and redacted readiness without echoing secret values
+- Added CLI command:
+  - `slack-mirror tenants credentials <name>`
+- Added protected API route:
+  - `POST /v1/tenants/<name>/credentials`
+- Extended `/settings/tenants` with a local credential-install form using password inputs for token fields.
+- Updated onboarding docs, manifest docs, roadmap state, and the active `P09` plan so the product-owned add-workspace path is now:
+  - scaffold
+  - create Slack app from JSON manifest
+  - install credentials
+  - status
+  - activate
+- Fixed managed-install manifest path discovery so `slack-mirror-user tenants status polymer --json` reports the rendered manifest in the managed app snapshot instead of a missing `site-packages` path.
+- Polymer remains disabled because no real Polymer credentials were installed.
+- Validation:
+  - `uv run python -m unittest tests.test_tenant_onboarding tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python -m py_compile slack_mirror/service/tenant_onboarding.py slack_mirror/service/api.py slack_mirror/cli/main.py tests/test_tenant_onboarding.py tests/test_api_server.py`
+  - `python scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror tenants credentials --help`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml tenants credentials polymer --dry-run --credentials-json '{"token":"dummy-bot","outbound_token":"dummy-write","app_token":"dummy-app","signing_secret":"dummy-secret"}' --json`
+  - `uv run slack-mirror user-env update`
+  - `slack-mirror-user tenants credentials --help`
+  - `slack-mirror-user tenants credentials polymer --dry-run --credentials-json '{"token":"dummy-bot","outbound_token":"dummy-write","app_token":"dummy-app","signing_secret":"dummy-secret"}' --json`
+  - `slack-mirror-user tenants status polymer --json`
+  - `slack-mirror-user user-env check-live --json`

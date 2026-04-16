@@ -12,9 +12,11 @@ import yaml
 
 from slack_mirror.cli.main import cmd_tenants_onboard, cmd_tenants_status
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name
+from slack_mirror.service import tenant_onboarding as onboarding_module
 from slack_mirror.service.tenant_onboarding import (
     activate_tenant,
     install_tenant_live_units,
+    install_tenant_credentials,
     normalize_slack_domain,
     scaffold_tenant,
     tenant_status,
@@ -22,19 +24,23 @@ from slack_mirror.service.tenant_onboarding import (
 
 
 class TenantOnboardingTests(unittest.TestCase):
-    def _write_config(self, root: Path) -> Path:
+    def _write_config(self, root: Path, *, include_dotenv: bool = False, create_dotenv: bool = False) -> Path:
         cfg = root / "config.yaml"
-        cfg.write_text(
-            "storage:\n"
-            "  db_path: ./mirror.db\n"
-            "workspaces:\n"
-            "  - name: default\n"
-            "    domain: default-team\n"
-            "    token: xoxb-default\n"
-            "    outbound_token: xoxb-default-write\n"
-            "    enabled: true\n",
-            encoding="utf-8",
-        )
+        lines = [
+            "storage:",
+            "  db_path: ./mirror.db",
+            "workspaces:",
+            "  - name: default",
+            "    domain: default-team",
+            "    token: xoxb-default",
+            "    outbound_token: xoxb-default-write",
+            "    enabled: true",
+        ]
+        if include_dotenv:
+            lines.insert(0, "dotenv: ./tenant.env")
+        cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        if include_dotenv and create_dotenv:
+            (root / "tenant.env").write_text("", encoding="utf-8")
         return cfg
 
     def test_normalize_slack_domain_accepts_workspace_url(self):
@@ -43,10 +49,35 @@ class TenantOnboardingTests(unittest.TestCase):
             "polymerconsul-clo9441",
         )
 
+    def test_repo_root_prefers_managed_app_snapshot_when_package_lacks_manifests(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            fake_package_file = (
+                root
+                / "venv"
+                / "lib"
+                / "python3.12"
+                / "site-packages"
+                / "slack_mirror"
+                / "service"
+                / "tenant_onboarding.py"
+            )
+            fake_package_file.parent.mkdir(parents=True)
+            fake_package_file.write_text("", encoding="utf-8")
+            managed_app = root / "home" / ".local" / "share" / "slack-mirror" / "app"
+            manifest_template = managed_app / "manifests" / "slack-mirror-socket-mode.json"
+            manifest_template.parent.mkdir(parents=True)
+            manifest_template.write_text("{}", encoding="utf-8")
+
+            with patch.object(onboarding_module, "__file__", str(fake_package_file)), patch.object(
+                Path, "home", return_value=root / "home"
+            ):
+                self.assertEqual(onboarding_module._repo_root(), managed_app)
+
     def test_scaffold_tenant_dry_run_does_not_write(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            cfg = self._write_config(root)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
             manifest = root / "polymer.json"
 
             result = scaffold_tenant(
@@ -203,10 +234,75 @@ class TenantOnboardingTests(unittest.TestCase):
         self.assertEqual(command[-2:], ["default", str(cfg.resolve())])
         runner.assert_called_once_with(command, check=True)
 
+    def test_install_tenant_credentials_writes_dotenv_and_redacts_result(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
+            dotenv = root / "tenant.env"
+            dotenv.write_text("EXISTING=value\n", encoding="utf-8")
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+
+            result = install_tenant_credentials(
+                config_path=cfg,
+                name="polymer",
+                credentials={
+                    "token": "xoxb-polymer",
+                    "outbound_token": "xoxb-polymer-write",
+                    "app_token": "xapp-polymer",
+                    "signing_secret": "secret-polymer",
+                    "unknown": "ignored",
+                },
+            )
+
+            self.assertTrue(result.changed)
+            self.assertTrue(Path(result.backup_path).exists())
+            self.assertEqual(result.dotenv_path, str(dotenv.resolve()))
+            self.assertIn("SLACK_POLYMER_BOT_TOKEN", result.installed_keys)
+            self.assertIn("unknown", result.skipped_keys)
+            self.assertTrue(result.tenant["credential_ready"])
+            rendered = json.dumps(result.__dict__)
+            self.assertNotIn("xoxb-polymer", rendered)
+            self.assertNotIn("secret-polymer", rendered)
+            dotenv_text = dotenv.read_text(encoding="utf-8")
+            self.assertIn('SLACK_POLYMER_BOT_TOKEN="xoxb-polymer"', dotenv_text)
+            self.assertIn("EXISTING=value", dotenv_text)
+
+    def test_install_tenant_credentials_dry_run_does_not_write(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+
+            result = install_tenant_credentials(
+                config_path=cfg,
+                name="polymer",
+                credentials={
+                    "SLACK_POLYMER_BOT_TOKEN": "xoxb-polymer",
+                    "SLACK_POLYMER_WRITE_BOT_TOKEN": "xoxb-polymer-write",
+                    "SLACK_POLYMER_APP_TOKEN": "xapp-polymer",
+                    "SLACK_POLYMER_SIGNING_SECRET": "secret-polymer",
+                },
+                dry_run=True,
+            )
+
+            self.assertTrue(result.dry_run)
+            self.assertTrue(result.tenant["credential_ready"])
+            self.assertEqual((root / "tenant.env").read_text(encoding="utf-8"), "")
+
     def test_cli_tenants_onboard_json(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            cfg = self._write_config(root)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
             args = SimpleNamespace(
                 config=str(cfg),
                 name="polymer",
@@ -259,6 +355,41 @@ class TenantOnboardingTests(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertTrue(payload["tenant"]["enabled"])
             self.assertFalse(payload["live_units_installed"])
+
+    def test_cli_tenants_credentials_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+            args = SimpleNamespace(
+                config=str(cfg),
+                name="polymer",
+                credential=[
+                    "token=xoxb-polymer",
+                    "outbound_token=xoxb-polymer-write",
+                    "app_token=xapp-polymer",
+                    "signing_secret=secret-polymer",
+                ],
+                credentials_json=None,
+                dry_run=False,
+                json=True,
+            )
+
+            from slack_mirror.cli.main import cmd_tenants_credentials
+
+            with redirect_stdout(io.StringIO()) as out:
+                rc = cmd_tenants_credentials(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(out.getvalue())
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["tenant"]["credential_ready"])
+            self.assertNotIn("xoxb-polymer", out.getvalue())
 
     def test_cli_tenants_activate_json_reports_missing_credentials_without_traceback(self):
         with tempfile.TemporaryDirectory() as td:
