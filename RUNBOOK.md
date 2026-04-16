@@ -2425,3 +2425,13 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_runtime_reports_endpoints tests.test_api_server.ApiServerTests.test_workspace_channels_endpoint_and_exports_picker_ui tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+
+## Turn 170 | 2026-04-16
+
+- Made the tenant onboarding helper panels on `/settings/tenants` collapsible.
+- `Add tenant scaffold` now renders as an open-by-default collapsible card.
+- `Install credentials` now renders as a collapsible card so operators can keep the page compact after a step is done.
+- Updated install docs to mention the collapsible onboarding panels.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`

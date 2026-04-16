@@ -182,6 +182,7 @@ The authenticated browser settings surface also exposes tenant onboarding status
 
 That page also provides a local credential-install form for the same fields. It posts to the local authenticated API, writes the configured dotenv file, and does not render stored secret values back into the page.
 The tenant tiles now refresh in place after onboarding actions, and the manifest section exposes `Copy Manifest JSON` so the rendered manifest can be pasted directly into Slack's app-manifest UI.
+The scaffold and credential-install panels are collapsible, so the page stays compact once a step is complete.
 After credentials are installed, the tenant tile should show `ready_to_activate`; activation is the explicit step that changes the tenant from disabled to enabled.
 Enabled tenant tiles also expose live-sync controls and a bounded backfill button.
 The retire control is guarded through a browser modal: type the tenant name to remove the config entry, and optionally check the DB-deletion box to also delete mirrored DB rows for that tenant.
