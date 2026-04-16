@@ -425,48 +425,7 @@ def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_pat
 
 
 def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[dict[str, Any]]) -> str:
-    rows = []
-    for item in tenants:
-        name = escape(str(item.get("name") or "unknown"))
-        domain = escape(str(item.get("domain") or ""))
-        enabled = bool(item.get("enabled"))
-        credential_ready = bool(item.get("credential_ready"))
-        synced = bool(item.get("db_synced"))
-        missing = ", ".join(str(part) for part in item.get("missing_required_credentials") or []) or "-"
-        manifest = item.get("manifest") or {}
-        action_html = (
-            f"<button data-tenant-activate='{name}'>Activate + start live units</button><div class='hint'>Credentials are ready. Activation is the step that changes this tile from disabled to enabled.</div>"
-            if credential_ready and not enabled
-            else "<div class='hint'>Activation is available after required credentials are present.</div>"
-            if not enabled
-            else "<div class='hint'>Tenant is enabled. Use live validation for ongoing health.</div>"
-        )
-        live_controls = (
-            f"<div class='button-row'><button data-tenant-live='{name}' data-live-action='start'>Start / install live sync</button>"
-            f"<button data-tenant-live='{name}' data-live-action='restart'>Restart live sync</button>"
-            f"<button data-tenant-live='{name}' data-live-action='stop'>Stop live sync</button></div>"
-            f"<div class='button-row'><button data-tenant-backfill='{name}'>Run bounded backfill</button>"
-            f"<button class='danger' title='Retire tenant' data-tenant-retire='{name}'>&#128465; Retire tenant</button></div>"
-            if enabled
-            else f"<div class='button-row'><button class='danger' title='Retire tenant' data-tenant-retire='{name}'>&#128465; Retire tenant</button></div>"
-            "<div class='hint'>Live sync and backfill controls appear after activation.</div>"
-        )
-        rows.append(
-            "<article class='tenant-card'>"
-            f"<div class='tenant-head'><h2>{name}</h2><span class='badge {'badge-ok' if enabled else 'badge-warn'}'>{'enabled' if enabled else 'disabled'}</span></div>"
-            f"<div class='meta'>Slack domain <code>{domain}</code></div>"
-            "<div class='tenant-grid'>"
-            f"<div><strong>Credentials</strong><div class='meta'>{'ready' if credential_ready else 'missing'} · missing <code>{escape(missing)}</code></div></div>"
-            f"<div><strong>DB sync</strong><div class='meta'><code>{str(synced).lower()}</code></div></div>"
-            f"<div><strong>Next action</strong><div class='meta'><code>{escape(str(item.get('next_action') or 'unknown'))}</code></div></div>"
-            f"<div><strong>Manifest</strong><div class='meta'><code>{escape(str(manifest.get('path') or ''))}</code></div></div>"
-            "</div>"
-            f"{action_html}"
-            f"{live_controls}"
-            "</article>"
-        )
-    if not rows:
-        rows.append("<div class='empty'>No tenants are configured yet.</div>")
+    tenants_json = json.dumps(tenants)
 
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
@@ -512,22 +471,25 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "<button id='tenant-credentials-button' type='submit'>Install credentials</button>"
         "<div class='hint'>Leave optional fields blank. Use write-token fields only when write actions are intentionally enabled.</div>"
         "</form></section>"
-        f"<section class='stack' id='tenant-list'>{''.join(rows)}</section>"
+        "<section class='stack' id='tenant-list'></section>"
         "</div>"
         "<script>"
+        f"const initialTenants={tenants_json};"
+        "const tenantList=document.getElementById('tenant-list');"
         "const form=document.getElementById('tenant-onboard-form');const feedback=document.getElementById('tenant-feedback');const button=document.getElementById('tenant-onboard-button');"
         "const credentialsForm=document.getElementById('tenant-credentials-form');const credentialsButton=document.getElementById('tenant-credentials-button');"
         "function showTenantFeedback(message,isError){feedback.textContent=message;feedback.className=isError?'feedback-bad':'feedback-ok';}"
+        "function tenantCardHtml(item){const name=String(item.name||'unknown');const domain=String(item.domain||'');const enabled=!!item.enabled;const credentialReady=!!item.credential_ready;const synced=!!item.db_synced;const missing=(item.missing_required_credentials||[]).join(', ')||'-';const manifest=item.manifest||{};const actionHtml=credentialReady&&!enabled?`<button data-tenant-activate=\"${name}\">Activate + start live units</button><div class='hint'>Credentials are ready. Activation is the step that changes this tile from disabled to enabled.</div>`:!enabled?`<div class='hint'>Activation is available after required credentials are present.</div>`:`<div class='hint'>Tenant is enabled. Use live validation for ongoing health.</div>`;const manifestButton=`<button data-tenant-copy-manifest=\"${name}\">Copy Manifest JSON</button><div class='hint'>Slack only accepts pasted manifest JSON. This copies the rendered manifest to your clipboard.</div>`;const liveControls=enabled?`<div class='button-row'><button data-tenant-live=\"${name}\" data-live-action='start'>Start / install live sync</button><button data-tenant-live=\"${name}\" data-live-action='restart'>Restart live sync</button><button data-tenant-live=\"${name}\" data-live-action='stop'>Stop live sync</button></div><div class='button-row'><button data-tenant-backfill=\"${name}\">Run bounded backfill</button><button class='danger' title='Retire tenant' data-tenant-retire=\"${name}\">&#128465; Retire tenant</button></div>`:`<div class='button-row'><button class='danger' title='Retire tenant' data-tenant-retire=\"${name}\">&#128465; Retire tenant</button></div><div class='hint'>Live sync and backfill controls appear after activation.</div>`;return `<article class='tenant-card' data-tenant-card=\"${name}\"><div class='tenant-head'><h2>${name}</h2><span class='badge ${enabled?'badge-ok':'badge-warn'}'>${enabled?'enabled':'disabled'}</span></div><div class='meta'>Slack domain <code>${domain}</code></div><div class='tenant-grid'><div><strong>Credentials</strong><div class='meta'>${credentialReady?'ready':'missing'} · missing <code>${missing}</code></div></div><div><strong>DB sync</strong><div class='meta'><code>${String(synced).toLowerCase()}</code></div></div><div><strong>Next action</strong><div class='meta'><code>${String(item.next_action||'unknown')}</code></div></div><div><strong>Manifest</strong><div class='meta'>${manifestButton}<div class='hint'><code>${String(manifest.path||'')}</code></div></div></div></div>${actionHtml}${liveControls}</article>`;}"
+        "function bindTenantActions(){for(const manifestButton of document.querySelectorAll('button[data-tenant-copy-manifest]')){manifestButton.onclick=async()=>{const name=manifestButton.getAttribute('data-tenant-copy-manifest');const label=manifestButton.textContent;manifestButton.disabled=true;manifestButton.textContent='copying...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/manifest`);const data=await resp.json().catch(()=>({error:{message:'Manifest copy failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Manifest copy failed',true);return;}await navigator.clipboard.writeText(String(data.content||''));showTenantFeedback(`Copied manifest JSON for ${name}.`,false);}catch(error){showTenantFeedback('Clipboard write failed on this browser.',true);}finally{manifestButton.disabled=false;manifestButton.textContent=label;}};}for(const activateButton of document.querySelectorAll('button[data-tenant-activate]')){activateButton.onclick=async()=>{const name=activateButton.getAttribute('data-tenant-activate');activateButton.disabled=true;activateButton.textContent='activating...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/activate`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const data=await resp.json().catch(()=>({error:{message:'Tenant activation failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant activation failed',true);return;}showTenantFeedback(`Activated ${data.tenant.name}. Next: run live validation.`,false);await refreshTenants();}finally{activateButton.disabled=false;activateButton.textContent='Activate + start live units';}};}for(const liveButton of document.querySelectorAll('button[data-tenant-live]')){liveButton.onclick=async()=>{const name=liveButton.getAttribute('data-tenant-live');const action=liveButton.getAttribute('data-live-action');const label=liveButton.textContent;liveButton.disabled=true;liveButton.textContent='working...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/live`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const data=await resp.json().catch(()=>({error:{message:'Live action failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Live action failed',true);return;}showTenantFeedback(`Live action ${data.action} completed for ${data.tenant.name}.`,false);await refreshTenants();}finally{liveButton.disabled=false;liveButton.textContent=label;}};}for(const backfillButton of document.querySelectorAll('button[data-tenant-backfill]')){backfillButton.onclick=async()=>{const name=backfillButton.getAttribute('data-tenant-backfill');backfillButton.disabled=true;backfillButton.textContent='backfilling...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/backfill`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({auth_mode:'user',include_messages:true,include_files:false,channel_limit:10})});const data=await resp.json().catch(()=>({error:{message:'Backfill failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Backfill failed',true);return;}showTenantFeedback(`Bounded backfill completed for ${data.tenant.name}.`,false);await refreshTenants();}finally{backfillButton.disabled=false;backfillButton.textContent='Run bounded backfill';}};}for(const retireButton of document.querySelectorAll('button[data-tenant-retire]')){retireButton.onclick=async()=>{const name=retireButton.getAttribute('data-tenant-retire');const confirmName=window.prompt(`Type ${name} to retire this tenant. This removes it from config. To also delete mirrored DB rows, type ${name} DELETE_DB.`);if(!confirmName)return;const deleteDb=confirmName===`${name} DELETE_DB`;if(confirmName!==name&&!deleteDb){showTenantFeedback('Retire cancelled: confirmation did not match.',true);return;}retireButton.disabled=true;retireButton.textContent='retiring...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/retire`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:name,delete_db:deleteDb})});const data=await resp.json().catch(()=>({error:{message:'Retire failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Retire failed',true);return;}showTenantFeedback(`Retired ${data.tenant.name}. DB deleted: ${data.db_deleted?'yes':'no'}.`,false);await refreshTenants();}finally{retireButton.disabled=false;retireButton.textContent='Retire tenant';}};}}"
+        "function renderTenantList(tenants){if(!tenants.length){tenantList.innerHTML=\"<div class='empty'>No tenants are configured yet.</div>\";return;}tenantList.innerHTML=tenants.map(tenantCardHtml).join('');bindTenantActions();}"
+        "async function refreshTenants(){const resp=await fetch('/v1/tenants');const data=await resp.json().catch(()=>({tenants:[]}));if(!resp.ok){throw new Error(data.error?.message||'Tenant refresh failed');}renderTenantList(data.tenants||[]);}"
         "form.addEventListener('submit',async(event)=>{event.preventDefault();showTenantFeedback('',false);button.disabled=true;button.textContent='creating...';"
         "try{const payload={name:document.getElementById('tenant-name').value.trim(),domain:document.getElementById('tenant-domain').value.trim(),display_name:document.getElementById('tenant-display-name').value.trim()||undefined};"
         "const resp=await fetch('/v1/tenants/onboard',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const data=await resp.json().catch(()=>({error:{message:'Tenant onboarding failed'}}));"
-        "if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant onboarding failed',true);return;}showTenantFeedback(`Created ${data.tenant.name}. JSON manifest: ${data.manifest_path}. Next: ${data.tenant.next_action}.`,false);window.setTimeout(()=>window.location.reload(),800);}"
+        "if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant onboarding failed',true);return;}showTenantFeedback(`Created ${data.tenant.name}. Manifest ready to copy. Next: ${data.tenant.next_action}.`,false);await refreshTenants();}"
         "finally{button.disabled=false;button.textContent='Create disabled scaffold';}});"
-        "credentialsForm.addEventListener('submit',async(event)=>{event.preventDefault();credentialsButton.disabled=true;credentialsButton.textContent='installing...';try{const name=document.getElementById('credential-tenant-name').value.trim();const credentials={};for(const id of ['team_id','token','outbound_token','user_token','outbound_user_token','app_token','signing_secret']){const node=document.querySelector(`#tenant-credentials-form [name=\"${id}\"]`);const value=(node?.value||'').trim();if(value)credentials[id]=value;}const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/credentials`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({credentials})});const data=await resp.json().catch(()=>({error:{message:'Credential install failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Credential install failed',true);return;}showTenantFeedback(`Installed ${data.installed_keys.length} credential key(s). Readiness: ${data.tenant.credential_ready?'ready':'missing'}.`,false);credentialsForm.reset();window.setTimeout(()=>window.location.reload(),900);}finally{credentialsButton.disabled=false;credentialsButton.textContent='Install credentials';}});"
-        "for(const activateButton of document.querySelectorAll('button[data-tenant-activate]')){activateButton.addEventListener('click',async()=>{const name=activateButton.getAttribute('data-tenant-activate');activateButton.disabled=true;activateButton.textContent='activating...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/activate`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const data=await resp.json().catch(()=>({error:{message:'Tenant activation failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Tenant activation failed',true);return;}showTenantFeedback(`Activated ${data.tenant.name}. Next: run live validation.`,false);window.setTimeout(()=>window.location.reload(),800);}finally{activateButton.disabled=false;activateButton.textContent='Activate + start live units';}});}"
-        "for(const liveButton of document.querySelectorAll('button[data-tenant-live]')){liveButton.addEventListener('click',async()=>{const name=liveButton.getAttribute('data-tenant-live');const action=liveButton.getAttribute('data-live-action');const label=liveButton.textContent;liveButton.disabled=true;liveButton.textContent='working...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/live`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const data=await resp.json().catch(()=>({error:{message:'Live action failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Live action failed',true);return;}showTenantFeedback(`Live action ${data.action} completed for ${data.tenant.name}.`,false);}finally{liveButton.disabled=false;liveButton.textContent=label;}});}"
-        "for(const backfillButton of document.querySelectorAll('button[data-tenant-backfill]')){backfillButton.addEventListener('click',async()=>{const name=backfillButton.getAttribute('data-tenant-backfill');backfillButton.disabled=true;backfillButton.textContent='backfilling...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/backfill`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({auth_mode:'user',include_messages:true,include_files:false,channel_limit:10})});const data=await resp.json().catch(()=>({error:{message:'Backfill failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Backfill failed',true);return;}showTenantFeedback(`Bounded backfill completed for ${data.tenant.name}.`,false);}finally{backfillButton.disabled=false;backfillButton.textContent='Run bounded backfill';}});}"
-        "for(const retireButton of document.querySelectorAll('button[data-tenant-retire]')){retireButton.addEventListener('click',async()=>{const name=retireButton.getAttribute('data-tenant-retire');const confirmName=window.prompt(`Type ${name} to retire this tenant. This removes it from config. To also delete mirrored DB rows, type ${name} DELETE_DB.`);if(!confirmName)return;const deleteDb=confirmName===`${name} DELETE_DB`;if(confirmName!==name&&!deleteDb){showTenantFeedback('Retire cancelled: confirmation did not match.',true);return;}retireButton.disabled=true;retireButton.textContent='retiring...';try{const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/retire`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:name,delete_db:deleteDb})});const data=await resp.json().catch(()=>({error:{message:'Retire failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Retire failed',true);return;}showTenantFeedback(`Retired ${data.tenant.name}. DB deleted: ${data.db_deleted?'yes':'no'}.`,false);window.setTimeout(()=>window.location.reload(),900);}finally{retireButton.disabled=false;retireButton.textContent='Retire tenant';}});}"
+        "credentialsForm.addEventListener('submit',async(event)=>{event.preventDefault();credentialsButton.disabled=true;credentialsButton.textContent='installing...';try{const name=document.getElementById('credential-tenant-name').value.trim();const credentials={};for(const id of ['team_id','token','outbound_token','user_token','outbound_user_token','app_token','signing_secret']){const node=document.querySelector(`#tenant-credentials-form [name=\"${id}\"]`);const value=(node?.value||'').trim();if(value)credentials[id]=value;}const resp=await fetch(`/v1/tenants/${encodeURIComponent(name)}/credentials`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({credentials})});const data=await resp.json().catch(()=>({error:{message:'Credential install failed'}}));if(!resp.ok){showTenantFeedback(data.error?.message||'Credential install failed',true);return;}showTenantFeedback(`Installed ${data.installed_keys.length} credential key(s). Readiness: ${data.tenant.credential_ready?'ready':'missing'}.`,false);credentialsForm.reset();await refreshTenants();}finally{credentialsButton.disabled=false;credentialsButton.textContent='Install credentials';}});"
+        "renderTenantList(initialTenants);"
         "</script></div></body></html>"
     )
 
@@ -1704,6 +1666,28 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="tenants.status")
                     return
                 _json_response(self, 200, {"ok": True, "tenants": tenants})
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)/manifest", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import read_tenant_manifest
+
+                tenant_name = unquote(m.group(1))
+                try:
+                    payload = read_tenant_manifest(config_path=config_path, name=tenant_name)
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.manifest")
+                    return
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "tenant": payload["tenant"],
+                        "manifest_path": payload["manifest_path"],
+                        "content": payload["content"],
+                    },
+                )
                 return
 
             if path == "/search":

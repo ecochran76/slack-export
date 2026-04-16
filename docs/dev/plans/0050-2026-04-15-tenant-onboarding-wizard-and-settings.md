@@ -44,6 +44,7 @@ This plan does not include:
   - `slack-mirror tenants onboard`
   - `slack-mirror tenants credentials`
   - protected `GET /v1/tenants`
+  - protected `GET /v1/tenants/<name>/manifest`
   - protected `POST /v1/tenants/onboard`
   - protected `POST /v1/tenants/<name>/credentials`
   - protected `POST /v1/tenants/<name>/activate`
@@ -58,6 +59,8 @@ This plan does not include:
 - browser activation is available for credential-ready disabled tenants through `/settings/tenants`
 - credential installation is now available through the CLI and `/settings/tenants`; it writes only to the configured dotenv file, backs up existing dotenv content, and reports installed variable names without echoing secret values
 - `/settings/tenants` now exposes live-sync start/restart/stop controls, a bounded backfill action, and a guarded retire flow with optional DB-row deletion
+- `/settings/tenants` now refreshes tenant cards in place after onboarding actions instead of requiring a full page reload
+- the manifest surface now supports direct clipboard copy of the rendered JSON manifest so operators can paste it into Slack's app-manifest page without opening the file manually
 - Polymer activation is still blocked because Polymer credentials are not present yet
 
 ## Target Operator Experience

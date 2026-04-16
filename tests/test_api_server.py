@@ -183,6 +183,13 @@ class ApiServerTests(unittest.TestCase):
         tenant_names = [item["name"] for item in updated.json()["tenants"]]
         self.assertIn("polymer", tenant_names)
 
+        manifest = requests.get(f"{self.base_url}/v1/tenants/polymer/manifest", timeout=5)
+        self.assertEqual(manifest.status_code, 200)
+        self.assertTrue(manifest.json()["ok"])
+        self.assertEqual(manifest.json()["tenant"]["name"], "polymer")
+        self.assertTrue(manifest.json()["manifest_path"].endswith("slack-mirror-socket-mode-polymer.rendered.json"))
+        self.assertIn('"display_information"', manifest.json()["content"])
+
         credentials = requests.post(
             f"{self.base_url}/v1/tenants/polymer/credentials",
             json={
@@ -248,10 +255,15 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("/v1/tenants/onboard", page.text)
         self.assertIn("/credentials", page.text)
         self.assertIn("Install credentials", page.text)
+        self.assertIn("data-tenant-copy-manifest", page.text)
+        self.assertIn("/v1/tenants/${encodeURIComponent(name)}/manifest", page.text)
+        self.assertIn("Copy Manifest JSON", page.text)
         self.assertIn("data-tenant-activate", page.text)
         self.assertIn("data-tenant-live", page.text)
         self.assertIn("data-tenant-backfill", page.text)
         self.assertIn("data-tenant-retire", page.text)
+        self.assertNotIn("window.location.reload()", page.text)
+        self.assertIn("refreshTenants()", page.text)
 
     def test_workspace_channels_endpoint_and_exports_picker_ui(self):
         service = get_app_service(str(self.config_path))

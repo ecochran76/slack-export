@@ -506,6 +506,22 @@ def render_tenant_manifest(
     return output
 
 
+def read_tenant_manifest(
+    *,
+    config_path: str | Path | None = None,
+    name: str,
+) -> dict[str, Any]:
+    tenant_name = normalize_tenant_name(name)
+    status = tenant_status(config_path=config_path, name=tenant_name)[0]
+    manifest = status.get("manifest") or {}
+    manifest_path = Path(str(manifest.get("path") or "")).expanduser()
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Rendered manifest not found for tenant '{tenant_name}': {manifest_path}")
+    content = manifest_path.read_text(encoding="utf-8")
+    json.loads(content)
+    return {"tenant": status, "manifest_path": str(manifest_path), "content": content}
+
+
 def scaffold_tenant(
     *,
     config_path: str | Path | None = None,

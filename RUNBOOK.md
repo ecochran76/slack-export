@@ -2393,3 +2393,22 @@ This file is the dated turn log for planning and execution continuity.
   - `slack-mirror-user tenants onboard --name pcg --domain polymerconsul-clo9441 --display-name "Polymer Consulting Group" --json`
   - `slack-mirror-user tenants status pcg --json`
   - `slack-mirror-user user-env check-live --json`
+
+## Turn 168 | 2026-04-15
+
+- Followed up on tenant-page UX feedback about stale status and manifest copy friction.
+- Added a protected manifest-read route:
+  - `GET /v1/tenants/<name>/manifest`
+- Extended `/settings/tenants` so tenant cards now refresh in place after:
+  - scaffold creation
+  - credential installation
+  - activation
+  - live start/restart/stop
+  - bounded backfill
+  - retire
+- Replaced the manifest-path-only primary action with a `Copy Manifest JSON` control that fetches the rendered manifest from the local authenticated API and copies it to the browser clipboard for direct paste into Slack's app-manifest UI.
+- Kept the manifest path visible as a secondary hint for operators who still want the underlying file location.
+- Updated README, install docs, and the active `P09` plan to record the inline-refresh behavior and clipboard-first manifest workflow.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`
