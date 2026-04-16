@@ -2435,3 +2435,22 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+
+## Turn 171 | 2026-04-16
+
+- Fixed the managed `user-env update` source-root bug that could leave `~/.local/share/slack-mirror/app` as a non-installable site-packages snapshot with no `pyproject.toml`.
+- Added installable repo-root resolution for user-env snapshot copying:
+  - prefers an explicitly provided installable repo root
+  - otherwise prefers the current working checkout when `user-env update` is run from the repo
+  - falls back to the module-relative root only when that location is actually an installable source tree
+- Added regression coverage for the stale-managed-install case where `repo_root` points at a non-installable site-packages-like tree but the real repo checkout is the current working directory.
+- Repaired the live managed install by installing the current repo into the managed venv, rerunning `slack-mirror-user user-env update`, and confirming the refreshed `app/` snapshot now includes:
+  - `pyproject.toml`
+  - `config.example.yaml`
+  - the patched `slack_mirror/service/user_env.py`
+- Validation:
+  - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_update_runs_without_recreating_state tests.test_user_env.UserEnvTests.test_resolve_installable_repo_root_prefers_current_checkout -v`
+  - `python -m py_compile slack_mirror/service/user_env.py tests/test_user_env.py`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/pip install --upgrade /home/ecochran76/workspace.local/slack-export`
+  - `slack-mirror-user user-env update`
+  - `slack-mirror-user user-env check-live --json`

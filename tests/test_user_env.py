@@ -25,6 +25,10 @@ class UserEnvTests(unittest.TestCase):
         self.home_dir.mkdir()
         self.state_home.mkdir()
         self.cache_home.mkdir()
+        (self.repo_root / "pyproject.toml").write_text(
+            "[build-system]\nrequires=[\"setuptools>=61\"]\nbuild-backend=\"setuptools.build_meta\"\n",
+            encoding="utf-8",
+        )
         (self.repo_root / "config.example.yaml").write_text(
             "version: 1\n"
             "storage:\n"
@@ -37,6 +41,8 @@ class UserEnvTests(unittest.TestCase):
             encoding="utf-8",
         )
         (self.repo_root / "README.md").write_text("repo snapshot\n", encoding="utf-8")
+        (self.repo_root / "slack_mirror").mkdir()
+        (self.repo_root / "slack_mirror" / "__init__.py").write_text("__all__ = []\n", encoding="utf-8")
         (self.repo_root / ".git").mkdir()
         (self.repo_root / ".git" / "config").write_text("ignored\n", encoding="utf-8")
         (self.repo_root / "cache").mkdir()
@@ -144,6 +150,17 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(any(call["args"][-2:] == ["workspaces", "sync-config"] for call in calls))
         self.assertTrue(any(call["args"][:4] == ["systemctl", "--user", "enable", "--now"] for call in calls))
         self.assertTrue(any(call["args"][-1] == "slack-mirror-runtime-report.timer" for call in calls if call["args"][:4] == ["systemctl", "--user", "enable", "--now"]))
+
+    def test_resolve_installable_repo_root_prefers_current_checkout(self):
+        stale_root = self.root / "stale-site-packages"
+        stale_root.mkdir()
+        (stale_root / "slack_mirror").mkdir()
+        (stale_root / "slack_mirror" / "__init__.py").write_text("__all__ = []\n", encoding="utf-8")
+
+        with patch("slack_mirror.service.user_env.Path.cwd", return_value=self.repo_root):
+            resolved = user_env._resolve_installable_repo_root(stale_root)
+
+        self.assertEqual(resolved, self.repo_root.resolve())
 
     def test_install_preserves_existing_config(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
