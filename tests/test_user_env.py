@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from slack_mirror.service import user_env
@@ -1607,7 +1608,32 @@ class UserEnvTests(unittest.TestCase):
 
     def test_snapshot_runtime_report_writes_operator_summary(self):
         output: list[str] = []
+        runtime_status = SimpleNamespace(
+            ok=True,
+            wrappers_present=True,
+            api_service_present=True,
+            config_present=True,
+            db_present=True,
+            cache_present=True,
+            rollback_snapshot_present=False,
+            services={"slack-mirror-api.service": "active"},
+            reconcile_workspaces=[],
+        )
+        live_validation = SimpleNamespace(
+            ok=True,
+            status="pass",
+            summary="Summary: PASS",
+            lines=[],
+            exit_code=0,
+            failure_count=0,
+            warning_count=0,
+            failure_codes=[],
+            warning_codes=[],
+            workspaces=[],
+        )
         with patch(
+            "slack_mirror.service.runtime_report_user_env.get_app_service",
+        ) as mock_get_service, patch(
             "slack_mirror.service.runtime_report_user_env.write_runtime_report_snapshot",
             return_value={
                 "name": "runtime-report",
@@ -1619,12 +1645,19 @@ class UserEnvTests(unittest.TestCase):
                 "latest_json_path": "/tmp/runtime-report.latest.json",
             },
         ) as mock_snapshot:
+            mock_get_service.return_value.runtime_status.return_value = runtime_status
+            mock_get_service.return_value.validate_live_runtime.return_value = live_validation
             rc = runtime_report_user_env.snapshot_runtime_report_user_env(
                 paths=self.paths,
                 out=output.append,
             )
         self.assertEqual(rc, 0)
         mock_snapshot.assert_called_once()
+        kwargs = mock_snapshot.call_args.kwargs
+        self.assertEqual(kwargs["runtime_status"]["ok"], True)
+        self.assertEqual(kwargs["runtime_status"]["status"]["services"]["slack-mirror-api.service"], "active")
+        self.assertEqual(kwargs["live_validation"]["ok"], True)
+        self.assertEqual(kwargs["live_validation"]["validation"]["status"], "pass")
         joined = "\n".join(output)
         self.assertIn("Runtime report snapshot", joined)
         self.assertIn("/tmp/report.md", joined)
@@ -1632,7 +1665,32 @@ class UserEnvTests(unittest.TestCase):
 
     def test_snapshot_runtime_report_json_outputs_machine_readable_payload(self):
         output: list[str] = []
+        runtime_status = SimpleNamespace(
+            ok=True,
+            wrappers_present=True,
+            api_service_present=True,
+            config_present=True,
+            db_present=True,
+            cache_present=True,
+            rollback_snapshot_present=False,
+            services={"slack-mirror-api.service": "active"},
+            reconcile_workspaces=[],
+        )
+        live_validation = SimpleNamespace(
+            ok=True,
+            status="pass",
+            summary="Summary: PASS",
+            lines=[],
+            exit_code=0,
+            failure_count=0,
+            warning_count=0,
+            failure_codes=[],
+            warning_codes=[],
+            workspaces=[],
+        )
         with patch(
+            "slack_mirror.service.runtime_report_user_env.get_app_service",
+        ) as mock_get_service, patch(
             "slack_mirror.service.runtime_report_user_env.write_runtime_report_snapshot",
             return_value={
                 "name": "runtime-report",
@@ -1644,6 +1702,8 @@ class UserEnvTests(unittest.TestCase):
                 "latest_json_path": "/tmp/runtime-report.latest.json",
             },
         ):
+            mock_get_service.return_value.runtime_status.return_value = runtime_status
+            mock_get_service.return_value.validate_live_runtime.return_value = live_validation
             rc = runtime_report_user_env.snapshot_runtime_report_user_env(
                 paths=self.paths,
                 json_output=True,

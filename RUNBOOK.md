@@ -2478,3 +2478,16 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
   - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`
+
+## Turn 174 | 2026-04-16
+
+- Fixed the managed runtime-report snapshot path so `slack-mirror-runtime-report.service` no longer depends on protected loopback HTTP endpoints.
+- Root cause:
+  - `user-env snapshot-report` was still fetching `/v1/runtime/status` and `/v1/runtime/live-validation` over `http://slack.localhost`
+  - those endpoints are now browser-auth protected
+  - the timer therefore failed with `401` and exited `1`
+- Updated `runtime_report_user_env.py` to source `runtime_status` and `live_validation` directly from the internal app-service seam before calling `write_runtime_report_snapshot`, matching the existing interactive create-report flow.
+- Validation:
+  - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_snapshot_runtime_report_writes_operator_summary tests.test_user_env.UserEnvTests.test_snapshot_runtime_report_json_outputs_machine_readable_payload -v`
+  - `python -m py_compile slack_mirror/service/runtime_report_user_env.py tests/test_user_env.py`
+  - `uv run slack-mirror user-env snapshot-report --name scheduled-runtime-report --json`

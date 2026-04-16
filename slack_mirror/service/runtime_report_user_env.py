@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
+from slack_mirror.service.app import get_app_service
 from slack_mirror.service.runtime_report import write_runtime_report_snapshot
 from slack_mirror.service.user_env import UserEnvPaths, default_user_env_paths
 
@@ -20,11 +21,18 @@ def snapshot_runtime_report_user_env(
     out: PrintFn = print,
 ) -> int:
     managed_paths = paths or default_user_env_paths()
+    service = get_app_service(str(managed_paths.config_path))
+    runtime_status_result = service.runtime_status()
+    runtime_status = {"ok": runtime_status_result.ok, "status": runtime_status_result.__dict__}
+    live_validation_result = service.validate_live_runtime(require_live_units=True)
+    live_validation = {"ok": live_validation_result.ok, "validation": live_validation_result.__dict__}
     result = write_runtime_report_snapshot(
         config_path=str(managed_paths.config_path),
         base_url=base_url,
         name=name,
         timeout=timeout,
+        runtime_status=runtime_status,
+        live_validation=live_validation,
     )
     if json_output:
         out(json.dumps(result, indent=2))
