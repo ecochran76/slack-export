@@ -2544,3 +2544,12 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_tenant_onboarding.TenantOnboardingTests.test_tenant_status_prefers_run_initial_sync_when_live_units_are_active_without_reconcile_state tests.test_tenant_onboarding.TenantOnboardingTests.test_install_tenant_live_units_wraps_called_process_error -v`
   - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py tests/test_tenant_onboarding.py`
+
+## Turn 179 | 2026-04-17
+
+- Fixed the tenant-card click acknowledgement gap for `Run initial sync` and related live actions.
+- Tenant action handlers now re-render the card immediately after setting pending state and inline feedback, before waiting on the `/v1/tenants` refresh round-trip.
+- This keeps the button click from looking inert on slower requests and makes the pending state visible immediately.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
