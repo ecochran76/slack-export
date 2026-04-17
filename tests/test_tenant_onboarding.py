@@ -132,7 +132,7 @@ class TenantOnboardingTests(unittest.TestCase):
     def test_tenant_status_reports_missing_credentials_without_secret_values(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            cfg = self._write_config(root)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
             scaffold_tenant(
                 config_path=cfg,
                 name="polymer",
@@ -148,6 +148,35 @@ class TenantOnboardingTests(unittest.TestCase):
             self.assertEqual(row["credential_presence"]["token"]["env"], "SLACK_POLYMER_BOT_TOKEN")
             rendered = json.dumps(row)
             self.assertNotIn("xox", rendered)
+
+    def test_tenant_status_prefers_run_initial_sync_when_live_units_are_active_without_reconcile_state(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = self._write_config(root, include_dotenv=True, create_dotenv=True)
+            scaffold_tenant(
+                config_path=cfg,
+                name="polymer",
+                domain="polymerconsul-clo9441",
+                manifest_path=root / "polymer.json",
+            )
+            install_tenant_credentials(
+                config_path=cfg,
+                name="polymer",
+                credentials={
+                    "token": "xoxb-polymer",
+                    "outbound_token": "xoxb-polymer-write",
+                    "app_token": "xapp-polymer",
+                    "signing_secret": "secret",
+                },
+            )
+            with patch.object(onboarding_module, "_tenant_live_unit_states", return_value={"webhooks": "active", "daemon": "active"}):
+                result = activate_tenant(config_path=cfg, name="polymer", install_live_units=False)
+                row = tenant_status(config_path=cfg, name="polymer")[0]
+
+            self.assertTrue(result.tenant["enabled"])
+            self.assertEqual(row["validation_status"], "needs_initial_sync")
+            self.assertEqual(row["backfill_status"]["label"], "needs_initial_sync")
+            self.assertEqual(row["next_action"], "run_initial_sync")
 
     def test_activate_tenant_blocks_until_required_credentials_exist(self):
         with tempfile.TemporaryDirectory() as td:

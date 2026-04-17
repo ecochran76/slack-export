@@ -509,10 +509,10 @@ def _tenant_sync_health(*, config_path: Path, name: str, enabled: bool) -> dict[
         }
     if not reconcile_state:
         return {
-            "label": "attention",
+            "label": "needs_initial_sync",
             "tone": "warn",
-            "summary": "No recent reconcile state is recorded.",
-            "detail": "Run bounded backfill or reconcile-files to populate sync state.",
+            "summary": "Initial history sync has not run yet.",
+            "detail": "Run initial sync to seed mirrored history and establish reconcile state.",
             "reconcile": {
                 "state_present": False,
                 "attempted": 0,
@@ -622,6 +622,16 @@ def _tenant_validation_status(
             },
         )
     if sync_tone == "warn":
+        sync_label = str(sync_health.get("label") or "")
+        if sync_label == "needs_initial_sync":
+            return (
+                "needs_initial_sync",
+                {
+                    "tone": "warn",
+                    "summary": str(sync_health.get("summary") or "Initial history sync has not run yet."),
+                    "detail": str(sync_health.get("detail") or ""),
+                },
+            )
         return (
             "warning",
             {
@@ -669,9 +679,9 @@ def _tenant_backfill_status(*, enabled: bool, db_stats: dict[str, Any], sync_hea
         }
     if embedding_pending or derived_pending:
         return {
-            "label": "queued",
+            "label": "syncing",
             "tone": "warn",
-            "summary": f"Background enrichment is queued ({embedding_pending + derived_pending} pending jobs).",
+            "summary": f"Initial history sync is in progress ({embedding_pending + derived_pending} pending jobs).",
             "detail": (
                 f"embedding pending={embedding_pending} · derived-text pending={derived_pending} · "
                 f"last reconcile attempted={attempted} downloaded={downloaded}"
@@ -685,10 +695,10 @@ def _tenant_backfill_status(*, enabled: bool, db_stats: dict[str, Any], sync_hea
             "detail": f"last reconcile attempted={attempted} downloaded={downloaded} warnings={warnings} failed={failed}",
         }
     return {
-        "label": "idle",
-        "tone": "neutral",
-        "summary": "No recent bounded backfill or reconcile work is recorded.",
-        "detail": "Run bounded backfill to seed mirrored history for this tenant.",
+        "label": "needs_initial_sync",
+        "tone": "warn",
+        "summary": "Initial history sync has not run yet.",
+        "detail": "Run initial sync to seed mirrored history and establish reconcile state for this tenant.",
     }
 
 
@@ -733,9 +743,11 @@ def tenant_status(
             live_states = {str(value or "unknown") for value in live_units.values()}
             if "active" not in live_states:
                 next_action = "start_live_sync"
-            elif str(backfill_status.get("label") or "") in {"queued", "error"}:
+            elif str(backfill_status.get("label") or "") == "needs_initial_sync":
+                next_action = "run_initial_sync"
+            elif str(backfill_status.get("label") or "") in {"syncing", "error"}:
                 next_action = "inspect_backfill_status"
-            elif validation_status == "warning":
+            elif validation_status in {"warning", "needs_initial_sync"}:
                 next_action = "inspect_sync_health"
             else:
                 next_action = "monitor_live_validation"

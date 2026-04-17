@@ -2527,3 +2527,20 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_tenant_onboarding.TenantOnboardingTests.test_install_tenant_live_units_uses_product_script tests.test_tenant_onboarding.TenantOnboardingTests.test_install_tenant_live_units_wraps_called_process_error tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
   - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py tests/test_tenant_onboarding.py`
+
+## Turn 178 | 2026-04-17
+
+- Simplified the `/settings/tenants` lifecycle model so the browser emphasizes one primary next step per tenant instead of exposing several competing operator buttons.
+- Activation from the browser now means:
+  - enable the tenant
+  - install or refresh live sync
+  - immediately kick off the initial bounded history sync
+- Refined shared tenant status labels so a live tenant with no reconcile history is reported as `needs_initial_sync` instead of a vague warning or idle state.
+- Renamed and tightened the tenant status blocks:
+  - `Backfill` -> `History sync`
+  - `Sync status` -> `Live sync`
+  - `Next action` -> `Recommended next step`
+- Reduced maintenance controls to a secondary row so restart/stop are no longer competing with the main lifecycle action.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_tenant_onboarding.TenantOnboardingTests.test_tenant_status_prefers_run_initial_sync_when_live_units_are_active_without_reconcile_state tests.test_tenant_onboarding.TenantOnboardingTests.test_install_tenant_live_units_wraps_called_process_error -v`
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py tests/test_tenant_onboarding.py`
