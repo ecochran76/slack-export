@@ -2,7 +2,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -14,10 +14,11 @@ _DEFAULT_CONFIG_CANDIDATES = (
 )
 
 
-def _load_dotenv(dotenv_path: Path) -> None:
+def _read_dotenv(dotenv_path: Path) -> dict[str, str]:
     if not dotenv_path.exists():
         raise FileNotFoundError(f"dotenv file not found: {dotenv_path}")
 
+    values: dict[str, str] = {}
     for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -32,7 +33,8 @@ def _load_dotenv(dotenv_path: Path) -> None:
         if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
             value = value[1:-1]
         if key:
-            os.environ[key] = value
+            values[key] = value
+    return values
 
 
 @dataclass
@@ -82,16 +84,17 @@ def resolve_config_path(path: str | Path | None = None, *, cwd: Path | None = No
     )
 
 
-def _expand_env(value: Any) -> Any:
+def _expand_env(value: Any, *, env: Mapping[str, str] | None = None) -> Any:
+    source_env = env if env is not None else os.environ
     if isinstance(value, dict):
-        return {k: _expand_env(v) for k, v in value.items()}
+        return {k: _expand_env(v, env=source_env) for k, v in value.items()}
     if isinstance(value, list):
-        return [_expand_env(v) for v in value]
+        return [_expand_env(v, env=source_env) for v in value]
     if isinstance(value, str):
         def repl(match: re.Match) -> str:
             var = match.group(1)
             fallback = match.group(2)
-            return os.getenv(var, fallback if fallback is not None else "")
+            return source_env.get(var, fallback if fallback is not None else "")
 
         return _ENV_PATTERN.sub(repl, value)
     return value
@@ -124,10 +127,10 @@ def _normalize_paths(raw: dict[str, Any], *, config_path: Path) -> dict[str, Any
     return data
 
 
-def _resolve_dotenv_path(dotenv: Any, *, config_path: Path) -> Path | None:
+def _resolve_dotenv_path(dotenv: Any, *, config_path: Path, env: Mapping[str, str] | None = None) -> Path | None:
     if not dotenv:
         return None
-    expanded = _expand_env(dotenv)
+    expanded = _expand_env(dotenv, env=env)
     dotenv_path = Path(str(expanded)).expanduser()
     if not dotenv_path.is_absolute():
         dotenv_path = (config_path.parent / dotenv_path).resolve()
@@ -138,10 +141,12 @@ def load_config(path: str | Path | None = None) -> Config:
     resolved_path = resolve_config_path(path)
     raw = yaml.safe_load(resolved_path.read_text(encoding="utf-8")) or {}
 
-    dotenv_path = _resolve_dotenv_path(raw.get("dotenv"), config_path=resolved_path)
+    base_env = dict(os.environ)
+    dotenv_path = _resolve_dotenv_path(raw.get("dotenv"), config_path=resolved_path, env=base_env)
+    dotenv_env: dict[str, str] = {}
     if dotenv_path is not None:
-        _load_dotenv(dotenv_path)
+        dotenv_env = _read_dotenv(dotenv_path)
 
-    expanded = _expand_env(raw)
+    expanded = _expand_env(raw, env={**base_env, **dotenv_env})
     normalized = _normalize_paths(expanded, config_path=resolved_path)
     return Config(data=normalized, path=resolved_path)

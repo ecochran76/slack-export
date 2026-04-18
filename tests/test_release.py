@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -59,7 +60,7 @@ class ReleaseCheckTests(unittest.TestCase):
         def runner(args, check=False, text=False, cwd=None, capture_output=False):
             if "check_generated_docs.py" in " ".join(args):
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok\n", stderr="")
-            if args and args[0].endswith("python") and len(args) > 1 and args[1] == str(override_script):
+            if args and args[0] == sys.executable and len(args) > 1 and args[1] == str(override_script):
                 seen_audit_paths.append(list(args))
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout='{"ok": true}\n', stderr="")
             if args[:3] == ["git", "status", "--short"]:

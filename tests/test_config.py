@@ -36,6 +36,7 @@ class ConfigTests(unittest.TestCase):
             )
             cfg = load_config(p)
             self.assertEqual(cfg.get("workspaces")[0]["token"], "xoxb-test")
+            self.assertNotIn("SLACK_TEST_TOKEN_FROM_DOTENV", os.environ)
 
     def test_dotenv_path_env_default_is_resolved_before_loading(self):
         with tempfile.TemporaryDirectory() as td:
@@ -55,6 +56,25 @@ class ConfigTests(unittest.TestCase):
             )
             cfg = load_config(p)
             self.assertEqual(cfg.get("workspaces")[0]["token"], "xoxb-default")
+            self.assertNotIn("SLACK_TEST_TOKEN_FROM_DOTENV", os.environ)
+
+    def test_load_config_does_not_leak_dotenv_values_into_process_env(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            env_file = td_path / "test.env"
+            env_file.write_text("LEAK_CHECK_TOKEN=secret\n", encoding="utf-8")
+            os.environ.pop("LEAK_CHECK_TOKEN", None)
+
+            p = td_path / "config.yaml"
+            p.write_text(
+                "dotenv: ./test.env\nvalue: ${LEAK_CHECK_TOKEN:-missing}\n",
+                encoding="utf-8",
+            )
+
+            cfg = load_config(p)
+
+            self.assertEqual(cfg.get("value"), "secret")
+            self.assertNotIn("LEAK_CHECK_TOKEN", os.environ)
 
     def test_storage_paths_resolve_relative_to_config_dir(self):
         with tempfile.TemporaryDirectory() as td:
