@@ -5,7 +5,7 @@ Slack workspace mirror CLI for backfills, webhook ingest, and processing.
 
 ```
 usage: slack-mirror [-h] [--version] [--config CONFIG]
-                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,release,user-env,version}
+                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,release,tenants,user-env,version}
                     ...
 ```
 
@@ -35,6 +35,7 @@ slack-mirror --config config.yaml workspaces list --json
 - `mirror`
 - `release`
 - `search`
+- `tenants`
 - `user-env`
 - `version`
 - `workspaces`
@@ -807,6 +808,176 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 - `--rerank` — apply optional heuristic reranking
 - `--rerank-top-n` — top N rows to rerank when --rerank is enabled; default: `50`
 - `--json` — json output
+
+
+
+## `slack-mirror tenants`
+**Usage**
+
+```
+usage: slack-mirror tenants [-h]
+                            {status,onboard,credentials,activate,live,backfill,retire}
+                            ...
+```
+
+**Arguments**
+
+
+**Subcommands**
+
+- `activate`
+- `backfill`
+- `credentials`
+- `live`
+- `onboard`
+- `retire`
+- `status`
+
+### `slack-mirror tenants activate`
+**Usage**
+
+```
+usage: slack-mirror tenants activate [-h] [--dry-run] [--skip-live-units]
+                                     [--json]
+                                     name
+```
+
+**Options**
+
+- `--dry-run` — validate activation readiness without writing config or starting units
+- `--skip-live-units` — enable and sync config without installing live systemd units
+- `--json` — json output
+
+**Arguments**
+
+- `name` — local tenant/workspace name
+
+
+### `slack-mirror tenants backfill`
+**Usage**
+
+```
+usage: slack-mirror tenants backfill [-h] [--auth-mode {bot,user}]
+                                     [--include-messages] [--no-messages]
+                                     [--include-files]
+                                     [--channel-limit CHANNEL_LIMIT]
+                                     [--dry-run] [--json]
+                                     name
+```
+
+**Options**
+
+- `--auth-mode` — token mode for backfill; default: `user`
+- `--include-messages` — include message history; default: `True`
+- `--no-messages` — skip message history; default: `True`
+- `--include-files` — include files and canvases metadata
+- `--channel-limit` — bounded channel limit for browser-safe starts; default: `10`
+- `--dry-run` — show command without running it
+- `--json` — json output
+
+**Arguments**
+
+- `name` — local tenant/workspace name
+
+
+### `slack-mirror tenants credentials`
+**Usage**
+
+```
+usage: slack-mirror tenants credentials [-h] [--credential CREDENTIAL]
+                                        [--credentials-json CREDENTIALS_JSON]
+                                        [--dry-run] [--json]
+                                        name
+```
+
+**Options**
+
+- `--credential` — credential assignment as field=value or ENV_VAR=value; repeatable; default: `[]`
+- `--credentials-json` — JSON object of credential assignments
+- `--dry-run` — validate credential install without writing dotenv
+- `--json` — json output
+
+**Arguments**
+
+- `name` — local tenant/workspace name
+
+
+### `slack-mirror tenants live`
+**Usage**
+
+```
+usage: slack-mirror tenants live [-h] [--dry-run] [--json]
+                                 name {start,restart,stop}
+```
+
+**Options**
+
+- `--dry-run` — show commands without running them
+- `--json` — json output
+
+**Arguments**
+
+- `name` — local tenant/workspace name
+- `action` — live sync action
+
+
+### `slack-mirror tenants onboard`
+**Usage**
+
+```
+usage: slack-mirror tenants onboard [-h] --name NAME --domain DOMAIN
+                                    [--display-name DISPLAY_NAME]
+                                    [--manifest-path MANIFEST_PATH]
+                                    [--dry-run] [--no-sync] [--json]
+```
+
+**Options**
+
+- `--name` — local tenant/workspace name
+- `--domain` — Slack workspace subdomain or https://...slack.com URL
+- `--display-name` — human-facing tenant name for the Slack app manifest
+- `--manifest-path` — optional rendered JSON manifest path
+- `--dry-run` — show intended scaffold without writing config or manifest
+- `--no-sync` — do not sync the disabled scaffold into the DB
+- `--json` — json output
+
+
+### `slack-mirror tenants retire`
+**Usage**
+
+```
+usage: slack-mirror tenants retire [-h] --confirm CONFIRM [--delete-db]
+                                   [--keep-live-units] [--dry-run] [--json]
+                                   name
+```
+
+**Options**
+
+- `--confirm` — must exactly match the tenant name
+- `--delete-db` — delete mirrored DB rows for this tenant
+- `--keep-live-units` — do not stop live units before retiring
+- `--dry-run` — show planned retirement without writing config or DB
+- `--json` — json output
+
+**Arguments**
+
+- `name` — local tenant/workspace name
+
+
+### `slack-mirror tenants status`
+**Usage**
+
+```
+usage: slack-mirror tenants status [-h] [--json] [name]
+```
+
+**Options**
+
+- `--json` — json output
+
+**Arguments**
+
+- `name` — optional tenant/workspace name
 
 
 

@@ -99,11 +99,13 @@ class LiveValidationResult:
 class RuntimeStatusResult:
     ok: bool
     wrappers_present: bool
+    mcp_ready: bool
     api_service_present: bool
     config_present: bool
     db_present: bool
     cache_present: bool
     rollback_snapshot_present: bool
+    mcp_smoke_error: str | None = None
     services: dict[str, str] = field(default_factory=dict)
     reconcile_workspaces: list[dict[str, Any]] = field(default_factory=list)
 
@@ -216,6 +218,7 @@ class SlackMirrorAppService:
                     report.wrapper_present,
                     report.api_wrapper_present,
                     report.mcp_wrapper_present,
+                    report.mcp_smoke_ok,
                     report.api_service_present,
                     report.config_present,
                     report.db_present,
@@ -229,11 +232,13 @@ class SlackMirrorAppService:
                     report.mcp_wrapper_present,
                 ]
             ),
+            mcp_ready=report.mcp_wrapper_present and report.mcp_smoke_ok,
             api_service_present=report.api_service_present,
             config_present=report.config_present,
             db_present=report.db_present,
             cache_present=report.cache_present,
             rollback_snapshot_present=report.rollback_snapshot_present,
+            mcp_smoke_error=report.mcp_smoke_error,
             services=payload["services"],
             reconcile_workspaces=payload["reconcile_workspaces"],
         )

@@ -124,15 +124,22 @@ def _normalize_paths(raw: dict[str, Any], *, config_path: Path) -> dict[str, Any
     return data
 
 
+def _resolve_dotenv_path(dotenv: Any, *, config_path: Path) -> Path | None:
+    if not dotenv:
+        return None
+    expanded = _expand_env(dotenv)
+    dotenv_path = Path(str(expanded)).expanduser()
+    if not dotenv_path.is_absolute():
+        dotenv_path = (config_path.parent / dotenv_path).resolve()
+    return dotenv_path
+
+
 def load_config(path: str | Path | None = None) -> Config:
     resolved_path = resolve_config_path(path)
     raw = yaml.safe_load(resolved_path.read_text(encoding="utf-8")) or {}
 
-    dotenv = raw.get("dotenv")
-    if dotenv:
-        dotenv_path = Path(str(dotenv)).expanduser()
-        if not dotenv_path.is_absolute():
-            dotenv_path = (resolved_path.parent / dotenv_path).resolve()
+    dotenv_path = _resolve_dotenv_path(raw.get("dotenv"), config_path=resolved_path)
+    if dotenv_path is not None:
         _load_dotenv(dotenv_path)
 
     expanded = _expand_env(raw)

@@ -98,6 +98,7 @@ For Slack app creation, credential collection, and the app-manifest location, se
 ## Path resolution rules
 
 - `dotenv`, `storage.db_path`, and `storage.cache_root` are resolved relative to the **config file directory**, not the process cwd.
+- environment interpolation on `dotenv` is resolved before the dotenv file is loaded, so paths like `${SLACK_MIRROR_DOTENV:-~/credentials/API-keys.env}` behave as expected.
 - `~` is expanded for user-scope paths.
 - If `--config` is omitted, the CLI searches in this order:
   1. `./config.local.yaml`

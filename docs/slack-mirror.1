@@ -6,7 +6,7 @@ Slack workspace mirror CLI for backfills, webhook ingest, and processing.
 **Usage**
 
 usage: slack-mirror [-h] [--version] [--config CONFIG]
-                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,release,user-env,version}
+                    {mirror,workspaces,channels,messages,search,docs,completion,api,mcp,release,tenants,user-env,version}
                     ...
 
 **Options**
@@ -39,6 +39,8 @@ slack-mirror --config config.yaml workspaces list --json
 `release`
 .IP \[bu] 2
 `search`
+.IP \[bu] 2
+`tenants`
 .IP \[bu] 2
 `user-env`
 .IP \[bu] 2
@@ -805,6 +807,165 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 `--rerank-top-n` — top N rows to rerank when --rerank is enabled; default: `50`
 .IP \[bu] 2
 `--json` — json output
+.SH SLACK-MIRROR TENANTS
+**Usage**
+
+usage: slack-mirror tenants [-h]
+                            {status,onboard,credentials,activate,live,backfill,retire}
+                            ...
+
+**Arguments**
+**Subcommands**
+.IP \[bu] 2
+`activate`
+.IP \[bu] 2
+`backfill`
+.IP \[bu] 2
+`credentials`
+.IP \[bu] 2
+`live`
+.IP \[bu] 2
+`onboard`
+.IP \[bu] 2
+`retire`
+.IP \[bu] 2
+`status`
+.SH SLACK-MIRROR TENANTS ACTIVATE
+**Usage**
+
+usage: slack-mirror tenants activate [-h] [--dry-run] [--skip-live-units]
+                                     [--json]
+                                     name
+
+**Options**
+.IP \[bu] 2
+`--dry-run` — validate activation readiness without writing config or starting units
+.IP \[bu] 2
+`--skip-live-units` — enable and sync config without installing live systemd units
+.IP \[bu] 2
+`--json` — json output
+**Arguments**
+.IP \[bu] 2
+`name` — local tenant/workspace name
+.SH SLACK-MIRROR TENANTS BACKFILL
+**Usage**
+
+usage: slack-mirror tenants backfill [-h] [--auth-mode {bot,user}]
+                                     [--include-messages] [--no-messages]
+                                     [--include-files]
+                                     [--channel-limit CHANNEL_LIMIT]
+                                     [--dry-run] [--json]
+                                     name
+
+**Options**
+.IP \[bu] 2
+`--auth-mode` — token mode for backfill; default: `user`
+.IP \[bu] 2
+`--include-messages` — include message history; default: `True`
+.IP \[bu] 2
+`--no-messages` — skip message history; default: `True`
+.IP \[bu] 2
+`--include-files` — include files and canvases metadata
+.IP \[bu] 2
+`--channel-limit` — bounded channel limit for browser-safe starts; default: `10`
+.IP \[bu] 2
+`--dry-run` — show command without running it
+.IP \[bu] 2
+`--json` — json output
+**Arguments**
+.IP \[bu] 2
+`name` — local tenant/workspace name
+.SH SLACK-MIRROR TENANTS CREDENTIALS
+**Usage**
+
+usage: slack-mirror tenants credentials [-h] [--credential CREDENTIAL]
+                                        [--credentials-json CREDENTIALS_JSON]
+                                        [--dry-run] [--json]
+                                        name
+
+**Options**
+.IP \[bu] 2
+`--credential` — credential assignment as field=value or ENV_VAR=value; repeatable; default: `[]`
+.IP \[bu] 2
+`--credentials-json` — JSON object of credential assignments
+.IP \[bu] 2
+`--dry-run` — validate credential install without writing dotenv
+.IP \[bu] 2
+`--json` — json output
+**Arguments**
+.IP \[bu] 2
+`name` — local tenant/workspace name
+.SH SLACK-MIRROR TENANTS LIVE
+**Usage**
+
+usage: slack-mirror tenants live [-h] [--dry-run] [--json]
+                                 name {start,restart,stop}
+
+**Options**
+.IP \[bu] 2
+`--dry-run` — show commands without running them
+.IP \[bu] 2
+`--json` — json output
+**Arguments**
+.IP \[bu] 2
+`name` — local tenant/workspace name
+.IP \[bu] 2
+`action` — live sync action
+.SH SLACK-MIRROR TENANTS ONBOARD
+**Usage**
+
+usage: slack-mirror tenants onboard [-h] --name NAME --domain DOMAIN
+                                    [--display-name DISPLAY_NAME]
+                                    [--manifest-path MANIFEST_PATH]
+                                    [--dry-run] [--no-sync] [--json]
+
+**Options**
+.IP \[bu] 2
+`--name` — local tenant/workspace name
+.IP \[bu] 2
+`--domain` — Slack workspace subdomain or https://...slack.com URL
+.IP \[bu] 2
+`--display-name` — human-facing tenant name for the Slack app manifest
+.IP \[bu] 2
+`--manifest-path` — optional rendered JSON manifest path
+.IP \[bu] 2
+`--dry-run` — show intended scaffold without writing config or manifest
+.IP \[bu] 2
+`--no-sync` — do not sync the disabled scaffold into the DB
+.IP \[bu] 2
+`--json` — json output
+.SH SLACK-MIRROR TENANTS RETIRE
+**Usage**
+
+usage: slack-mirror tenants retire [-h] --confirm CONFIRM [--delete-db]
+                                   [--keep-live-units] [--dry-run] [--json]
+                                   name
+
+**Options**
+.IP \[bu] 2
+`--confirm` — must exactly match the tenant name
+.IP \[bu] 2
+`--delete-db` — delete mirrored DB rows for this tenant
+.IP \[bu] 2
+`--keep-live-units` — do not stop live units before retiring
+.IP \[bu] 2
+`--dry-run` — show planned retirement without writing config or DB
+.IP \[bu] 2
+`--json` — json output
+**Arguments**
+.IP \[bu] 2
+`name` — local tenant/workspace name
+.SH SLACK-MIRROR TENANTS STATUS
+**Usage**
+
+usage: slack-mirror tenants status [-h] [--json] [name]
+
+**Options**
+.IP \[bu] 2
+`--json` — json output
+**Arguments**
+.IP \[bu] 2
+`name` — optional tenant/workspace name
 .SH SLACK-MIRROR USER-ENV
 **Usage**
 

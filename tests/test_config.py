@@ -37,6 +37,25 @@ class ConfigTests(unittest.TestCase):
             cfg = load_config(p)
             self.assertEqual(cfg.get("workspaces")[0]["token"], "xoxb-test")
 
+    def test_dotenv_path_env_default_is_resolved_before_loading(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            env_file = td_path / "default.env"
+            env_file.write_text("SLACK_TEST_TOKEN_FROM_DOTENV=xoxb-default\n", encoding="utf-8")
+            os.environ.pop("SLACK_TEST_TOKEN_FROM_DOTENV", None)
+            os.environ.pop("SLACK_TEST_DOTENV_PATH", None)
+
+            p = td_path / "config.yaml"
+            p.write_text(
+                "dotenv: ${SLACK_TEST_DOTENV_PATH:-./default.env}\n"
+                "workspaces:\n"
+                "  - name: soylei\n"
+                "    token: ${SLACK_TEST_TOKEN_FROM_DOTENV:-}\n",
+                encoding="utf-8",
+            )
+            cfg = load_config(p)
+            self.assertEqual(cfg.get("workspaces")[0]["token"], "xoxb-default")
+
     def test_storage_paths_resolve_relative_to_config_dir(self):
         with tempfile.TemporaryDirectory() as td:
             td_path = Path(td)

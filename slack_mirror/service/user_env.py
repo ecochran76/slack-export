@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -13,12 +14,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from slack_mirror.core.config import load_config
+from slack_mirror.core.config import _resolve_dotenv_path, load_config
 from slack_mirror.service.runtime_heartbeat import heartbeat_path_for_config, load_reconcile_state
 
 
 RunFn = Callable[..., subprocess.CompletedProcess]
 PrintFn = Callable[[str], None]
+McpProbeFn = Callable[[Path], tuple[bool, str | None]]
 
 LIVE_EVENT_PENDING_FAIL_THRESHOLD = 100
 LIVE_EMBEDDING_PENDING_FAIL_THRESHOLD = 1000
@@ -112,7 +114,11 @@ class UserEnvStatusReport:
     wrapper_present: bool
     api_wrapper_present: bool
     mcp_wrapper_present: bool
+    mcp_smoke_ok: bool
+    mcp_smoke_error: str | None
     api_service_present: bool
+    snapshot_service_present: bool
+    snapshot_timer_present: bool
     rollback_snapshot_present: bool
     config_present: bool
     db_present: bool
@@ -205,6 +211,78 @@ def _log(out: PrintFn, message: str) -> None:
     out(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
 
 
+def _mcp_frame_text(message: dict[str, Any]) -> str:
+    body = json.dumps(message, separators=(",", ":"))
+    return f"Content-Length: {len(body.encode('utf-8'))}\r\n\r\n{body}"
+
+
+def _parse_mcp_frames_text(payload: str) -> list[dict[str, Any]]:
+    frames: list[dict[str, Any]] = []
+    text = payload or ""
+    offset = 0
+    while offset < len(text):
+        separator = "\r\n\r\n"
+        header_end = text.find(separator, offset)
+        if header_end == -1:
+            separator = "\n\n"
+            header_end = text.find(separator, offset)
+        if header_end == -1:
+            break
+        header_block = text[offset:header_end]
+        match = re.search(r"(?im)^content-length:\s*(\d+)\s*$", header_block)
+        if not match:
+            break
+        content_length = int(match.group(1))
+        body_start = header_end + len(separator)
+        body = text[body_start : body_start + content_length]
+        if len(body.encode("utf-8")) != content_length:
+            break
+        frames.append(json.loads(body))
+        offset = body_start + len(body)
+    return frames
+
+
+def _probe_managed_mcp_wrapper(wrapper_path: Path) -> tuple[bool, str | None]:
+    if not wrapper_path.exists():
+        return False, "wrapper missing"
+    initialize = _mcp_frame_text({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    health = _mcp_frame_text({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "health", "arguments": {}}})
+    try:
+        completed = subprocess.run(
+            [str(wrapper_path)],
+            input=initialize + health,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=10,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, str(exc)
+    if int(completed.returncode) != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        return False, detail or f"exit code {completed.returncode}"
+    try:
+        frames = _parse_mcp_frames_text(completed.stdout or "")
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, f"invalid response: {exc}"
+    if len(frames) < 2:
+        return False, "missing initialize or health response"
+    health_response = frames[-1]
+    if "error" in health_response:
+        return False, str(health_response["error"].get("message") or "health call failed")
+    result = health_response.get("result") or {}
+    content = result.get("content") or []
+    if not content:
+        return False, "missing MCP content payload"
+    try:
+        payload = json.loads(str(content[0].get("text") or "{}"))
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, f"invalid MCP content payload: {exc}"
+    if payload.get("ok") is not True:
+        return False, f"unexpected health payload: {payload!r}"
+    return True, None
+
+
 def _run(
     runner: RunFn,
     args: list[str],
@@ -220,20 +298,39 @@ def _run(
 
 def _runtime_env(paths: UserEnvPaths) -> dict[str, str]:
     env = os.environ.copy()
+    env["HOME"] = str(paths.home_dir)
     env["SLACK_MIRROR_DB"] = str(paths.state_dir / "slack_mirror.db")
     env["SLACK_MIRROR_CACHE"] = str(paths.cache_dir)
     return env
 
 
+def _resolve_managed_dotenv_path(dotenv: Any, *, config_path: Path, home_dir: Path) -> Path | None:
+    original_home = os.environ.get("HOME")
+    try:
+        os.environ["HOME"] = str(home_dir)
+        return _resolve_dotenv_path(dotenv, config_path=config_path)
+    finally:
+        if original_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = original_home
+
+
 def _load_managed_config(paths: UserEnvPaths) -> Any:
     original_db = os.environ.get("SLACK_MIRROR_DB")
     original_cache = os.environ.get("SLACK_MIRROR_CACHE")
+    original_home = os.environ.get("HOME")
     runtime_env = _runtime_env(paths)
     try:
+        os.environ["HOME"] = runtime_env["HOME"]
         os.environ["SLACK_MIRROR_DB"] = runtime_env["SLACK_MIRROR_DB"]
         os.environ["SLACK_MIRROR_CACHE"] = runtime_env["SLACK_MIRROR_CACHE"]
         return load_config(paths.config_path)
     finally:
+        if original_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = original_home
         if original_db is None:
             os.environ.pop("SLACK_MIRROR_DB", None)
         else:
@@ -368,6 +465,17 @@ def _ensure_config(paths: UserEnvPaths, *, out: PrintFn) -> None:
         _log(out, f"creating config from template: {paths.config_path}")
         shutil.copy2(template, paths.config_path)
     shutil.copy2(template, paths.config_dir / "config.example.latest.yaml")
+    try:
+        import yaml  # local import to avoid widening module-level dependency surface
+
+        raw = yaml.safe_load(paths.config_path.read_text(encoding="utf-8")) or {}
+    except Exception:  # pragma: no cover - defensive
+        raw = {}
+    dotenv_path = _resolve_managed_dotenv_path(raw.get("dotenv"), config_path=paths.config_path, home_dir=paths.home_dir)
+    if dotenv_path and not dotenv_path.exists():
+        dotenv_path.parent.mkdir(parents=True, exist_ok=True)
+        _log(out, f"creating managed dotenv file: {dotenv_path}")
+        dotenv_path.write_text("# Managed by slack-mirror user-env / tenants credentials\n", encoding="utf-8")
 
 
 def _migrate_legacy_state(paths: UserEnvPaths, *, out: PrintFn) -> None:
@@ -589,6 +697,7 @@ def _build_live_validation_report(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     require_live_units: bool = True,
+    require_workspace_credentials: bool = True,
 ) -> LiveValidationReport:
     target = paths or default_user_env_paths()
     failures: list[LiveValidationIssue] = []
@@ -726,18 +835,19 @@ def _build_live_validation_report(
 
         outbound_token = ws.get("outbound_token") or ws.get("write_token")
         outbound_user_token = ws.get("outbound_user_token") or ws.get("write_user_token")
-        if not outbound_token:
-            ws_fail(
-                "OUTBOUND_TOKEN_MISSING",
-                f"workspace {name} missing explicit outbound bot token",
-                f"set `outbound_token` or `write_token` for workspace `{name}`",
-            )
-        if ws.get("user_token") and not outbound_user_token:
-            ws_fail(
-                "OUTBOUND_USER_TOKEN_MISSING",
-                f"workspace {name} missing explicit outbound user token",
-                f"set `outbound_user_token` or `write_user_token` for workspace `{name}`",
-            )
+        if require_workspace_credentials:
+            if not outbound_token:
+                ws_fail(
+                    "OUTBOUND_TOKEN_MISSING",
+                    f"workspace {name} missing explicit outbound bot token",
+                    f"set `outbound_token` or `write_token` for workspace `{name}`",
+                )
+            if ws.get("user_token") and not outbound_user_token:
+                ws_fail(
+                    "OUTBOUND_USER_TOKEN_MISSING",
+                    f"workspace {name} missing explicit outbound user token",
+                    f"set `outbound_user_token` or `write_user_token` for workspace `{name}`",
+                )
 
         receiver_unit = f"slack-mirror-webhooks-{name}.service"
         daemon_unit = f"slack-mirror-daemon-{name}.service"
@@ -1017,6 +1127,7 @@ def _build_status_report(
     *,
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
 ) -> UserEnvStatusReport:
     target = paths or default_user_env_paths()
     reconcile_workspaces: list[dict[str, Any]] = []
@@ -1073,11 +1184,19 @@ def _build_status_report(
                     )
         except Exception:
             pass
+    mcp_smoke_ok = False
+    mcp_smoke_error: str | None = None
+    if target.mcp_wrapper_path.exists():
+        mcp_smoke_ok, mcp_smoke_error = mcp_probe(target.mcp_wrapper_path)
     return UserEnvStatusReport(
         wrapper_present=target.wrapper_path.exists(),
         api_wrapper_present=target.api_wrapper_path.exists(),
         mcp_wrapper_present=target.mcp_wrapper_path.exists(),
+        mcp_smoke_ok=mcp_smoke_ok,
+        mcp_smoke_error=mcp_smoke_error,
         api_service_present=target.api_service_path.exists(),
+        snapshot_service_present=target.snapshot_service_path.exists(),
+        snapshot_timer_present=target.snapshot_timer_path.exists(),
         rollback_snapshot_present=target.backup_app_dir.exists(),
         config_present=target.config_path.exists(),
         db_present=(target.state_dir / "slack_mirror.db").exists(),
@@ -1092,7 +1211,11 @@ def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
         "wrapper_present": report.wrapper_present,
         "api_wrapper_present": report.api_wrapper_present,
         "mcp_wrapper_present": report.mcp_wrapper_present,
+        "mcp_smoke_ok": report.mcp_smoke_ok,
+        "mcp_smoke_error": report.mcp_smoke_error,
         "api_service_present": report.api_service_present,
+        "snapshot_service_present": report.snapshot_service_present,
+        "snapshot_timer_present": report.snapshot_timer_present,
         "rollback_snapshot_present": report.rollback_snapshot_present,
         "config_present": report.config_present,
         "db_present": report.db_present,
@@ -1100,6 +1223,64 @@ def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
         "services": report.services,
         "reconcile_workspaces": report.reconcile_workspaces,
     }
+
+
+def _managed_runtime_issues(status_report: UserEnvStatusReport) -> list[LiveValidationIssue]:
+    failures: list[LiveValidationIssue] = []
+
+    def fail(code: str, message: str, action: str | None = None) -> None:
+        failures.append(LiveValidationIssue("fail", code, message, action=action))
+
+    if not status_report.wrapper_present:
+        fail(
+            "USER_WRAPPER_MISSING",
+            "slack-mirror-user wrapper missing",
+            "rerun `slack-mirror user-env update` to restore the managed CLI wrapper",
+        )
+    if not status_report.api_wrapper_present:
+        fail(
+            "API_WRAPPER_MISSING",
+            "slack-mirror-api wrapper missing",
+            "rerun `slack-mirror user-env update` to restore the managed API launcher",
+        )
+    if not status_report.mcp_wrapper_present:
+        fail(
+            "MCP_WRAPPER_MISSING",
+            "slack-mirror-mcp wrapper missing",
+            "rerun `slack-mirror user-env update` to restore the managed MCP launcher",
+        )
+    elif not status_report.mcp_smoke_ok:
+        fail(
+            "MCP_SMOKE_FAILED",
+            f"managed MCP wrapper failed health probe: {status_report.mcp_smoke_error or 'unknown error'}",
+            "inspect `slack-mirror-mcp` directly, then rerun `slack-mirror user-env update` if the managed MCP launcher or venv is stale",
+        )
+    if not status_report.api_service_present:
+        fail(
+            "API_SERVICE_FILE_MISSING",
+            "managed API service unit file missing",
+            "rerun `slack-mirror user-env update` to recreate slack-mirror-api.service",
+        )
+    if not status_report.snapshot_service_present:
+        fail(
+            "SNAPSHOT_SERVICE_FILE_MISSING",
+            "managed runtime-report service unit file missing",
+            "rerun `slack-mirror user-env update` to recreate slack-mirror-runtime-report.service",
+        )
+    if not status_report.snapshot_timer_present:
+        fail(
+            "SNAPSHOT_TIMER_FILE_MISSING",
+            "managed runtime-report timer unit file missing",
+            "rerun `slack-mirror user-env update` to recreate slack-mirror-runtime-report.timer",
+        )
+    snapshot_timer_state = status_report.services.get("slack-mirror-runtime-report.timer")
+    if status_report.snapshot_timer_present and snapshot_timer_state != "active":
+        fail(
+            "SNAPSHOT_TIMER_INACTIVE",
+            f"slack-mirror-runtime-report.timer state={snapshot_timer_state or 'unknown'}",
+            "run `systemctl --user enable --now slack-mirror-runtime-report.timer` to restore scheduled runtime snapshots",
+        )
+    return failures
 
 
 def _live_validation_report_payload(report: LiveValidationReport) -> dict[str, Any]:
@@ -1221,40 +1402,14 @@ def _build_live_smoke_report(
     *,
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
 ) -> LiveSmokeCheckReport:
     target = paths or default_user_env_paths()
-    status_report = _build_status_report(paths=target, runner=runner)
+    status_report = _build_status_report(paths=target, runner=runner, mcp_probe=mcp_probe)
     validation_report = _build_live_validation_report(paths=target, runner=runner, require_live_units=True)
     failures = list(validation_report.failures)
     warnings = list(validation_report.warnings)
-
-    def fail(code: str, message: str, action: str | None = None) -> None:
-        failures.append(LiveValidationIssue("fail", code, message, action=action))
-
-    if not status_report.wrapper_present:
-        fail(
-            "USER_WRAPPER_MISSING",
-            "slack-mirror-user wrapper missing",
-            "run `slack-mirror user-env update` to restore the managed CLI wrapper",
-        )
-    if not status_report.api_wrapper_present:
-        fail(
-            "API_WRAPPER_MISSING",
-            "slack-mirror-api wrapper missing",
-            "run `slack-mirror user-env update` to restore the managed API launcher",
-        )
-    if not status_report.mcp_wrapper_present:
-        fail(
-            "MCP_WRAPPER_MISSING",
-            "slack-mirror-mcp wrapper missing",
-            "run `slack-mirror user-env update` to restore the managed MCP launcher",
-        )
-    if not status_report.api_service_present:
-        fail(
-            "API_SERVICE_FILE_MISSING",
-            "managed API service unit file missing",
-            "run `slack-mirror user-env update` to recreate slack-mirror-api.service",
-        )
+    failures.extend(_managed_runtime_issues(status_report))
 
     return _finalize_live_smoke_report(
         failures=failures,
@@ -1262,6 +1417,44 @@ def _build_live_smoke_report(
         status_report=status_report,
         validation_report=validation_report,
     )
+
+
+def _validate_managed_runtime_baseline(
+    *,
+    paths: UserEnvPaths,
+    runner: RunFn,
+    out: PrintFn,
+    mcp_probe: McpProbeFn,
+) -> int:
+    validation_rc = validate_live_user_env(
+        paths=paths,
+        runner=runner,
+        out=out,
+        require_live_units=False,
+        require_workspace_credentials=False,
+    )
+    if validation_rc != 0:
+        return validation_rc
+    status_report = _build_status_report(paths=paths, runner=runner, mcp_probe=mcp_probe)
+    failures = _managed_runtime_issues(status_report)
+
+    if not failures:
+        return 0
+
+    for issue in failures:
+        out(f"FAIL  [{issue.code}] {issue.message}")
+    out(f"Summary: FAIL ({len(failures)} failure{'s' if len(failures) != 1 else ''})")
+    seen: set[tuple[str, str]] = set()
+    out("Recovery:")
+    for issue in failures:
+        if not issue.action:
+            continue
+        key = (issue.code, issue.action)
+        if key in seen:
+            continue
+        seen.add(key)
+        out(f"  [{issue.code}] {issue.action}")
+    return 1
 
 
 def _finalize_live_recovery_report(
@@ -1308,12 +1501,14 @@ def _build_live_recovery_report(
     *,
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     applied: bool = False,
 ) -> LiveRecoveryReport:
-    smoke_report = _build_live_smoke_report(paths=paths, runner=runner)
+    smoke_report = _build_live_smoke_report(paths=paths, runner=runner, mcp_probe=mcp_probe)
     actions: list[LiveRecoveryAction] = []
     operator_only_issues: list[LiveValidationIssue] = []
     seen_actions: set[tuple[str, str | None]] = set()
+    managed_runtime_refresh_needed = False
 
     def add_action(code: str, description: str, command: list[str], *, workspace: str | None = None) -> None:
         key = (code, workspace)
@@ -1323,11 +1518,27 @@ def _build_live_recovery_report(
         actions.append(LiveRecoveryAction(code=code, description=description, command=command, safe=True, workspace=workspace))
 
     for issue in smoke_report.failures:
-        if issue.code == "API_UNIT_INACTIVE":
+        if issue.code in {
+            "USER_WRAPPER_MISSING",
+            "API_WRAPPER_MISSING",
+            "MCP_WRAPPER_MISSING",
+            "MCP_SMOKE_FAILED",
+            "API_SERVICE_FILE_MISSING",
+            "SNAPSHOT_SERVICE_FILE_MISSING",
+            "SNAPSHOT_TIMER_FILE_MISSING",
+        }:
+            managed_runtime_refresh_needed = True
+        elif issue.code == "API_UNIT_INACTIVE":
             add_action(
                 "RESTART_API_UNIT",
                 "restart the managed API service",
                 ["systemctl", "--user", "restart", "slack-mirror-api.service"],
+            )
+        elif issue.code == "SNAPSHOT_TIMER_INACTIVE":
+            add_action(
+                "ENABLE_SNAPSHOT_TIMER",
+                "re-enable the managed runtime-report timer",
+                ["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"],
             )
         elif issue.code == "LIVE_UNIT_INACTIVE" and issue.workspace:
             add_action(
@@ -1344,6 +1555,13 @@ def _build_live_recovery_report(
             )
         else:
             operator_only_issues.append(issue)
+
+    if managed_runtime_refresh_needed:
+        add_action(
+            "REFRESH_MANAGED_RUNTIME",
+            "refresh the managed install artifacts from the current repo",
+            ["slack-mirror", "user-env", "update"],
+        )
 
     return _finalize_live_recovery_report(
         actions=actions,
@@ -1368,6 +1586,7 @@ def install_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     python_executable: str | None = None,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
 ) -> int:
     target = paths or default_user_env_paths()
@@ -1387,7 +1606,7 @@ def install_user_env(
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-api.service"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
-    validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
+    validation_rc = _validate_managed_runtime_baseline(paths=target, runner=runner, out=out, mcp_probe=mcp_probe)
     if validation_rc != 0:
         return validation_rc
     _log(out, "install complete")
@@ -1410,6 +1629,7 @@ def update_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     python_executable: str | None = None,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
 ) -> int:
     target = paths or default_user_env_paths()
@@ -1431,7 +1651,7 @@ def update_user_env(
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
-    validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
+    validation_rc = _validate_managed_runtime_baseline(paths=target, runner=runner, out=out, mcp_probe=mcp_probe)
     if validation_rc != 0:
         return validation_rc
     _log(out, "update complete (config + DB preserved)")
@@ -1446,6 +1666,7 @@ def rollback_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     python_executable: str | None = None,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
 ) -> int:
     target = paths or default_user_env_paths()
@@ -1470,7 +1691,7 @@ def rollback_user_env(
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
-    validation_rc = validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=False)
+    validation_rc = _validate_managed_runtime_baseline(paths=target, runner=runner, out=out, mcp_probe=mcp_probe)
     if validation_rc != 0:
         return validation_rc
     _log(out, "rollback complete (config + DB preserved)")
@@ -1536,11 +1757,12 @@ def status_user_env(
     *,
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
     json_output: bool = False,
 ) -> int:
     target = paths or default_user_env_paths()
-    report = _build_status_report(paths=target, runner=runner)
+    report = _build_status_report(paths=target, runner=runner, mcp_probe=mcp_probe)
     if json_output:
         out(json.dumps(_status_report_payload(report), indent=2, sort_keys=True))
         return 0
@@ -1551,6 +1773,10 @@ def status_user_env(
     out("  status: present" if target.api_wrapper_path.exists() else "  status: missing")
     out(f"MCP:      {target.mcp_wrapper_path}")
     out("  status: present" if target.mcp_wrapper_path.exists() else "  status: missing")
+    if target.mcp_wrapper_path.exists():
+        out(f"  probe:  {'pass' if report.mcp_smoke_ok else 'fail'}")
+        if report.mcp_smoke_error:
+            out(f"  detail: {report.mcp_smoke_error}")
     out(f"API svc:  {target.api_service_path}")
     out("  status: present" if target.api_service_path.exists() else "  status: missing")
     out(f"Rpt svc:  {target.snapshot_service_path}")
@@ -1596,6 +1822,7 @@ def validate_live_user_env(
     runner: RunFn = subprocess.run,
     out: PrintFn = print,
     require_live_units: bool = True,
+    require_workspace_credentials: bool = True,
     json_output: bool = False,
 ) -> int:
     target = paths or default_user_env_paths()
@@ -1603,6 +1830,7 @@ def validate_live_user_env(
         paths=target,
         runner=runner,
         require_live_units=require_live_units,
+        require_workspace_credentials=require_workspace_credentials,
     )
     if json_output:
         out(json.dumps(_live_validation_report_payload(report), indent=2, sort_keys=True))
@@ -1685,11 +1913,12 @@ def check_live_user_env(
     *,
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
     json_output: bool = False,
 ) -> int:
     target = paths or default_user_env_paths()
-    report = _build_live_smoke_report(paths=target, runner=runner)
+    report = _build_live_smoke_report(paths=target, runner=runner, mcp_probe=mcp_probe)
 
     if json_output:
         out(
@@ -1736,7 +1965,15 @@ def check_live_user_env(
     out(f"  wrapper: {'present' if report.status_report.wrapper_present else 'missing'}")
     out(f"  api wrapper: {'present' if report.status_report.api_wrapper_present else 'missing'}")
     out(f"  mcp wrapper: {'present' if report.status_report.mcp_wrapper_present else 'missing'}")
+    if report.status_report.mcp_wrapper_present:
+        out(f"  mcp probe: {'pass' if report.status_report.mcp_smoke_ok else 'fail'}")
+        if report.status_report.mcp_smoke_error:
+            out(f"  mcp detail: {report.status_report.mcp_smoke_error}")
     out(f"  api unit file: {'present' if report.status_report.api_service_present else 'missing'}")
+    out(f"  runtime-report service file: {'present' if report.status_report.snapshot_service_present else 'missing'}")
+    out(f"  runtime-report timer file: {'present' if report.status_report.snapshot_timer_present else 'missing'}")
+    timer_state = report.status_report.services.get("slack-mirror-runtime-report.timer", "unknown")
+    out(f"  runtime-report timer state: {timer_state}")
     out("")
     out("Live Validation:")
     validate_live_user_env(paths=target, runner=runner, out=out, require_live_units=True, json_output=False)
@@ -1745,7 +1982,11 @@ def check_live_user_env(
         "USER_WRAPPER_MISSING",
         "API_WRAPPER_MISSING",
         "MCP_WRAPPER_MISSING",
+        "MCP_SMOKE_FAILED",
         "API_SERVICE_FILE_MISSING",
+        "SNAPSHOT_SERVICE_FILE_MISSING",
+        "SNAPSHOT_TIMER_FILE_MISSING",
+        "SNAPSHOT_TIMER_INACTIVE",
     }]
     if wrapper_failures:
         out("Managed Runtime Recovery:")
@@ -1847,19 +2088,27 @@ def recover_live_user_env(
     *,
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
+    mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
     apply: bool = False,
     json_output: bool = False,
 ) -> int:
     target = paths or default_user_env_paths()
-    initial = _build_live_recovery_report(paths=target, runner=runner, applied=False)
+    initial = _build_live_recovery_report(paths=target, runner=runner, mcp_probe=mcp_probe, applied=False)
 
     if apply and initial.actions:
         runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
         for action in initial.actions:
-            if action.command:
+            if action.code == "REFRESH_MANAGED_RUNTIME":
+                update_user_env(
+                    paths=target,
+                    runner=runner,
+                    mcp_probe=mcp_probe,
+                    out=lambda _: None,
+                )
+            elif action.command:
                 runner(action.command, check=False, text=True)
-        report = _build_live_recovery_report(paths=target, runner=runner, applied=True)
+        report = _build_live_recovery_report(paths=target, runner=runner, mcp_probe=mcp_probe, applied=True)
     else:
         report = initial
 

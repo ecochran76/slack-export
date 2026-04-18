@@ -345,6 +345,8 @@ Important fields:
 
 - `ok`
 - `wrappers_present`
+- `mcp_ready`
+- `mcp_smoke_error`
 - `api_service_present`
 - `config_present`
 - `db_present`
@@ -361,6 +363,12 @@ Important fields:
   - `downloaded`
   - `warnings`
   - `failed`
+
+Current semantics:
+
+- `wrappers_present` means the managed wrapper launchers are present on disk
+- `mcp_ready` means the managed `slack-mirror-mcp` wrapper successfully answered a real MCP health request over stdio
+- `mcp_smoke_error` carries the latest wrapper-probe failure detail when `mcp_ready` is false
 
 ## Live Validation
 

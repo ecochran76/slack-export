@@ -245,3 +245,86 @@ Planned slice order inside `P09`:
 4. search-workbench migration and result-selection model
 5. report/artifact workflow migration
 6. logs/runtime observability refinement
+
+## P10 | Semantic Retrieval And Relevance Hardening
+
+Status: PLANNED
+
+Purpose:
+- upgrade the current basic local semantic-search baseline into a real retrieval stack that better serves messages, attachments, OCR text, and corpus-wide search
+- keep the first stable MCP-capable user-scoped release as the immediate priority, then flesh this lane out into bounded follow-on plans
+
+Current state:
+- the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
+- the current semantic baseline still uses the lightweight local `local-hash-128` path rather than a stronger embedding model
+- the current optional reranking path is heuristic rescoring, not a true learned reranker
+- attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
+- the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
+- this lane is intentionally sequenced after the first stable MCP-capable release rather than being mixed into current release-hardening work
+
+Planned subphases:
+1. provider and model seam hardening:
+   - explicit embedding-provider and reranker-provider boundaries instead of treating `model_id` as enough abstraction
+2. local embedding upgrade:
+   - replace or supplement `local-hash-128` with a real local embedding model, likely centered on `bge-m3` or an equivalent local-first alternative
+3. chunk and derived-text retrieval upgrade:
+   - embed and retrieve over `derived_text` and `derived_text_chunks` as first-class semantic targets, not only messages
+4. learned reranking:
+   - introduce a real local reranker, likely centered on `bge-reranker-v2-m3` or an equivalent cross-encoder path, over top-K hybrid candidates
+5. evaluation and operator diagnostics:
+   - add Slack-specific retrieval benchmarks, relevance diagnostics, and live operator visibility for embedding backlog, model health, and rerank coverage
+6. MCP and API contract refinement:
+   - expose the stronger retrieval options through stable CLI, API, and MCP semantics without breaking the first-release contract
+
+Planned outputs:
+- bounded child plans under `docs/dev/plans/` once the first MCP-capable release is cut
+- a local-first retrieval profile that improves message, attachment, and OCR search quality without forcing a vector-DB migration
+
+## P11 | Stable MCP-Capable User-Scoped Release
+
+Status: OPEN
+
+Purpose:
+- cut the first stable user-scoped release where install, update, managed services, and MCP access are reliable enough to be treated as the supported product baseline
+- make MCP a practical operator interface rather than a thin but fragile adjunct to the CLI and browser
+
+Actionable plans:
+- `docs/dev/plans/0052-2026-04-18-stable-mcp-capable-user-scoped-release.md`
+
+Current state:
+- user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
+- recent slices fixed several important installer and runtime regressions, including managed-update path resolution, runtime-report snapshot auth regressions, and tenant-status durability after bounded backfill
+- `user-env check-live` now verifies the managed MCP wrapper with a real stdio health probe, not just file presence
+- the managed-runtime gate now also treats the runtime-report service/timer units and active timer scheduling as release-significant state
+- `user-env recover-live` can now safely refresh managed install artifacts when launcher or unit-file drift is detected, instead of treating those cases as operator-only by default
+- a clean-state install rehearsal now passes the intended product contract:
+  - fresh `user-env install` seeds the configured dotenv file automatically
+  - the install/update bootstrap gate no longer blocks on workspace credentials before the operator has edited config
+  - `check-live` remains the stricter post-onboarding gate for credentials and live units
+- the repo still lacks one explicit release-hardening lane that treats install/update reliability, managed-service health, and MCP usability as one coordinated product target
+- MCP is present and functional, but it has not yet been hardened and validated as a release-quality interface with clear readiness criteria, predictable failure handling, and explicit operator guidance
+- this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
+
+Planned subprojects:
+1. installer and updater reliability:
+   - `user-env install`, `user-env update`, and rollback behavior
+   - managed app snapshot correctness
+   - release-safe upgrade and repair paths
+2. managed service health:
+   - API, daemon, webhook/socket-mode, and runtime-report service stability after install, restart, and update
+   - operator-visible health gates and bounded recovery paths
+3. MCP contract usability:
+   - clarify supported MCP tool coverage
+   - harden machine-readable success and error behavior
+   - reduce surprising preconditions and weak operator feedback
+4. release validation and smoke coverage:
+   - define the release gate for a user-scoped install
+   - ensure `check-live` and related status paths are trustworthy as release criteria
+5. operator documentation and runbook fit:
+   - tighten the docs for install, update, health checking, and MCP usage so the supported path is obvious
+
+Definition of done for this lane:
+- a clean user-scoped install can reach a healthy managed state using the documented path
+- update and restart flows are repeatable and recoverable
+- MCP is documented and validated as a reliable supported interface for the shipped baseline
+- release-readiness can be checked by explicit repo-owned validation commands rather than chat memory or manual guesswork

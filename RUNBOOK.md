@@ -2595,3 +2595,112 @@ This file is the dated turn log for planning and execution continuity.
 - Kept `/settings/tenants` as the first proving workbench while making room for the later search, reporting, and result-manipulation surfaces the user already identified.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 183 | 2026-04-18
+
+- Added a new planned roadmap lane for post-release search quality work:
+  - `P10 | Semantic Retrieval And Relevance Hardening`
+- Kept this lane explicitly sequenced after the first stable MCP-capable user-scoped release instead of opening implementation work early.
+- Recorded the intended multi-phase shape of that lane:
+  - provider and model seam hardening
+  - local embedding upgrade
+  - chunk and derived-text retrieval upgrade
+  - learned reranking
+  - evaluation and operator diagnostics
+  - MCP and API contract refinement
+- Recorded the local-first direction explicitly, including that the user's RTX 5080-class machine makes stronger local embedding and reranking models practical.
+
+## Turn 184 | 2026-04-18
+
+- Opened a new bounded release-hardening lane:
+  - `P11 | Stable MCP-Capable User-Scoped Release`
+- Added the first actionable plan for that lane:
+  - `docs/dev/plans/0052-2026-04-18-stable-mcp-capable-user-scoped-release.md`
+- Recorded that the immediate priority in this worktree is not frontend migration or semantic search quality, but the first stable user-scoped release where:
+  - install and update are repeatable
+  - managed services stay healthy
+  - MCP is a reliable supported interface
+- Structured the lane around five subprojects:
+  - installer and updater reliability
+  - managed service health
+  - MCP contract usability
+  - release validation and smoke coverage
+  - docs and operator workflow
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 185 | 2026-04-18
+
+- Implemented the first `P11` hardening slice by tightening the combined managed-runtime release gate around MCP readiness.
+- `user-env status`, `user-env check-live`, and shared runtime status now distinguish:
+  - MCP wrapper present on disk
+  - MCP wrapper actually able to answer a real stdio health request
+- Added a managed MCP smoke probe against `slack-mirror-mcp`:
+  - sends `initialize`
+  - sends `tools/call` for `health`
+  - fails `check-live` with `MCP_SMOKE_FAILED` when the managed wrapper exists but cannot answer
+- Exposed the new status fields through the lightweight runtime-status contract:
+  - `mcp_ready`
+  - `mcp_smoke_error`
+- Tightened release-hygiene at the same time by regenerating stale generated CLI docs after `release check` surfaced `DOCS_OUT_OF_DATE`.
+- Updated operator docs so the stricter `check-live` contract is explicit in:
+  - `README.md`
+  - `docs/dev/LIVE_MODE.md`
+  - `docs/API_MCP_CONTRACT.md`
+- Validation:
+  - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_status_reports_expected_presence_flags tests.test_user_env.UserEnvTests.test_status_json_reports_machine_readable_presence tests.test_user_env.UserEnvTests.test_check_live_json_combines_status_and_validation tests.test_user_env.UserEnvTests.test_check_live_fails_when_mcp_wrapper_probe_fails -v`
+  - `uv run python -m unittest tests.test_mcp_server.McpServerTests.test_runtime_status_tool tests.test_api_server.ApiServerTests.test_runtime_status_endpoint tests.test_app_service.AppServiceTests.test_create_runtime_report_uses_shared_runtime_payloads -v`
+  - `python -m py_compile slack_mirror/service/user_env.py slack_mirror/service/app.py tests/test_user_env.py`
+  - `uv run slack-mirror user-env check-live --json`
+  - `uv run slack-mirror release check --json`
+
+## Turn 186 | 2026-04-18
+
+- Implemented the second `P11` hardening slice by tightening managed-runtime consistency and bounded recovery around the runtime-report surface.
+- `user-env status --json` now exposes:
+  - `snapshot_service_present`
+  - `snapshot_timer_present`
+- `user-env check-live` now fails when the managed runtime-report service/timer files are missing or when `slack-mirror-runtime-report.timer` is not active.
+- `user-env recover-live` now treats managed install drift as safe-remediable when the issue is:
+  - missing managed CLI/API/MCP wrappers
+  - missing runtime-report unit files
+  - failed managed MCP smoke probe
+- apply mode now performs the bounded safe repair by refreshing the managed install artifacts with `user-env update`, instead of leaving those cases operator-only by default.
+- The runtime-report timer remains part of the managed-runtime contract:
+  - present unit files
+  - active timer scheduling
+- Updated operator docs so `README.md`, `docs/dev/LIVE_MODE.md`, and `docs/dev/USER_INSTALL.md` all describe the stricter `check-live` contract and the broader but still bounded `recover-live` policy.
+- Validation:
+  - `uv run python -m unittest tests.test_user_env -v`
+  - `uv run python -m unittest tests.test_cli.CliTests.test_user_env_status_json_dispatches_to_service tests.test_cli.CliTests.test_user_env_check_live_json_dispatches_to_service tests.test_cli.CliTests.test_user_env_recover_live_apply_json_dispatches_to_service -v`
+  - `python -m py_compile slack_mirror/service/user_env.py tests/test_user_env.py`
+  - `uv run slack-mirror user-env status --json`
+  - `uv run slack-mirror user-env check-live --json`
+  - `uv run slack-mirror user-env recover-live --json`
+  - `uv run slack-mirror release check --json`
+
+## Turn 187 | 2026-04-18
+
+- Implemented the next `P11` install-hardening slice by fixing the clean-state managed install path.
+- Root cause found in disposable-home rehearsal:
+  - `load_config()` loaded the raw `dotenv` string before environment interpolation, so `${SLACK_MIRROR_DOTENV:-...}` was treated as a literal path
+  - fresh installs also had no dotenv file yet, so the managed config could not load on first run
+  - the install/update managed-runtime gate was still enforcing workspace outbound credentials before the operator had edited the new config
+- Fixed config loading so `dotenv` environment interpolation is resolved before the dotenv file is loaded.
+- Fixed managed install bootstrap so:
+  - the configured dotenv file is created automatically on first run if missing
+  - `HOME` is pinned to the managed target home for user-env-managed config loading and runtime subprocesses
+- Narrowed the install/update/rollback bootstrap validation so it checks managed runtime integrity without failing on blank initial workspace credentials.
+- Confirmed the intended contract with a disposable-home rehearsal:
+  - `user-env install` passes on a blank fresh config
+  - `user-env update` also passes
+  - `user-env check-live` still fails until real credentials and live units are configured
+- Updated operator docs so the distinction between bootstrap validation and the stricter `check-live` gate is explicit.
+- Validation:
+  - `uv run python -m unittest tests.test_config tests.test_user_env -v`
+  - `python -m py_compile slack_mirror/core/config.py slack_mirror/service/user_env.py tests/test_config.py tests/test_user_env.py`
+  - disposable-home rehearsal via `uv run python - <<'PY' ...`:
+    - `install_rc: 0`
+    - `update_rc: 0`
+    - managed dotenv created automatically
+    - `check_rc: 1` until credentials/live units exist, as intended

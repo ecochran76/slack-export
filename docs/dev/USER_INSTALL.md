@@ -23,6 +23,7 @@ The API launcher runs `slack-mirror api serve` with the managed config.
 The MCP launcher runs `slack-mirror mcp serve` with the managed config.
 The API service runs the API launcher under `systemd --user`.
 The runtime report timer runs `slack-mirror-user user-env snapshot-report --name scheduled-runtime-report` hourly under `systemd --user`.
+The managed install and update path now validates that the MCP launcher can answer a real MCP health request, not just that the launcher file exists.
 
 ## Fresh Install To First Workspace
 
@@ -62,6 +63,7 @@ uv run slack-mirror user-env install
 ```
 
 If `slack-mirror` is already installed on your shell `PATH`, `slack-mirror user-env install` is equivalent. From a fresh repo checkout, prefer the `uv run ...` form so the installer uses the repo dependency set.
+The installer now also creates the configured dotenv file on first run if it does not exist yet, so the managed config can load before you have copied any Slack credentials.
 
 2. Edit `~/.config/slack-mirror/config.yaml` and define at least:
 
@@ -100,7 +102,7 @@ slack-mirror-user user-env check-live
 slack-mirror-user user-env check-live --json
 ```
 
-Use `check-live` as the best single signoff that the managed install, config, API service, workspace sync, and live units are aligned.
+Use `check-live` as the best single signoff that the managed install, config, API service, MCP launcher, workspace sync, and live units are aligned.
 
 7. Bootstrap the first browser user without reopening public self-registration:
 
@@ -220,10 +222,10 @@ This will:
 6. run `mirror init` (migrations) and `workspaces sync-config`
 7. create managed launchers for CLI, API, and MCP entrypoints
 8. create and start the managed API service unit
-9. run managed-runtime validation for config, DB, workspace sync, and the API service
+9. run managed-runtime validation for config, DB, workspace sync, the API service, and the managed MCP launcher
 
 This does not install the per-workspace live `webhooks` and `daemon` units. After you install those, use `slack-mirror user-env validate-live` for the full live-service gate.
-If you want one unattended operator gate that also checks the managed launchers and API unit file, use `slack-mirror user-env check-live`.
+If you want one unattended operator gate that also checks the managed launchers, MCP health, and API unit file, use `slack-mirror user-env check-live`.
 
 ## Update
 
@@ -249,7 +251,7 @@ Update preserves:
 - managed launchers are refreshed in place
 - `slack-mirror-api.service` is restarted in place
 - `slack-mirror-runtime-report.timer` is refreshed and re-enabled in place
-- managed-runtime validation is rerun automatically after the update
+- managed-runtime validation is rerun automatically after the update, including the managed MCP health probe
 
 It also saves the latest template to:
 - `~/.config/slack-mirror/config.example.latest.yaml`
@@ -354,10 +356,13 @@ slack-mirror user-env check-live --json
 
 This is the one-command operator smoke check. It combines:
 
-- managed runtime artifact presence for the CLI/API/MCP launchers and API unit file
+- managed runtime artifact presence for the CLI/API/MCP launchers plus the API and runtime-report unit files
+- active `slack-mirror-runtime-report.timer` scheduling
+- a real MCP stdio health probe through the managed `slack-mirror-mcp` wrapper
 - full `validate-live` health checks for config, DB, workspace sync, tokens, units, and queue health
 
 Use this when you want one pass/fail gate for unattended installs and release smoke checks.
+It is intentionally stricter than the first `user-env install` validation: a fresh blank install can pass its managed-runtime bootstrap before workspace credentials and live units exist, while `check-live` should continue to fail until workspace configuration and live-mode setup are complete.
 
 `check-live` now also includes the latest persisted `mirror reconcile-files` evidence inside its validation payload, so file-repair regressions show up in the same operator surface as the rest of the managed runtime health checks.
 
@@ -383,9 +388,11 @@ slack-mirror user-env recover-live --json
 
 This recovery command is intentionally bounded. Safe automatic remediations are limited to:
 
+- refreshing the managed install artifacts with `user-env update` when the managed wrappers or managed runtime-report unit files are missing or when the MCP smoke probe fails
 - `systemctl --user daemon-reload`
 - restarting the managed API service when its unit exists but is inactive
 - restarting the managed workspace live units when their unit files exist but the units are inactive
+- re-enabling `slack-mirror-runtime-report.timer` when the timer file exists but the timer is inactive
 
 These remain operator-only and are not auto-applied:
 

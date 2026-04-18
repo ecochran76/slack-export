@@ -281,13 +281,17 @@ Warnings do not fail validation, but they mean the topology is healthy while som
 
 These stay in the warning class. They are intended to expose file-repair regressions, not to redefine the core live-service health gate.
 
-`slack-mirror user-env recover-live` intentionally auto-remediates only the safe restart class:
+`slack-mirror user-env recover-live` now covers two bounded safe remediation classes:
 
-- daemon-reload for `systemd --user`
-- restart inactive managed API service
-- restart inactive managed workspace live units
+- managed-runtime refresh:
+  - rerun `user-env update` when the managed CLI/API/MCP launchers or runtime-report unit files are missing or stale, or when the MCP wrapper fails its stdio health probe
+- restart and re-enable actions:
+  - daemon-reload for `systemd --user`
+  - restart inactive managed API service
+  - restart inactive managed workspace live units
+  - re-enable `slack-mirror-runtime-report.timer` when its unit file exists but the timer is inactive
 
-It does not auto-fix config, token, DB, workspace-sync, duplicate-topology, or queue-content problems.
+It still does not auto-fix config, token, DB, workspace-sync, duplicate-topology, or queue-content problems.
 
 For shell automation, prefer:
 
@@ -295,6 +299,14 @@ For shell automation, prefer:
 - `slack-mirror user-env validate-live --json`
 - `slack-mirror user-env check-live --json`
 - `slack-mirror user-env recover-live --json`
+
+`check-live` is the stricter combined gate. In addition to wrapper and service presence plus full live validation, it now verifies that:
+
+- the managed `slack-mirror-mcp` wrapper can answer a real MCP health request over stdio
+- the managed runtime-report service and timer unit files are present
+- `slack-mirror-runtime-report.timer` is active
+
+This keeps managed-runtime drift from looking healthy just because a subset of launcher files still exist.
 
 For human-shareable snapshots, prefer:
 

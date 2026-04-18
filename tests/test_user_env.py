@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import unittest
+import os
 from pathlib import Path
 import sqlite3
 import json
@@ -26,12 +27,16 @@ class UserEnvTests(unittest.TestCase):
         self.home_dir.mkdir()
         self.state_home.mkdir()
         self.cache_home.mkdir()
+        self.original_home = os.environ.get("HOME")
+        os.environ["HOME"] = str(self.home_dir)
+        self.addCleanup(self._restore_home)
         (self.repo_root / "pyproject.toml").write_text(
             "[build-system]\nrequires=[\"setuptools>=61\"]\nbuild-backend=\"setuptools.build_meta\"\n",
             encoding="utf-8",
         )
         (self.repo_root / "config.example.yaml").write_text(
             "version: 1\n"
+            "dotenv: ${SLACK_MIRROR_DOTENV:-~/credentials/API-keys.env}\n"
             "storage:\n"
             "  db_path: ${SLACK_MIRROR_DB:-/__invalid__/slack_mirror.db}\n"
             "  cache_root: ${SLACK_MIRROR_CACHE:-/__invalid__/cache}\n"
@@ -54,6 +59,13 @@ class UserEnvTests(unittest.TestCase):
             xdg_state_home=self.state_home,
             xdg_cache_home=self.cache_home,
         )
+        self.managed_dotenv_path = self.home_dir / "credentials" / "API-keys.env"
+
+    def _restore_home(self):
+        if self.original_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = self.original_home
 
     def _runner(self):
         calls = []
@@ -92,7 +104,10 @@ class UserEnvTests(unittest.TestCase):
                 conn.close()
             if args[:3] == ["systemctl", "--user", "is-active"]:
                 unit = args[-1]
-                stdout = "active\n" if unit == "slack-mirror-api.service" else "inactive\n"
+                stdout = "active\n" if unit in {
+                    "slack-mirror-api.service",
+                    "slack-mirror-runtime-report.timer",
+                } else "inactive\n"
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="services ok", stderr="")
 
@@ -125,7 +140,13 @@ class UserEnvTests(unittest.TestCase):
     def test_install_bootstraps_user_env(self):
         calls, runner = self._runner()
 
-        rc = user_env.install_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
+        rc = user_env.install_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            mcp_probe=lambda _: (True, None),
+            out=lambda _: None,
+        )
 
         self.assertEqual(rc, 0)
         self.assertTrue(self.paths.app_dir.exists())
@@ -140,6 +161,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(self.paths.api_service_path.exists())
         self.assertTrue(self.paths.snapshot_service_path.exists())
         self.assertTrue(self.paths.snapshot_timer_path.exists())
+        self.assertTrue(self.managed_dotenv_path.exists())
         self.assertIn('"api" "serve"', self.paths.api_wrapper_path.read_text(encoding="utf-8"))
         self.assertIn('"mcp" "serve"', self.paths.mcp_wrapper_path.read_text(encoding="utf-8"))
         self.assertIn("ExecStart=", self.paths.api_service_path.read_text(encoding="utf-8"))
@@ -151,6 +173,25 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(any(call["args"][-2:] == ["workspaces", "sync-config"] for call in calls))
         self.assertTrue(any(call["args"][:4] == ["systemctl", "--user", "enable", "--now"] for call in calls))
         self.assertTrue(any(call["args"][-1] == "slack-mirror-runtime-report.timer" for call in calls if call["args"][:4] == ["systemctl", "--user", "enable", "--now"]))
+
+    def test_ensure_config_creates_missing_managed_dotenv(self):
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.app_dir.mkdir(parents=True, exist_ok=True)
+        (self.paths.app_dir / "config.example.yaml").write_text(
+            "version: 1\n"
+            "dotenv: ${SLACK_MIRROR_DOTENV:-~/credentials/API-keys.env}\n"
+            "storage:\n"
+            "  db_path: ${SLACK_MIRROR_DB:-/__invalid__/slack_mirror.db}\n"
+            "workspaces:\n"
+            "  - name: default\n",
+            encoding="utf-8",
+        )
+
+        user_env._ensure_config(self.paths, out=lambda _: None)
+
+        self.assertTrue(self.paths.config_path.exists())
+        self.assertTrue(self.managed_dotenv_path.exists())
+        self.assertIn("Managed by slack-mirror", self.managed_dotenv_path.read_text(encoding="utf-8"))
 
     def test_resolve_installable_repo_root_prefers_current_checkout(self):
         stale_root = self.root / "stale-site-packages"
@@ -168,7 +209,13 @@ class UserEnvTests(unittest.TestCase):
         self.paths.config_path.write_text("keep: true\n", encoding="utf-8")
         _, runner = self._runner()
 
-        user_env.install_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
+        user_env.install_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            mcp_probe=lambda _: (True, None),
+            out=lambda _: None,
+        )
         self.assertEqual(self.paths.config_path.read_text(encoding="utf-8"), "keep: true\n")
 
     def test_provision_frontend_user_uses_password_env(self):
@@ -225,7 +272,13 @@ class UserEnvTests(unittest.TestCase):
         )
         _, runner = self._runner()
 
-        rc = user_env.update_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
+        rc = user_env.update_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            mcp_probe=lambda _: (True, None),
+            out=lambda _: None,
+        )
 
         self.assertEqual(rc, 0)
         self.assertTrue(db_path.exists())
@@ -238,6 +291,23 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(self.paths.backup_app_dir.exists())
         self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "old snapshot\n")
         self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "repo snapshot\n")
+
+    def test_install_fails_when_managed_mcp_probe_fails(self):
+        _, runner = self._runner()
+        output: list[str] = []
+
+        rc = user_env.install_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            mcp_probe=lambda _: (False, "probe timeout"),
+            out=output.append,
+        )
+
+        self.assertEqual(rc, 1)
+        rendered = "\n".join(output)
+        self.assertIn("MCP_SMOKE_FAILED", rendered)
+        self.assertIn("Summary: FAIL", rendered)
         self.assertTrue(self.paths.snapshot_service_path.exists())
         self.assertTrue(self.paths.snapshot_timer_path.exists())
 
@@ -262,6 +332,8 @@ class UserEnvTests(unittest.TestCase):
         )
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)
         db_path = self.paths.state_dir / "slack_mirror.db"
         conn = sqlite3.connect(db_path)
@@ -280,7 +352,13 @@ class UserEnvTests(unittest.TestCase):
         conn.close()
         calls, runner = self._runner()
 
-        rc = user_env.rollback_user_env(paths=self.paths, runner=runner, python_executable="python3", out=lambda _: None)
+        rc = user_env.rollback_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            mcp_probe=lambda _: (True, None),
+            out=lambda _: None,
+        )
 
         self.assertEqual(rc, 0)
         self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "previous snapshot\n")
@@ -419,7 +497,12 @@ class UserEnvTests(unittest.TestCase):
         def runner(args, check=False, text=False, env=None, capture_output=False):
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="svc-a\nsvc-b\n", stderr="")
 
-        rc = user_env.status_user_env(paths=self.paths, runner=runner, out=output.append)
+        rc = user_env.status_user_env(
+            paths=self.paths,
+            runner=runner,
+            mcp_probe=lambda _: (True, None),
+            out=output.append,
+        )
 
         self.assertEqual(rc, 0)
         rendered = "\n".join(output)
@@ -491,14 +574,23 @@ class UserEnvTests(unittest.TestCase):
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
 
-        rc = user_env.status_user_env(paths=self.paths, runner=runner, out=output.append, json_output=True)
+        rc = user_env.status_user_env(
+            paths=self.paths,
+            runner=runner,
+            mcp_probe=lambda _: (True, None),
+            out=output.append,
+            json_output=True,
+        )
 
         self.assertEqual(rc, 0)
         payload = json.loads(output[0])
         self.assertTrue(payload["wrapper_present"])
         self.assertTrue(payload["api_wrapper_present"])
         self.assertTrue(payload["mcp_wrapper_present"])
+        self.assertTrue(payload["mcp_smoke_ok"])
         self.assertTrue(payload["api_service_present"])
+        self.assertTrue(payload["snapshot_service_present"])
+        self.assertTrue(payload["snapshot_timer_present"])
         self.assertFalse(payload["rollback_snapshot_present"])
         self.assertEqual(payload["services"]["slack-mirror-api.service"], "active")
         self.assertEqual(payload["services"]["slack-mirror-runtime-report.timer"], "inactive")
@@ -525,6 +617,8 @@ class UserEnvTests(unittest.TestCase):
         )
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         unit_dir = self.home_dir / ".config" / "systemd" / "user"
         unit_dir.mkdir(parents=True, exist_ok=True)
         (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
@@ -613,6 +707,8 @@ class UserEnvTests(unittest.TestCase):
         )
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         unit_dir = self.home_dir / ".config" / "systemd" / "user"
         unit_dir.mkdir(parents=True, exist_ok=True)
         (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
@@ -666,6 +762,8 @@ class UserEnvTests(unittest.TestCase):
         )
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
         unit_dir = self.home_dir / ".config" / "systemd" / "user"
         unit_dir.mkdir(parents=True, exist_ok=True)
         (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
@@ -879,6 +977,82 @@ class UserEnvTests(unittest.TestCase):
         )
         self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'done');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.close()
+        write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                unit = args[-1]
+                stdout = "active\n" if unit in {
+                    "slack-mirror-api.service",
+                    "slack-mirror-runtime-report.timer",
+                    "slack-mirror-webhooks-default.service",
+                    "slack-mirror-daemon-default.service",
+                } else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        rc = user_env.check_live_user_env(
+            paths=self.paths,
+            runner=runner,
+            mcp_probe=lambda _: (True, None),
+            out=output.append,
+            json_output=True,
+        )
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(output[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["status"], "pass")
+        self.assertIn("status_report", payload)
+        self.assertIn("validation_report", payload)
+        self.assertTrue(payload["status_report"]["wrapper_present"])
+        self.assertTrue(payload["status_report"]["mcp_smoke_ok"])
+        self.assertEqual(payload["validation_report"]["status"], "pass")
+
+    def test_check_live_fails_when_mcp_wrapper_probe_fails(self):
+        current_ts = str(time.time())
+        self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
         unit_dir = self.home_dir / ".config" / "systemd" / "user"
         unit_dir.mkdir(parents=True, exist_ok=True)
         (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
@@ -915,16 +1089,85 @@ class UserEnvTests(unittest.TestCase):
                 return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
 
-        rc = user_env.check_live_user_env(paths=self.paths, runner=runner, out=output.append, json_output=True)
+        rc = user_env.check_live_user_env(
+            paths=self.paths,
+            runner=runner,
+            mcp_probe=lambda _: (False, "probe timeout"),
+            out=output.append,
+        )
 
-        self.assertEqual(rc, 0)
-        payload = json.loads(output[0])
-        self.assertTrue(payload["ok"])
-        self.assertEqual(payload["status"], "pass")
-        self.assertIn("status_report", payload)
-        self.assertIn("validation_report", payload)
-        self.assertTrue(payload["status_report"]["wrapper_present"])
-        self.assertEqual(payload["validation_report"]["status"], "pass")
+        self.assertEqual(rc, 1)
+        rendered = "\n".join(output)
+        self.assertIn("mcp probe: fail", rendered)
+        self.assertIn("MCP_SMOKE_FAILED", rendered)
+
+    def test_check_live_fails_when_snapshot_timer_is_missing(self):
+        current_ts = str(time.time())
+        self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'done');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.close()
+        write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                unit = args[-1]
+                stdout = "active\n" if unit in {
+                    "slack-mirror-api.service",
+                    "slack-mirror-webhooks-default.service",
+                    "slack-mirror-daemon-default.service",
+                } else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        rc = user_env.check_live_user_env(
+            paths=self.paths,
+            runner=runner,
+            mcp_probe=lambda _: (True, None),
+            out=output.append,
+        )
+
+        self.assertEqual(rc, 1)
+        rendered = "\n".join(output)
+        self.assertIn("runtime-report timer file: missing", rendered)
+        self.assertIn("SNAPSHOT_TIMER_FILE_MISSING", rendered)
 
     def test_recover_live_plans_safe_restart_and_flags_operator_only_issues(self):
         current_ts = str(time.time())
@@ -988,6 +1231,77 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("[RESTART_WORKSPACE_UNITS] (default)", rendered)
         self.assertIn("Operator-Only Issues:", rendered)
         self.assertIn("[DUPLICATE_TOPOLOGY] (default)", rendered)
+        self.assertIn("Summary: ACTIONABLE", rendered)
+
+    def test_recover_live_plans_managed_runtime_refresh_for_mcp_drift(self):
+        current_ts = str(time.time())
+        self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'done');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.close()
+        write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                unit = args[-1]
+                stdout = "active\n" if unit in {
+                    "slack-mirror-api.service",
+                    "slack-mirror-webhooks-default.service",
+                    "slack-mirror-daemon-default.service",
+                    "slack-mirror-runtime-report.timer",
+                } else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        rc = user_env.recover_live_user_env(
+            paths=self.paths,
+            runner=runner,
+            mcp_probe=lambda _: (False, "probe timeout"),
+            out=output.append,
+        )
+
+        self.assertEqual(rc, 0)
+        rendered = "\n".join(output)
+        self.assertIn("[REFRESH_MANAGED_RUNTIME]", rendered)
+        self.assertNotIn("Operator-Only Issues:", rendered)
         self.assertIn("Summary: ACTIONABLE", rendered)
 
     def test_recover_live_apply_restarts_units_and_rechecks(self):
@@ -1057,19 +1371,80 @@ class UserEnvTests(unittest.TestCase):
         payload = json.loads(output[0])
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["applied"])
-        self.assertEqual(payload["status"], "pass")
-        self.assertIn(["systemctl", "--user", "daemon-reload"], calls)
-        self.assertIn(["systemctl", "--user", "restart", "slack-mirror-api.service"], calls)
-        self.assertIn(
-            [
-                "systemctl",
-                "--user",
-                "restart",
-                "slack-mirror-webhooks-default.service",
-                "slack-mirror-daemon-default.service",
-            ],
-            calls,
+
+    def test_recover_live_apply_refreshes_managed_runtime(self):
+        current_ts = str(time.time())
+        self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
         )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'done');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.close()
+        write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                unit = args[-1]
+                stdout = "active\n" if unit in {
+                    "slack-mirror-api.service",
+                    "slack-mirror-webhooks-default.service",
+                    "slack-mirror-daemon-default.service",
+                    "slack-mirror-runtime-report.timer",
+                } else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        with patch("slack_mirror.service.user_env.update_user_env", return_value=0) as mock_update:
+            rc = user_env.recover_live_user_env(
+                paths=self.paths,
+                runner=runner,
+                mcp_probe=lambda _: (False, "probe timeout"),
+                out=output.append,
+                apply=True,
+                json_output=True,
+            )
+
+        self.assertEqual(rc, 0)
+        mock_update.assert_called_once()
+        payload = json.loads(output[0])
+        self.assertTrue(payload["applied"])
+        self.assertEqual(payload["status"], "actionable")
 
     def test_validate_live_fails_for_duplicate_topology_and_missing_outbound_tokens(self):
         self.paths.config_dir.mkdir(parents=True, exist_ok=True)
