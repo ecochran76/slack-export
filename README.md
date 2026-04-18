@@ -40,6 +40,7 @@ slack-mirror-user tenants activate polymer
 
 The same config-backed onboarding and local credential-install flow is available in the authenticated browser at `http://slack.localhost/settings/tenants`. Tenant cards refresh in place after scaffold, credential install, activation, live-control, backfill, and retire actions, and the manifest is exposed through a `Copy Manifest JSON` button so it can be pasted directly into Slack's app-manifest UI.
 Tenant tiles on that page also expose guarded activation, bounded backfill, live-sync start/restart/stop, and guarded tenant retirement controls.
+Bounded initial sync now persists durable reconcile-state evidence, so a successful browser-triggered backfill clears the misleading `needs_initial_sync` state on the tenant tile.
 For operator visibility, the authenticated browser also exposes a bounded logs surface at `http://slack.localhost/logs` for tenant live units plus the shared API and runtime-report services.
 
 ## Current Live Topology
@@ -159,6 +160,8 @@ The current repo has:
 - `/auth/login` now has a bounded failed-login throttle with config-backed window and threshold controls
 - `/settings` now provides a browser-facing account page over the same frontend-auth session and registration-policy data
 - `/settings` now also surfaces the active auth-governance policy, including session lifetime, idle timeout, and login-throttle settings
+- `/login` and `/settings` now explicitly tell operators that browser sessions persist across restarts until the configured session lifetime or idle timeout expires
+- `/login` and `/settings` now also surface the supported CLI password-reset hint: `slack-mirror-user user-env provision-frontend-user --username <identity> --password-env <ENV_VAR> --reset-password`
 - the shipped config template now defaults browser self-registration to off; enabling it for an externally exposed install is an explicit policy choice
 - `user-env provision-frontend-user` is the supported first-user bootstrap path when browser self-registration stays closed
 - `/settings` now updates session revocation state inline instead of depending on a full page reload

@@ -4,6 +4,7 @@ from unittest.mock import patch
 from slack_mirror import __version__
 from slack_mirror.cli.main import (
     build_parser,
+    cmd_mirror_backfill,
     cmd_mirror_reconcile_files,
     cmd_release_check,
     cmd_serve_api,
@@ -157,6 +158,76 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.cache_root, "./cache")
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
+
+    def test_cmd_mirror_backfill_persists_reconcile_state(self):
+        args = type(
+            "Args",
+            (),
+            {
+                "config": "/tmp/config.yaml",
+                "workspace": "pcg",
+                "auth_mode": "user",
+                "include_messages": True,
+                "messages_only": False,
+                "channels": "",
+                "channel_limit": 10,
+                "oldest": None,
+                "latest": None,
+                "include_files": False,
+                "file_types": "images",
+                "download_content": False,
+                "cache_root": None,
+            },
+        )()
+        with patch("slack_mirror.cli.main._db_path_from_config", return_value="/tmp/mirror.db"), patch(
+            "slack_mirror.cli.main.connect"
+        ) as mock_connect, patch(
+            "slack_mirror.cli.main.apply_migrations"
+        ), patch(
+            "slack_mirror.cli.main._workspace_config_by_name",
+            return_value={"name": "pcg", "team_id": "TPCG", "user_token": "xoxp-test-token"},
+        ), patch(
+            "slack_mirror.cli.main.upsert_workspace",
+            return_value=9,
+        ), patch(
+            "slack_mirror.cli.main.get_workspace_by_name",
+            return_value={"id": 9},
+        ), patch(
+            "slack_mirror.sync.backfill.backfill_users_and_channels",
+            return_value={"users": 35, "channels": 139},
+        ), patch(
+            "slack_mirror.sync.backfill.backfill_messages",
+            return_value={"channels": 10, "messages": 9, "skipped": 0},
+        ), patch(
+            "slack_mirror.service.runtime_heartbeat.write_reconcile_state",
+        ) as mock_write_state, patch("builtins.print") as mock_print:
+            rc = cmd_mirror_backfill(args)
+
+        self.assertEqual(rc, 0)
+        mock_write_state.assert_called_once_with(
+            "/tmp/config.yaml",
+            workspace="pcg",
+            auth_mode="user",
+            result={
+                "attempted": 10,
+                "downloaded": 183,
+                "warnings": 0,
+                "failed": 0,
+                "backfill_users": 35,
+                "backfill_channels": 139,
+                "backfill_message_channels": 10,
+                "backfill_messages": 9,
+                "backfill_skipped_channels": 0,
+                "backfill_files": 0,
+                "backfill_canvases": 0,
+                "backfill_files_downloaded": 0,
+                "backfill_canvases_downloaded": 0,
+            },
+        )
+        self.assertEqual(
+            mock_print.call_args[0][0],
+            "Backfill complete workspace=pcg users=35 channels=139 message_channels=10 messages=9 skipped_channels=0 files=0 canvases=0 files_downloaded=0 canvases_downloaded=0",
+        )
 
     def test_parse_user_env_snapshot_report(self):
         parser = build_parser()

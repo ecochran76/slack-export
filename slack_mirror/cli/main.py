@@ -165,6 +165,7 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
         backfill_messages,
         backfill_users_and_channels,
     )
+    from slack_mirror.service.runtime_heartbeat import write_reconcile_state
 
     db_path = _db_path_from_config(args.config)
     conn = connect(db_path)
@@ -222,6 +223,35 @@ def cmd_mirror_backfill(args: argparse.Namespace) -> int:
             download_content=args.download_content,
             file_types=args.file_types,
         )
+
+    attempted = int(message_counts["channels"] or counts["channels"] or file_counts["files"] or file_counts["canvases"] or 0)
+    downloaded = int(
+        counts["users"]
+        + counts["channels"]
+        + message_counts["messages"]
+        + file_counts["files_downloaded"]
+        + file_counts["canvases_downloaded"]
+    )
+    write_reconcile_state(
+        args.config,
+        workspace=ws_cfg.get("name"),
+        auth_mode=auth_mode,
+        result={
+            "attempted": attempted,
+            "downloaded": downloaded,
+            "warnings": 0,
+            "failed": 0,
+            "backfill_users": int(counts["users"]),
+            "backfill_channels": int(counts["channels"]),
+            "backfill_message_channels": int(message_counts["channels"]),
+            "backfill_messages": int(message_counts["messages"]),
+            "backfill_skipped_channels": int(message_counts["skipped"]),
+            "backfill_files": int(file_counts["files"]),
+            "backfill_canvases": int(file_counts["canvases"]),
+            "backfill_files_downloaded": int(file_counts["files_downloaded"]),
+            "backfill_canvases_downloaded": int(file_counts["canvases_downloaded"]),
+        },
+    )
 
     print(
         "Backfill complete "

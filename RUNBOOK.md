@@ -2553,3 +2553,16 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface -v`
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+
+## Turn 180 | 2026-04-18
+
+- Fixed the misleading tenant `needs_initial_sync` state after a successful bounded browser backfill.
+- Root cause: `mirror backfill` downloaded real data but never persisted reconcile-state evidence, so `/settings/tenants` and `tenants status` had no durable signal to flip the tile out of the initial-sync warning state.
+- Patched `cmd_mirror_backfill` to write a bounded reconcile summary through `write_reconcile_state(...)` using the same durable state directory already consumed by tenant status and managed live validation.
+- Added CLI regression coverage to assert that bounded backfill now writes reconcile state with the expected summary payload.
+- Hardened the browser auth copy so `/login` and `/settings` now explain that sessions persist across browser restarts until the configured session lifetime or idle timeout expires.
+- Added a visible CLI password-reset hint on `/login` and `/settings`:
+  - `slack-mirror-user user-env provision-frontend-user --username <identity> --password-env <ENV_VAR> --reset-password`
+- Validation:
+  - `uv run python -m unittest tests.test_cli.CliTests.test_cmd_mirror_backfill_persists_reconcile_state tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python -m py_compile slack_mirror/cli/main.py slack_mirror/service/api.py tests/test_cli.py tests/test_api_server.py`
