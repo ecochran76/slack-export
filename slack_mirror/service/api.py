@@ -519,6 +519,7 @@ def _tenant_settings_html(*, auth_session: FrontendAuthSession, tenants: list[di
         "const form=document.getElementById('tenant-onboard-form');const onboardingFeedback=document.getElementById('tenant-feedback');const button=document.getElementById('tenant-onboard-button');"
         "const credentialsForm=document.getElementById('tenant-credentials-form');const credentialsButton=document.getElementById('tenant-credentials-button');"
         "function showOnboardingFeedback(message,isError){onboardingFeedback.textContent=message;onboardingFeedback.className=isError?'feedback-bad':'feedback-ok';}"
+        f"{_BROWSER_ESCAPE_HTML_JS}"
         f"{_BROWSER_DIALOG_JS}"
         "function badgeClass(tone){if(tone==='ok')return 'badge-ok';if(tone==='bad')return 'badge-bad';if(tone==='neutral')return 'badge-neutral';return 'badge-warn';}"
         "function pillClass(tone){if(tone==='ok')return 'status-pill ok';if(tone==='bad')return 'status-pill bad';if(tone==='neutral')return 'status-pill neutral';return 'status-pill warn';}"

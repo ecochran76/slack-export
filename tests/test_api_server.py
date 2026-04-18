@@ -280,6 +280,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("initial bounded history sync", page.text)
         self.assertIn("Recommended next step", page.text)
         self.assertIn("Maintenance", page.text)
+        self.assertIn("function escapeHtml(value)", page.text)
         self.assertIn("setTenantPendingAction(name,'backfill');setTenantActionFeedback(name,'Initial history sync requested. Polling DB and queue stats...',false);renderTenantList(window.latestTenants||initialTenants);await refreshTenants();", page.text)
         self.assertIn("requestBrowserDialog(", page.text)
         self.assertIn("browser-action-dialog", page.text)
