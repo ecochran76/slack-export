@@ -206,10 +206,42 @@ Purpose:
 
 Actionable plans:
 - `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
+- `docs/dev/plans/0051-2026-04-18-operator-frontend-reuse-architecture.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
 - `slack-mirror-user tenants onboard`, `tenants credentials`, `tenants status`, `tenants activate`, `tenants live`, `tenants backfill`, and `tenants retire` are now the product-owned add-workspace and tenant-management path
 - `/settings/tenants` now exposes config-backed tenant status, scaffold creation, local credential installation, credential-ready activation, live sync start/restart/stop, bounded backfill, and guarded retirement in the authenticated browser
 - credential installation writes only to the configured dotenv file, backs it up when changed, and never echoes secret values in status/API output
-- remaining work is a real credential-backed Polymer activation rehearsal and any follow-up polish found by that live path
+- the current browser tenant surface is still a Python-rendered inline-HTML/JS page, which is sufficient for the shipped baseline but is now a poor fit for the denser operator-console UX the product needs next
+- the next frontend direction is now explicitly cross-repo:
+  - `slack-export`, `../imcli`, and `../ragmail` all need the same class of operator console
+  - reuse should be designed around shared operator-shell, status-widget, table/row, and theming primitives rather than a Slack-shaped one-off browser rewrite
+- remaining work is now split into:
+  - a real credential-backed Polymer activation rehearsal
+  - tenant-status and control UX refinement driven by live operator feedback
+  - a dedicated frontend-app migration for the tenant operator surface, with React/Vite-style client architecture preferred over extending the current inline page indefinitely
+
+Frontend subprojects for the operator-console migration:
+- shell and navigation:
+  - shared app shell, account/avatar chip placement, top bar, collapsible side rail, context selectors, and route framing
+- theme and design system:
+  - token contract, density modes, semantic status variants, typography, spacing, motion, and theme swapping without behavior changes
+- entity-management workbench:
+  - dense table or row views for tenants, sources, and managed entities, with status widgets, metric strips, inline actions, expandable details, and maintenance controls
+- search workbench:
+  - advanced search controls, saved views, facet and query-builder patterns, result grouping, row selection, candidate staging, and bulk actions
+- report and artifact pipeline:
+  - report generation, export flows, result-to-report handoff, artifact history, rename/delete/create, and bounded operator publishing workflows
+- logs and runtime observability:
+  - live and recent logs, runtime health summaries, queue and backfill state, poll-first status refresh, and later streaming follow-up only if justified
+- repo-local adapters and API binding:
+  - thin repo-specific API clients and data mappers that bind shared operator UI primitives to Slack, messaging, and email backends without making the shared layer transport-specific
+
+Planned slice order inside `P09`:
+1. architecture and package-boundary definition through `0051`
+2. shell, theme, and shared operator primitives
+3. `/settings/tenants` migration as the first proving workbench
+4. search-workbench migration and result-selection model
+5. report/artifact workflow migration
+6. logs/runtime observability refinement

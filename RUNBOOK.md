@@ -2566,3 +2566,32 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_cli.CliTests.test_cmd_mirror_backfill_persists_reconcile_state tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
   - `python -m py_compile slack_mirror/cli/main.py slack_mirror/service/api.py tests/test_cli.py tests/test_api_server.py`
+
+## Turn 181 | 2026-04-18
+
+- Opened a new bounded frontend-architecture plan under `P09`:
+  - `docs/dev/plans/0051-2026-04-18-operator-frontend-reuse-architecture.md`
+- Updated the roadmap so the next frontend direction is explicitly cross-repo rather than Slack-only:
+  - `slack-export`
+  - `../imcli`
+  - `../ragmail`
+- Recorded the architectural decision that the future operator frontend should prioritize reusable operator-shell, status-widget, row/table, and theming primitives over continued expansion of the current inline Python-rendered tenant page.
+- Recorded the preferred direction as `Vite + React + TypeScript`, with the first proving slice scoped to `/settings/tenants` and with theme compatibility treated as a first-class requirement.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 182 | 2026-04-18
+
+- Refined `P09` so the upcoming operator-frontend migration is no longer tracked as one broad browser rewrite.
+- Broke the reusable frontend direction into explicit subprojects:
+  - shell and navigation
+  - theme and design system
+  - entity-management workbench
+  - search workbench
+  - report and artifact pipeline
+  - logs and runtime observability
+  - repo-local adapter layer
+- Recorded an intended slice order in both the roadmap and `0051` so follow-on child plans can be opened as bounded subprojects instead of accumulating under one vague migration lane.
+- Kept `/settings/tenants` as the first proving workbench while making room for the later search, reporting, and result-manipulation surfaces the user already identified.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
