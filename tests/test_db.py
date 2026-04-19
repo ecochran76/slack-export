@@ -6,6 +6,7 @@ from slack_mirror.core.db import (
     apply_migrations,
     connect,
     get_derived_text,
+    get_derived_text_chunk_embedding,
     get_derived_text_chunks,
     get_message_embedding,
     get_sync_state,
@@ -14,6 +15,7 @@ from slack_mirror.core.db import (
     remove_channel_member,
     set_sync_state,
     upsert_derived_text,
+    upsert_derived_text_chunk_embedding,
     upsert_canvas,
     upsert_channel,
     upsert_channel_member,
@@ -210,6 +212,22 @@ class DbTests(unittest.TestCase):
             chunks = get_derived_text_chunks(conn, derived_text_id=int(derived["id"]))
             self.assertEqual(len(chunks), 1)
             self.assertEqual(chunks[0]["chunk_index"], 0)
+            upsert_derived_text_chunk_embedding(
+                conn,
+                derived_text_chunk_id=int(chunks[0]["id"]),
+                workspace_id=ws_id,
+                model_id="test-embed-v1",
+                embedding=[0.4, 0.5, 0.6],
+                content_hash=str(chunks[0]["content_hash"]),
+            )
+            chunk_emb = get_derived_text_chunk_embedding(
+                conn,
+                derived_text_chunk_id=int(chunks[0]["id"]),
+                model_id="test-embed-v1",
+            )
+            self.assertIsNotNone(chunk_emb)
+            self.assertEqual(chunk_emb["dim"], 3)
+            self.assertEqual([round(x, 5) for x in chunk_emb["embedding"]], [0.4, 0.5, 0.6])
 
     def test_upsert_derived_text_rebuilds_chunks_for_long_text(self):
         with tempfile.TemporaryDirectory() as td:

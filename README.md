@@ -125,6 +125,9 @@ The current repo has:
 - config-driven message-semantic provider selection through `search.semantic.provider`, while keeping `search.semantic.model` as the canonical model selector
 - a repo-owned semantic provider probe at `slack-mirror search provider-probe`, so GPU/runtime readiness can be checked before attempting a heavier local semantic model rehearsal
 - bounded message-embedding rollout controls through `slack-mirror mirror embeddings-backfill --channels ... --oldest ... --latest ... --order ...`
+- persisted derived-text chunk embeddings keyed by chunk id and model id, so semantic attachment/OCR search can reuse stored vectors instead of embedding every chunk at query time
+- semantic derived-text search now routes through the same configured embedding provider/model seam as messages, while preferring stored chunk vectors when they exist
+- bounded derived-text chunk rollout controls through `slack-mirror mirror derived-text-embeddings-backfill --kind ... --source-kind ... --order ...`
 - model-aware readiness and health reporting, so partial rollout of the configured semantic model is visible instead of silently looking complete
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
@@ -154,6 +157,18 @@ uv run slack-mirror search health --workspace default --model BAAI/bge-m3
 ```
 
 `search readiness` and `search health` now report configured-model coverage separately from total message embeddings, so a partial `bge-m3` rollout shows up as incomplete coverage rather than looking fully migrated.
+
+For bounded derived-text chunk rollout under the configured semantic model, use this loop:
+
+```bash
+uv sync --extra local-semantic
+uv run slack-mirror mirror process-derived-text-jobs --workspace default --kind attachment_text
+uv run slack-mirror mirror derived-text-embeddings-backfill --workspace default --model BAAI/bge-m3 --kind attachment_text --limit 500 --json
+uv run slack-mirror search derived-text --workspace default --query "invoice total" --kind attachment_text --mode semantic --model BAAI/bge-m3
+uv run slack-mirror search health --workspace default --model BAAI/bge-m3
+```
+
+`search readiness` and `search health` now also report configured-model chunk coverage for `attachment_text` and `ocr_text`, so a partial derived-text rollout is visible separately from message coverage.
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults

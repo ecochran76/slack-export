@@ -1221,7 +1221,8 @@ def cmd_search_semantic(args: argparse.Namespace) -> int:
 
 
 def cmd_search_derived_text(args: argparse.Namespace) -> int:
-    from slack_mirror.search.derived_text import search_derived_text
+    from slack_mirror.search.embeddings import build_embedding_provider
+    from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 
     db_path = _db_path_from_config(args.config)
     conn = connect(db_path)
@@ -1231,14 +1232,28 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
     if not ws_row:
         raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
 
-    rows = search_derived_text(
-        conn,
-        workspace_id=int(ws_row["id"]),
-        query=args.query,
-        limit=args.limit,
-        derivation_kind=args.kind,
-        source_kind=args.source_kind,
-    )
+    if args.mode == "semantic":
+        cfg = load_config(args.config)
+        embedding_provider = build_embedding_provider(cfg.data)
+        rows = search_derived_text_semantic(
+            conn,
+            workspace_id=int(ws_row["id"]),
+            query=args.query,
+            limit=args.limit,
+            derivation_kind=args.kind,
+            source_kind=args.source_kind,
+            model_id=args.model,
+            provider=embedding_provider,
+        )
+    else:
+        rows = search_derived_text(
+            conn,
+            workspace_id=int(ws_row["id"]),
+            query=args.query,
+            limit=args.limit,
+            derivation_kind=args.kind,
+            source_kind=args.source_kind,
+        )
     if args.json:
         print(json.dumps(rows, indent=2))
     else:
@@ -1252,7 +1267,7 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
                 f"snippet={snippet}"
             )
     print(
-        f"Derived-text search workspace={args.workspace} query={args.query!r} results={len(rows)} "
+        f"Derived-text search workspace={args.workspace} mode={args.mode} query={args.query!r} results={len(rows)} "
         f"kind={args.kind or 'any'} source_kind={args.source_kind or 'any'}"
     )
     return 0
@@ -1345,12 +1360,17 @@ def cmd_search_health(args: argparse.Namespace) -> int:
             "Readiness:"
             f" messages={readiness['messages']['count']}"
             f" embeddings.count={readiness['messages']['embeddings']['count']}"
+            f" embeddings.configured_model_count={readiness['messages']['embeddings']['configured_model_count']}"
             f" embeddings.pending={readiness['messages']['embeddings']['pending']}"
             f" embeddings.errors={readiness['messages']['embeddings']['errors']}"
             f" attachment.count={attachment['count']}"
+            f" attachment.chunk_count={attachment.get('chunk_count', 0)}"
+            f" attachment.configured_model_chunk_count={attachment.get('configured_model_chunk_count', 0)}"
             f" attachment.pending={attachment['pending']}"
             f" attachment.errors={attachment['errors']}"
             f" ocr.count={ocr['count']}"
+            f" ocr.chunk_count={ocr.get('chunk_count', 0)}"
+            f" ocr.configured_model_chunk_count={ocr.get('configured_model_chunk_count', 0)}"
             f" ocr.pending={ocr['pending']}"
             f" ocr.errors={ocr['errors']}"
         )
@@ -1538,6 +1558,7 @@ def cmd_embeddings_process(args: argparse.Namespace) -> int:
 
 
 def cmd_process_derived_text_jobs(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider, provider_name
     from slack_mirror.sync.derived_text import build_derived_text_provider, process_derived_text_jobs
 
     cfg = load_config(args.config)
@@ -1550,18 +1571,68 @@ def cmd_process_derived_text_jobs(args: argparse.Namespace) -> int:
         raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
 
     provider = build_derived_text_provider(cfg.data)
+    semantic_cfg = cfg.get("search", {}).get("semantic", {})
+    chunk_embedding_model_id = semantic_cfg.get("model", "local-hash-128")
+    chunk_embedding_provider = build_embedding_provider(cfg.data)
     result = process_derived_text_jobs(
         conn,
         workspace_id=int(ws_row["id"]),
         derivation_kind=args.kind,
         limit=args.limit,
         provider=provider,
+        chunk_embedding_model_id=str(chunk_embedding_model_id),
+        chunk_embedding_provider=chunk_embedding_provider,
     )
     print(
         f"Derived-text jobs workspace={args.workspace} kind={args.kind} provider={getattr(provider, 'name', provider.__class__.__name__)} jobs={result['jobs']} "
-        f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']}"
+        f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']} "
+        f"chunk_embedding_model={chunk_embedding_model_id} chunk_embedding_provider={provider_name(chunk_embedding_provider)}"
     )
     return 0 if result["errored"] == 0 else 1
+
+
+def cmd_derived_text_embeddings_backfill(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider, provider_name
+    from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
+
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
+    conn = connect(db_path)
+    apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    embedding_provider = build_embedding_provider(cfg.data)
+
+    ws_row = get_workspace_by_name(conn, args.workspace)
+    if not ws_row:
+        raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
+
+    result = backfill_derived_text_chunk_embeddings(
+        conn,
+        workspace_id=int(ws_row["id"]),
+        model_id=args.model,
+        limit=args.limit,
+        derivation_kind=args.kind,
+        source_kind=args.source_kind,
+        order=args.order,
+        provider=embedding_provider,
+    )
+    payload = {
+        "workspace": args.workspace,
+        "model": args.model,
+        "provider": provider_name(embedding_provider),
+        "kind": args.kind,
+        "source_kind": args.source_kind,
+        "order": args.order,
+        **result,
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return 0
+    print(
+        f"Derived-text chunk embeddings backfill workspace={args.workspace} model={args.model} provider={provider_name(embedding_provider)} "
+        f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']} "
+        f"documents={result['documents']} chunks={result['chunks']} kind={args.kind or 'any'} source_kind={args.source_kind or 'any'} order={args.order}"
+    )
+    return 0
 
 
 def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
@@ -2571,6 +2642,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_derived_process.add_argument("--limit", type=int, default=100, help="maximum jobs to process")
     p_derived_process.set_defaults(func=cmd_process_derived_text_jobs)
 
+    p_derived_emb_backfill = mirror_sub.add_parser("derived-text-embeddings-backfill", help="backfill derived-text chunk embeddings")
+    p_derived_emb_backfill.add_argument("--workspace", required=True, help="workspace name")
+    p_derived_emb_backfill.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_derived_emb_backfill.add_argument("--limit", type=int, default=500, help="maximum derived-text chunks to scan")
+    p_derived_emb_backfill.add_argument(
+        "--kind",
+        choices=["attachment_text", "ocr_text"],
+        default=None,
+        help="optional derived-text kind filter",
+    )
+    p_derived_emb_backfill.add_argument(
+        "--source-kind",
+        choices=["file", "canvas"],
+        default=None,
+        help="optional source kind filter",
+    )
+    p_derived_emb_backfill.add_argument(
+        "--order",
+        choices=["latest", "oldest"],
+        default="latest",
+        help="scan newest derived-text rows first or oldest rows first",
+    )
+    p_derived_emb_backfill.add_argument("--json", action="store_true", help="json output")
+    p_derived_emb_backfill.set_defaults(func=cmd_derived_text_embeddings_backfill)
+
     p_oauth = mirror_sub.add_parser("oauth-callback", help="run local HTTPS Slack OAuth callback handler")
     p_oauth.add_argument("--workspace", required=True, help="workspace name from config")
     p_oauth.add_argument("--client-id", help="Slack app client ID (defaults to workspace config client_id)")
@@ -2746,6 +2842,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_derived.add_argument("--workspace", required=True, help="workspace name")
     p_search_derived.add_argument("--query", required=True, help="query text")
     p_search_derived.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_derived.add_argument("--mode", choices=["lexical", "semantic"], default="lexical", help="derived-text retrieval mode")
+    p_search_derived.add_argument("--model", default="local-hash-128", help="embedding model id when --mode semantic")
     p_search_derived.add_argument(
         "--kind",
         choices=["attachment_text", "ocr_text"],

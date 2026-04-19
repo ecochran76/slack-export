@@ -7,12 +7,60 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, get_derived_text, upsert_canvas, upsert_file, upsert_workspace
+from slack_mirror.core.db import apply_migrations, connect, enqueue_derived_text_job, get_derived_text, upsert_canvas, upsert_derived_text, upsert_file, upsert_workspace
 from slack_mirror.search.derived_text import search_derived_text
-from slack_mirror.sync.derived_text import CommandDerivedTextProvider, FallbackDerivedTextProvider, HttpDerivedTextProvider, build_derived_text_provider, process_derived_text_jobs
+from slack_mirror.sync.derived_text import (
+    CommandDerivedTextProvider,
+    FallbackDerivedTextProvider,
+    HttpDerivedTextProvider,
+    backfill_derived_text_chunk_embeddings,
+    build_derived_text_provider,
+    process_derived_text_jobs,
+)
 
 
 class DerivedTextTests(unittest.TestCase):
+    def test_backfill_derived_text_chunk_embeddings_persists_vectors(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            db = root / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_file(conn, ws_id, {"id": "F0", "name": "notes.txt", "title": "Notes", "mimetype": "text/plain"}, local_path="/tmp/notes.txt")
+            long_text = ("alpha " * 120) + "\n\n" + ("gateway outage recovery " * 80)
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F0",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text=long_text,
+            )
+
+            class FakeProvider:
+                name = "fake_provider"
+
+                def embed_texts(self, texts, *, model_id):
+                    return [[float(index + 1), 0.0] for index, _ in enumerate(texts)]
+
+            result = backfill_derived_text_chunk_embeddings(
+                conn,
+                workspace_id=ws_id,
+                model_id="BAAI/bge-m3",
+                limit=50,
+                derivation_kind="attachment_text",
+                provider=FakeProvider(),
+            )
+
+            self.assertGreaterEqual(result["scanned"], 2)
+            self.assertEqual(result["embedded"], result["scanned"])
+            count = conn.execute("SELECT COUNT(*) AS c FROM derived_text_chunk_embeddings WHERE workspace_id = ?", (ws_id,)).fetchone()["c"]
+            self.assertEqual(count, result["embedded"])
+
     def test_process_jobs_extracts_docx_story_parts_and_visible_text(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -800,4 +848,3 @@ class DerivedTextTests(unittest.TestCase):
         self.assertEqual(provider.primary.command, ["/usr/local/bin/extractor", "--json"])
         self.assertEqual(provider.primary.name, "command:extractor")
         self.assertEqual(provider.fallback.name, "local_host_tools")
-

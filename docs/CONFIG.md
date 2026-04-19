@@ -149,7 +149,8 @@ search:
 Notes:
 
 - This stronger provider path currently applies to message embeddings and message-backed corpus search.
-- Derived-text semantic retrieval remains on the current baseline for now.
+- Derived-text semantic retrieval now uses the same configured provider/model seam for query vectors.
+- Persisted derived-text chunk embeddings are rolled out separately from messages and are tracked separately in readiness/health output.
 - Heavy ML dependencies are intentionally optional so baseline installs and CI do not require `sentence-transformers`.
 - The longer-term semantic architecture still prefers a dedicated local inference adapter for heavy model lifecycle; the in-process `sentence_transformers` path is the bounded first implementation slice.
 - The repo now exposes a readiness probe for this path:
@@ -157,6 +158,9 @@ Notes:
   - add `--smoke` to force a tiny embed call after the dependency/runtime checks
 - The optional dependency group for this local path is:
   - `uv sync --extra local-semantic`
+- Message rollout and derived-text chunk rollout are intentionally separate:
+  - messages: `uv run slack-mirror mirror embeddings-backfill ...`
+  - derived-text chunks: `uv run slack-mirror mirror derived-text-embeddings-backfill ...`
 
 Provider field semantics:
 
@@ -220,6 +224,10 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `search.semantic.weights.*` tunes hybrid lexical-vs-semantic fusion for message and corpus search.
 - `search.derived_text.provider.*` controls attachment and OCR extraction providers separately from message embeddings.
 - `search.embeddings_model` remains as a legacy field from earlier hosted-embedding work and is no longer the primary selector for the local message-semantic path; prefer `search.semantic.model`.
+- `search readiness` and `search health` now report configured-model coverage separately for:
+  - message embeddings
+  - `attachment_text` chunk embeddings
+  - `ocr_text` chunk embeddings
 
 ## Service and export settings
 

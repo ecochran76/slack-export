@@ -933,6 +933,62 @@ def get_derived_text_chunks(
     return [dict(row) for row in rows]
 
 
+def upsert_derived_text_chunk_embedding(
+    conn: sqlite3.Connection,
+    *,
+    derived_text_chunk_id: int,
+    workspace_id: int,
+    model_id: str,
+    embedding: list[float],
+    content_hash: str,
+) -> None:
+    if not embedding:
+        raise ValueError("embedding must not be empty")
+    vec = array("f", embedding)
+    dim = len(vec)
+    payload = vec.tobytes()
+
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO derived_text_chunk_embeddings(
+              derived_text_chunk_id, workspace_id, model_id, dim, embedding_blob, content_hash
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(derived_text_chunk_id, model_id) DO UPDATE SET
+              dim=excluded.dim,
+              embedding_blob=excluded.embedding_blob,
+              content_hash=excluded.content_hash,
+              embedded_at=CURRENT_TIMESTAMP
+            """,
+            (derived_text_chunk_id, workspace_id, model_id, dim, payload, content_hash),
+        )
+
+
+def get_derived_text_chunk_embedding(
+    conn: sqlite3.Connection,
+    *,
+    derived_text_chunk_id: int,
+    model_id: str,
+) -> dict[str, Any] | None:
+    row = conn.execute(
+        """
+        SELECT derived_text_chunk_id, workspace_id, model_id, dim, embedding_blob, content_hash, embedded_at
+        FROM derived_text_chunk_embeddings
+        WHERE derived_text_chunk_id = ? AND model_id = ?
+        """,
+        (derived_text_chunk_id, model_id),
+    ).fetchone()
+    if not row:
+        return None
+
+    out = dict(row)
+    vec = array("f")
+    vec.frombytes(out["embedding_blob"])
+    out["embedding"] = vec.tolist()
+    return out
+
+
 def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str, message: dict[str, Any]) -> None:
     ts = message.get("ts")
     if not ts:

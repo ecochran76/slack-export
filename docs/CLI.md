@@ -220,7 +220,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 
 ```
 usage: slack-mirror mirror [-h]
-                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 ```
 
@@ -231,6 +231,7 @@ usage: slack-mirror mirror [-h]
 
 - `backfill`
 - `daemon`
+- `derived-text-embeddings-backfill`
 - `embeddings-backfill`
 - `init`
 - `oauth-callback`
@@ -312,12 +313,38 @@ usage: slack-mirror mirror daemon [-h] [--workspace WORKSPACE]
 - `--max-cycles`
 
 
+### `slack-mirror mirror derived-text-embeddings-backfill`
+**Usage**
+
+```
+usage: slack-mirror mirror derived-text-embeddings-backfill
+       [-h] --workspace WORKSPACE [--model MODEL] [--limit LIMIT]
+       [--kind {attachment_text,ocr_text}] [--source-kind {file,canvas}]
+       [--order {latest,oldest}] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--model` — embedding model id; default: `local-hash-128`
+- `--limit` — maximum derived-text chunks to scan; default: `500`
+- `--kind` — optional derived-text kind filter
+- `--source-kind` — optional source kind filter
+- `--order` — scan newest derived-text rows first or oldest rows first; default: `latest`
+- `--json` — json output
+
+
 ### `slack-mirror mirror embeddings-backfill`
 **Usage**
 
 ```
 usage: slack-mirror mirror embeddings-backfill [-h] --workspace WORKSPACE
                                                [--model MODEL] [--limit LIMIT]
+                                               [--channels CHANNELS]
+                                               [--oldest OLDEST]
+                                               [--latest LATEST]
+                                               [--order {latest,oldest}]
+                                               [--json]
 ```
 
 **Options**
@@ -325,6 +352,11 @@ usage: slack-mirror mirror embeddings-backfill [-h] --workspace WORKSPACE
 - `--workspace` — workspace name
 - `--model` — embedding model id; default: `local-hash-128`
 - `--limit` — maximum messages to scan; default: `1000`
+- `--channels` — optional comma-separated channel IDs to bound the rollout; default: ``
+- `--oldest` — optional oldest ts boundary (inclusive)
+- `--latest` — optional latest ts boundary (inclusive)
+- `--order` — scan newest messages first or oldest messages first within the bounded rollout; default: `latest`
+- `--json` — json output
 
 
 ### `slack-mirror mirror init`
@@ -593,7 +625,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,provider-probe,query-dir}
                            ...
 ```
 
@@ -606,6 +638,7 @@ usage: slack-mirror search [-h]
 - `derived-text`
 - `health`
 - `keyword`
+- `provider-probe`
 - `query-dir`
 - `reindex-keyword`
 - `semantic`
@@ -651,6 +684,8 @@ usage: slack-mirror search corpus [-h]
 ```
 usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
                                         QUERY [--limit LIMIT]
+                                        [--mode {lexical,semantic}]
+                                        [--model MODEL]
                                         [--kind {attachment_text,ocr_text}]
                                         [--source-kind {file,canvas}] [--json]
 ```
@@ -660,6 +695,8 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 - `--workspace` — workspace name
 - `--query` — query text
 - `--limit` — maximum result rows; default: `20`
+- `--mode` — derived-text retrieval mode; default: `lexical`
+- `--model` — embedding model id when --mode semantic; default: `local-hash-128`
 - `--kind` — optional derived-text kind filter
 - `--source-kind` — optional source kind filter
 - `--json` — json output
@@ -748,6 +785,21 @@ slack-mirror --config config.yaml search keyword --workspace default --query dep
 slack-mirror --config config.yaml search keyword --workspace default --query "release incident" --mode hybrid
 slack-mirror --config config.yaml search semantic --workspace default --query "refund issue last sprint"
 ```
+
+
+### `slack-mirror search provider-probe`
+**Usage**
+
+```
+usage: slack-mirror search provider-probe [-h] [--model MODEL] [--smoke]
+                                          [--json]
+```
+
+**Options**
+
+- `--model` — embedding model id (defaults to config search.semantic.model)
+- `--smoke` — run a small embed smoke after readiness checks
+- `--json` — json output
 
 
 ### `slack-mirror search query-dir`

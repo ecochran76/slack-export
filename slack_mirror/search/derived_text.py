@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from array import array
 import shlex
 import sqlite3
 from typing import Any
 
-from slack_mirror.search.embeddings import cosine_similarity, embed_text
+from slack_mirror.search.embeddings import EmbeddingProvider, cosine_similarity, embed_text
 
 
 def _fts_escape(term: str) -> str:
@@ -12,15 +13,16 @@ def _fts_escape(term: str) -> str:
     return f'"{t}"' if t else ""
 
 
-def _base_doc_sql(*, include_chunk: bool = False) -> str:
+def _base_doc_sql(*, include_chunk: bool = False, include_chunk_embedding: bool = False) -> str:
     chunk_sql = ""
     if include_chunk:
+        embedding_sql = "\n          , dte.embedding_blob" if include_chunk_embedding else ""
         chunk_sql = """
           , dc.chunk_index
           , dc.start_offset
           , dc.end_offset
           , dc.text AS matched_text
-        """
+        """ + embedding_sql
     return f"""
         SELECT
           dt.id,
@@ -166,6 +168,7 @@ def _fetch_chunk_semantic_candidates(
     conn: sqlite3.Connection,
     *,
     workspace_id: int,
+    model_id: str,
     derivation_kind: str | None,
     source_kind: str | None,
     negative_terms: list[str],
@@ -177,13 +180,17 @@ def _fetch_chunk_semantic_candidates(
         source_kind=source_kind,
         negative_terms=negative_terms,
     )
-    sql = _base_doc_sql(include_chunk=True) + """
+    sql = _base_doc_sql(include_chunk=True, include_chunk_embedding=True) + """
         JOIN derived_text_chunks dc
           ON dc.derived_text_id = dt.id
+        LEFT JOIN derived_text_chunk_embeddings dte
+          ON dte.derived_text_chunk_id = dc.id
+         AND dte.model_id = ?
         WHERE """ + " AND ".join(clauses) + """
         ORDER BY dt.updated_at DESC, dc.chunk_index ASC
         LIMIT ?
     """
+    params = [model_id, *params]
     params.append(max(limit * 16, 400))
     return conn.execute(sql, params).fetchall()
 
@@ -311,6 +318,8 @@ def search_derived_text_semantic(
     limit: int = 20,
     derivation_kind: str | None = None,
     source_kind: str | None = None,
+    model_id: str = "local-hash-128",
+    provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -318,11 +327,12 @@ def search_derived_text_semantic(
     tokens = shlex.split(q)
     positive_terms = [token for token in tokens if token and not token.startswith("-") and ":" not in token]
     negative_terms = [token[1:] for token in tokens if token.startswith("-") and len(token) > 1]
-    qvec = embed_text(" ".join(positive_terms) if positive_terms else q)
+    qvec = embed_text(" ".join(positive_terms) if positive_terms else q, model_id=model_id, provider=provider)
 
     chunk_rows = _fetch_chunk_semantic_candidates(
         conn,
         workspace_id=workspace_id,
+        model_id=model_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
         negative_terms=negative_terms,
@@ -332,7 +342,13 @@ def search_derived_text_semantic(
     for row in chunk_rows:
         item = dict(row)
         matched_text = str(item.get("matched_text") or "")
-        sem = cosine_similarity(qvec, embed_text(matched_text))
+        if item.get("embedding_blob") is not None:
+            vec = array("f")
+            vec.frombytes(item["embedding_blob"])
+            chunk_vec = vec.tolist()
+        else:
+            chunk_vec = embed_text(matched_text, model_id=model_id, provider=provider)
+        sem = cosine_similarity(qvec, chunk_vec)
         item["_semantic_score"] = round(sem, 6)
         item["_source"] = "semantic"
         derived_id = int(item["id"])
@@ -355,7 +371,7 @@ def search_derived_text_semantic(
             continue
         text = str(item.get("text") or "")
         item["matched_text"] = text
-        item["_semantic_score"] = round(cosine_similarity(qvec, embed_text(text)), 6)
+        item["_semantic_score"] = round(cosine_similarity(qvec, embed_text(text, model_id=model_id, provider=provider)), 6)
         item["_source"] = "semantic"
         scored[derived_id] = item
 

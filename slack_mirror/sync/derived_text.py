@@ -19,10 +19,13 @@ from xml.etree import ElementTree as ET
 
 from slack_mirror.core.db import (
     get_derived_text,
+    get_derived_text_chunks,
     list_pending_derived_text_jobs,
     mark_derived_text_job_status,
+    upsert_derived_text_chunk_embedding,
     upsert_derived_text,
 )
+from slack_mirror.search.embeddings import EmbeddingProvider
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -1162,6 +1165,8 @@ def process_derived_text_jobs(
     derivation_kind: str = "attachment_text",
     limit: int = 100,
     provider: DerivedTextProvider | None = None,
+    chunk_embedding_model_id: str | None = None,
+    chunk_embedding_provider: EmbeddingProvider | None = None,
 ) -> dict[str, int]:
     provider = provider or get_default_derived_text_provider()
 
@@ -1244,6 +1249,17 @@ def process_derived_text_jobs(
                 local_path=details.get("local_path"),
                 metadata=metadata,
             )
+            if chunk_embedding_model_id and chunk_embedding_provider is not None:
+                backfill_derived_text_chunk_embeddings(
+                    conn,
+                    workspace_id=workspace_id,
+                    model_id=chunk_embedding_model_id,
+                    limit=1000,
+                    derivation_kind=derivation_kind,
+                    source_kind=str(job["source_kind"]),
+                    source_id=str(job["source_id"]),
+                    provider=chunk_embedding_provider,
+                )
             mark_derived_text_job_status(conn, job_id=int(job["id"]), status="done")
             processed += 1
         except Exception as exc:  # pragma: no cover - defensive
@@ -1251,3 +1267,98 @@ def process_derived_text_jobs(
             errored += 1
 
     return {"jobs": len(jobs), "processed": processed, "skipped": skipped, "errored": errored}
+
+
+def backfill_derived_text_chunk_embeddings(
+    conn,
+    *,
+    workspace_id: int,
+    model_id: str,
+    limit: int = 500,
+    derivation_kind: str | None = None,
+    source_kind: str | None = None,
+    source_id: str | None = None,
+    order: str = "latest",
+    provider: EmbeddingProvider,
+) -> dict[str, int]:
+    if provider is None:
+        raise ValueError("provider is required for derived-text chunk embedding backfill")
+
+    clauses = ["dt.workspace_id = ?"]
+    params: list[Any] = [workspace_id]
+    if derivation_kind:
+        clauses.append("dt.derivation_kind = ?")
+        params.append(str(derivation_kind))
+    if source_kind:
+        clauses.append("dt.source_kind = ?")
+        params.append(str(source_kind))
+    if source_id:
+        clauses.append("dt.source_id = ?")
+        params.append(str(source_id))
+
+    normalized_order = str(order or "latest").strip().lower()
+    if normalized_order not in {"latest", "oldest"}:
+        raise ValueError(f"Unsupported derived-text chunk backfill order: {order}")
+    order_sql = "DESC" if normalized_order == "latest" else "ASC"
+
+    rows = conn.execute(
+        f"""
+        SELECT
+          dt.id AS derived_text_id,
+          dt.source_kind,
+          dt.source_id,
+          dt.derivation_kind,
+          dt.updated_at,
+          dc.id AS derived_text_chunk_id,
+          dc.chunk_index,
+          dc.text,
+          dc.content_hash,
+          dte.content_hash AS embedded_content_hash
+        FROM derived_text dt
+        JOIN derived_text_chunks dc
+          ON dc.derived_text_id = dt.id
+        LEFT JOIN derived_text_chunk_embeddings dte
+          ON dte.derived_text_chunk_id = dc.id
+         AND dte.model_id = ?
+        WHERE {" AND ".join(clauses)}
+        ORDER BY dt.updated_at {order_sql}, dc.chunk_index ASC
+        LIMIT ?
+        """,
+        (model_id, *params, max(1, int(limit))),
+    ).fetchall()
+
+    scanned = len(rows)
+    skipped = 0
+    documents: set[int] = set()
+    chunks_to_embed: list[dict[str, Any]] = []
+    for row in rows:
+        documents.add(int(row["derived_text_id"]))
+        item = dict(row)
+        if str(item.get("embedded_content_hash") or "") == str(item.get("content_hash") or ""):
+            skipped += 1
+            continue
+        chunks_to_embed.append(item)
+
+    embedded = 0
+    batch_size = 32
+    for idx in range(0, len(chunks_to_embed), batch_size):
+        batch = chunks_to_embed[idx : idx + batch_size]
+        vectors = provider.embed_texts([str(item.get("text") or "") for item in batch], model_id=model_id)
+        for item, vector in zip(batch, vectors):
+            upsert_derived_text_chunk_embedding(
+                conn,
+                derived_text_chunk_id=int(item["derived_text_chunk_id"]),
+                workspace_id=workspace_id,
+                model_id=model_id,
+                embedding=vector,
+                content_hash=str(item["content_hash"] or ""),
+            )
+            embedded += 1
+
+    return {
+        "scanned": scanned,
+        "embedded": embedded,
+        "skipped": skipped,
+        "documents": len(documents),
+        "chunks": scanned,
+    }

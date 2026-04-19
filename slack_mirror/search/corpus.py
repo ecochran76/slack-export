@@ -83,7 +83,19 @@ def _search_corpus_rows(
                 provider=message_embedding_provider,
             )
         ]
-        derived_rows = [_normalize_derived_row(r) for r in search_derived_text_semantic(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
+        derived_rows = [
+            _normalize_derived_row(r)
+            for r in search_derived_text_semantic(
+                conn,
+                workspace_id=workspace_id,
+                query=q,
+                limit=lexical_limit,
+                derivation_kind=derived_kind,
+                source_kind=derived_source_kind,
+                model_id=model_id,
+                provider=message_embedding_provider,
+            )
+        ]
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
         for row in merged:
@@ -105,7 +117,19 @@ def _search_corpus_rows(
         )
     ]
     derived_lexical = [_normalize_derived_row(r) for r in search_derived_text(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
-    derived_semantic = [_normalize_derived_row(r) for r in search_derived_text_semantic(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
+    derived_semantic = [
+        _normalize_derived_row(r)
+        for r in search_derived_text_semantic(
+            conn,
+            workspace_id=workspace_id,
+            query=q,
+            limit=lexical_limit,
+            derivation_kind=derived_kind,
+            source_kind=derived_source_kind,
+            model_id=model_id,
+            provider=message_embedding_provider,
+        )
+    ]
 
     merged: dict[tuple[str, str], dict[str, Any]] = {}
     for row in msg_lexical:

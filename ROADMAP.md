@@ -261,6 +261,7 @@ Actionable plans:
 - `docs/dev/plans/0056-2026-04-19-bge-m3-readiness-and-evaluation.md`
 - `docs/dev/plans/0057-2026-04-19-bge-m3-bounded-live-rehearsal.md`
 - `docs/dev/plans/0058-2026-04-19-bge-m3-bounded-message-rollout.md`
+- `docs/dev/plans/0059-2026-04-19-derived-text-chunk-embeddings.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -285,6 +286,11 @@ Current state:
   - `mirror embeddings-backfill` can now target bounded message subsets directly
   - readiness and health now distinguish total embeddings from configured-model coverage
   - partial configured-model rollout now surfaces as an explicit warning instead of silently looking complete
+- that next bounded slice is now also complete under `0059`:
+  - derived-text chunk embeddings are now persisted per chunk and model id
+  - semantic derived-text search now prefers stored chunk vectors under the configured provider/model seam
+  - bounded rollout now exists for existing derived-text rows and for newly extracted rows during derived-text job processing
+  - readiness and health now expose configured-model chunk coverage for both `attachment_text` and `ocr_text`
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
@@ -292,7 +298,6 @@ Current state:
 - the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
 - derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes architecture-first rollout preferable to jumping straight into a model swap
 - the next implementation-critical step is to extend the stronger local path beyond bounded message rollout:
-  - derived-text chunk embeddings
   - chunk-aware retrieval evaluation
   - later reranking in bounded follow-on slices
 

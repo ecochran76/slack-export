@@ -986,6 +986,35 @@ class SlackMirrorAppService:
             (workspace_id,),
         ).fetchall()
         derived_counts = {str(row["derivation_kind"]): int(row["c"]) for row in derived_count_rows}
+        derived_chunk_rows = conn.execute(
+            """
+            SELECT dt.derivation_kind, COUNT(*) AS c
+            FROM derived_text_chunks dc
+            JOIN derived_text dt ON dt.id = dc.derived_text_id
+            WHERE dt.workspace_id = ?
+            GROUP BY dt.derivation_kind
+            """,
+            (workspace_id,),
+        ).fetchall()
+        derived_chunk_counts = {str(row["derivation_kind"]): int(row["c"]) for row in derived_chunk_rows}
+        derived_chunk_embedding_rows = conn.execute(
+            """
+            SELECT dt.derivation_kind, dte.model_id, COUNT(*) AS c
+            FROM derived_text_chunk_embeddings dte
+            JOIN derived_text_chunks dc ON dc.id = dte.derived_text_chunk_id
+            JOIN derived_text dt ON dt.id = dc.derived_text_id
+            WHERE dt.workspace_id = ?
+            GROUP BY dt.derivation_kind, dte.model_id
+            ORDER BY dt.derivation_kind, dte.model_id
+            """,
+            (workspace_id,),
+        ).fetchall()
+        derived_chunk_embeddings_by_model: dict[str, dict[str, int]] = {"attachment_text": {}, "ocr_text": {}}
+        for row in derived_chunk_embedding_rows:
+            kind = str(row["derivation_kind"])
+            if kind not in derived_chunk_embeddings_by_model:
+                derived_chunk_embeddings_by_model[kind] = {}
+            derived_chunk_embeddings_by_model[kind][str(row["model_id"])] = int(row["c"])
 
         provider_rows = conn.execute(
             """
@@ -1033,8 +1062,19 @@ class SlackMirrorAppService:
         derived_text = {}
         for kind in sorted(set(derived_counts) | set(job_counts) | {"attachment_text", "ocr_text"}):
             jobs = job_counts.get(kind, {"pending": 0, "done": 0, "skipped": 0, "error": 0})
+            chunk_count = int(derived_chunk_counts.get(kind, 0))
+            chunk_model_counts = dict(derived_chunk_embeddings_by_model.get(kind, {}))
+            chunk_model_count = int(chunk_model_counts.get(configured_model, 0))
+            chunk_model_missing = max(chunk_count - chunk_model_count, 0)
+            chunk_model_coverage_ratio = 1.0 if chunk_count <= 0 else chunk_model_count / max(chunk_count, 1)
             derived_text[kind] = {
                 "count": derived_counts.get(kind, 0),
+                "chunk_count": chunk_count,
+                "chunk_embeddings_by_model": chunk_model_counts,
+                "configured_model_chunk_count": chunk_model_count,
+                "configured_model_chunk_missing": chunk_model_missing,
+                "configured_model_chunk_coverage_ratio": round(chunk_model_coverage_ratio, 6),
+                "configured_model_chunk_ready": chunk_model_missing == 0,
                 "pending": jobs.get("pending", 0),
                 "errors": jobs.get("error", 0),
                 "providers": provider_counts.get(kind, {}),
@@ -1129,6 +1169,13 @@ class SlackMirrorAppService:
             report["warning_codes"].append("OCR_ISSUES_PRESENT")
         if not bool(message_embeddings.get("configured_model_ready", True)):
             report["warning_codes"].append("MESSAGE_MODEL_COVERAGE_INCOMPLETE")
+        attachment_chunk_rollout_started = int(attachment.get("configured_model_chunk_count", 0) or 0) > 0
+        ocr_chunk_rollout_started = int(ocr.get("configured_model_chunk_count", 0) or 0) > 0
+        if (
+            (attachment_chunk_rollout_started and not bool(attachment.get("configured_model_chunk_ready", True)))
+            or (ocr_chunk_rollout_started and not bool(ocr.get("configured_model_chunk_ready", True)))
+        ):
+            report["warning_codes"].append("DERIVED_TEXT_MODEL_COVERAGE_INCOMPLETE")
 
         if dataset_path:
             dataset = dataset_rows(dataset_path)

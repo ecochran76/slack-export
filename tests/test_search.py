@@ -7,6 +7,7 @@ from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
 from slack_mirror.sync.embeddings import process_embedding_jobs
+from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 
 
 class SearchTests(unittest.TestCase):
@@ -239,7 +240,37 @@ class SearchTests(unittest.TestCase):
                 local_path="/tmp/deploy.txt",
             )
 
-            rows = search_derived_text_semantic(conn, workspace_id=ws_id, query="gateway outage recovery", limit=5)
+            class FakeProvider:
+                name = "fake_provider"
+
+                def embed_texts(self, texts, *, model_id):
+                    out = []
+                    for text in texts:
+                        normalized = str(text or "").lower()
+                        if "gateway outage recovery" in normalized or "deployment checklist for cooper gateway outage recovery" in normalized:
+                            out.append([1.0, 0.0])
+                        else:
+                            out.append([0.0, 1.0])
+                    return out
+
+            provider = FakeProvider()
+            backfill_derived_text_chunk_embeddings(
+                conn,
+                workspace_id=ws_id,
+                model_id="BAAI/bge-m3",
+                limit=50,
+                derivation_kind="attachment_text",
+                provider=provider,
+            )
+
+            rows = search_derived_text_semantic(
+                conn,
+                workspace_id=ws_id,
+                query="gateway outage recovery",
+                limit=5,
+                model_id="BAAI/bge-m3",
+                provider=provider,
+            )
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["source_label"], "Deploy Notes")
             self.assertGreater(float(rows[0]["_semantic_score"]), 0.0)

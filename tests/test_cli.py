@@ -169,6 +169,36 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.limit, 15)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_derived_text_embeddings_backfill(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "mirror",
+                "derived-text-embeddings-backfill",
+                "--workspace",
+                "default",
+                "--model",
+                "BAAI/bge-m3",
+                "--limit",
+                "40",
+                "--kind",
+                "attachment_text",
+                "--source-kind",
+                "file",
+                "--order",
+                "oldest",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.model, "BAAI/bge-m3")
+        self.assertEqual(args.limit, 40)
+        self.assertEqual(args.kind, "attachment_text")
+        self.assertEqual(args.source_kind, "file")
+        self.assertEqual(args.order, "oldest")
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_mirror_reconcile_files(self):
         parser = build_parser()
         args = parser.parse_args(
@@ -630,6 +660,10 @@ class CliTests(unittest.TestCase):
                 "default",
                 "--query",
                 "incident review",
+                "--mode",
+                "semantic",
+                "--model",
+                "BAAI/bge-m3",
                 "--kind",
                 "attachment_text",
                 "--source-kind",
@@ -642,6 +676,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.command, "search")
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.query, "incident review")
+        self.assertEqual(args.mode, "semantic")
+        self.assertEqual(args.model, "BAAI/bge-m3")
         self.assertEqual(args.kind, "attachment_text")
         self.assertEqual(args.source_kind, "canvas")
         self.assertEqual(args.limit, 7)

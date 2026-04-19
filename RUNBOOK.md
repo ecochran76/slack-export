@@ -2930,3 +2930,27 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/sync/embeddings.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_embeddings.py tests/test_app_service.py tests/test_cli.py`
   - planning audit:
     - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 195 | 2026-04-19
+
+- Opened the next bounded `P10` slice:
+  - `0059-2026-04-19-derived-text-chunk-embeddings.md`
+- Scoped it to the next missing semantic layer after `0058`:
+  - persist derived-text chunk embeddings
+  - switch semantic derived-text search to stored vectors
+  - add a bounded rollout path for existing derived-text rows
+- Implemented the derived-text chunk-embedding storage slice:
+  - added SQLite migration `0011_derived_text_chunk_embeddings.sql`
+  - added repo-owned DB helpers for derived-text chunk embedding upsert and retrieval
+  - added bounded chunk-embedding backfill for existing derived-text rows
+  - extended derived-text job processing so newly extracted rows can embed chunks under the configured semantic model
+  - switched semantic derived-text search to prefer stored chunk vectors while keeping bounded fallback behavior
+  - threaded configured model/provider controls through derived-text and corpus search
+  - made readiness and health report configured-model chunk coverage for `attachment_text` and `ocr_text`
+- Updated docs for the new rollout contract:
+  - `README.md`
+  - `docs/CONFIG.md`
+- Validation:
+  - `uv run python -m unittest tests.test_db tests.test_derived_text tests.test_search tests.test_cli tests.test_app_service -v`
+  - `python -m py_compile slack_mirror/core/db.py slack_mirror/sync/derived_text.py slack_mirror/search/derived_text.py slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_db.py tests/test_derived_text.py tests/test_search.py tests/test_cli.py tests/test_app_service.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
