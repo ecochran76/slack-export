@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from slack_mirror.core.db import connect, enqueue_derived_text_job, get_workspace_by_name, mark_derived_text_job_status, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.service.app import SlackMirrorAppService
+from slack_mirror.sync.embeddings import process_embedding_jobs
 
 
 class AppServiceTests(unittest.TestCase):
@@ -506,6 +507,77 @@ class AppServiceTests(unittest.TestCase):
         workspaces = {row["workspace"] for row in rows}
         self.assertIn("default", workspaces)
         self.assertIn("soylei", workspaces)
+
+    def test_search_readiness_is_ready_with_messages_only_and_no_backlog(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C1",
+            {"ts": "20.0", "text": "OpenClaw gateway is down on cooper", "user": "U1"},
+        )
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, limit=20)
+
+        readiness = self.service.search_readiness(self.conn, workspace="default")
+
+        self.assertEqual(readiness["status"], "ready")
+        self.assertEqual(readiness["messages"]["count"], 1)
+        self.assertEqual(readiness["messages"]["embeddings"]["count"], 1)
+        self.assertEqual(readiness["derived_text"]["attachment_text"]["count"], 0)
+        self.assertEqual(readiness["derived_text"]["attachment_text"]["pending"], 0)
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["count"], 0)
+        self.assertEqual(readiness["derived_text"]["ocr_text"]["pending"], 0)
+
+    def test_corpus_search_exact_message_query_ranks_expected_result_in_lexical_and_hybrid(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C1", "name": "alerts"})
+        upsert_user(
+            self.conn,
+            workspace_id,
+            {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}},
+        )
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C1",
+            {"ts": "30.0", "text": "OpenClaw gateway is down on cooper", "user": "U1"},
+        )
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C1",
+            {"ts": "31.0", "text": "normal deployment completed successfully", "user": "U1"},
+        )
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, limit=20)
+
+        lexical = self.service.corpus_search(
+            self.conn,
+            workspace="default",
+            all_workspaces=False,
+            query="OpenClaw gateway is down on cooper",
+            limit=5,
+            mode="lexical",
+        )
+        hybrid = self.service.corpus_search(
+            self.conn,
+            workspace="default",
+            all_workspaces=False,
+            query="OpenClaw gateway is down on cooper",
+            limit=5,
+            mode="hybrid",
+            model_id="local-hash-128",
+        )
+
+        self.assertGreaterEqual(len(lexical), 1)
+        self.assertGreaterEqual(len(hybrid), 1)
+        self.assertEqual(lexical[0]["result_kind"], "message")
+        self.assertEqual(hybrid[0]["result_kind"], "message")
+        self.assertIn("OpenClaw gateway is down on cooper", lexical[0]["text"])
+        self.assertIn("OpenClaw gateway is down on cooper", hybrid[0]["text"])
+        self.assertEqual(lexical[0]["workspace"], "default")
+        self.assertEqual(hybrid[0]["workspace"], "default")
+        self.assertIn("_hybrid_score", hybrid[0])
 
     def test_send_message_and_thread_reply_are_audited(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
