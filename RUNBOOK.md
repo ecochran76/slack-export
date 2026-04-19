@@ -2863,3 +2863,41 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run slack-mirror --config /tmp/slack-mirror-semantic-probe-FGhC.yaml search provider-probe --json`
   - `uv sync --extra local-semantic`
   - `uv run slack-mirror --config /tmp/slack-mirror-semantic-probe-FGhC.yaml search provider-probe --smoke --json`
+
+## Turn 193 | 2026-04-19
+
+- Opened the next bounded `P10` slice:
+  - `0057-2026-04-19-bge-m3-bounded-live-rehearsal.md`
+- Scoped it to a temporary rehearsal DB and a small set of real paraphrase targets so the first live-data `bge-m3` quality check stays bounded and recoverable.
+- Created a temporary rehearsal DB by copying the live mirror and pointing a temporary config at:
+  - `search.semantic.model: BAAI/bge-m3`
+  - `search.semantic.provider.type: sentence_transformers`
+  - `device: cuda`
+- Reused the repo provider seam and DB upsert path to batch-embed only the target channels instead of backfilling the entire live corpus.
+- Bounded rehearsal volume:
+  - `default` target channel: `886` messages
+  - `soylei` target DM: `1815` messages
+  - `pcg` target DM: `1568` messages
+  - total embedded: `4269` messages
+- Batched `bge-m3` embedding of the rehearsal set completed in about `36.448s` after the model was already available in the environment.
+- Ran side-by-side semantic query comparisons and repo-owned benchmark checks against the bounded paraphrase targets:
+  - `default`
+    - `local-hash-128`: miss (`hit@3 = 0`, `ndcg = 0`)
+    - `bge-m3`: direct fix (`hit@3 = 1`, `mrr = 1.0`, `ndcg = 1.0`)
+  - `soylei`
+    - `local-hash-128`: miss (`hit@3 = 0`, `ndcg = 0`)
+    - `bge-m3`: partial fix (`hit@3 = 1`, `mrr = 0.333333`, `ndcg = 0.5`)
+  - `pcg`
+    - `local-hash-128`: miss (`hit@3 = 0`, `ndcg = 0`)
+    - `bge-m3`: strong fix (`hit@3 = 1`, `mrr = 1.0`, `ndcg = 0.787155`)
+- Closed `0057` after the bounded rehearsal showed that `bge-m3` materially improves the known weak paraphrase cases on real mirrored data.
+- Validation:
+  - planning audit:
+    - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - live rehearsal setup:
+    - temporary DB copy from `/home/ecochran76/.local/state/slack-mirror/slack_mirror.db`
+    - temporary config at `/tmp/slack-mirror-bge-rehearsal-rMZ8/config.yaml`
+  - side-by-side repo benchmark runs through `scripts/eval_search.py` for:
+    - `default`
+    - `soylei`
+    - `pcg`

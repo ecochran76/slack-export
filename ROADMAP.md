@@ -259,6 +259,7 @@ Actionable plans:
 - `docs/dev/plans/0054-2026-04-19-local-semantic-retrieval-architecture.md`
 - `docs/dev/plans/0055-2026-04-19-bge-m3-message-embeddings.md`
 - `docs/dev/plans/0056-2026-04-19-bge-m3-readiness-and-evaluation.md`
+- `docs/dev/plans/0057-2026-04-19-bge-m3-bounded-live-rehearsal.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -274,6 +275,11 @@ Current state:
   - a repo-owned provider probe
   - truthful provider-aware benchmark plumbing
 - the local workstation has now been validated as capable of a `BAAI/bge-m3` CUDA path once the optional semantic extra is installed
+- the immediate next step is a bounded live-data rehearsal on a temporary DB copy so `bge-m3` quality can be judged on real paraphrase queries before any broader rollout
+- that bounded live-data rehearsal is now complete under `0057` and the result is favorable:
+  - `local-hash-128` missed all three bounded paraphrase targets
+  - `bge-m3` hit all three within the top 3 on the rehearsal set
+- the next implementation-critical step is no longer “is `bge-m3` viable,” but “how do we broaden bounded `bge-m3` message rollout safely and make that evaluation path repeatable”
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
