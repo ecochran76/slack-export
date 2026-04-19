@@ -99,6 +99,7 @@ slack-mirror search corpus --workspace default --query "incident review" --mode 
 slack-mirror search corpus --all-workspaces --query "incident review" --mode hybrid
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
+slack-mirror search health --workspace default --target derived_text --dataset ./docs/dev/benchmarks/slack_derived_text_smoke.jsonl --mode semantic
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_depth.jsonl
 slack-mirror release check
 slack-mirror release check --require-clean --require-release-version
@@ -129,6 +130,7 @@ The current repo has:
 - semantic derived-text search now routes through the same configured embedding provider/model seam as messages, while preferring stored chunk vectors when they exist
 - bounded derived-text chunk rollout controls through `slack-mirror mirror derived-text-embeddings-backfill --kind ... --source-kind ... --order ...`
 - model-aware readiness and health reporting, so partial rollout of the configured semantic model is visible instead of silently looking complete
+- an explicit derived-text benchmark target through `search health --target derived_text`, with chunk-aware benchmark query reports for attachment/OCR evaluation
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -169,6 +171,19 @@ uv run slack-mirror search health --workspace default --model BAAI/bge-m3
 ```
 
 `search readiness` and `search health` now also report configured-model chunk coverage for `attachment_text` and `ocr_text`, so a partial derived-text rollout is visible separately from message coverage.
+
+For derived-text benchmark smoke after chunk rollout, use the shipped dataset:
+
+```bash
+uv run slack-mirror search health \
+  --workspace default \
+  --target derived_text \
+  --dataset ./docs/dev/benchmarks/slack_derived_text_smoke.jsonl \
+  --mode semantic \
+  --model BAAI/bge-m3
+```
+
+The derived-text benchmark target emits chunk-aware query reports, including `chunk_index`, `matched_text`, and source metadata for the top derived-text results, so degraded attachment/OCR queries are diagnosable without ad hoc local probing.
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults

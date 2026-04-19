@@ -746,8 +746,10 @@ class CliTests(unittest.TestCase):
                 "default",
                 "--dataset",
                 "docs/dev/benchmarks/slack_corpus_smoke.jsonl",
+                "--target",
+                "derived_text",
                 "--mode",
-                "hybrid",
+                "semantic",
                 "--limit",
                 "12",
                 "--min-hit-at-3",
@@ -764,7 +766,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.command, "search")
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.dataset, "docs/dev/benchmarks/slack_corpus_smoke.jsonl")
-        self.assertEqual(args.mode, "hybrid")
+        self.assertEqual(args.target, "derived_text")
+        self.assertEqual(args.mode, "semantic")
         self.assertEqual(args.limit, 12)
         self.assertEqual(args.min_hit_at_3, 0.6)
         self.assertEqual(args.min_hit_at_10, 0.85)

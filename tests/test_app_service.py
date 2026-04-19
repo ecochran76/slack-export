@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from slack_mirror.core.db import connect, enqueue_derived_text_job, get_workspace_by_name, mark_derived_text_job_status, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.service.app import SlackMirrorAppService
+from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 from slack_mirror.sync.embeddings import process_embedding_jobs
 
 
@@ -387,6 +388,79 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(health["benchmark"]["dataset_path"], str(dataset))
         self.assertIn("query_reports", health["benchmark"])
         self.assertEqual(health["benchmark_thresholds"]["min_hit_at_10"], 0.8)
+
+    def test_search_health_reports_derived_text_benchmark(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "baseline message for readiness", "channel": "C123"},
+        )
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, limit=20)
+        self.conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+            VALUES (?, 'F9', 'notes.txt', 'Playbook', 'text/plain', '/tmp/playbook.txt', '{}')
+            """,
+            (workspace_id,),
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F9",
+            derivation_kind="attachment_text",
+            extractor="utf8_text",
+            text="The catastrophic rollback signature appears in the late appendix section.",
+            media_type="text/plain",
+            local_path="/tmp/playbook.txt",
+            metadata={"origin": "test"},
+        )
+        backfill_derived_text_chunk_embeddings(
+            self.conn,
+            workspace_id=workspace_id,
+            model_id="local-hash-128",
+            limit=100,
+            derivation_kind="attachment_text",
+            provider=self.service.message_embedding_provider(),
+        )
+        dataset = self.root / "derived_eval.jsonl"
+        dataset.write_text(
+            '{"query":"catastrophic rollback signature","derivation_kind":"attachment_text","relevant":{"file:F9:attachment_text:utf8_text":2,"Playbook":1}}\n',
+            encoding="utf-8",
+        )
+
+        health = self.service.search_health(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            benchmark_target="derived_text",
+            mode="semantic",
+            limit=10,
+            model_id="local-hash-128",
+        )
+
+        self.assertEqual(health["status"], "pass")
+        self.assertEqual(health["benchmark_target"], "derived_text")
+        self.assertEqual(health["benchmark"]["corpus"], "slack-derived-text")
+        self.assertGreaterEqual(health["benchmark"]["hit_at_3"], 1.0)
+        first_query = health["benchmark"]["query_reports"][0]
+        self.assertEqual(first_query["derivation_kind"], "attachment_text")
+        self.assertTrue(first_query["top_result_details"])
+        self.assertEqual(first_query["top_result_details"][0]["source_id"], "F9")
+        self.assertIsNotNone(first_query["top_result_details"][0]["chunk_index"])
+
+    def test_search_health_rejects_hybrid_for_derived_text_target(self):
+        with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):
+            self.service.search_health(
+                self.conn,
+                workspace="default",
+                dataset_path=str(self.root / "unused.jsonl"),
+                benchmark_target="derived_text",
+                mode="hybrid",
+            )
 
     def test_search_health_applies_extraction_threshold_policy(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

@@ -708,6 +708,7 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 ```
 usage: slack-mirror search health [-h] --workspace WORKSPACE
                                   [--dataset DATASET]
+                                  [--target {corpus,derived_text}]
                                   [--mode {lexical,semantic,hybrid}]
                                   [--limit LIMIT] [--model MODEL]
                                   [--min-hit-at-3 MIN_HIT_AT_3]
@@ -721,6 +722,7 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
 
 - `--workspace` — workspace name
 - `--dataset` — optional JSONL benchmark dataset path
+- `--target` — benchmark target when dataset is provided; default: `corpus`
 - `--mode` — benchmark retrieval mode; default: `hybrid`
 - `--limit` — benchmark result window; default: `10`
 - `--model` — embedding model id for benchmark mode; default: `local-hash-128`

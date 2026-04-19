@@ -31,7 +31,7 @@ from slack_mirror.exports import (
 )
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.embeddings import build_embedding_provider, probe_embedding_provider
-from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
+from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search, evaluate_derived_text_search
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
     FrontendAuthIssueResult,
@@ -1112,6 +1112,7 @@ class SlackMirrorAppService:
         *,
         workspace: str,
         dataset_path: str | None = None,
+        benchmark_target: str = "corpus",
         mode: str = "hybrid",
         limit: int = 10,
         model_id: str = "local-hash-128",
@@ -1122,6 +1123,9 @@ class SlackMirrorAppService:
         max_attachment_pending: int = 25,
         max_ocr_pending: int = 25,
     ) -> dict[str, Any]:
+        if benchmark_target == "derived_text" and mode not in {"lexical", "semantic"}:
+            raise ValueError("derived_text benchmark target only supports lexical or semantic mode")
+
         readiness = self.search_readiness(conn, workspace=workspace)
         workspace_id = self.workspace_id(conn, workspace)
 
@@ -1130,6 +1134,7 @@ class SlackMirrorAppService:
             "status": "pass" if readiness["status"] == "ready" else "degraded",
             "readiness": readiness,
             "benchmark": None,
+            "benchmark_target": benchmark_target,
             "benchmark_thresholds": None,
             "extraction_thresholds": {
                 "max_attachment_pending": int(max_attachment_pending),
@@ -1179,15 +1184,26 @@ class SlackMirrorAppService:
 
         if dataset_path:
             dataset = dataset_rows(dataset_path)
-            benchmark = evaluate_corpus_search(
-                conn,
-                workspace_id=workspace_id,
-                dataset=dataset,
-                mode=mode,
-                limit=limit,
-                model_id=model_id,
-                embedding_provider=self.message_embedding_provider(),
-            )
+            if benchmark_target == "derived_text":
+                benchmark = evaluate_derived_text_search(
+                    conn,
+                    workspace_id=workspace_id,
+                    dataset=dataset,
+                    mode=mode,
+                    limit=limit,
+                    model_id=model_id,
+                    embedding_provider=self.message_embedding_provider(),
+                )
+            else:
+                benchmark = evaluate_corpus_search(
+                    conn,
+                    workspace_id=workspace_id,
+                    dataset=dataset,
+                    mode=mode,
+                    limit=limit,
+                    model_id=model_id,
+                    embedding_provider=self.message_embedding_provider(),
+                )
             benchmark["dataset_path"] = dataset_path
             report["benchmark"] = benchmark
             report["benchmark_thresholds"] = {

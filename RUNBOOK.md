@@ -2954,3 +2954,26 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_db tests.test_derived_text tests.test_search tests.test_cli tests.test_app_service -v`
   - `python -m py_compile slack_mirror/core/db.py slack_mirror/sync/derived_text.py slack_mirror/search/derived_text.py slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_db.py tests/test_derived_text.py tests/test_search.py tests/test_cli.py tests/test_app_service.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 196 | 2026-04-19
+
+- Opened the next bounded `P10` slice:
+  - `0060-2026-04-19-derived-text-retrieval-evaluation.md`
+- Scoped it to the next evaluation gap after persisted chunk embeddings:
+  - explicit derived-text benchmark evaluation
+  - search-health support for a derived-text benchmark target
+  - chunk-aware benchmark/debug output
+- Implemented the derived-text evaluation slice:
+  - added a shared derived-text benchmark evaluator alongside the existing corpus/message evaluators
+  - added `search health --target derived_text` while preserving `corpus` as the default benchmark target
+  - added chunk-aware benchmark query-report details for derived-text results
+  - added the shipped smoke dataset `docs/dev/benchmarks/slack_derived_text_smoke.jsonl`
+- Updated docs for the new benchmark target:
+  - `README.md`
+- Validation:
+  - `uv run python -m unittest tests.test_app_service tests.test_cli -v`
+  - `python -m py_compile slack_mirror/search/eval.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_app_service.py tests/test_cli.py`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

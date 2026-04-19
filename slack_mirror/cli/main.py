@@ -1341,6 +1341,7 @@ def cmd_search_health(args: argparse.Namespace) -> int:
         conn,
         workspace=args.workspace,
         dataset_path=args.dataset,
+        benchmark_target=args.target,
         mode=args.mode,
         limit=args.limit,
         model_id=args.model,
@@ -1386,6 +1387,7 @@ def cmd_search_health(args: argparse.Namespace) -> int:
             bench = payload["benchmark"]
             print(
                 "Benchmark:"
+                f" target={payload.get('benchmark_target', 'corpus')}"
                 f" mode={bench['mode']}"
                 f" queries={bench['queries']}"
                 f" hit@3={bench['hit_at_3']}"
@@ -2890,6 +2892,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health = search_sub.add_parser("health", help="show search readiness and optional benchmark health")
     p_search_health.add_argument("--workspace", required=True, help="workspace name")
     p_search_health.add_argument("--dataset", help="optional JSONL benchmark dataset path")
+    p_search_health.add_argument("--target", choices=["corpus", "derived_text"], default="corpus", help="benchmark target when dataset is provided")
     p_search_health.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default="hybrid", help="benchmark retrieval mode")
     p_search_health.add_argument("--limit", type=int, default=10, help="benchmark result window")
     p_search_health.add_argument("--model", default="local-hash-128", help="embedding model id for benchmark mode")

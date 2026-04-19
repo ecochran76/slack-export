@@ -262,6 +262,7 @@ Actionable plans:
 - `docs/dev/plans/0057-2026-04-19-bge-m3-bounded-live-rehearsal.md`
 - `docs/dev/plans/0058-2026-04-19-bge-m3-bounded-message-rollout.md`
 - `docs/dev/plans/0059-2026-04-19-derived-text-chunk-embeddings.md`
+- `docs/dev/plans/0060-2026-04-19-derived-text-retrieval-evaluation.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -291,6 +292,10 @@ Current state:
   - semantic derived-text search now prefers stored chunk vectors under the configured provider/model seam
   - bounded rollout now exists for existing derived-text rows and for newly extracted rows during derived-text job processing
   - readiness and health now expose configured-model chunk coverage for both `attachment_text` and `ocr_text`
+- that next bounded slice is now also complete under `0060`:
+  - the shared eval harness now supports explicit derived-text benchmark evaluation
+  - `search health` now supports a `derived_text` benchmark target while preserving corpus as the default
+  - derived-text benchmark query reports now include chunk-aware debug output
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
@@ -298,7 +303,6 @@ Current state:
 - the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
 - derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes architecture-first rollout preferable to jumping straight into a model swap
 - the next implementation-critical step is to extend the stronger local path beyond bounded message rollout:
-  - chunk-aware retrieval evaluation
   - later reranking in bounded follow-on slices
 
 Planned subphases:
