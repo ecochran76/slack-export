@@ -48,6 +48,10 @@ class _BufferStream:
         self.buffer = io.BytesIO(initial)
 
 
+def _result_payload(response: dict) -> dict:
+    return json.loads(response["result"]["content"][0]["text"])
+
+
 class McpServerTests(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory()
@@ -284,6 +288,167 @@ class McpServerTests(unittest.TestCase):
             }
         )
         self.assertIn('"status": "pending"', deliveries["result"]["content"][0]["text"])
+
+    def test_outbound_listener_delivery_lifecycle_tools(self):
+        register = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 40,
+                "method": "tools/call",
+                "params": {
+                    "name": "listeners.register",
+                    "arguments": {
+                        "workspace": "default",
+                        "spec": {
+                            "name": "outbound-hook",
+                            "event_types": ["outbound.message.sent", "outbound.thread_reply.sent"],
+                            "delivery_mode": "queue",
+                        },
+                    },
+                },
+            }
+        )
+        listener = _result_payload(register)
+        listener_id = int(listener["id"])
+
+        with patch("slack_mirror.service.app.SlackApiClient") as mock_client_cls:
+            client = mock_client_cls.return_value
+            client.send_message.return_value = {"ok": True, "channel": "C123", "ts": "2000.0001"}
+            client.send_thread_reply.return_value = {
+                "ok": True,
+                "channel": "C123",
+                "ts": "2000.0002",
+                "thread_ts": "2000.0001",
+            }
+
+            send = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 41,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "messages.send",
+                        "arguments": {
+                            "workspace": "default",
+                            "channel_ref": "C123",
+                            "text": "hello from mcp",
+                            "options": {"idempotency_key": "outbound-msg-1"},
+                        },
+                    },
+                }
+            )
+            reply = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 42,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "threads.reply",
+                        "arguments": {
+                            "workspace": "default",
+                            "channel_ref": "C123",
+                            "thread_ref": "2000.0001",
+                            "text": "reply from mcp",
+                            "options": {"idempotency_key": "outbound-reply-1"},
+                        },
+                    },
+                }
+            )
+
+        self.assertEqual(client.send_message.call_count, 1)
+        client.send_thread_reply.assert_called_once_with(channel="C123", thread_ts="2000.0001", text="reply from mcp", idempotency_key="outbound-reply-1")
+        self.assertEqual(_result_payload(send)["status"], "sent")
+        self.assertEqual(_result_payload(reply)["status"], "sent")
+
+        pending = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 43,
+                "method": "tools/call",
+                "params": {
+                    "name": "deliveries.list",
+                    "arguments": {"workspace": "default", "status": "pending", "listener_id": listener_id},
+                },
+            }
+        )
+        pending_payload = _result_payload(pending)
+        deliveries = pending_payload["deliveries"]
+        self.assertEqual(len(deliveries), 2)
+        self.assertEqual(
+            [item["event_type"] for item in deliveries],
+            ["outbound.message.sent", "outbound.thread_reply.sent"],
+        )
+
+        for idx, delivery in enumerate(deliveries, start=44):
+            ack = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": idx,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "deliveries.ack",
+                        "arguments": {"workspace": "default", "delivery_id": int(delivery["id"])},
+                    },
+                }
+            )
+            self.assertTrue(_result_payload(ack)["ok"])
+
+        delivered = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 46,
+                "method": "tools/call",
+                "params": {
+                    "name": "deliveries.list",
+                    "arguments": {"workspace": "default", "status": "delivered", "listener_id": listener_id},
+                },
+            }
+        )
+        delivered_payload = _result_payload(delivered)
+        self.assertEqual(len(delivered_payload["deliveries"]), 2)
+        self.assertEqual(
+            {item["attempts"] for item in delivered_payload["deliveries"]},
+            {1},
+        )
+
+        status = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 47,
+                "method": "tools/call",
+                "params": {
+                    "name": "listeners.status",
+                    "arguments": {"workspace": "default", "listener_id": listener_id},
+                },
+            }
+        )
+        self.assertEqual(_result_payload(status)["pending_deliveries"], 0)
+
+        unregister = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 48,
+                "method": "tools/call",
+                "params": {
+                    "name": "listeners.unregister",
+                    "arguments": {"workspace": "default", "listener_id": listener_id},
+                },
+            }
+        )
+        self.assertTrue(_result_payload(unregister)["ok"])
+
+        listeners = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 49,
+                "method": "tools/call",
+                "params": {
+                    "name": "listeners.list",
+                    "arguments": {"workspace": "default"},
+                },
+            }
+        )
+        self.assertEqual(_result_payload(listeners)["listeners"], [])
 
     def test_runtime_live_validation_tool(self):
         with patch.object(
