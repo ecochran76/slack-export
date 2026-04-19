@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,6 +37,10 @@ def _parse_frames(payload: bytes) -> list[dict]:
         frames.append(json.loads(payload[body_start:body_end].decode("utf-8")))
         offset = body_end
     return frames
+
+
+def _parse_jsonl(payload: bytes) -> list[dict]:
+    return [json.loads(line) for line in payload.decode("utf-8").splitlines() if line.strip()]
 
 
 class _BufferStream:
@@ -90,6 +95,55 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("messages.send", names)
         self.assertIn("listeners.register", names)
 
+    def test_initialize_negotiates_supported_protocol_version(self):
+        init = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {"protocolVersion": "2025-03-26"},
+            }
+        )
+        self.assertEqual(init["result"]["protocolVersion"], "2025-03-26")
+
+    def test_initialize_trace_file_records_handshake(self):
+        trace_path = self.root / "mcp-trace.jsonl"
+        input_stream = _BufferStream(
+            _frame(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-03-26",
+                        "clientInfo": {"name": "codex-probe", "version": "0.118.0"},
+                    },
+                }
+            )
+        )
+        output_stream = _BufferStream()
+        with patch.dict(
+            os.environ,
+            {
+                "SLACK_MIRROR_MCP_TRACE": "1",
+                "SLACK_MIRROR_MCP_TRACE_FILE": str(trace_path),
+            },
+            clear=False,
+        ):
+            run_mcp_stdio(config_path=str(self.config_path), stdin=input_stream, stdout=output_stream)
+        lines = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events = [entry["event"] for entry in lines]
+        self.assertIn("server.init.begin", events)
+        self.assertIn("server.init.ready", events)
+        self.assertIn("server.stdio.ready", events)
+        self.assertIn("request.initialize", events)
+        stdio_ready = next(entry for entry in lines if entry["event"] == "server.stdio.ready")
+        self.assertEqual(stdio_ready["stdin"]["label"], "stdin")
+        self.assertEqual(stdio_ready["stdout"]["label"], "stdout")
+        initialize = next(entry for entry in lines if entry["event"] == "request.initialize")
+        self.assertEqual(initialize["requested_protocol"], "2025-03-26")
+        self.assertEqual(initialize["negotiated_protocol"], "2025-03-26")
+
     def test_tools_call_round_trip_via_stdio(self):
         input_stream = _BufferStream(
             _frame({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
@@ -103,6 +157,52 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(responses[1]["id"], 2)
         health_text = responses[1]["result"]["content"][0]["text"]
         self.assertIn('"ok": true', health_text)
+
+    def test_tools_call_round_trip_via_jsonl_stdio(self):
+        input_stream = _BufferStream(
+            (
+                json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+                + "\n"
+                + json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 2,
+                        "method": "tools/call",
+                        "params": {"name": "health", "arguments": {}},
+                    }
+                )
+                + "\n"
+            ).encode("utf-8")
+        )
+        output_stream = _BufferStream()
+
+        run_mcp_stdio(config_path=str(self.config_path), stdin=input_stream, stdout=output_stream)
+        responses = _parse_jsonl(output_stream.buffer.getvalue())
+        self.assertEqual(responses[0]["id"], 1)
+        self.assertEqual(responses[1]["id"], 2)
+        health_text = responses[1]["result"]["content"][0]["text"]
+        self.assertIn('"ok": true', health_text)
+
+    def test_invalid_header_line_traces_and_raises(self):
+        trace_path = self.root / "mcp-invalid-trace.jsonl"
+        input_stream = _BufferStream(b"not-a-header-line\n")
+        output_stream = _BufferStream()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "SLACK_MIRROR_MCP_TRACE": "1",
+                    "SLACK_MIRROR_MCP_TRACE_FILE": str(trace_path),
+                },
+                clear=False,
+            ),
+            self.assertRaises(ValueError),
+        ):
+            run_mcp_stdio(config_path=str(self.config_path), stdin=input_stream, stdout=output_stream)
+        lines = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events = [entry["event"] for entry in lines]
+        self.assertIn("frame.read.invalid_header_line", events)
+        self.assertIn("frame.read.exception", events)
 
     def test_message_send_and_listener_tools(self):
         with patch("slack_mirror.service.app.SlackApiClient") as mock_client_cls:

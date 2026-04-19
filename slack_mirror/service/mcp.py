@@ -1,13 +1,70 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 import sys
+import traceback
+import time
 from dataclasses import asdict, is_dataclass
 from typing import Any, TextIO
 
 from slack_mirror import __version__
 from slack_mirror.service.app import get_app_service
 from slack_mirror.service.errors import map_service_error
+
+MCP_PROTOCOL_VERSION = "2025-03-26"
+MCP_SUPPORTED_PROTOCOL_VERSIONS = {
+    "2024-11-05",
+    "2025-03-26",
+    "2025-06-18",
+}
+McpTransport = str
+
+
+def _mcp_trace_enabled() -> bool:
+    return os.environ.get("SLACK_MIRROR_MCP_TRACE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _mcp_trace(event: str, **fields: Any) -> None:
+    if not _mcp_trace_enabled():
+        return
+    payload = {
+        "ts": round(time.time(), 6),
+        "event": event,
+        "pid": os.getpid(),
+    }
+    for key, value in fields.items():
+        if value is not None:
+            payload[key] = value
+    line = json.dumps(payload, sort_keys=True)
+    trace_path = os.environ.get("SLACK_MIRROR_MCP_TRACE_FILE", "").strip()
+    if trace_path:
+        with open(trace_path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+        return
+    print(line, file=sys.stderr, flush=True)
+
+
+def _describe_stream(stream: Any, *, label: str) -> dict[str, Any]:
+    details: dict[str, Any] = {"label": label}
+    try:
+        fileno = stream.fileno()
+    except Exception as exc:  # pragma: no cover - debug-only path
+        details["fileno_error"] = repr(exc)
+        return details
+
+    details["fileno"] = fileno
+    try:
+        details["isatty"] = bool(stream.isatty())
+    except Exception as exc:  # pragma: no cover - debug-only path
+        details["isatty_error"] = repr(exc)
+    fd_path = Path(f"/proc/self/fd/{fileno}")
+    try:
+        details["fd_target"] = os.readlink(fd_path)
+    except OSError as exc:  # pragma: no cover - platform/debug-only path
+        details["fd_target_error"] = repr(exc)
+    return details
 
 
 def _tool(name: str, description: str, schema: dict[str, Any]) -> dict[str, Any]:
@@ -28,7 +85,16 @@ def _text_content(payload: Any) -> list[dict[str, str]]:
 
 class SlackMirrorMcpServer:
     def __init__(self, config_path: str | None = None):
+        _mcp_trace("server.init.begin", config_path=config_path)
         self.service = get_app_service(config_path)
+        _mcp_trace("server.init.ready", config_path=config_path)
+
+    @staticmethod
+    def _negotiate_protocol_version(params: dict[str, Any]) -> str:
+        requested = params.get("protocolVersion")
+        if isinstance(requested, str) and requested in MCP_SUPPORTED_PROTOCOL_VERSIONS:
+            return requested
+        return MCP_PROTOCOL_VERSION
 
     def tools(self) -> list[dict[str, Any]]:
         return [
@@ -376,22 +442,34 @@ class SlackMirrorMcpServer:
     def handle_request(self, request: dict[str, Any]) -> dict[str, Any] | None:
         method = request.get("method")
         request_id = request.get("id")
+        _mcp_trace("request.received", method=method, request_id=request_id)
 
         if method == "initialize":
+            params = request.get("params") or {}
+            negotiated_protocol = self._negotiate_protocol_version(dict(params))
+            _mcp_trace(
+                "request.initialize",
+                request_id=request_id,
+                requested_protocol=params.get("protocolVersion"),
+                negotiated_protocol=negotiated_protocol,
+                client_info=params.get("clientInfo"),
+            )
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": negotiated_protocol,
                     "serverInfo": {"name": "slack-mirror", "version": __version__},
                     "capabilities": {"tools": {}},
                 },
             }
 
         if method == "initialized":
+            _mcp_trace("request.initialized", request_id=request_id)
             return None
 
         if method == "tools/list":
+            _mcp_trace("request.tools_list", request_id=request_id)
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
@@ -401,13 +479,22 @@ class SlackMirrorMcpServer:
         if method == "tools/call":
             params = request.get("params") or {}
             try:
+                _mcp_trace("request.tools_call.begin", request_id=request_id, tool=params.get("name"))
                 result = self.handle_call(str(params.get("name") or ""), dict(params.get("arguments") or {}))
+                _mcp_trace("request.tools_call.ok", request_id=request_id, tool=params.get("name"))
                 return {"jsonrpc": "2.0", "id": request_id, "result": result}
             except Exception as exc:  # noqa: BLE001
                 error = map_service_error(
                     exc,
                     tool=str(params.get("name") or ""),
                     arguments=dict(params.get("arguments") or {}),
+                )
+                _mcp_trace(
+                    "request.tools_call.error",
+                    request_id=request_id,
+                    tool=params.get("name"),
+                    error_code=error.mcp_status,
+                    error_message=error.message,
                 )
                 return {
                     "jsonrpc": "2.0",
@@ -416,6 +503,7 @@ class SlackMirrorMcpServer:
                 }
 
         if request_id is not None:
+            _mcp_trace("request.unknown_method", request_id=request_id, method=method)
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
@@ -424,29 +512,68 @@ class SlackMirrorMcpServer:
         return None
 
 
-def _read_mcp_frame(stream: Any) -> dict[str, Any] | None:
+def _read_mcp_frame(stream: Any) -> tuple[dict[str, Any], McpTransport] | None:
     headers: dict[str, str] = {}
     while True:
         line = stream.readline()
         if not line:
+            _mcp_trace("frame.read.eof")
             return None
         if line in {b"\r\n", b"\n"}:
             break
-        key, _, value = line.decode("utf-8").partition(":")
+        decoded_line = line.decode("utf-8", errors="replace")
+        stripped_line = decoded_line.strip()
+        if not headers and stripped_line.startswith("{"):
+            payload = json.loads(decoded_line)
+            _mcp_trace(
+                "frame.read.jsonl",
+                content_length=len(line),
+                method=payload.get("method"),
+                request_id=payload.get("id"),
+            )
+            return payload, "jsonl"
+        if ":" not in decoded_line:
+            _mcp_trace(
+                "frame.read.invalid_header_line",
+                raw_line=decoded_line[:400],
+                raw_line_hex=line[:64].hex(),
+            )
+            raise ValueError(f"Invalid MCP header line: {decoded_line!r}")
+        key, _, value = decoded_line.partition(":")
         headers[key.strip().lower()] = value.strip()
     content_length = int(headers.get("content-length", "0"))
     if content_length <= 0:
+        _mcp_trace("frame.read.invalid_length", headers=headers)
         return None
     body = stream.read(content_length)
     if not body:
+        _mcp_trace("frame.read.empty_body", content_length=content_length)
         return None
-    return json.loads(body.decode("utf-8"))
+    payload = json.loads(body.decode("utf-8"))
+    _mcp_trace(
+        "frame.read.ok",
+        content_length=content_length,
+        method=payload.get("method"),
+        request_id=payload.get("id"),
+    )
+    return payload, "content-length"
 
 
-def _write_mcp_frame(stream: Any, message: dict[str, Any]) -> None:
+def _write_mcp_frame(stream: Any, message: dict[str, Any], *, transport: McpTransport) -> None:
     body = json.dumps(message, separators=(",", ":")).encode("utf-8")
-    stream.write(f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8"))
-    stream.write(body)
+    _mcp_trace(
+        "frame.write",
+        content_length=len(body),
+        method=message.get("method"),
+        request_id=message.get("id"),
+        has_error="error" in message,
+        transport=transport,
+    )
+    if transport == "jsonl":
+        stream.write(body + b"\n")
+    else:
+        stream.write(f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8"))
+        stream.write(body)
     stream.flush()
 
 
@@ -454,10 +581,29 @@ def run_mcp_stdio(*, config_path: str | None = None, stdin: TextIO | None = None
     server = SlackMirrorMcpServer(config_path)
     in_stream = (stdin or sys.stdin).buffer
     out_stream = (stdout or sys.stdout).buffer
+    _mcp_trace(
+        "server.stdio.ready",
+        argv=sys.argv,
+        cwd=os.getcwd(),
+        ppid=os.getppid(),
+        stdin=_describe_stream(in_stream, label="stdin"),
+        stdout=_describe_stream(out_stream, label="stdout"),
+    )
     while True:
-        request = _read_mcp_frame(in_stream)
-        if request is None:
+        _mcp_trace("frame.read.wait")
+        try:
+            frame = _read_mcp_frame(in_stream)
+        except Exception as exc:  # noqa: BLE001
+            _mcp_trace(
+                "frame.read.exception",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+                traceback="".join(traceback.format_exception(exc)),
+            )
+            raise
+        if frame is None:
             return
+        request, transport = frame
         response = server.handle_request(request)
         if response is not None:
-            _write_mcp_frame(out_stream, response)
+            _write_mcp_frame(out_stream, response, transport=transport)

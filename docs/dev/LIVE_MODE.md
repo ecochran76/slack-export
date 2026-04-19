@@ -245,8 +245,8 @@ Common hard failures:
       - `shell_channel_no_messages`
       - `unexpected_empty_channel`
   - full `validate-live` now suppresses `STALE_MIRROR` when:
-    - the workspace has active recent channels, and
     - the zero-message bucket has no unexpected empty public/private channels
+    - this covers both active recent workspaces and mirrored-but-quiet workspaces
   - in plain-text output, suppressed stale evidence is still surfaced as an `OK` line with the stale count and suppression rationale
   - if it coincides with daemon-heartbeat or queue failures, then it is strong evidence of a real mirror-health problem
 

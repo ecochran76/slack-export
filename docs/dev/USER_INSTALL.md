@@ -431,7 +431,7 @@ This checks the supported unattended runtime contract and fails when it finds:
 Queue error counts still fail in full live validation when they exceed the live thresholds.
 Stale mirrored channels older than the built-in freshness window are now warnings rather than hard failures, because large Slack workspaces naturally contain many quiet historical channels.
 Use `mirror status --classify-access` to distinguish inactive-but-mirrored channels from actual ingest regressions.
-When full live validation sees active recent channels and no unexpected empty public/private channels, it suppresses `STALE_MIRROR` entirely instead of emitting a low-value warning.
+When full live validation sees no unexpected empty public/private channels, it suppresses `STALE_MIRROR` entirely instead of emitting a low-value warning. This covers both actively moving workspaces and mirrored-but-quiet workspaces like low-traffic project tenants.
 The narrower install/update validation gate still treats stale mirror freshness as a warning because live workspace units are not provisioned there.
 When a persisted `mirror reconcile-files` state file exists for a workspace, validation also reports the last reconcile batch summary and warns if that batch recorded repair warnings or failures. This keeps hosted-file repair drift visible without turning reconcile history into a hard live-health failure.
 

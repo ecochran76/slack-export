@@ -544,10 +544,34 @@ def _write_wrapper(paths: UserEnvPaths, *, args: list[str], target_path: Path) -
     target_path.chmod(0o755)
 
 
+def _write_mcp_wrapper(paths: UserEnvPaths) -> None:
+    content = (
+        f"#!{paths.venv_dir / 'bin' / 'python'}\n"
+        "import os\n"
+        "import sys\n"
+        "from slack_mirror.cli.main import main\n"
+        "\n"
+        f"os.environ['HOME'] = {str(paths.home_dir)!r}\n"
+        f"os.environ['SLACK_MIRROR_DB'] = {str(paths.state_dir / 'slack_mirror.db')!r}\n"
+        f"os.environ['SLACK_MIRROR_CACHE'] = {str(paths.cache_dir)!r}\n"
+        "if __name__ == '__main__':\n"
+        "    sys.argv = [\n"
+        "        sys.argv[0],\n"
+        f"        '--config', {str(paths.config_path)!r},\n"
+        "        'mcp',\n"
+        "        'serve',\n"
+        "        *sys.argv[1:],\n"
+        "    ]\n"
+        "    raise SystemExit(main())\n"
+    )
+    paths.mcp_wrapper_path.write_text(content, encoding="utf-8")
+    paths.mcp_wrapper_path.chmod(0o755)
+
+
 def _write_wrappers(paths: UserEnvPaths) -> None:
     _write_wrapper(paths, args=[], target_path=paths.wrapper_path)
     _write_wrapper(paths, args=["api", "serve"], target_path=paths.api_wrapper_path)
-    _write_wrapper(paths, args=["mcp", "serve"], target_path=paths.mcp_wrapper_path)
+    _write_mcp_wrapper(paths)
 
 
 def _write_api_service(paths: UserEnvPaths) -> None:
@@ -1064,7 +1088,7 @@ def _build_live_validation_report(
 
         stale_warning_suppressed = False
         if stale_channels:
-            if require_live_units and access_summary["active_recent_channels"] > 0 and access_summary["unexpected_empty_channels"] == 0:
+            if require_live_units and access_summary["unexpected_empty_channels"] == 0:
                 stale_warning_suppressed = True
             else:
                 ws_warn(

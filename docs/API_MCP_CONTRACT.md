@@ -26,6 +26,32 @@ Current shared contract coverage:
 
 The local HTTP API and MCP server are both thin wrappers over `slack_mirror.service.app`. When these contracts change, they should change together.
 
+## MCP Initialize
+
+The MCP stdio server now negotiates the caller's requested `initialize.params.protocolVersion`
+when it is one of the repo-supported protocol versions. Today the supported set is:
+
+- `2024-11-05`
+- `2025-03-26`
+- `2025-06-18`
+
+If the caller omits `protocolVersion` or requests an unsupported value, the server falls back to
+the current default `2025-03-26`.
+
+For handshake debugging, the MCP server also supports opt-in tracing:
+
+- `SLACK_MIRROR_MCP_TRACE=1`
+- optional `SLACK_MIRROR_MCP_TRACE_FILE=/absolute/path/to/trace.jsonl`
+
+When enabled, the server emits one JSON object per line for:
+
+- process startup
+- frame read and write boundaries
+- `initialize` request details, including requested and negotiated protocol version
+- early `tools/list` and `tools/call` dispatch, including tool-call failures
+
+If `SLACK_MIRROR_MCP_TRACE_FILE` is unset, trace lines go to stderr.
+
 ## Frontend Auth
 
 API only:
