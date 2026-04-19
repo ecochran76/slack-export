@@ -44,6 +44,9 @@ This plan does not include:
   - clean-state install no longer fails on a missing configured dotenv file
   - managed-runtime bootstrap validation no longer blocks on workspace credentials before config editing
   - disposable-home rehearsal now matches the intended contract: install/update pass, while `check-live` remains the stricter post-onboarding gate
+- the next `P11` slice is also landed:
+  - `user-env status` and `user-env check-live` now include a bounded concurrent MCP readiness probe instead of validating only a single stdio client
+  - the shared lightweight runtime status surface now exposes concurrent MCP readiness state so API and MCP callers can see the same release gate
 - the current baseline is functional, but the product still lacks one bounded release lane that treats install/update, managed-runtime health, and MCP usability as one coordinated target
 - MCP exists, but it is not yet clearly validated as a stable release interface with explicit readiness criteria, bounded failure modes, and strong operator guidance
 - the user wants this worktree to focus on the stable release line, while frontend migration proceeds separately in its own worktree

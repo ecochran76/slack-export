@@ -100,12 +100,15 @@ class RuntimeStatusResult:
     ok: bool
     wrappers_present: bool
     mcp_ready: bool
+    mcp_multi_client_ready: bool
     api_service_present: bool
     config_present: bool
     db_present: bool
     cache_present: bool
     rollback_snapshot_present: bool
     mcp_smoke_error: str | None = None
+    mcp_multi_client_error: str | None = None
+    mcp_multi_client_clients: int = 0
     services: dict[str, str] = field(default_factory=dict)
     reconcile_workspaces: list[dict[str, Any]] = field(default_factory=list)
 
@@ -219,6 +222,7 @@ class SlackMirrorAppService:
                     report.api_wrapper_present,
                     report.mcp_wrapper_present,
                     report.mcp_smoke_ok,
+                    report.mcp_multi_client_ok,
                     report.api_service_present,
                     report.config_present,
                     report.db_present,
@@ -233,12 +237,15 @@ class SlackMirrorAppService:
                 ]
             ),
             mcp_ready=report.mcp_wrapper_present and report.mcp_smoke_ok,
+            mcp_multi_client_ready=report.mcp_wrapper_present and report.mcp_smoke_ok and report.mcp_multi_client_ok,
             api_service_present=report.api_service_present,
             config_present=report.config_present,
             db_present=report.db_present,
             cache_present=report.cache_present,
             rollback_snapshot_present=report.rollback_snapshot_present,
             mcp_smoke_error=report.mcp_smoke_error,
+            mcp_multi_client_error=report.mcp_multi_client_error,
+            mcp_multi_client_clients=report.mcp_multi_client_clients,
             services=payload["services"],
             reconcile_workspaces=payload["reconcile_workspaces"],
         )

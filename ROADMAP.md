@@ -295,6 +295,7 @@ Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
 - recent slices fixed several important installer and runtime regressions, including managed-update path resolution, runtime-report snapshot auth regressions, and tenant-status durability after bounded backfill
 - `user-env check-live` now verifies the managed MCP wrapper with a real stdio health probe, not just file presence
+- `user-env status` and `user-env check-live` now also verify bounded concurrent MCP readiness across multiple simultaneous wrapper launches
 - the managed-runtime gate now also treats the runtime-report service/timer units and active timer scheduling as release-significant state
 - `user-env recover-live` can now safely refresh managed install artifacts when launcher or unit-file drift is detected, instead of treating those cases as operator-only by default
 - a clean-state install rehearsal now passes the intended product contract:

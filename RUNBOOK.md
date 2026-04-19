@@ -2704,3 +2704,28 @@ This file is the dated turn log for planning and execution continuity.
     - `update_rc: 0`
     - managed dotenv created automatically
     - `check_rc: 1` until credentials/live units exist, as intended
+
+## Turn 188 | 2026-04-18
+
+- Implemented the next `P11` MCP-hardening slice by adding bounded concurrent MCP readiness checks for multi-client use.
+- `user-env status` and `user-env check-live` now report:
+  - `mcp_multi_client_ok`
+  - `mcp_multi_client_error`
+  - `mcp_multi_client_clients`
+- The managed-runtime gate now fails with `MCP_MULTI_CLIENT_FAILED` when the installed `slack-mirror-mcp` wrapper passes a single-client health probe but fails a bounded concurrent launch probe.
+- The shared lightweight runtime-status surface now exposes:
+  - `mcp_multi_client_ready`
+  - `mcp_multi_client_error`
+  - `mcp_multi_client_clients`
+- This keeps CLI, API, and MCP-adjacent operator surfaces aligned on the same bounded “safe to add several agent clients” release signal.
+- Confirmed the managed install on this machine passes the new concurrent probe with `4` simultaneous MCP wrapper launches.
+- Updated operator docs so the managed-runtime gate now explicitly includes concurrent MCP readiness in:
+  - `README.md`
+  - `docs/dev/USER_INSTALL.md`
+  - `docs/API_MCP_CONTRACT.md`
+- Validation:
+  - `uv run python -m unittest tests.test_user_env -v`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_runtime_status_endpoint tests.test_mcp_server.McpServerTests.test_runtime_status_tool tests.test_app_service.AppServiceTests.test_create_runtime_report_uses_shared_runtime_payloads -v`
+  - `python -m py_compile slack_mirror/service/user_env.py slack_mirror/service/app.py tests/test_user_env.py`
+  - `uv run slack-mirror user-env status --json`
+  - `uv run slack-mirror user-env check-live --json`

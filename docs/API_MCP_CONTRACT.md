@@ -346,7 +346,10 @@ Important fields:
 - `ok`
 - `wrappers_present`
 - `mcp_ready`
+- `mcp_multi_client_ready`
 - `mcp_smoke_error`
+- `mcp_multi_client_error`
+- `mcp_multi_client_clients`
 - `api_service_present`
 - `config_present`
 - `db_present`
@@ -369,6 +372,9 @@ Current semantics:
 - `wrappers_present` means the managed wrapper launchers are present on disk
 - `mcp_ready` means the managed `slack-mirror-mcp` wrapper successfully answered a real MCP health request over stdio
 - `mcp_smoke_error` carries the latest wrapper-probe failure detail when `mcp_ready` is false
+- `mcp_multi_client_ready` means the managed `slack-mirror-mcp` wrapper passed a bounded concurrent readiness probe across multiple simultaneous wrapper launches
+- `mcp_multi_client_error` carries the latest concurrent-probe failure detail when `mcp_multi_client_ready` is false
+- `mcp_multi_client_clients` records how many simultaneous wrapper launches were used for the bounded concurrent probe
 
 ## Live Validation
 

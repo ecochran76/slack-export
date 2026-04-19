@@ -31,6 +31,7 @@ For release smoke and unattended installs, treat `slack-mirror user-env check-li
 - wrapper and unit-file presence for the managed CLI, API, MCP, and runtime-report surfaces
 - active `slack-mirror-runtime-report.timer` scheduling
 - a real MCP stdio health probe through `slack-mirror-mcp`
+- a bounded concurrent MCP readiness probe across multiple simultaneous wrapper launches
 - full live validation for config, DB, workspace sync, tokens, queue health, and live units
 
 A fresh `user-env install` is intentionally narrower: it bootstraps the managed runtime, seeds the configured dotenv file if needed, and leaves workspace credentials plus live units for the later onboarding steps.
@@ -137,6 +138,7 @@ The current repo has:
   - `mirror reconcile-files` now persists the last run outcome in local state and compares the current batch to the previous run in both plain output and `--json`, so operators can spot regressions instead of reading each batch in isolation
   - `user-env validate-live` and `user-env check-live` now surface the latest persisted reconcile-files evidence per workspace, and warn when the most recent repair batch recorded warnings or failures
   - `user-env check-live` now also verifies that the managed `slack-mirror-mcp` wrapper answers a real MCP health request, not just that the wrapper file exists
+  - `user-env status` and `user-env check-live` now also verify bounded multi-client MCP readiness through concurrent wrapper probes, so adding several Codex/OpenClaw clients can be gated explicitly instead of assumed
   - lightweight managed-runtime status is now queryable over CLI, API (`/v1/runtime/status`), and MCP (`runtime.status`), including the latest persisted reconcile summary per workspace
   - `scripts/render_runtime_report.py` now consumes `/v1/runtime/status` and `/v1/runtime/live-validation` to generate shareable Markdown or HTML runtime snapshots for ops review
   - `user-env snapshot-report` now writes Markdown and HTML runtime snapshots into the managed state directory under `runtime-reports/`, alongside stable `*.latest.*` copies for review or handoff, while pruning older timestamped snapshots with a bounded retention policy

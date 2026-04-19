@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from getpass import getpass
 from dataclasses import dataclass
 from datetime import datetime
@@ -116,6 +117,9 @@ class UserEnvStatusReport:
     mcp_wrapper_present: bool
     mcp_smoke_ok: bool
     mcp_smoke_error: str | None
+    mcp_multi_client_ok: bool
+    mcp_multi_client_error: str | None
+    mcp_multi_client_clients: int
     api_service_present: bool
     snapshot_service_present: bool
     snapshot_timer_present: bool
@@ -280,6 +284,30 @@ def _probe_managed_mcp_wrapper(wrapper_path: Path) -> tuple[bool, str | None]:
         return False, f"invalid MCP content payload: {exc}"
     if payload.get("ok") is not True:
         return False, f"unexpected health payload: {payload!r}"
+    return True, None
+
+
+def _probe_managed_mcp_wrapper_multi_client(
+    wrapper_path: Path,
+    *,
+    clients: int = 4,
+    single_client_probe: McpProbeFn = _probe_managed_mcp_wrapper,
+) -> tuple[bool, str | None]:
+    target_clients = max(1, int(clients))
+    if not wrapper_path.exists():
+        return False, "wrapper missing"
+    if target_clients == 1:
+        return single_client_probe(wrapper_path)
+
+    failures: list[str] = []
+    with ThreadPoolExecutor(max_workers=target_clients) as executor:
+        futures = [executor.submit(single_client_probe, wrapper_path) for _ in range(target_clients)]
+        for slot, future in enumerate(as_completed(futures), start=1):
+            ok, detail = future.result()
+            if not ok:
+                failures.append(f"client {slot}: {detail or 'unknown error'}")
+    if failures:
+        return False, "; ".join(failures[:3])
     return True, None
 
 
@@ -1186,14 +1214,32 @@ def _build_status_report(
             pass
     mcp_smoke_ok = False
     mcp_smoke_error: str | None = None
+    mcp_multi_client_ok = False
+    mcp_multi_client_error: str | None = None
+    mcp_multi_client_clients = 4
+    configured_clients = os.environ.get("SLACK_MIRROR_MCP_MULTI_CLIENT_PROBE_CLIENTS", "").strip()
+    if configured_clients:
+        try:
+            mcp_multi_client_clients = max(1, int(configured_clients))
+        except ValueError:
+            mcp_multi_client_clients = 4
     if target.mcp_wrapper_path.exists():
         mcp_smoke_ok, mcp_smoke_error = mcp_probe(target.mcp_wrapper_path)
+        if mcp_smoke_ok:
+            mcp_multi_client_ok, mcp_multi_client_error = _probe_managed_mcp_wrapper_multi_client(
+                target.mcp_wrapper_path,
+                clients=mcp_multi_client_clients,
+                single_client_probe=mcp_probe,
+            )
     return UserEnvStatusReport(
         wrapper_present=target.wrapper_path.exists(),
         api_wrapper_present=target.api_wrapper_path.exists(),
         mcp_wrapper_present=target.mcp_wrapper_path.exists(),
         mcp_smoke_ok=mcp_smoke_ok,
         mcp_smoke_error=mcp_smoke_error,
+        mcp_multi_client_ok=mcp_multi_client_ok,
+        mcp_multi_client_error=mcp_multi_client_error,
+        mcp_multi_client_clients=mcp_multi_client_clients,
         api_service_present=target.api_service_path.exists(),
         snapshot_service_present=target.snapshot_service_path.exists(),
         snapshot_timer_present=target.snapshot_timer_path.exists(),
@@ -1213,6 +1259,9 @@ def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
         "mcp_wrapper_present": report.mcp_wrapper_present,
         "mcp_smoke_ok": report.mcp_smoke_ok,
         "mcp_smoke_error": report.mcp_smoke_error,
+        "mcp_multi_client_ok": report.mcp_multi_client_ok,
+        "mcp_multi_client_error": report.mcp_multi_client_error,
+        "mcp_multi_client_clients": report.mcp_multi_client_clients,
         "api_service_present": report.api_service_present,
         "snapshot_service_present": report.snapshot_service_present,
         "snapshot_timer_present": report.snapshot_timer_present,
@@ -1254,6 +1303,14 @@ def _managed_runtime_issues(status_report: UserEnvStatusReport) -> list[LiveVali
             "MCP_SMOKE_FAILED",
             f"managed MCP wrapper failed health probe: {status_report.mcp_smoke_error or 'unknown error'}",
             "inspect `slack-mirror-mcp` directly, then rerun `slack-mirror user-env update` if the managed MCP launcher or venv is stale",
+        )
+    elif not status_report.mcp_multi_client_ok:
+        fail(
+            "MCP_MULTI_CLIENT_FAILED",
+            "managed MCP wrapper failed concurrent health probes "
+            f"({status_report.mcp_multi_client_clients} clients): "
+            f"{status_report.mcp_multi_client_error or 'unknown error'}",
+            "rerun `slack-mirror user-env check-live --json` and avoid adding multiple MCP clients until the concurrent probe passes",
         )
     if not status_report.api_service_present:
         fail(
@@ -1777,6 +1834,13 @@ def status_user_env(
         out(f"  probe:  {'pass' if report.mcp_smoke_ok else 'fail'}")
         if report.mcp_smoke_error:
             out(f"  detail: {report.mcp_smoke_error}")
+        out(
+            "  concurrent probe: "
+            f"{'pass' if report.mcp_multi_client_ok else 'fail'} "
+            f"({report.mcp_multi_client_clients} clients)"
+        )
+        if report.mcp_multi_client_error:
+            out(f"  concurrent detail: {report.mcp_multi_client_error}")
     out(f"API svc:  {target.api_service_path}")
     out("  status: present" if target.api_service_path.exists() else "  status: missing")
     out(f"Rpt svc:  {target.snapshot_service_path}")
@@ -1969,6 +2033,13 @@ def check_live_user_env(
         out(f"  mcp probe: {'pass' if report.status_report.mcp_smoke_ok else 'fail'}")
         if report.status_report.mcp_smoke_error:
             out(f"  mcp detail: {report.status_report.mcp_smoke_error}")
+        out(
+            "  mcp concurrent probe: "
+            f"{'pass' if report.status_report.mcp_multi_client_ok else 'fail'} "
+            f"({report.status_report.mcp_multi_client_clients} clients)"
+        )
+        if report.status_report.mcp_multi_client_error:
+            out(f"  mcp concurrent detail: {report.status_report.mcp_multi_client_error}")
     out(f"  api unit file: {'present' if report.status_report.api_service_present else 'missing'}")
     out(f"  runtime-report service file: {'present' if report.status_report.snapshot_service_present else 'missing'}")
     out(f"  runtime-report timer file: {'present' if report.status_report.snapshot_timer_present else 'missing'}")

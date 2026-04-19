@@ -455,6 +455,8 @@ class UserEnvTests(unittest.TestCase):
     def test_status_reports_expected_presence_flags(self):
         self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
         self.paths.snapshot_service_path.parent.mkdir(parents=True, exist_ok=True)
         self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
         self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
@@ -514,6 +516,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("Rpt tmr:", rendered)
         self.assertIn("status: present", rendered)
         self.assertIn("svc-a", rendered)
+        self.assertIn("concurrent probe: pass (4 clients)", rendered)
         self.assertIn("Reconcile state:", rendered)
         self.assertIn("default: downloaded=2 warnings=0 failed=0", rendered)
 
@@ -588,6 +591,9 @@ class UserEnvTests(unittest.TestCase):
         self.assertTrue(payload["api_wrapper_present"])
         self.assertTrue(payload["mcp_wrapper_present"])
         self.assertTrue(payload["mcp_smoke_ok"])
+        self.assertTrue(payload["mcp_multi_client_ok"])
+        self.assertIsNone(payload["mcp_multi_client_error"])
+        self.assertEqual(payload["mcp_multi_client_clients"], 4)
         self.assertTrue(payload["api_service_present"])
         self.assertTrue(payload["snapshot_service_present"])
         self.assertTrue(payload["snapshot_timer_present"])
@@ -1032,6 +1038,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertIn("validation_report", payload)
         self.assertTrue(payload["status_report"]["wrapper_present"])
         self.assertTrue(payload["status_report"]["mcp_smoke_ok"])
+        self.assertTrue(payload["status_report"]["mcp_multi_client_ok"])
         self.assertEqual(payload["validation_report"]["status"], "pass")
 
     def test_check_live_fails_when_mcp_wrapper_probe_fails(self):
@@ -1100,6 +1107,82 @@ class UserEnvTests(unittest.TestCase):
         rendered = "\n".join(output)
         self.assertIn("mcp probe: fail", rendered)
         self.assertIn("MCP_SMOKE_FAILED", rendered)
+
+    def test_check_live_fails_when_mcp_multi_client_probe_fails(self):
+        current_ts = str(time.time())
+        self.paths.wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.wrapper_path.write_text("wrapper\n", encoding="utf-8")
+        self.paths.api_wrapper_path.write_text("api\n", encoding="utf-8")
+        self.paths.mcp_wrapper_path.write_text("mcp\n", encoding="utf-8")
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {self.paths.state_dir / 'slack_mirror.db'}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        self.paths.api_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_service_path.write_text("unit\n", encoding="utf-8")
+        self.paths.snapshot_timer_path.write_text("unit\n", encoding="utf-8")
+        unit_dir = self.home_dir / ".config" / "systemd" / "user"
+        unit_dir.mkdir(parents=True, exist_ok=True)
+        (unit_dir / "slack-mirror-webhooks-default.service").write_text("unit\n", encoding="utf-8")
+        (unit_dir / "slack-mirror-daemon-default.service").write_text("unit\n", encoding="utf-8")
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            f"""
+            CREATE TABLE workspaces (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE channels (workspace_id INTEGER, channel_id TEXT, name TEXT, is_im INTEGER DEFAULT 0, is_mpim INTEGER DEFAULT 0, is_private INTEGER DEFAULT 0);
+            CREATE TABLE messages (workspace_id INTEGER, channel_id TEXT, ts TEXT);
+            CREATE TABLE events (workspace_id INTEGER, status TEXT);
+            CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
+            INSERT INTO workspaces(id, name) VALUES (1, 'default');
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '{current_ts}');
+            INSERT INTO events(workspace_id, status) VALUES (1, 'done');
+            INSERT INTO embedding_jobs(workspace_id, status) VALUES (1, 'done');
+            """
+        )
+        conn.close()
+        write_heartbeat(str(self.paths.config_path), workspace="default", kind="daemon")
+        output = []
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                unit = args[-1]
+                stdout = "active\n" if unit in {
+                    "slack-mirror-api.service",
+                    "slack-mirror-runtime-report.timer",
+                    "slack-mirror-webhooks-default.service",
+                    "slack-mirror-daemon-default.service",
+                } else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+        with patch.object(
+            user_env,
+            "_probe_managed_mcp_wrapper_multi_client",
+            return_value=(False, "client 2: timeout"),
+        ):
+            rc = user_env.check_live_user_env(
+                paths=self.paths,
+                runner=runner,
+                mcp_probe=lambda _: (True, None),
+                out=output.append,
+            )
+
+        self.assertEqual(rc, 1)
+        rendered = "\n".join(output)
+        self.assertIn("mcp concurrent probe: fail (4 clients)", rendered)
+        self.assertIn("client 2: timeout", rendered)
+        self.assertIn("Combined Summary: FAIL (1 failure)", rendered)
 
     def test_check_live_fails_when_snapshot_timer_is_missing(self):
         current_ts = str(time.time())

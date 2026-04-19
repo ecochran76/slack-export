@@ -24,6 +24,7 @@ The MCP launcher runs `slack-mirror mcp serve` with the managed config.
 The API service runs the API launcher under `systemd --user`.
 The runtime report timer runs `slack-mirror-user user-env snapshot-report --name scheduled-runtime-report` hourly under `systemd --user`.
 The managed install and update path now validates that the MCP launcher can answer a real MCP health request, not just that the launcher file exists.
+`user-env status` and `user-env check-live` also run a bounded concurrent MCP readiness probe so multi-client stdio usage can be verified before you add several agent clients.
 
 ## Fresh Install To First Workspace
 
@@ -359,6 +360,7 @@ This is the one-command operator smoke check. It combines:
 - managed runtime artifact presence for the CLI/API/MCP launchers plus the API and runtime-report unit files
 - active `slack-mirror-runtime-report.timer` scheduling
 - a real MCP stdio health probe through the managed `slack-mirror-mcp` wrapper
+- a bounded concurrent MCP readiness probe across multiple simultaneous wrapper launches
 - full `validate-live` health checks for config, DB, workspace sync, tokens, units, and queue health
 
 Use this when you want one pass/fail gate for unattended installs and release smoke checks.
