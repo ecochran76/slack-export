@@ -30,6 +30,7 @@ from slack_mirror.exports import (
     resolve_export_root,
 )
 from slack_mirror.core.slack_api import SlackApiClient
+from slack_mirror.search.embeddings import build_embedding_provider, provider_name
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
@@ -132,11 +133,17 @@ class SlackMirrorAppService:
         self.config = load_config(config_path)
         self.db_path = self.config.get("storage", {}).get("db_path", "./data/slack_mirror.db")
         self.migrations_dir = str(Path(__file__).resolve().parents[1] / "core" / "migrations")
+        self._message_embedding_provider = None
 
     def connect(self):
         conn = connect(self.db_path)
         apply_migrations(conn, self.migrations_dir)
         return conn
+
+    def message_embedding_provider(self):
+        if self._message_embedding_provider is None:
+            self._message_embedding_provider = build_embedding_provider(self.config.data)
+        return self._message_embedding_provider
 
     def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
         default_paths = default_user_env_paths()
@@ -737,7 +744,9 @@ class SlackMirrorAppService:
         use_fts: bool = True,
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
+        message_embedding_provider=None,
     ) -> list[dict[str, Any]]:
+        provider = message_embedding_provider or self.message_embedding_provider()
         if all_workspaces:
             if workspace:
                 raise ValueError("workspace must not be set when all_workspaces is true")
@@ -756,6 +765,7 @@ class SlackMirrorAppService:
                 use_fts=use_fts,
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
+                message_embedding_provider=provider,
             )
 
         if not workspace:
@@ -776,6 +786,7 @@ class SlackMirrorAppService:
             use_fts=use_fts,
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
+            message_embedding_provider=provider,
         )
 
     def corpus_search_page(
@@ -795,7 +806,9 @@ class SlackMirrorAppService:
         use_fts: bool = True,
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
+        message_embedding_provider=None,
     ) -> dict[str, Any]:
+        provider = message_embedding_provider or self.message_embedding_provider()
         if all_workspaces:
             if workspace:
                 raise ValueError("workspace must not be set when all_workspaces is true")
@@ -814,6 +827,7 @@ class SlackMirrorAppService:
                 use_fts=use_fts,
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
+                message_embedding_provider=provider,
             )
 
         if not workspace:
@@ -834,6 +848,7 @@ class SlackMirrorAppService:
             use_fts=use_fts,
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
+            message_embedding_provider=provider,
         )
 
     def get_message_detail(
@@ -1016,6 +1031,8 @@ class SlackMirrorAppService:
                     "count": message_embedding_count,
                     "pending": message_embedding_pending,
                     "errors": message_embedding_errors,
+                    "provider": provider_name(self.message_embedding_provider()),
+                    "model": str(self.config.get("search", {}).get("semantic", {}).get("model", "local-hash-128")),
                 },
             },
             "derived_text": derived_text,

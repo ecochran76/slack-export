@@ -34,6 +34,17 @@ search:
   semantic:
     mode_default: ${SLACK_MIRROR_SEARCH_MODE:-lexical}
     model: ${SLACK_MIRROR_SEARCH_SEM_MODEL:-local-hash-128}
+    provider:
+      type: ${SLACK_MIRROR_SEARCH_PROVIDER:-local_hash}
+      command: ${SLACK_MIRROR_SEARCH_PROVIDER_COMMAND:-}
+      url: ${SLACK_MIRROR_SEARCH_PROVIDER_URL:-}
+      bearer_token_env: ${SLACK_MIRROR_SEARCH_PROVIDER_BEARER_ENV:-}
+      timeout_s: ${SLACK_MIRROR_SEARCH_PROVIDER_TIMEOUT_S:-120}
+      device: ${SLACK_MIRROR_SEARCH_PROVIDER_DEVICE:-}
+      batch_size: ${SLACK_MIRROR_SEARCH_PROVIDER_BATCH_SIZE:-16}
+      normalize_embeddings: ${SLACK_MIRROR_SEARCH_PROVIDER_NORMALIZE:-true}
+      trust_remote_code: ${SLACK_MIRROR_SEARCH_PROVIDER_TRUST_REMOTE_CODE:-false}
+      cache_folder: ${SLACK_MIRROR_SEARCH_PROVIDER_CACHE_FOLDER:-}
     weights:
       lexical: ${SLACK_MIRROR_SEARCH_LEXICAL_WEIGHT:-0.6}
       semantic: ${SLACK_MIRROR_SEARCH_SEMANTIC_WEIGHT:-0.4}

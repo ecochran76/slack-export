@@ -570,6 +570,7 @@ def _workspace_names(config_path: str | None, workspace: str | None = None) -> l
 
 
 def cmd_mirror_sync(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.search.keyword import reindex_messages_fts
     from slack_mirror.sync.backfill import (
         backfill_files_and_canvases,
@@ -578,9 +579,11 @@ def cmd_mirror_sync(args: argparse.Namespace) -> int:
     )
     from slack_mirror.sync.embeddings import backfill_message_embeddings, process_embedding_jobs
 
-    db_path = _db_path_from_config(args.config)
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    embedding_provider = build_embedding_provider(cfg.data)
 
     names = _workspace_names(args.config, args.workspace)
     auth_mode = (args.auth_mode or "user").lower()
@@ -636,12 +639,14 @@ def cmd_mirror_sync(args: argparse.Namespace) -> int:
                 workspace_id=workspace_id,
                 model_id=args.model,
                 limit=args.embedding_scan_limit,
+                provider=embedding_provider,
             )
             process_embedding_jobs(
                 conn,
                 workspace_id=workspace_id,
                 model_id=args.model,
                 limit=args.embedding_job_limit,
+                provider=embedding_provider,
             )
 
         if args.reindex_keyword:
@@ -887,14 +892,17 @@ def cmd_mirror_status(args: argparse.Namespace) -> int:
 
 
 def cmd_mirror_daemon(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.service.processor import process_pending_events
     from slack_mirror.service.runtime_heartbeat import write_heartbeat
     from slack_mirror.sync.backfill import backfill_messages
     from slack_mirror.sync.embeddings import process_embedding_jobs
 
-    db_path = _db_path_from_config(args.config)
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    embedding_provider = build_embedding_provider(cfg.data)
 
     names = _workspace_names(args.config, args.workspace)
     ws_state: dict[str, dict[str, object]] = {}
@@ -930,6 +938,7 @@ def cmd_mirror_daemon(args: argparse.Namespace) -> int:
                 workspace_id=int(state["id"]),
                 model_id=args.model,
                 limit=args.embedding_limit,
+                provider=embedding_provider,
             )
             write_heartbeat(
                 args.config,
@@ -1033,6 +1042,7 @@ def cmd_messages_list(args: argparse.Namespace) -> int:
     return 0
 
 def cmd_search_keyword(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.search.keyword import search_messages
 
     cfg = load_config(args.config)
@@ -1049,6 +1059,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     keyword_cfg = search_cfg.get("keyword", {})
     profiles = search_cfg.get("query_profiles", {})
     profile_cfg = profiles.get(args.profile, {}) if args.profile else {}
+    embedding_provider = build_embedding_provider(cfg.data)
 
     mode = args.mode or profile_cfg.get("mode") or semantic_cfg.get("mode_default", "lexical")
     model = args.model or profile_cfg.get("model") or semantic_cfg.get("model", "local-hash-128")
@@ -1085,6 +1096,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         rank_recency_weight=rank_recency_weight,
         rerank=args.rerank,
         rerank_top_n=args.rerank_top_n,
+        provider=embedding_provider,
     )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -1247,6 +1259,7 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
 
 
 def cmd_search_corpus(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
@@ -1259,6 +1272,7 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
     lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else semantic_cfg.get("weights", {}).get("lexical", 0.6))
     semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
     semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
+    embedding_provider = build_embedding_provider(service.config.data)
 
     rows = service.corpus_search(
         conn,
@@ -1274,6 +1288,7 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
         use_fts=not args.no_fts,
         derived_kind=args.kind,
         derived_source_kind=args.source_kind,
+        message_embedding_provider=embedding_provider,
     )
     if args.json:
         print(json.dumps(rows, indent=2))
@@ -1404,11 +1419,14 @@ def cmd_search_reindex(args: argparse.Namespace) -> int:
 
 
 def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider, provider_name
     from slack_mirror.sync.embeddings import backfill_message_embeddings
 
-    db_path = _db_path_from_config(args.config)
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    embedding_provider = build_embedding_provider(cfg.data)
 
     ws_row = get_workspace_by_name(conn, args.workspace)
     if not ws_row:
@@ -1419,20 +1437,24 @@ def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
         workspace_id=int(ws_row["id"]),
         model_id=args.model,
         limit=args.limit,
+        provider=embedding_provider,
     )
     print(
-        f"Embeddings backfill workspace={args.workspace} model={args.model} "
+        f"Embeddings backfill workspace={args.workspace} model={args.model} provider={provider_name(embedding_provider)} "
         f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']}"
     )
     return 0
 
 
 def cmd_embeddings_process(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider, provider_name
     from slack_mirror.sync.embeddings import process_embedding_jobs
 
-    db_path = _db_path_from_config(args.config)
+    cfg = load_config(args.config)
+    db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
+    embedding_provider = build_embedding_provider(cfg.data)
 
     ws_row = get_workspace_by_name(conn, args.workspace)
     if not ws_row:
@@ -1443,9 +1465,10 @@ def cmd_embeddings_process(args: argparse.Namespace) -> int:
         workspace_id=int(ws_row["id"]),
         model_id=args.model,
         limit=args.limit,
+        provider=embedding_provider,
     )
     print(
-        f"Embedding jobs workspace={args.workspace} model={args.model} jobs={result['jobs']} "
+        f"Embedding jobs workspace={args.workspace} model={args.model} provider={provider_name(embedding_provider)} jobs={result['jobs']} "
         f"processed={result['processed']} skipped={result['skipped']} errored={result['errored']}"
     )
     return 0 if result["errored"] == 0 else 1

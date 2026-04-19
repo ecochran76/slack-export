@@ -137,10 +137,11 @@ Completed:
 
 ### Phase 2
 
-Next implementation slice:
+Current implementation direction:
 
 - local embedder integration for messages using `bge-m3`
-- bounded local inference adapter
+- bounded stepping-stone implementation through provider-routed `sentence_transformers`
+- preserve the longer-term inference-adapter direction for later phases
 - evaluation on the known failing paraphrase queries
 
 ### Phase 3

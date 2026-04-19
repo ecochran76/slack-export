@@ -5,7 +5,7 @@ import sqlite3
 from array import array
 from typing import Any
 
-from slack_mirror.search.embeddings import cosine_similarity, embed_text
+from slack_mirror.search.embeddings import EmbeddingProvider, cosine_similarity, embed_text
 from slack_mirror.search.sqlite_adapter import SQLiteCorpusAdapter
 
 
@@ -313,9 +313,10 @@ def _search_semantic(
     query: str,
     model_id: str,
     limit: int,
+    provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     positive_terms, where_sql, params = _parse_query(query, include_term_clauses=False)
-    query_vec = embed_text(" ".join(positive_terms) if positive_terms else query, model_id=model_id)
+    query_vec = embed_text(" ".join(positive_terms) if positive_terms else query, model_id=model_id, provider=provider)
     candidate_limit = max(max(1, limit) * 8, 200)
 
     adapter = SQLiteCorpusAdapter(conn)
@@ -387,6 +388,7 @@ def search_messages(
     rank_recency_weight: float = 2.0,
     rerank: bool = False,
     rerank_top_n: int = 50,
+    provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -407,7 +409,7 @@ def search_messages(
         )
         return _heuristic_rerank(out, q, rerank_top_n)[: max(1, limit)] if rerank else out
     if mode == "semantic":
-        out = _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=limit)
+        out = _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=limit, provider=provider)
         return _heuristic_rerank(out, q, rerank_top_n)[: max(1, limit)] if rerank else out
 
     lexical = _search_lexical(
@@ -421,7 +423,14 @@ def search_messages(
         rank_thread_weight=rank_thread_weight,
         rank_recency_weight=rank_recency_weight,
     )
-    semantic = _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=max(limit * 2, 20))
+    semantic = _search_semantic(
+        conn,
+        workspace_id=workspace_id,
+        query=q,
+        model_id=model_id,
+        limit=max(limit * 2, 20),
+        provider=provider,
+    )
 
     merged: dict[tuple[str, str], dict[str, Any]] = {}
     for row in lexical:

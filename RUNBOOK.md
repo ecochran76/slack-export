@@ -2785,3 +2785,43 @@ This file is the dated turn log for planning and execution continuity.
   - prefer a dedicated local inference adapter boundary for heavy model lifecycle instead of letting every operator surface own model loading directly
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 191 | 2026-04-19
+
+- Opened the first architecture-backed implementation child under `P10`:
+  - `0055-2026-04-19-bge-m3-message-embeddings.md`
+- Scoped it deliberately to message embeddings only so the first real local-model rollout does not mix:
+  - message embeddings
+  - derived-text chunk embeddings
+  - reranking
+  - ANN/vector storage changes
+- The intended shape for this slice is:
+  - provider-routed message embeddings
+  - optional local `bge-m3` support
+  - the same provider path used by message embedding jobs and message/corpus semantic search
+- Implemented that slice by expanding `slack_mirror.search.embeddings` from a local-hash seam into a real provider router with:
+  - `local_hash`
+  - optional `sentence_transformers`
+  - optional `command`
+  - optional `http`
+- Added model-resolution support for `BAAI/bge-m3` and kept `local-hash-*` as the built-in zero-dependency baseline.
+- Threaded the resolved message embedding provider through:
+  - `slack_mirror.sync.embeddings.backfill_message_embeddings`
+  - `slack_mirror.sync.embeddings.process_embedding_jobs`
+  - `slack_mirror.search.keyword.search_messages`
+  - `slack_mirror.search.corpus.search_corpus*`
+  - `SlackMirrorAppService` message/corpus search paths
+  - CLI entrypoints for embedding backfill, embedding processing, mirror sync refresh, mirror daemon, keyword search, and corpus search
+- Kept the slice bounded:
+  - derived-text semantic retrieval is unchanged
+  - no reranker landed
+  - no ANN or vector-database work landed
+  - no heavy ML dependency became mandatory for baseline installs or CI
+- Updated operator docs and config scaffolding so the new provider contract is explicit:
+  - `config.example.yaml`
+  - `docs/CONFIG.md`
+  - `README.md`
+- Closed `0055` after the provider-routed message path and docs landed.
+- Validation:
+  - `uv run python -m unittest tests.test_search tests.test_embeddings tests.test_app_service tests.test_cli -v`
+  - `python -m py_compile slack_mirror/search/embeddings.py slack_mirror/sync/embeddings.py slack_mirror/search/keyword.py slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_embeddings.py tests/test_search.py tests/test_app_service.py`

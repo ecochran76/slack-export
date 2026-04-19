@@ -8,14 +8,23 @@ from slack_mirror.core.db import (
     mark_embedding_job_status,
     upsert_message_embedding,
 )
-from slack_mirror.search.embeddings import embed_text
+from slack_mirror.search.embeddings import EmbeddingProvider, embed_text
 
 
 def _content_hash(message_text: str) -> str:
     return hashlib.sha256(message_text.encode("utf-8")).hexdigest()
 
 
-def _embed_and_store(conn, *, workspace_id: int, channel_id: str, ts: str, text: str, model_id: str) -> str:
+def _embed_and_store(
+    conn,
+    *,
+    workspace_id: int,
+    channel_id: str,
+    ts: str,
+    text: str,
+    model_id: str,
+    provider: EmbeddingProvider | None = None,
+) -> str:
     h = _content_hash(text or "")
     existing = get_message_embedding(
         conn,
@@ -27,7 +36,7 @@ def _embed_and_store(conn, *, workspace_id: int, channel_id: str, ts: str, text:
     if existing and existing.get("content_hash") == h:
         return "skipped"
 
-    emb = embed_text(text or "", model_id=model_id)
+    emb = embed_text(text or "", model_id=model_id, provider=provider)
     upsert_message_embedding(
         conn,
         workspace_id=workspace_id,
@@ -46,6 +55,7 @@ def backfill_message_embeddings(
     workspace_id: int,
     model_id: str = "local-hash-128",
     limit: int = 1000,
+    provider: EmbeddingProvider | None = None,
 ) -> dict[str, int]:
     rows = list(
         conn.execute(
@@ -70,6 +80,7 @@ def backfill_message_embeddings(
             ts=r["ts"],
             text=r["text"],
             model_id=model_id,
+            provider=provider,
         )
         if status == "embedded":
             embedded += 1
@@ -85,6 +96,7 @@ def process_embedding_jobs(
     workspace_id: int,
     model_id: str = "local-hash-128",
     limit: int = 200,
+    provider: EmbeddingProvider | None = None,
 ) -> dict[str, int]:
     jobs = list_pending_embedding_jobs(conn, workspace_id, limit=limit)
 
@@ -113,6 +125,7 @@ def process_embedding_jobs(
                 ts=job["ts"],
                 text=row["text"],
                 model_id=model_id,
+                provider=provider,
             )
             mark_embedding_job_status(conn, job_id=int(job["id"]), status="done")
             if status == "embedded":

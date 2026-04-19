@@ -257,17 +257,20 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
 - `docs/dev/plans/0054-2026-04-19-local-semantic-retrieval-architecture.md`
+- `docs/dev/plans/0055-2026-04-19-bge-m3-message-embeddings.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
 - the first enabling slice is now complete under `0053`: one shared embedding-provider seam owns the shipped `local-hash-128` baseline across sync-time and query-time semantic paths
-- the current semantic baseline still uses that lightweight local `local-hash-128` path rather than a stronger embedding model
+- the next implementation slice is now also complete under `0055`: message embedding jobs and message-backed corpus search can resolve through either the built-in `local_hash` baseline or an optional provider-routed `sentence_transformers` path for models such as `BAAI/bge-m3`
+- the current default semantic baseline still uses the lightweight local `local-hash-128` path until a stronger local model is deliberately configured
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
-- the first stable MCP-capable release work under `P11` is now good enough that this lane can move from seam hardening into an explicit retrieval-architecture decision before broader model integration
+- the first stable MCP-capable release work under `P11` is now good enough that this lane has moved from seam hardening into architecture and the first real message-model path
 - the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
 - derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes architecture-first rollout preferable to jumping straight into a model swap
+- the next implementation-critical step is to evaluate and harden the configured `bge-m3` message path on real paraphrase queries, then extend the same architecture into derived-text chunks and reranking in later bounded slices
 
 Planned subphases:
 1. provider and model seam hardening:

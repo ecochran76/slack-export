@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from slack_mirror.search.embeddings import EmbeddingProvider
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import search_messages
 
@@ -49,6 +50,7 @@ def _search_corpus_rows(
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
+    message_embedding_provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -69,7 +71,18 @@ def _search_corpus_rows(
         return merged
 
     if mode == "semantic":
-        msg_rows = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, mode="semantic", model_id=model_id)]
+        msg_rows = [
+            _normalize_message_row(r)
+            for r in search_messages(
+                conn,
+                workspace_id=workspace_id,
+                query=q,
+                limit=lexical_limit,
+                mode="semantic",
+                model_id=model_id,
+                provider=message_embedding_provider,
+            )
+        ]
         derived_rows = [_normalize_derived_row(r) for r in search_derived_text_semantic(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
@@ -79,7 +92,18 @@ def _search_corpus_rows(
         return merged
 
     msg_lexical = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
-    msg_semantic = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, mode="semantic", model_id=model_id)]
+    msg_semantic = [
+        _normalize_message_row(r)
+        for r in search_messages(
+            conn,
+            workspace_id=workspace_id,
+            query=q,
+            limit=lexical_limit,
+            mode="semantic",
+            model_id=model_id,
+            provider=message_embedding_provider,
+        )
+    ]
     derived_lexical = [_normalize_derived_row(r) for r in search_derived_text(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
     derived_semantic = [_normalize_derived_row(r) for r in search_derived_text_semantic(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
 
@@ -139,6 +163,7 @@ def search_corpus(
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
+    message_embedding_provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     slice_limit = max(1, int(limit or 20))
     slice_offset = max(0, int(offset or 0))
@@ -157,6 +182,7 @@ def search_corpus(
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
+        message_embedding_provider=message_embedding_provider,
     )
     return rows[slice_offset : slice_offset + slice_limit]
 
@@ -177,6 +203,7 @@ def search_corpus_page(
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
+    message_embedding_provider: EmbeddingProvider | None = None,
 ) -> dict[str, Any]:
     page_limit = max(1, int(limit or 20))
     page_offset = max(0, int(offset or 0))
@@ -195,6 +222,7 @@ def search_corpus_page(
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
+        message_embedding_provider=message_embedding_provider,
     )
     return {
         "results": rows[page_offset : page_offset + page_limit],
@@ -219,6 +247,7 @@ def _search_corpus_multi_rows(
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
+    message_embedding_provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     if not workspaces:
         return []
@@ -243,6 +272,7 @@ def _search_corpus_multi_rows(
                 use_fts=use_fts,
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
+                message_embedding_provider=message_embedding_provider,
             )
         )
 
@@ -270,6 +300,7 @@ def search_corpus_multi(
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
+    message_embedding_provider: EmbeddingProvider | None = None,
 ) -> list[dict[str, Any]]:
     slice_limit = max(1, int(limit or 20))
     slice_offset = max(0, int(offset or 0))
@@ -287,6 +318,7 @@ def search_corpus_multi(
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
+        message_embedding_provider=message_embedding_provider,
     )
     return rows[slice_offset : slice_offset + slice_limit]
 
@@ -306,6 +338,7 @@ def search_corpus_multi_page(
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
+    message_embedding_provider: EmbeddingProvider | None = None,
 ) -> dict[str, Any]:
     page_limit = max(1, int(limit or 20))
     page_offset = max(0, int(offset or 0))
@@ -323,6 +356,7 @@ def search_corpus_multi_page(
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
+        message_embedding_provider=message_embedding_provider,
     )
     return {
         "results": rows[page_offset : page_offset + page_limit],

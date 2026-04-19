@@ -10,6 +10,46 @@ from slack_mirror.sync.embeddings import process_embedding_jobs
 
 
 class SearchTests(unittest.TestCase):
+    def test_search_messages_semantic_uses_provider_routing(self):
+        class FakeProvider:
+            name = "fake_provider"
+
+            def __init__(self):
+                self.mapping = {
+                    "gateway outage cooper": [1.0, 0.0],
+                    "OpenClaw gateway is down on cooper": [1.0, 0.0],
+                    "normal deployment completed successfully": [0.0, 1.0],
+                }
+
+            def embed_texts(self, texts, *, model_id):
+                return [list(self.mapping.get(text, [0.0, 0.0])) for text in texts]
+
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "alerts"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "30.0", "text": "OpenClaw gateway is down on cooper", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "31.0", "text": "normal deployment completed successfully", "user": "U1"})
+
+            provider = FakeProvider()
+            process_embedding_jobs(conn, workspace_id=ws_id, model_id="BAAI/bge-m3", limit=20, provider=provider)
+            rows = search_messages(
+                conn,
+                workspace_id=ws_id,
+                query="gateway outage cooper",
+                limit=5,
+                mode="semantic",
+                model_id="BAAI/bge-m3",
+                provider=provider,
+            )
+            self.assertGreaterEqual(len(rows), 1)
+            self.assertIn("OpenClaw gateway is down on cooper", rows[0]["text"])
+
     def test_keyword_search_messages(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

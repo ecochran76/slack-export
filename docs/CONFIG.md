@@ -28,6 +28,40 @@ exports:
   root_dir: ${SLACK_MIRROR_EXPORT_ROOT:-~/.local/share/slack-mirror/exports}
   local_base_url: ${SLACK_MIRROR_EXPORT_LOCAL_BASE_URL:-http://slack.localhost}
   external_base_url: ${SLACK_MIRROR_EXPORT_EXTERNAL_BASE_URL:-https://slack.ecochran.dyndns.org}
+search:
+  embeddings_model: ${SLACK_MIRROR_EMBED_MODEL:-text-embedding-3-large}
+  keyword:
+    weights:
+      term: ${SLACK_MIRROR_SEARCH_KW_TERM_WEIGHT:-5.0}
+      link: ${SLACK_MIRROR_SEARCH_KW_LINK_WEIGHT:-1.0}
+      thread: ${SLACK_MIRROR_SEARCH_KW_THREAD_WEIGHT:-0.5}
+      recency: ${SLACK_MIRROR_SEARCH_KW_RECENCY_WEIGHT:-2.0}
+  semantic:
+    mode_default: ${SLACK_MIRROR_SEARCH_MODE:-lexical}
+    model: ${SLACK_MIRROR_SEARCH_SEM_MODEL:-local-hash-128}
+    provider:
+      type: ${SLACK_MIRROR_SEARCH_PROVIDER:-local_hash}
+      command: ${SLACK_MIRROR_SEARCH_PROVIDER_COMMAND:-}
+      url: ${SLACK_MIRROR_SEARCH_PROVIDER_URL:-}
+      bearer_token_env: ${SLACK_MIRROR_SEARCH_PROVIDER_BEARER_ENV:-}
+      timeout_s: ${SLACK_MIRROR_SEARCH_PROVIDER_TIMEOUT_S:-120}
+      device: ${SLACK_MIRROR_SEARCH_PROVIDER_DEVICE:-}
+      batch_size: ${SLACK_MIRROR_SEARCH_PROVIDER_BATCH_SIZE:-16}
+      normalize_embeddings: ${SLACK_MIRROR_SEARCH_PROVIDER_NORMALIZE:-true}
+      trust_remote_code: ${SLACK_MIRROR_SEARCH_PROVIDER_TRUST_REMOTE_CODE:-false}
+      cache_folder: ${SLACK_MIRROR_SEARCH_PROVIDER_CACHE_FOLDER:-}
+    weights:
+      lexical: ${SLACK_MIRROR_SEARCH_LEXICAL_WEIGHT:-0.6}
+      semantic: ${SLACK_MIRROR_SEARCH_SEMANTIC_WEIGHT:-0.4}
+      semantic_scale: ${SLACK_MIRROR_SEARCH_SEMANTIC_SCALE:-10.0}
+  derived_text:
+    provider:
+      type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}
+      command: ${SLACK_MIRROR_DERIVED_TEXT_COMMAND:-}
+      url: ${SLACK_MIRROR_DERIVED_TEXT_URL:-}
+      bearer_token_env: ${SLACK_MIRROR_DERIVED_TEXT_BEARER_ENV:-}
+      timeout_s: ${SLACK_MIRROR_DERIVED_TEXT_TIMEOUT_S:-120}
+      fallback_to_local: ${SLACK_MIRROR_DERIVED_TEXT_FALLBACK_TO_LOCAL:-true}
 
 workspaces:
   - name: default
@@ -74,6 +108,74 @@ slack-mirror-user workspaces sync-config
 slack-mirror-user workspaces verify --require-explicit-outbound
 ```
 
+## Search provider settings
+
+- `search.semantic.model` is the canonical selector for the message-semantic model.
+- `search.semantic.provider` now controls how message embeddings are produced and queried.
+- The shipped zero-dependency baseline remains:
+  - `search.semantic.model: local-hash-128`
+  - `search.semantic.provider.type: local_hash`
+- The first stronger local path now available in-repo is:
+  - `search.semantic.model: BAAI/bge-m3`
+  - `search.semantic.provider.type: sentence_transformers`
+
+Supported message-semantic provider types:
+
+- `local_hash`
+  - built-in baseline
+  - no extra ML dependencies
+- `sentence_transformers`
+  - optional local in-process provider
+  - intended for models such as `BAAI/bge-m3`
+  - requires a compatible local install of `sentence-transformers` and `torch`
+- `command`
+  - external local helper process over stdin/stdout JSON
+- `http`
+  - external HTTP embedding service using the same request shape
+
+Example stronger local message-semantic config:
+
+```yaml
+search:
+  semantic:
+    model: BAAI/bge-m3
+    provider:
+      type: sentence_transformers
+      device: cuda
+      batch_size: 16
+      normalize_embeddings: true
+```
+
+Notes:
+
+- This stronger provider path currently applies to message embeddings and message-backed corpus search.
+- Derived-text semantic retrieval remains on the current baseline for now.
+- Heavy ML dependencies are intentionally optional so baseline installs and CI do not require `sentence-transformers`.
+- The longer-term semantic architecture still prefers a dedicated local inference adapter for heavy model lifecycle; the in-process `sentence_transformers` path is the bounded first implementation slice.
+
+Provider field semantics:
+
+- `type`
+  - provider implementation to use
+- `command`
+  - executable for `command` provider mode
+- `url`
+  - endpoint base URL for `http` provider mode
+- `bearer_token_env`
+  - environment-variable name holding the bearer token for `http`
+- `timeout_s`
+  - request timeout for `command` and `http` providers
+- `device`
+  - optional `sentence_transformers` device, for example `cuda` or `cpu`
+- `batch_size`
+  - optional `sentence_transformers` batch size
+- `normalize_embeddings`
+  - whether to request normalized embeddings from the provider
+- `trust_remote_code`
+  - forwarded to `SentenceTransformer(...)` for model-loading edge cases
+- `cache_folder`
+  - optional model cache override for `sentence_transformers`
+
 Use `slack-mirror-user` after `user-env install`; it pins the managed config, DB, and cache paths. Use `uv run slack-mirror ...` from the repo before the managed wrapper exists.
 
 For staged tenant onboarding, keep a new workspace entry at `enabled: false` until its credentials are present. Default `workspaces verify` skips disabled scaffolds; use `workspaces verify --workspace <name>` when you want to confirm that a staged entry is still disabled before activation.
@@ -106,6 +208,13 @@ For Slack app creation, credential collection, and the app-manifest location, se
   3. `~/.config/slack-mirror/config.yaml`
 
 For automation, prefer passing an explicit `--config` path anyway.
+
+## Search and extraction settings
+
+- `search.keyword.weights.*` tunes the lexical scorer.
+- `search.semantic.weights.*` tunes hybrid lexical-vs-semantic fusion for message and corpus search.
+- `search.derived_text.provider.*` controls attachment and OCR extraction providers separately from message embeddings.
+- `search.embeddings_model` remains as a legacy field from earlier hosted-embedding work and is no longer the primary selector for the local message-semantic path; prefer `search.semantic.model`.
 
 ## Service and export settings
 

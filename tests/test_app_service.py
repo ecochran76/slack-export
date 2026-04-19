@@ -524,6 +524,8 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(readiness["status"], "ready")
         self.assertEqual(readiness["messages"]["count"], 1)
         self.assertEqual(readiness["messages"]["embeddings"]["count"], 1)
+        self.assertEqual(readiness["messages"]["embeddings"]["provider"], "local_hash")
+        self.assertEqual(readiness["messages"]["embeddings"]["model"], "local-hash-128")
         self.assertEqual(readiness["derived_text"]["attachment_text"]["count"], 0)
         self.assertEqual(readiness["derived_text"]["attachment_text"]["pending"], 0)
         self.assertEqual(readiness["derived_text"]["ocr_text"]["count"], 0)
