@@ -935,6 +935,7 @@ class SlackMirrorAppService:
     def search_readiness(self, conn, *, workspace: str) -> dict[str, Any]:
         workspace_id = self.workspace_id(conn, workspace)
         embedding_probe = self.message_embedding_probe()
+        configured_model = str(self.config.get("search", {}).get("semantic", {}).get("model", "local-hash-128"))
 
         message_count = int(
             conn.execute(
@@ -960,6 +961,20 @@ class SlackMirrorAppService:
                 (workspace_id,),
             ).fetchone()["c"]
         )
+        message_embedding_model_rows = conn.execute(
+            """
+            SELECT model_id, COUNT(*) AS c
+            FROM message_embeddings
+            WHERE workspace_id = ?
+            GROUP BY model_id
+            ORDER BY model_id
+            """,
+            (workspace_id,),
+        ).fetchall()
+        embeddings_by_model = {str(row["model_id"]): int(row["c"]) for row in message_embedding_model_rows}
+        configured_model_count = int(embeddings_by_model.get(configured_model, 0))
+        configured_model_missing = max(message_count - configured_model_count, 0)
+        configured_model_coverage_ratio = 1.0 if message_count <= 0 else configured_model_count / max(message_count, 1)
 
         derived_count_rows = conn.execute(
             """
@@ -1036,7 +1051,12 @@ class SlackMirrorAppService:
                     "pending": message_embedding_pending,
                     "errors": message_embedding_errors,
                     "provider": str(embedding_probe.get("provider_type") or "unknown"),
-                    "model": str(self.config.get("search", {}).get("semantic", {}).get("model", "local-hash-128")),
+                    "model": configured_model,
+                    "configured_model_count": configured_model_count,
+                    "configured_model_missing": configured_model_missing,
+                    "configured_model_coverage_ratio": round(configured_model_coverage_ratio, 6),
+                    "configured_model_ready": configured_model_missing == 0,
+                    "by_model": embeddings_by_model,
                     "probe": embedding_probe,
                 },
             },
@@ -1084,6 +1104,7 @@ class SlackMirrorAppService:
 
         attachment = readiness["derived_text"].get("attachment_text", {})
         ocr = readiness["derived_text"].get("ocr_text", {})
+        message_embeddings = readiness["messages"].get("embeddings", {})
 
         if int(attachment.get("errors", 0)) > 0:
             report["failure_codes"].append("ATTACHMENT_ERRORS_PRESENT")
@@ -1106,6 +1127,8 @@ class SlackMirrorAppService:
             report["warning_codes"].append("ATTACHMENT_ISSUES_PRESENT")
         if ocr_issue_reasons:
             report["warning_codes"].append("OCR_ISSUES_PRESENT")
+        if not bool(message_embeddings.get("configured_model_ready", True)):
+            report["warning_codes"].append("MESSAGE_MODEL_COVERAGE_INCOMPLETE")
 
         if dataset_path:
             dataset = dataset_rows(dataset_path)

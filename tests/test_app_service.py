@@ -365,6 +365,7 @@ class AppServiceTests(unittest.TestCase):
             local_path="/tmp/scan.pdf",
             metadata={"origin": "test"},
         )
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, limit=20)
         dataset = self.root / "search_eval.jsonl"
         dataset.write_text(
             '{"query":"incident review","relevant":{"C123:1700000000.000100":2,"file:F1:ocr_text:tesseract_pdf":2}}\n',
@@ -526,11 +527,52 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(readiness["messages"]["embeddings"]["count"], 1)
         self.assertEqual(readiness["messages"]["embeddings"]["provider"], "local_hash")
         self.assertEqual(readiness["messages"]["embeddings"]["model"], "local-hash-128")
+        self.assertEqual(readiness["messages"]["embeddings"]["configured_model_count"], 1)
+        self.assertEqual(readiness["messages"]["embeddings"]["configured_model_missing"], 0)
+        self.assertEqual(readiness["messages"]["embeddings"]["configured_model_coverage_ratio"], 1.0)
+        self.assertTrue(readiness["messages"]["embeddings"]["configured_model_ready"])
+        self.assertEqual(readiness["messages"]["embeddings"]["by_model"]["local-hash-128"], 1)
         self.assertTrue(readiness["messages"]["embeddings"]["probe"]["available"])
         self.assertEqual(readiness["derived_text"]["attachment_text"]["count"], 0)
         self.assertEqual(readiness["derived_text"]["attachment_text"]["pending"], 0)
         self.assertEqual(readiness["derived_text"]["ocr_text"]["count"], 0)
         self.assertEqual(readiness["derived_text"]["ocr_text"]["pending"], 0)
+
+    def test_search_readiness_reports_configured_model_coverage(self):
+        self.config_path.write_text(
+            "\n".join(
+                [
+                    "version: 1",
+                    "storage:",
+                    f"  db_path: {self.db_path}",
+                    "search:",
+                    "  semantic:",
+                    "    model: BAAI/bge-m3",
+                    "workspaces:",
+                    "  - name: default",
+                    "    team_id: T123",
+                    "    token: xoxb-test-token",
+                    "    user_token: xoxp-test-token",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        service = SlackMirrorAppService(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+        upsert_channel(conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_message(conn, workspace_id, "C1", {"ts": "20.0", "text": "OpenClaw gateway is down on cooper", "user": "U1"})
+        process_embedding_jobs(conn, workspace_id=workspace_id, model_id="local-hash-128", limit=20)
+
+        readiness = service.search_readiness(conn, workspace="default")
+
+        self.assertEqual(readiness["messages"]["embeddings"]["count"], 1)
+        self.assertEqual(readiness["messages"]["embeddings"]["configured_model_count"], 0)
+        self.assertEqual(readiness["messages"]["embeddings"]["configured_model_missing"], 1)
+        self.assertEqual(readiness["messages"]["embeddings"]["configured_model_coverage_ratio"], 0.0)
+        self.assertFalse(readiness["messages"]["embeddings"]["configured_model_ready"])
+        self.assertEqual(readiness["messages"]["embeddings"]["by_model"]["local-hash-128"], 1)
 
     def test_search_health_uses_message_embedding_provider_for_benchmark(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
@@ -575,6 +617,38 @@ class AppServiceTests(unittest.TestCase):
         self.assertIsNotNone(health["benchmark"])
         self.assertEqual(health["benchmark"]["mode"], "semantic")
         self.assertGreaterEqual(health["benchmark"]["hit_at_3"], 1.0)
+
+    def test_search_health_warns_on_incomplete_configured_model_coverage(self):
+        self.config_path.write_text(
+            "\n".join(
+                [
+                    "version: 1",
+                    "storage:",
+                    f"  db_path: {self.db_path}",
+                    "search:",
+                    "  semantic:",
+                    "    model: BAAI/bge-m3",
+                    "workspaces:",
+                    "  - name: default",
+                    "    team_id: T123",
+                    "    token: xoxb-test-token",
+                    "    user_token: xoxp-test-token",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        service = SlackMirrorAppService(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+        upsert_channel(conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_message(conn, workspace_id, "C1", {"ts": "21.0", "text": "OpenClaw gateway is down on cooper", "user": "U1"})
+        process_embedding_jobs(conn, workspace_id=workspace_id, model_id="local-hash-128", limit=20)
+
+        health = service.search_health(conn, workspace="default")
+
+        self.assertEqual(health["status"], "pass_with_warnings")
+        self.assertIn("MESSAGE_MODEL_COVERAGE_INCOMPLETE", health["warning_codes"])
 
     def test_corpus_search_exact_message_query_ranks_expected_result_in_lexical_and_hybrid(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

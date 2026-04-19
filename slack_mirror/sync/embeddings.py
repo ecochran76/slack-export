@@ -55,24 +55,50 @@ def backfill_message_embeddings(
     workspace_id: int,
     model_id: str = "local-hash-128",
     limit: int = 1000,
+    channel_ids: list[str] | None = None,
+    oldest: str | None = None,
+    latest: str | None = None,
+    order: str = "latest",
     provider: EmbeddingProvider | None = None,
 ) -> dict[str, int]:
+    clauses = ["m.workspace_id = ?", "m.deleted = 0"]
+    params: list[object] = [workspace_id]
+
+    normalized_channels = [str(value).strip() for value in (channel_ids or []) if str(value).strip()]
+    if normalized_channels:
+        placeholders = ",".join("?" for _ in normalized_channels)
+        clauses.append(f"m.channel_id IN ({placeholders})")
+        params.extend(normalized_channels)
+    if oldest is not None:
+        clauses.append("CAST(m.ts AS REAL) >= CAST(? AS REAL)")
+        params.append(str(oldest))
+    if latest is not None:
+        clauses.append("CAST(m.ts AS REAL) <= CAST(? AS REAL)")
+        params.append(str(latest))
+
+    normalized_order = str(order or "latest").strip().lower()
+    if normalized_order not in {"latest", "oldest"}:
+        raise ValueError(f"Unsupported embeddings backfill order: {order}")
+    order_sql = "DESC" if normalized_order == "latest" else "ASC"
+
     rows = list(
         conn.execute(
-            """
+            f"""
             SELECT m.channel_id, m.ts, COALESCE(m.text, '') AS text
             FROM messages m
-            WHERE m.workspace_id = ? AND m.deleted = 0
-            ORDER BY m.updated_at DESC
+            WHERE {" AND ".join(clauses)}
+            ORDER BY CAST(m.ts AS REAL) {order_sql}
             LIMIT ?
             """,
-            (workspace_id, limit),
+            (*params, limit),
         )
     )
 
     embedded = 0
     skipped = 0
+    seen_channels: set[str] = set()
     for r in rows:
+        seen_channels.add(str(r["channel_id"]))
         status = _embed_and_store(
             conn,
             workspace_id=workspace_id,
@@ -87,7 +113,7 @@ def backfill_message_embeddings(
         else:
             skipped += 1
 
-    return {"scanned": len(rows), "embedded": embedded, "skipped": skipped}
+    return {"scanned": len(rows), "embedded": embedded, "skipped": skipped, "channels": len(seen_channels)}
 
 
 def process_embedding_jobs(

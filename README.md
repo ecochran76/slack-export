@@ -124,6 +124,8 @@ The current repo has:
   - an optional `sentence_transformers` local provider for stronger models such as `BAAI/bge-m3`
 - config-driven message-semantic provider selection through `search.semantic.provider`, while keeping `search.semantic.model` as the canonical model selector
 - a repo-owned semantic provider probe at `slack-mirror search provider-probe`, so GPU/runtime readiness can be checked before attempting a heavier local semantic model rehearsal
+- bounded message-embedding rollout controls through `slack-mirror mirror embeddings-backfill --channels ... --oldest ... --latest ... --order ...`
+- model-aware readiness and health reporting, so partial rollout of the configured semantic model is visible instead of silently looking complete
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -141,6 +143,17 @@ The probe reports:
 - CUDA and GPU visibility when torch is installed
 - optional `nvidia-smi` memory details
 - an embed smoke result when `--smoke` is requested
+
+For bounded live `BAAI/bge-m3` rollout on messages, use this loop:
+
+```bash
+uv sync --extra local-semantic
+uv run slack-mirror search provider-probe --smoke --json
+uv run slack-mirror mirror embeddings-backfill --workspace default --model BAAI/bge-m3 --channels C123,C456 --limit 500 --json
+uv run slack-mirror search health --workspace default --model BAAI/bge-m3
+```
+
+`search readiness` and `search health` now report configured-model coverage separately from total message embeddings, so a partial `bge-m3` rollout shows up as incomplete coverage rather than looking fully migrated.
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults

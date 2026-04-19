@@ -260,6 +260,7 @@ Actionable plans:
 - `docs/dev/plans/0055-2026-04-19-bge-m3-message-embeddings.md`
 - `docs/dev/plans/0056-2026-04-19-bge-m3-readiness-and-evaluation.md`
 - `docs/dev/plans/0057-2026-04-19-bge-m3-bounded-live-rehearsal.md`
+- `docs/dev/plans/0058-2026-04-19-bge-m3-bounded-message-rollout.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -280,13 +281,20 @@ Current state:
   - `local-hash-128` missed all three bounded paraphrase targets
   - `bge-m3` hit all three within the top 3 on the rehearsal set
 - the next implementation-critical step is no longer “is `bge-m3` viable,” but “how do we broaden bounded `bge-m3` message rollout safely and make that evaluation path repeatable”
+- that bounded rollout slice is now complete under `0058`:
+  - `mirror embeddings-backfill` can now target bounded message subsets directly
+  - readiness and health now distinguish total embeddings from configured-model coverage
+  - partial configured-model rollout now surfaces as an explicit warning instead of silently looking complete
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
 - the first stable MCP-capable release work under `P11` is now good enough that this lane has moved from seam hardening into architecture and the first real message-model path
 - the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
 - derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes architecture-first rollout preferable to jumping straight into a model swap
-- the next implementation-critical step is to evaluate and harden the configured `bge-m3` message path on real paraphrase queries, then extend the same architecture into derived-text chunks and reranking in later bounded slices
+- the next implementation-critical step is to extend the stronger local path beyond bounded message rollout:
+  - derived-text chunk embeddings
+  - chunk-aware retrieval evaluation
+  - later reranking in bounded follow-on slices
 
 Planned subphases:
 1. provider and model seam hardening:

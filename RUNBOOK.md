@@ -2901,3 +2901,32 @@ This file is the dated turn log for planning and execution continuity.
     - `default`
     - `soylei`
     - `pcg`
+
+## Turn 194 | 2026-04-19
+
+- Opened the next bounded `P10` implementation slice:
+  - `0058-2026-04-19-bge-m3-bounded-message-rollout.md`
+- Scoped it to the operator path needed after `0057`:
+  - bounded live message-embedding rollout for `BAAI/bge-m3`
+  - truthful model-aware readiness and health reporting during partial rollout
+- Implemented bounded `mirror embeddings-backfill` controls:
+  - `--channels`
+  - `--oldest`
+  - `--latest`
+  - `--order`
+  - `--json`
+- Extended `backfill_message_embeddings(...)` so the rollout seam is repo-owned rather than a one-off script path.
+- Extended search readiness and health to report:
+  - total message embeddings
+  - configured-model embedding count
+  - configured-model missing count
+  - configured-model coverage ratio
+  - per-model message embedding counts
+- Added `MESSAGE_MODEL_COVERAGE_INCOMPLETE` as the explicit operator warning for partial rollout of the configured semantic model.
+- Updated `README.md` with the bounded live `BAAI/bge-m3` rollout loop.
+- Closed `0058` after validation.
+- Validation:
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_search_health_reports_readiness_and_benchmark tests.test_app_service.AppServiceTests.test_search_health_warns_on_incomplete_configured_model_coverage tests.test_embeddings tests.test_cli -v`
+  - `python -m py_compile slack_mirror/sync/embeddings.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_embeddings.py tests/test_app_service.py tests/test_cli.py`
+  - planning audit:
+    - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

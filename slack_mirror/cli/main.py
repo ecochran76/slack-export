@@ -1474,16 +1474,37 @@ def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
     if not ws_row:
         raise ValueError(f"Workspace '{args.workspace}' not found in DB. Run workspaces sync-config first.")
 
+    channel_ids = [value.strip() for value in str(args.channels or "").split(",") if value.strip()]
+
     result = backfill_message_embeddings(
         conn,
         workspace_id=int(ws_row["id"]),
         model_id=args.model,
         limit=args.limit,
+        channel_ids=channel_ids or None,
+        oldest=args.oldest,
+        latest=args.latest,
+        order=args.order,
         provider=embedding_provider,
     )
+    payload = {
+        "workspace": args.workspace,
+        "model": args.model,
+        "provider": provider_name(embedding_provider),
+        "limit": int(args.limit),
+        "order": str(args.order),
+        "channels_filter": channel_ids,
+        "oldest": args.oldest,
+        "latest": args.latest,
+        **result,
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return 0
     print(
         f"Embeddings backfill workspace={args.workspace} model={args.model} provider={provider_name(embedding_provider)} "
-        f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']}"
+        f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']} channels={result['channels']} "
+        f"order={args.order}"
     )
     return 0
 
@@ -2521,6 +2542,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_emb_backfill.add_argument("--workspace", required=True, help="workspace name")
     p_emb_backfill.add_argument("--model", default="local-hash-128", help="embedding model id")
     p_emb_backfill.add_argument("--limit", type=int, default=1000, help="maximum messages to scan")
+    p_emb_backfill.add_argument("--channels", default="", help="optional comma-separated channel IDs to bound the rollout")
+    p_emb_backfill.add_argument("--oldest", help="optional oldest ts boundary (inclusive)")
+    p_emb_backfill.add_argument("--latest", help="optional latest ts boundary (inclusive)")
+    p_emb_backfill.add_argument(
+        "--order",
+        choices=["latest", "oldest"],
+        default="latest",
+        help="scan newest messages first or oldest messages first within the bounded rollout",
+    )
+    p_emb_backfill.add_argument("--json", action="store_true", help="json output")
     p_emb_backfill.set_defaults(func=cmd_embeddings_backfill)
 
     p_emb_process = mirror_sub.add_parser("process-embedding-jobs", help="process queued embedding jobs")

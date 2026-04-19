@@ -116,12 +116,35 @@ class CliTests(unittest.TestCase):
     def test_parse_embeddings_backfill(self):
         parser = build_parser()
         args = parser.parse_args(
-            ["mirror", "embeddings-backfill", "--workspace", "default", "--model", "local-hash-128", "--limit", "50"]
+            [
+                "mirror",
+                "embeddings-backfill",
+                "--workspace",
+                "default",
+                "--model",
+                "BAAI/bge-m3",
+                "--limit",
+                "50",
+                "--channels",
+                "C123,C456",
+                "--oldest",
+                "1700000000.000000",
+                "--latest",
+                "1800000000.000000",
+                "--order",
+                "oldest",
+                "--json",
+            ]
         )
         self.assertEqual(args.command, "mirror")
         self.assertEqual(args.workspace, "default")
-        self.assertEqual(args.model, "local-hash-128")
+        self.assertEqual(args.model, "BAAI/bge-m3")
         self.assertEqual(args.limit, 50)
+        self.assertEqual(args.channels, "C123,C456")
+        self.assertEqual(args.oldest, "1700000000.000000")
+        self.assertEqual(args.latest, "1800000000.000000")
+        self.assertEqual(args.order, "oldest")
+        self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_process_embedding_jobs(self):

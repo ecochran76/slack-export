@@ -83,6 +83,42 @@ class EmbeddingSyncTests(unittest.TestCase):
             self.assertEqual(bf["scanned"], 2)
             self.assertEqual(bf["embedded"], 0)
             self.assertEqual(bf["skipped"], 2)
+            self.assertEqual(bf["channels"], 1)
+
+    def test_backfill_message_embeddings_can_filter_by_channel_and_time(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default", team_id="T123", config={"enabled": True})
+            upsert_channel(conn, ws_id, {"id": "C123", "name": "general"})
+            upsert_channel(conn, ws_id, {"id": "C456", "name": "alerts"})
+            upsert_message(conn, ws_id, "C123", {"ts": "1.1", "text": "old general", "user": "U1"})
+            upsert_message(conn, ws_id, "C123", {"ts": "2.2", "text": "new general", "user": "U1"})
+            upsert_message(conn, ws_id, "C456", {"ts": "3.3", "text": "alerts only", "user": "U2"})
+
+            result = backfill_message_embeddings(
+                conn,
+                workspace_id=ws_id,
+                model_id="local-hash-128",
+                limit=10,
+                channel_ids=["C123"],
+                oldest="2.0",
+                latest="2.5",
+                order="oldest",
+            )
+
+            self.assertEqual(result["scanned"], 1)
+            self.assertEqual(result["embedded"], 1)
+            self.assertEqual(result["skipped"], 0)
+            self.assertEqual(result["channels"], 1)
+            count = conn.execute(
+                "SELECT COUNT(*) AS c FROM message_embeddings WHERE workspace_id = ? AND model_id = 'local-hash-128'",
+                (ws_id,),
+            ).fetchone()["c"]
+            self.assertEqual(count, 1)
 
     def test_process_embedding_jobs_uses_configured_provider(self):
         class FakeProvider:
