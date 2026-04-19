@@ -90,6 +90,8 @@ The canonical Socket Mode manifest now includes the outbound conversation scopes
 - `im:write`
 - `mpim:write`
 
+It also enables the App Home Messages tab by default. For the current Slack Mirror outbound DM flow, that tab must stay enabled; otherwise Slack can reject app-user sends with `messages_tab_disabled`.
+
 If you update an existing app from an older manifest, reinstall the app after applying the new manifest so Slack grants the additional scopes.
 
 For Polymer, use these variable names:
