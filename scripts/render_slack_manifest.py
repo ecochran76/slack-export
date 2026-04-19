@@ -20,8 +20,8 @@ def expand_env(text: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render Slack app manifest template with env vars")
-    parser.add_argument("--template", default="manifests/slack-app.yaml")
-    parser.add_argument("--output", default="manifests/slack-app.rendered.yaml")
+    parser.add_argument("--template", default="manifests/slack-mirror-socket-mode.json")
+    parser.add_argument("--output", default="manifests/slack-mirror-socket-mode.rendered.json")
     args = parser.parse_args()
 
     template_path = Path(args.template)

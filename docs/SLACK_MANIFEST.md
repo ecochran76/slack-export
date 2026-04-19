@@ -7,11 +7,9 @@ For live Slack Mirror installs, prefer the Socket Mode manifest so the local ser
 
 - Preferred live-mode template: `manifests/slack-mirror-socket-mode.json`
 - YAML equivalent: `manifests/slack-mirror-socket-mode.yaml`
-- Legacy HTTP-events template: `manifests/slack-app.yaml`
 - Renderer: `scripts/render_slack_manifest.py`
 - Rendered output examples:
   - `manifests/slack-mirror-socket-mode.rendered.json`
-  - `manifests/slack-app.rendered.yaml`
 - Polymer rendered manifest:
   - `manifests/slack-mirror-socket-mode-polymer.rendered.json`
 - PCG rendered manifest:
@@ -52,7 +50,7 @@ python3 scripts/render_slack_manifest.py \
   --output manifests/slack-mirror-socket-mode-polymer.rendered.json
 ```
 
-For the older HTTP Events API path, use `manifests/slack-app.yaml` and set `SLACK_EVENTS_URL` to a reachable HTTPS endpoint. The current live-mode topology uses Socket Mode instead.
+The older HTTP Events manifest path has been retired from this repo. Use the Socket Mode templates only.
 
 ## 2) Create the Slack app
 

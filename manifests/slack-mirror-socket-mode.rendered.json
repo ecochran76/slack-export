@@ -4,14 +4,14 @@
     "minor_version": 1
   },
   "display_information": {
-    "name": "Slack Mirror",
-    "description": "Private slack-mirror app (no OAuth flow)",
+    "name": "Slack Mirror Socket",
+    "description": "Dedicated Slack Mirror app using Socket Mode",
     "background_color": "#1D9BF0"
   },
   "features": {
     "app_home": {
       "home_tab_enabled": false,
-      "messages_tab_enabled": false,
+      "messages_tab_enabled": true,
       "messages_tab_read_only_enabled": true
     },
     "bot_user": {
@@ -20,20 +20,26 @@
     }
   },
   "oauth_config": {
-    "redirect_urls": [],
+    "redirect_urls": [
+      "https://localhost:3000/slack/oauth/callback"
+    ],
     "scopes": {
       "bot": [
         "app_mentions:read",
         "channels:history",
         "channels:read",
+        "channels:write",
         "chat:write",
         "files:read",
         "groups:history",
         "groups:read",
+        "groups:write",
         "im:history",
         "im:read",
+        "im:write",
         "mpim:history",
         "mpim:read",
+        "mpim:write",
         "users:read"
       ],
       "user": [
@@ -51,7 +57,6 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://example.invalid/slack/events",
       "bot_events": [
         "app_mention",
         "message.channels",
@@ -64,7 +69,7 @@
       "is_enabled": false
     },
     "org_deploy_enabled": false,
-    "socket_mode_enabled": false,
+    "socket_mode_enabled": true,
     "token_rotation_enabled": false
   }
 }
