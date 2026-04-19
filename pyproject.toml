@@ -17,6 +17,11 @@ dependencies = [
   "websocket-client>=1.9.0",
 ]
 
+[project.optional-dependencies]
+local-semantic = [
+  "sentence-transformers>=3.0",
+]
+
 [project.scripts]
 slack-mirror = "slack_mirror.cli.main:main"
 

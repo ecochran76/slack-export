@@ -1381,6 +1381,48 @@ def cmd_search_health(args: argparse.Namespace) -> int:
     return 0 if payload["status"] != "fail" else 1
 
 
+def cmd_search_provider_probe(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    semantic_cfg = service.config.get("search", {}).get("semantic", {})
+    model_id = args.model or semantic_cfg.get("model", "local-hash-128")
+    smoke_texts = ["semantic search probe", "gateway outage on cooper"] if args.smoke else None
+    payload = service.message_embedding_probe(model_id=model_id, smoke_texts=smoke_texts)
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"Semantic provider probe model={payload['model']} provider={payload['provider_type']} "
+            f"available={payload['available']}"
+        )
+        runtime = dict(payload.get("runtime") or {})
+        if runtime.get("configured_device"):
+            print(f"Configured device: {runtime['configured_device']}")
+        if "cuda_available" in runtime:
+            print(
+                f"CUDA: available={runtime.get('cuda_available')} "
+                f"devices={runtime.get('cuda_device_count', 0)}"
+            )
+        for gpu in runtime.get("nvidia_smi") or []:
+            print(
+                f"GPU: {gpu['name']} free={gpu['memory_free_mib']}MiB "
+                f"used={gpu['memory_used_mib']}MiB total={gpu['memory_total_mib']}MiB "
+                f"driver={gpu['driver_version']}"
+            )
+        smoke = runtime.get("smoke")
+        if smoke:
+            if smoke.get("ok"):
+                print(
+                    f"Smoke: ok texts={smoke['texts']} dims={smoke['dimensions']} latency_ms={smoke['latency_ms']}"
+                )
+            else:
+                print(f"Smoke: failed error={smoke.get('error')}")
+        if payload.get("issues"):
+            print("Issues: " + ", ".join(payload["issues"]))
+    return 0 if payload.get("available") else 1
+
+
 def cmd_search_query_dir(args: argparse.Namespace) -> int:
     from slack_mirror.search.dir_adapter import query_directory
 
@@ -2728,6 +2770,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health.add_argument("--max-latency-p95-ms", type=float, default=800.0, help="maximum acceptable benchmark latency p95")
     p_search_health.add_argument("--json", action="store_true", help="json output")
     p_search_health.set_defaults(func=cmd_search_health)
+
+    p_search_provider_probe = search_sub.add_parser("provider-probe", help="probe configured semantic provider and local GPU readiness")
+    p_search_provider_probe.add_argument("--model", default=None, help="embedding model id (defaults to config search.semantic.model)")
+    p_search_provider_probe.add_argument("--smoke", action="store_true", help="run a small embed smoke after readiness checks")
+    p_search_provider_probe.add_argument("--json", action="store_true", help="json output")
+    p_search_provider_probe.set_defaults(func=cmd_search_provider_probe)
 
     p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
     p_search_dir.add_argument("--path", required=True, help="root directory")

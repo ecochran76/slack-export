@@ -3,10 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import statistics
+import time
 from pathlib import Path
+from typing import Any
 
+from slack_mirror.core.config import load_config
 from slack_mirror.core.db import apply_migrations, connect, get_workspace_by_name
-from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search, evaluate_message_search
+from slack_mirror.search.embeddings import build_embedding_provider
+from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search, evaluate_message_search, mrr_at_k as _mrr_at_k, ndcg_at_k as _ndcg_at_k
 from slack_mirror.search.dir_adapter import query_directory
 
 
@@ -19,6 +25,10 @@ def _eval_slack_db(args: argparse.Namespace, rows: list[dict[str, Any]]) -> dict
     ws = get_workspace_by_name(conn, args.workspace)
     if not ws:
         raise SystemExit(f"workspace not found: {args.workspace}")
+    provider = None
+    if args.config:
+        cfg = load_config(args.config)
+        provider = build_embedding_provider(cfg.data)
     return evaluate_message_search(
         conn,
         workspace_id=int(ws["id"]),
@@ -26,6 +36,7 @@ def _eval_slack_db(args: argparse.Namespace, rows: list[dict[str, Any]]) -> dict
         mode=args.mode,
         limit=args.limit,
         model_id=args.model,
+        embedding_provider=provider,
     )
 
 
@@ -38,6 +49,10 @@ def _eval_slack_corpus(args: argparse.Namespace, rows: list[dict[str, object]]) 
     ws = get_workspace_by_name(conn, args.workspace)
     if not ws:
         raise SystemExit(f"workspace not found: {args.workspace}")
+    provider = None
+    if args.config:
+        cfg = load_config(args.config)
+        provider = build_embedding_provider(cfg.data)
     return evaluate_corpus_search(
         conn,
         workspace_id=int(ws["id"]),
@@ -45,6 +60,7 @@ def _eval_slack_corpus(args: argparse.Namespace, rows: list[dict[str, object]]) 
         mode=args.mode,
         limit=args.limit,
         model_id=args.model,
+        embedding_provider=provider,
     )
 
 
@@ -100,6 +116,7 @@ def main() -> int:
     ap.add_argument("--corpus", choices=["slack-db", "slack-corpus", "dir"], default="slack-db")
     ap.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default="hybrid")
     ap.add_argument("--limit", type=int, default=10)
+    ap.add_argument("--config", help="optional config path used to resolve the semantic provider")
 
     # slack-db options
     ap.add_argument("--db", help="sqlite db path (required for slack-db)")

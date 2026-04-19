@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_workspace
-from slack_mirror.search.embeddings import build_embedding_provider, embed_text, resolve_embedding_model
+from slack_mirror.search.embeddings import build_embedding_provider, embed_text, probe_embedding_provider, resolve_embedding_model
 from slack_mirror.sync.embeddings import backfill_message_embeddings, process_embedding_jobs
 
 
@@ -24,6 +24,29 @@ class EmbeddingSyncTests(unittest.TestCase):
             }
         )
         self.assertEqual(provider.name, "sentence_transformers")
+
+    def test_probe_embedding_provider_reports_local_hash_as_available(self):
+        probe = probe_embedding_provider({"search": {"semantic": {"provider": {"type": "local_hash"}}}})
+        self.assertTrue(probe["available"])
+        self.assertEqual(probe["provider_type"], "local_hash")
+        self.assertEqual(probe["issues"], [])
+
+    def test_probe_embedding_provider_reports_missing_sentence_transformers_runtime(self):
+        probe = probe_embedding_provider(
+            {
+                "search": {
+                    "semantic": {
+                        "model": "BAAI/bge-m3",
+                        "provider": {"type": "sentence_transformers", "device": "cuda"},
+                    }
+                }
+            }
+        )
+        self.assertEqual(probe["provider_type"], "sentence_transformers")
+        self.assertIn("sentence_transformers_installed", probe["runtime"])
+        if not probe["runtime"]["sentence_transformers_installed"]:
+            self.assertFalse(probe["available"])
+            self.assertIn("sentence_transformers_not_installed", probe["issues"])
 
     def test_embedding_model_resolution_supports_local_hash_ids(self):
         default_spec = resolve_embedding_model(None)

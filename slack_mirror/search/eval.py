@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from slack_mirror.search.corpus import search_corpus
+from slack_mirror.search.embeddings import EmbeddingProvider
 from slack_mirror.search.keyword import search_messages
 
 
@@ -81,6 +82,7 @@ def evaluate_message_search(
     mode: str,
     limit: int = 10,
     model_id: str = "local-hash-128",
+    embedding_provider: EmbeddingProvider | None = None,
 ) -> dict[str, Any]:
     ndcgs: list[float] = []
     mrrs: list[float] = []
@@ -101,6 +103,7 @@ def evaluate_message_search(
             limit=limit,
             mode=mode,
             model_id=model_id,
+            provider=embedding_provider,
         )
         lat_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -149,6 +152,7 @@ def evaluate_corpus_search(
     mode: str,
     limit: int = 10,
     model_id: str = "local-hash-128",
+    embedding_provider: EmbeddingProvider | None = None,
 ) -> dict[str, Any]:
     ndcgs: list[float] = []
     mrrs: list[float] = []
@@ -169,6 +173,7 @@ def evaluate_corpus_search(
             limit=limit,
             mode=mode,
             model_id=model_id,
+            message_embedding_provider=embedding_provider,
         )
         lat_ms = (time.perf_counter() - t0) * 1000.0
 

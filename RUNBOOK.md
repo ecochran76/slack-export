@@ -2825,3 +2825,41 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `uv run python -m unittest tests.test_search tests.test_embeddings tests.test_app_service tests.test_cli -v`
   - `python -m py_compile slack_mirror/search/embeddings.py slack_mirror/sync/embeddings.py slack_mirror/search/keyword.py slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_embeddings.py tests/test_search.py tests/test_app_service.py`
+
+## Turn 192 | 2026-04-19
+
+- Opened the next bounded `P10` follow-on slice:
+  - `0056-2026-04-19-bge-m3-readiness-and-evaluation.md`
+- Confirmed the workstation is hardware-capable before attempting heavier local semantic runtime work:
+  - NVIDIA GeForce RTX 5080 present
+  - CUDA driver/runtime visible
+  - roughly 11 GiB of free VRAM at probe time
+- Confirmed the blocker is repo runtime availability, not hardware:
+  - `torch` absent in the repo env
+  - `transformers` absent in the repo env
+  - `sentence_transformers` absent in the repo env
+- Scoped the slice to readiness and truthful benchmark plumbing before a broader `bge-m3` rehearsal.
+- Implemented the slice by adding:
+  - optional `local-semantic` dependencies in `pyproject.toml`
+  - provider probing in `slack_mirror.search.embeddings`
+  - `slack-mirror search provider-probe`
+  - provider-aware benchmark threading through `slack_mirror.search.eval`, `SlackMirrorAppService.search_health`, and `scripts/eval_search.py`
+- Tightened readiness semantics so search readiness can report the configured provider path without forcing a heavy model load just to print a label.
+- Validated the workstation with the new probe in two stages:
+  - before optional install:
+    - `sentence_transformers_not_installed`
+    - `torch_not_installed`
+    - RTX 5080 still visible through `nvidia-smi`
+  - after `uv sync --extra local-semantic`:
+    - `sentence-transformers` and `torch` available
+    - CUDA visible through torch
+    - detected GPU: `NVIDIA GeForce RTX 5080`
+    - `BAAI/bge-m3` smoke succeeded on `cuda`
+- The first smoke is intentionally recorded as a cold-load result, so its latency includes initial model load/download and should not be treated as the steady-state serving target.
+- Closed `0056` after the readiness probe, optional dependency path, and provider-aware evaluation plumbing landed.
+- Validation:
+  - `uv run python -m unittest tests.test_embeddings tests.test_app_service tests.test_cli -v`
+  - `python -m py_compile slack_mirror/search/embeddings.py slack_mirror/search/eval.py slack_mirror/service/app.py slack_mirror/cli/main.py scripts/eval_search.py tests/test_embeddings.py tests/test_app_service.py tests/test_cli.py`
+  - `uv run slack-mirror --config /tmp/slack-mirror-semantic-probe-FGhC.yaml search provider-probe --json`
+  - `uv sync --extra local-semantic`
+  - `uv run slack-mirror --config /tmp/slack-mirror-semantic-probe-FGhC.yaml search provider-probe --smoke --json`

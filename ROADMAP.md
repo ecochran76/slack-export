@@ -258,12 +258,22 @@ Actionable plans:
 - `docs/dev/plans/0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
 - `docs/dev/plans/0054-2026-04-19-local-semantic-retrieval-architecture.md`
 - `docs/dev/plans/0055-2026-04-19-bge-m3-message-embeddings.md`
+- `docs/dev/plans/0056-2026-04-19-bge-m3-readiness-and-evaluation.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
 - the first enabling slice is now complete under `0053`: one shared embedding-provider seam owns the shipped `local-hash-128` baseline across sync-time and query-time semantic paths
 - the next implementation slice is now also complete under `0055`: message embedding jobs and message-backed corpus search can resolve through either the built-in `local_hash` baseline or an optional provider-routed `sentence_transformers` path for models such as `BAAI/bge-m3`
 - the current default semantic baseline still uses the lightweight local `local-hash-128` path until a stronger local model is deliberately configured
+- the next bounded slice is now focused on readiness and truthful evaluation:
+  - repo-owned provider probing
+  - GPU/runtime visibility
+  - making the benchmark path actually exercise the configured message embedding provider
+- that readiness/evaluation slice is now complete under `0056`, so the lane has:
+  - an optional `local-semantic` dependency group
+  - a repo-owned provider probe
+  - truthful provider-aware benchmark plumbing
+- the local workstation has now been validated as capable of a `BAAI/bge-m3` CUDA path once the optional semantic extra is installed
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical

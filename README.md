@@ -123,7 +123,24 @@ The current repo has:
   - the built-in `local_hash` baseline
   - an optional `sentence_transformers` local provider for stronger models such as `BAAI/bge-m3`
 - config-driven message-semantic provider selection through `search.semantic.provider`, while keeping `search.semantic.model` as the canonical model selector
+- a repo-owned semantic provider probe at `slack-mirror search provider-probe`, so GPU/runtime readiness can be checked before attempting a heavier local semantic model rehearsal
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
+
+For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
+
+```bash
+uv sync --extra local-semantic
+uv run slack-mirror search provider-probe --json
+```
+
+The probe reports:
+
+- configured provider type
+- model id and expected dimensions
+- `sentence_transformers` / `torch` availability
+- CUDA and GPU visibility when torch is installed
+- optional `nvidia-smi` memory details
+- an embed smoke result when `--smoke` is requested
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults

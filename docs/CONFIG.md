@@ -152,6 +152,11 @@ Notes:
 - Derived-text semantic retrieval remains on the current baseline for now.
 - Heavy ML dependencies are intentionally optional so baseline installs and CI do not require `sentence-transformers`.
 - The longer-term semantic architecture still prefers a dedicated local inference adapter for heavy model lifecycle; the in-process `sentence_transformers` path is the bounded first implementation slice.
+- The repo now exposes a readiness probe for this path:
+  - `uv run slack-mirror search provider-probe --json`
+  - add `--smoke` to force a tiny embed call after the dependency/runtime checks
+- The optional dependency group for this local path is:
+  - `uv sync --extra local-semantic`
 
 Provider field semantics:
 

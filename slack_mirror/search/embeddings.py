@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import math
 import os
 import re
 import shlex
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -57,6 +59,116 @@ def resolve_embedding_model(model_id: str | None) -> EmbeddingModelSpec:
 
 def provider_name(provider: EmbeddingProvider) -> str:
     return str(getattr(provider, "name", provider.__class__.__name__))
+
+
+def probe_embedding_provider(
+    config: dict[str, Any] | None = None,
+    *,
+    model_id: str | None = None,
+    smoke_texts: list[str] | None = None,
+) -> dict[str, Any]:
+    search_cfg = dict((config or {}).get("search") or {})
+    semantic_cfg = dict(search_cfg.get("semantic") or {})
+    provider_cfg = dict(semantic_cfg.get("provider") or {})
+    resolved_model = resolve_embedding_model(model_id or semantic_cfg.get("model"))
+    provider_type = str(provider_cfg.get("type") or DEFAULT_SEMANTIC_PROVIDER_TYPE).strip().lower() or DEFAULT_SEMANTIC_PROVIDER_TYPE
+
+    probe: dict[str, Any] = {
+        "provider_type": provider_type,
+        "model": resolved_model.model_id,
+        "resolved_provider_id": resolved_model.provider_id,
+        "dimensions": resolved_model.dimensions,
+        "available": True,
+        "issues": [],
+        "runtime": {},
+    }
+
+    if provider_type in {"", "local_hash", "local", "hash"}:
+        pass
+    elif provider_type in {"sentence_transformers", "sentence-transformer", "local_sentence_transformers"}:
+        st_available = importlib.util.find_spec("sentence_transformers") is not None
+        torch_available = importlib.util.find_spec("torch") is not None
+        probe["runtime"]["sentence_transformers_installed"] = st_available
+        probe["runtime"]["torch_installed"] = torch_available
+        device = provider_cfg.get("device")
+        if device is not None and str(device).strip():
+            probe["runtime"]["configured_device"] = str(device).strip()
+        if not st_available:
+            probe["available"] = False
+            probe["issues"].append("sentence_transformers_not_installed")
+        if not torch_available:
+            probe["available"] = False
+            probe["issues"].append("torch_not_installed")
+        if torch_available:
+            try:
+                import torch  # type: ignore
+
+                cuda_available = bool(torch.cuda.is_available())
+                device_count = int(torch.cuda.device_count()) if cuda_available else 0
+                probe["runtime"]["cuda_available"] = cuda_available
+                probe["runtime"]["cuda_device_count"] = device_count
+                if cuda_available and device_count > 0:
+                    names: list[str] = []
+                    for idx in range(device_count):
+                        try:
+                            names.append(str(torch.cuda.get_device_name(idx)))
+                        except Exception:
+                            names.append(f"cuda:{idx}")
+                    probe["runtime"]["cuda_devices"] = names
+                configured_device = str(device or "").strip().lower()
+                if configured_device.startswith("cuda") and not cuda_available:
+                    probe["available"] = False
+                    probe["issues"].append("configured_cuda_unavailable")
+            except Exception as exc:  # pragma: no cover
+                probe["available"] = False
+                probe["issues"].append("torch_probe_failed")
+                probe["runtime"]["torch_probe_error"] = str(exc)
+        nvidia = _nvidia_smi_probe()
+        if nvidia is not None:
+            probe["runtime"]["nvidia_smi"] = nvidia
+    elif provider_type == "command":
+        command_value = provider_cfg.get("command")
+        if isinstance(command_value, str):
+            command = shlex.split(command_value)
+        elif isinstance(command_value, list):
+            command = [str(part) for part in command_value]
+        else:
+            command = []
+        probe["runtime"]["command"] = command
+        if not command:
+            probe["available"] = False
+            probe["issues"].append("command_missing")
+    elif provider_type == "http":
+        url = str(provider_cfg.get("url") or "").strip()
+        probe["runtime"]["url"] = url
+        if not url:
+            probe["available"] = False
+            probe["issues"].append("url_missing")
+    else:
+        probe["available"] = False
+        probe["issues"].append("unsupported_provider_type")
+
+    if smoke_texts and probe["available"]:
+        try:
+            provider = build_embedding_provider(config)
+            t0 = time.perf_counter()
+            vectors = provider.embed_texts([str(text or "") for text in smoke_texts], model_id=resolved_model.model_id)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            probe["runtime"]["smoke"] = {
+                "ok": True,
+                "texts": len(smoke_texts),
+                "dimensions": len(vectors[0]) if vectors else 0,
+                "latency_ms": round(elapsed_ms, 3),
+            }
+        except Exception as exc:
+            probe["available"] = False
+            probe["issues"].append("smoke_failed")
+            probe["runtime"]["smoke"] = {
+                "ok": False,
+                "error": str(exc),
+            }
+
+    return probe
 
 
 def embed_text(text: str, *, model_id: str | None = None, provider: EmbeddingProvider | None = None) -> list[float]:
@@ -289,6 +401,40 @@ def _config_bool(value: Any, *, default: bool) -> bool:
     if text in {"0", "false", "no", "off"}:
         return False
     return default
+
+
+def _nvidia_smi_probe() -> list[dict[str, Any]] | None:
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total,memory.used,memory.free,driver_version",
+                "--format=csv,noheader,nounits",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    rows: list[dict[str, Any]] = []
+    for line in (result.stdout or "").splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 5:
+            continue
+        name, total, used, free, driver_version = parts
+        rows.append(
+            {
+                "name": name,
+                "memory_total_mib": int(total),
+                "memory_used_mib": int(used),
+                "memory_free_mib": int(free),
+                "driver_version": driver_version,
+            }
+        )
+    return rows or None
 
 
 def _embed_text_local_hash(text: str, *, dim: int) -> list[float]:

@@ -526,10 +526,55 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(readiness["messages"]["embeddings"]["count"], 1)
         self.assertEqual(readiness["messages"]["embeddings"]["provider"], "local_hash")
         self.assertEqual(readiness["messages"]["embeddings"]["model"], "local-hash-128")
+        self.assertTrue(readiness["messages"]["embeddings"]["probe"]["available"])
         self.assertEqual(readiness["derived_text"]["attachment_text"]["count"], 0)
         self.assertEqual(readiness["derived_text"]["attachment_text"]["pending"], 0)
         self.assertEqual(readiness["derived_text"]["ocr_text"]["count"], 0)
         self.assertEqual(readiness["derived_text"]["ocr_text"]["pending"], 0)
+
+    def test_search_health_uses_message_embedding_provider_for_benchmark(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1712870400.000100", "user": "U1", "text": "OpenClaw gateway is down on cooper", "channel": "C123"},
+        )
+        dataset = self.root / "search_eval_provider.jsonl"
+        dataset.write_text(
+            '{"query":"gateway outage on cooper","relevant":{"general:1712870400.000100":3}}\n',
+            encoding="utf-8",
+        )
+
+        class FakeProvider:
+            name = "fake_provider"
+
+            def embed_texts(self, texts, *, model_id):
+                vectors = []
+                for text in texts:
+                    normalized = str(text or "").lower()
+                    if "gateway outage on cooper" in normalized or "openclaw gateway is down on cooper" in normalized:
+                        vectors.append([1.0, 0.0])
+                    else:
+                        vectors.append([0.0, 1.0])
+                return vectors
+
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, model_id="BAAI/bge-m3", limit=20, provider=FakeProvider())
+
+        with patch.object(self.service, "message_embedding_provider", return_value=FakeProvider()):
+            health = self.service.search_health(
+                self.conn,
+                workspace="default",
+                dataset_path=str(dataset),
+                mode="semantic",
+                limit=5,
+                model_id="BAAI/bge-m3",
+            )
+
+        self.assertIsNotNone(health["benchmark"])
+        self.assertEqual(health["benchmark"]["mode"], "semantic")
+        self.assertGreaterEqual(health["benchmark"]["hit_at_3"], 1.0)
 
     def test_corpus_search_exact_message_query_ranks_expected_result_in_lexical_and_hybrid(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

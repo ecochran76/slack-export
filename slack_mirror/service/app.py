@@ -30,7 +30,7 @@ from slack_mirror.exports import (
     resolve_export_root,
 )
 from slack_mirror.core.slack_api import SlackApiClient
-from slack_mirror.search.embeddings import build_embedding_provider, provider_name
+from slack_mirror.search.embeddings import build_embedding_provider, probe_embedding_provider
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
@@ -144,6 +144,9 @@ class SlackMirrorAppService:
         if self._message_embedding_provider is None:
             self._message_embedding_provider = build_embedding_provider(self.config.data)
         return self._message_embedding_provider
+
+    def message_embedding_probe(self, *, model_id: str | None = None, smoke_texts: list[str] | None = None) -> dict[str, Any]:
+        return probe_embedding_provider(self.config.data, model_id=model_id, smoke_texts=smoke_texts)
 
     def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
         default_paths = default_user_env_paths()
@@ -931,6 +934,7 @@ class SlackMirrorAppService:
 
     def search_readiness(self, conn, *, workspace: str) -> dict[str, Any]:
         workspace_id = self.workspace_id(conn, workspace)
+        embedding_probe = self.message_embedding_probe()
 
         message_count = int(
             conn.execute(
@@ -1031,8 +1035,9 @@ class SlackMirrorAppService:
                     "count": message_embedding_count,
                     "pending": message_embedding_pending,
                     "errors": message_embedding_errors,
-                    "provider": provider_name(self.message_embedding_provider()),
+                    "provider": str(embedding_probe.get("provider_type") or "unknown"),
                     "model": str(self.config.get("search", {}).get("semantic", {}).get("model", "local-hash-128")),
+                    "probe": embedding_probe,
                 },
             },
             "derived_text": derived_text,
@@ -1111,6 +1116,7 @@ class SlackMirrorAppService:
                 mode=mode,
                 limit=limit,
                 model_id=model_id,
+                embedding_provider=self.message_embedding_provider(),
             )
             benchmark["dataset_path"] = dataset_path
             report["benchmark"] = benchmark
