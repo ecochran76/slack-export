@@ -2762,3 +2762,26 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_search tests.test_embeddings tests.test_app_service -v`
   - `python -m py_compile slack_mirror/search/embeddings.py slack_mirror/sync/embeddings.py slack_mirror/search/keyword.py slack_mirror/search/derived_text.py slack_mirror/search/dir_adapter.py tests/test_embeddings.py tests/test_search.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 190 | 2026-04-19
+
+- Closed the first `P10` implementation slice:
+  - `0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
+- Added a new architecture-first follow-on plan for the semantic lane:
+  - `0054-2026-04-19-local-semantic-retrieval-architecture.md`
+- Recorded the explicit local-first retrieval decision before further model work:
+  - keep SQLite as canonical storage
+  - keep lexical retrieval as a first-stage lane
+  - add dense retrieval as a parallel candidate generator
+  - fuse lexical and dense candidates deterministically
+  - rerank top-K with a local cross-encoder
+  - defer vector-database migration unless latency and corpus size later justify it
+- Recorded the current preferred local model family for the next implementation phases:
+  - embedder: `BAAI/bge-m3`
+  - reranker: `BAAI/bge-reranker-v2-m3`
+- Kept the plan architecture-safe with the repo’s current guardrails:
+  - do not widen CLI/API/MCP contracts yet
+  - do not force Qdrant or another vector DB into the architecture prematurely
+  - prefer a dedicated local inference adapter boundary for heavy model lifecycle instead of letting every operator surface own model loading directly
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

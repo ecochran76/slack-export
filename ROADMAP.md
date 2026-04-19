@@ -256,33 +256,37 @@ Purpose:
 
 Actionable plans:
 - `docs/dev/plans/0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
+- `docs/dev/plans/0054-2026-04-19-local-semantic-retrieval-architecture.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
-- the current semantic baseline still uses the lightweight local `local-hash-128` path rather than a stronger embedding model
+- the first enabling slice is now complete under `0053`: one shared embedding-provider seam owns the shipped `local-hash-128` baseline across sync-time and query-time semantic paths
+- the current semantic baseline still uses that lightweight local `local-hash-128` path rather than a stronger embedding model
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
-- the first stable MCP-capable release work under `P11` is now good enough that this lane can start with a narrow provider/model seam slice rather than staying purely deferred
+- the first stable MCP-capable release work under `P11` is now good enough that this lane can move from seam hardening into an explicit retrieval-architecture decision before broader model integration
 - the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
-- derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes provider/model seam hardening the right first slice before broader embedding and reranking rollout
+- derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes architecture-first rollout preferable to jumping straight into a model swap
 
 Planned subphases:
 1. provider and model seam hardening:
    - explicit embedding-provider and reranker-provider boundaries instead of treating `model_id` as enough abstraction
-2. local embedding upgrade:
+2. local retrieval architecture:
+   - decide the durable local-first retrieval stack, service boundary, storage/index strategy, and rollout phases before adding heavy models
+3. local embedding upgrade:
    - replace or supplement `local-hash-128` with a real local embedding model, likely centered on `bge-m3` or an equivalent local-first alternative
-3. chunk and derived-text retrieval upgrade:
+4. chunk and derived-text retrieval upgrade:
    - embed and retrieve over `derived_text` and `derived_text_chunks` as first-class semantic targets, not only messages
-4. learned reranking:
+5. learned reranking:
    - introduce a real local reranker, likely centered on `bge-reranker-v2-m3` or an equivalent cross-encoder path, over top-K hybrid candidates
-5. evaluation and operator diagnostics:
+6. evaluation and operator diagnostics:
    - add Slack-specific retrieval benchmarks, relevance diagnostics, and live operator visibility for embedding backlog, model health, and rerank coverage
-6. MCP and API contract refinement:
+7. MCP and API contract refinement:
    - expose the stronger retrieval options through stable CLI, API, and MCP semantics without breaking the first-release contract
 
 Planned outputs:
-- bounded child plans under `docs/dev/plans/` once the first MCP-capable release is cut
+- bounded child plans under `docs/dev/plans/`, starting with a retrieval-architecture plan that locks the next implementation direction
 - a local-first retrieval profile that improves message, attachment, and OCR search quality without forcing a vector-DB migration
 
 ## P11 | Stable MCP-Capable User-Scoped Release
