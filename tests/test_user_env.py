@@ -297,6 +297,47 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "old snapshot\n")
         self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "repo snapshot\n")
 
+    def test_update_runs_silent_baseline_then_live_smoke_output(self):
+        self.paths.app_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.cache_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {db_path}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        _, runner = self._runner()
+        output: list[str] = []
+
+        def fake_check_live_user_env(**kwargs):
+            kwargs["out"]("Managed Runtime:")
+            kwargs["out"]("Combined Summary: PASS")
+            return 0
+
+        with patch("slack_mirror.service.user_env.check_live_user_env", side_effect=fake_check_live_user_env) as mock_check_live:
+            rc = user_env.update_user_env(
+                paths=self.paths,
+                runner=runner,
+                python_executable="python3",
+                mcp_probe=lambda _: (True, None),
+                out=output.append,
+            )
+
+        self.assertEqual(rc, 0)
+        rendered = "\n".join(output)
+        self.assertIn("running managed-runtime validation", rendered)
+        self.assertIn("Managed Runtime:", rendered)
+        self.assertIn("Combined Summary: PASS", rendered)
+        self.assertNotIn("Summary: PASS with warnings", rendered)
+        mock_check_live.assert_called_once()
+
     def test_install_fails_when_managed_mcp_probe_fails(self):
         _, runner = self._runner()
         output: list[str] = []

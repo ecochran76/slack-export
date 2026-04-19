@@ -1506,16 +1506,18 @@ def _validate_managed_runtime_baseline(
     runner: RunFn,
     out: PrintFn,
     mcp_probe: McpProbeFn,
+    render_validation: bool = True,
 ) -> int:
-    validation_rc = validate_live_user_env(
+    validation_report = _build_live_validation_report(
         paths=paths,
         runner=runner,
-        out=out,
         require_live_units=False,
         require_workspace_credentials=False,
     )
-    if validation_rc != 0:
-        return validation_rc
+    if render_validation or validation_report.exit_code != 0:
+        _emit_live_validation_report(paths=paths, report=validation_report, runner=runner, out=out)
+    if validation_report.exit_code != 0:
+        return validation_report.exit_code
     status_report = _build_status_report(paths=paths, runner=runner, mcp_probe=mcp_probe)
     failures = _managed_runtime_issues(status_report)
 
@@ -1536,6 +1538,87 @@ def _validate_managed_runtime_baseline(
         seen.add(key)
         out(f"  [{issue.code}] {issue.action}")
     return 1
+
+
+def _emit_live_validation_report(
+    *,
+    paths: UserEnvPaths,
+    report: LiveValidationReport,
+    runner: RunFn,
+    out: PrintFn,
+) -> None:
+    target = paths
+
+    def emit_actions(items: list[LiveValidationIssue], *, label: str) -> None:
+        actions: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in items:
+            code = item.code
+            action = item.action
+            if not action:
+                continue
+            key = (code, action)
+            if key in seen:
+                continue
+            seen.add(key)
+            actions.append(key)
+        if not actions:
+            return
+        out(label)
+        for code, action in actions:
+            out(f"  [{code}] {action}")
+
+    out(f"Config: {target.config_path}")
+    if target.config_path.exists():
+        out("OK    managed config present")
+        try:
+            cfg = _load_managed_config(target)
+            db_path = Path(str(cfg.get("storage", {}).get("db_path", target.state_dir / "slack_mirror.db"))).expanduser()
+            out(f"DB:     {db_path}")
+            if db_path.exists():
+                out("OK    managed DB present")
+        except Exception:
+            pass
+
+    if target.api_service_path.exists():
+        out("OK    slack-mirror-api.service unit file present")
+    if _systemctl_state(runner, "slack-mirror-api.service") == "active":
+        out("OK    slack-mirror-api.service active")
+
+    for workspace in report.workspaces:
+        if "WORKSPACE_DB_MISSING" not in workspace.failure_codes:
+            out(f"OK    workspace {workspace.name} synced into DB")
+        if "OUTBOUND_TOKEN_MISSING" not in workspace.failure_codes:
+            out(f"OK    workspace {workspace.name} explicit outbound bot token configured")
+        if workspace.stale_warning_suppressed:
+            out(
+                "OK    "
+                f"workspace {workspace.name} stale mirror evidence suppressed "
+                f"({workspace.stale_channels} stale, {workspace.active_recent_channels} active_recent, "
+                f"{workspace.unexpected_empty_channels} unexpected_empty)"
+            )
+        if workspace.reconcile_state_present:
+            age_fragment = ""
+            if workspace.reconcile_state_age_seconds is not None:
+                age_fragment = f", age={int(workspace.reconcile_state_age_seconds)}s"
+            out(
+                "OK    "
+                f"workspace {workspace.name} last reconcile-files "
+                f"(downloaded={workspace.reconcile_downloaded}, warnings={workspace.reconcile_warnings}, "
+                f"failed={workspace.reconcile_failed}{age_fragment})"
+            )
+
+    for issue in report.failures:
+        out(f"FAIL  [{issue.code}] {issue.message}")
+    for issue in report.warnings:
+        out(f"WARN  [{issue.code}] {issue.message}")
+
+    out(report.summary)
+    if report.failures:
+        emit_actions(report.failures, label="Recovery:")
+        emit_actions(report.warnings, label="Warnings:")
+    elif report.warnings:
+        emit_actions(report.warnings, label="Warnings:")
 
 
 def _finalize_live_recovery_report(
@@ -1732,9 +1815,16 @@ def update_user_env(
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
-    validation_rc = _validate_managed_runtime_baseline(paths=target, runner=runner, out=out, mcp_probe=mcp_probe)
+    validation_rc = _validate_managed_runtime_baseline(
+        paths=target,
+        runner=runner,
+        out=out,
+        mcp_probe=mcp_probe,
+        render_validation=False,
+    )
     if validation_rc != 0:
         return validation_rc
+    check_live_user_env(paths=target, runner=runner, mcp_probe=mcp_probe, out=out, json_output=False)
     _log(out, "update complete (config + DB preserved)")
     out(f"Latest config template saved at: {target.config_dir / 'config.example.latest.yaml'}")
     out(f"Rollback snapshot: {target.backup_app_dir}")
@@ -1923,77 +2013,7 @@ def validate_live_user_env(
     if json_output:
         out(json.dumps(_live_validation_report_payload(report), indent=2, sort_keys=True))
         return report.exit_code
-
-    def emit_actions(items: list[LiveValidationIssue], *, label: str) -> None:
-        actions: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
-        for item in items:
-            code = item.code
-            action = item.action
-            if not action:
-                continue
-            key = (code, action)
-            if key in seen:
-                continue
-            seen.add(key)
-            actions.append(key)
-        if not actions:
-            return
-        out(label)
-        for code, action in actions:
-            out(f"  [{code}] {action}")
-
-    out(f"Config: {target.config_path}")
-    if target.config_path.exists():
-        out("OK    managed config present")
-        try:
-            cfg = _load_managed_config(target)
-            db_path = Path(str(cfg.get("storage", {}).get("db_path", target.state_dir / "slack_mirror.db"))).expanduser()
-            out(f"DB:     {db_path}")
-            if db_path.exists():
-                out("OK    managed DB present")
-        except Exception:
-            pass
-
-    if target.api_service_path.exists():
-        out("OK    slack-mirror-api.service unit file present")
-    if _systemctl_state(runner, "slack-mirror-api.service") == "active":
-        out("OK    slack-mirror-api.service active")
-
-    for workspace in report.workspaces:
-        if "WORKSPACE_DB_MISSING" not in workspace.failure_codes:
-            out(f"OK    workspace {workspace.name} synced into DB")
-        if "OUTBOUND_TOKEN_MISSING" not in workspace.failure_codes:
-            out(f"OK    workspace {workspace.name} explicit outbound bot token configured")
-        if workspace.stale_warning_suppressed:
-            out(
-                "OK    "
-                f"workspace {workspace.name} stale mirror evidence suppressed "
-                f"({workspace.stale_channels} stale, {workspace.active_recent_channels} active_recent, "
-                f"{workspace.unexpected_empty_channels} unexpected_empty)"
-            )
-        if workspace.reconcile_state_present:
-            age_fragment = ""
-            if workspace.reconcile_state_age_seconds is not None:
-                age_fragment = f", age={int(workspace.reconcile_state_age_seconds)}s"
-            out(
-                "OK    "
-                f"workspace {workspace.name} last reconcile-files "
-                f"(downloaded={workspace.reconcile_downloaded}, warnings={workspace.reconcile_warnings}, "
-                f"failed={workspace.reconcile_failed}{age_fragment})"
-            )
-
-    for issue in report.failures:
-        out(f"FAIL  [{issue.code}] {issue.message}")
-    for issue in report.warnings:
-        out(f"WARN  [{issue.code}] {issue.message}")
-
-    out(report.summary)
-    if report.failures:
-        emit_actions(report.failures, label="Recovery:")
-        emit_actions(report.warnings, label="Warnings:")
-    elif report.warnings:
-        emit_actions(report.warnings, label="Warnings:")
+    _emit_live_validation_report(paths=target, report=report, runner=runner, out=out)
     return report.exit_code
 
 
