@@ -23,14 +23,18 @@ oauth_config:
       - app_mentions:read
       - channels:history
       - channels:read
+      - channels:write
       - chat:write
       - files:read
       - groups:history
       - groups:read
+      - groups:write
       - im:history
       - im:read
+      - im:write
       - mpim:history
       - mpim:read
+      - mpim:write
       - users:read
     user:
       - channels:history

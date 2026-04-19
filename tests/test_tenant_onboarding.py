@@ -119,6 +119,12 @@ class TenantOnboardingTests(unittest.TestCase):
             self.assertTrue(manifest.exists())
             manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
             self.assertEqual(manifest_payload["display_information"]["name"], "Slack Mirror Polymer Consulting Group")
+            bot_scopes = manifest_payload["oauth_config"]["scopes"]["bot"]
+            self.assertIn("chat:write", bot_scopes)
+            self.assertIn("channels:write", bot_scopes)
+            self.assertIn("groups:write", bot_scopes)
+            self.assertIn("im:write", bot_scopes)
+            self.assertIn("mpim:write", bot_scopes)
 
             raw = yaml.safe_load(cfg.read_text(encoding="utf-8"))
             polymer = [item for item in raw["workspaces"] if item["name"] == "polymer"][0]

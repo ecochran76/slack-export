@@ -83,6 +83,15 @@ In the Slack app settings:
   - create an app-level token with `connections:write`
   - copy the app-level token (`xapp-...`) into `SLACK_<WORKSPACE>_APP_TOKEN`
 
+The canonical Socket Mode manifest now includes the outbound conversation scopes needed for MCP/API message sends by user reference:
+
+- `channels:write`
+- `groups:write`
+- `im:write`
+- `mpim:write`
+
+If you update an existing app from an older manifest, reinstall the app after applying the new manifest so Slack grants the additional scopes.
+
 For Polymer, use these variable names:
 
 ```bash
