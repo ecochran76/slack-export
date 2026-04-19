@@ -2729,3 +2729,36 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/user_env.py slack_mirror/service/app.py tests/test_user_env.py`
   - `uv run slack-mirror user-env status --json`
   - `uv run slack-mirror user-env check-live --json`
+
+## Turn 189 | 2026-04-19
+
+- Opened `P10 | Semantic Retrieval And Relevance Hardening` as an active lane instead of leaving it purely planned.
+- Added the first bounded actionable plan for that lane:
+  - `docs/dev/plans/0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
+- Narrowed the first semantic slice intentionally to provider/model seam hardening rather than trying to land the entire local-model upgrade at once.
+- Recorded the immediate reason for activation:
+  - live search audit on 2026-04-19 confirmed that exact lexical retrieval is usable, but semantic and hybrid paraphrase retrieval are weak enough that the semantic stack now needs active hardening instead of remaining deferred
+- Kept the first slice architecture-safe:
+  - preserve current CLI/API/MCP contracts
+  - preserve SQLite-first ownership
+  - use one shared embedding-provider seam as the enabling foundation for later local model and reranker work
+- Implemented that first slice by adding `slack_mirror.search.embeddings` as the shared owner of:
+  - embedding-model normalization
+  - `local-hash-*` model resolution
+  - canonical local-hash embedding generation
+  - cosine similarity helpers for current semantic search paths
+- Removed the duplicated local-hash embedder implementations from:
+  - `slack_mirror/sync/embeddings.py`
+  - `slack_mirror/search/keyword.py`
+  - `slack_mirror/search/derived_text.py`
+  - `slack_mirror/search/dir_adapter.py`
+- This also fixes an internal inconsistency that had existed before the seam:
+  - sync-time message embeddings and query-time semantic search no longer tokenize text differently for the same `local-hash-128` baseline
+- Added focused regression coverage for:
+  - local-hash model resolution
+  - derived-text semantic lookup through the shared embedding seam
+- Updated `README.md` so the shipped search direction now reflects the new shared embedding seam.
+- Validation:
+  - `uv run python -m unittest tests.test_search tests.test_embeddings tests.test_app_service -v`
+  - `python -m py_compile slack_mirror/search/embeddings.py slack_mirror/sync/embeddings.py slack_mirror/search/keyword.py slack_mirror/search/derived_text.py slack_mirror/search/dir_adapter.py tests/test_embeddings.py tests/test_search.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import math
 import shlex
 import sqlite3
 from array import array
-from hashlib import blake2b
 from typing import Any
 
+from slack_mirror.search.embeddings import cosine_similarity, embed_text
 from slack_mirror.search.sqlite_adapter import SQLiteCorpusAdapter
 
 
@@ -251,24 +250,6 @@ def _rank_rows(
     return ranked
 
 
-def _embed_text_local(text: str, dim: int = 128) -> list[float]:
-    vec = [0.0] * dim
-    for tok in shlex.split((text or "").lower().replace("\n", " ")):
-        h = blake2b(tok.encode("utf-8"), digest_size=8).digest()
-        idx = int.from_bytes(h, "little") % dim
-        vec[idx] += 1.0
-    norm = math.sqrt(sum(v * v for v in vec))
-    if norm > 0:
-        vec = [v / norm for v in vec]
-    return vec
-
-
-def _cosine(a: list[float], b: list[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    return sum(x * y for x, y in zip(a, b))
-
-
 def _search_lexical(
     conn: sqlite3.Connection,
     *,
@@ -334,7 +315,7 @@ def _search_semantic(
     limit: int,
 ) -> list[dict[str, Any]]:
     positive_terms, where_sql, params = _parse_query(query, include_term_clauses=False)
-    query_vec = _embed_text_local(" ".join(positive_terms) if positive_terms else query)
+    query_vec = embed_text(" ".join(positive_terms) if positive_terms else query, model_id=model_id)
     candidate_limit = max(max(1, limit) * 8, 200)
 
     adapter = SQLiteCorpusAdapter(conn)
@@ -350,7 +331,7 @@ def _search_semantic(
     for r in rows:
         vec = array("f")
         vec.frombytes(r["embedding_blob"])
-        sem = _cosine(query_vec, vec.tolist())
+        sem = cosine_similarity(query_vec, vec.tolist())
         scored.append({**r, "_semantic_score": round(sem, 6)})
 
     scored.sort(key=lambda x: (x.get("_semantic_score", 0.0), float(x.get("ts") or 0.0)), reverse=True)

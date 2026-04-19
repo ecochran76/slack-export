@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import math
-import re
-from collections.abc import Iterable
 
 from slack_mirror.core.db import (
     get_message_embedding,
@@ -11,27 +8,11 @@ from slack_mirror.core.db import (
     mark_embedding_job_status,
     upsert_message_embedding,
 )
-
-_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
+from slack_mirror.search.embeddings import embed_text
 
 
 def _content_hash(message_text: str) -> str:
     return hashlib.sha256(message_text.encode("utf-8")).hexdigest()
-
-
-def _embed_text_local(text: str, dim: int = 128) -> list[float]:
-    vec = [0.0] * dim
-    tokens = _TOKEN_RE.findall((text or "").lower())
-    if not tokens:
-        return vec
-    for tok in tokens:
-        digest = hashlib.blake2b(tok.encode("utf-8"), digest_size=8).digest()
-        slot = int.from_bytes(digest, "little") % dim
-        vec[slot] += 1.0
-    norm = math.sqrt(sum(x * x for x in vec))
-    if norm > 0:
-        vec = [x / norm for x in vec]
-    return vec
 
 
 def _embed_and_store(conn, *, workspace_id: int, channel_id: str, ts: str, text: str, model_id: str) -> str:
@@ -46,7 +27,7 @@ def _embed_and_store(conn, *, workspace_id: int, channel_id: str, ts: str, text:
     if existing and existing.get("content_hash") == h:
         return "skipped"
 
-    emb = _embed_text_local(text or "")
+    emb = embed_text(text or "", model_id=model_id)
     upsert_message_embedding(
         conn,
         workspace_id=workspace_id,

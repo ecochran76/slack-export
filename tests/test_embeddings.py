@@ -3,10 +3,23 @@ import unittest
 from pathlib import Path
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_message, upsert_workspace
+from slack_mirror.search.embeddings import embed_text, resolve_embedding_model
 from slack_mirror.sync.embeddings import backfill_message_embeddings, process_embedding_jobs
 
 
 class EmbeddingSyncTests(unittest.TestCase):
+    def test_embedding_model_resolution_supports_local_hash_ids(self):
+        default_spec = resolve_embedding_model(None)
+        self.assertEqual(default_spec.model_id, "local-hash-128")
+        self.assertEqual(default_spec.dimensions, 128)
+
+        alt_spec = resolve_embedding_model("local-hash-64")
+        self.assertEqual(alt_spec.provider_id, "local_hash")
+        self.assertEqual(alt_spec.dimensions, 64)
+
+        vec = embed_text("deploy pipeline failed", model_id="local-hash-64")
+        self.assertEqual(len(vec), 64)
+
     def test_backfill_and_process_jobs(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

@@ -1,33 +1,15 @@
 from __future__ import annotations
 
-import math
 import shlex
 import sqlite3
-from hashlib import blake2b
 from typing import Any
+
+from slack_mirror.search.embeddings import cosine_similarity, embed_text
 
 
 def _fts_escape(term: str) -> str:
     t = (term or "").replace('"', '""').strip()
     return f'"{t}"' if t else ""
-
-
-def _embed_text_local(text: str, dim: int = 128) -> list[float]:
-    vec = [0.0] * dim
-    for tok in shlex.split((text or "").lower().replace("\n", " ")):
-        h = blake2b(tok.encode("utf-8"), digest_size=8).digest()
-        idx = int.from_bytes(h, "little") % dim
-        vec[idx] += 1.0
-    norm = math.sqrt(sum(v * v for v in vec))
-    if norm > 0:
-        vec = [v / norm for v in vec]
-    return vec
-
-
-def _cosine(a: list[float], b: list[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    return sum(x * y for x, y in zip(a, b))
 
 
 def _base_doc_sql(*, include_chunk: bool = False) -> str:
@@ -336,7 +318,7 @@ def search_derived_text_semantic(
     tokens = shlex.split(q)
     positive_terms = [token for token in tokens if token and not token.startswith("-") and ":" not in token]
     negative_terms = [token[1:] for token in tokens if token.startswith("-") and len(token) > 1]
-    qvec = _embed_text_local(" ".join(positive_terms) if positive_terms else q)
+    qvec = embed_text(" ".join(positive_terms) if positive_terms else q)
 
     chunk_rows = _fetch_chunk_semantic_candidates(
         conn,
@@ -350,7 +332,7 @@ def search_derived_text_semantic(
     for row in chunk_rows:
         item = dict(row)
         matched_text = str(item.get("matched_text") or "")
-        sem = _cosine(qvec, _embed_text_local(matched_text))
+        sem = cosine_similarity(qvec, embed_text(matched_text))
         item["_semantic_score"] = round(sem, 6)
         item["_source"] = "semantic"
         derived_id = int(item["id"])
@@ -373,7 +355,7 @@ def search_derived_text_semantic(
             continue
         text = str(item.get("text") or "")
         item["matched_text"] = text
-        item["_semantic_score"] = round(_cosine(qvec, _embed_text_local(text)), 6)
+        item["_semantic_score"] = round(cosine_similarity(qvec, embed_text(text)), 6)
         item["_source"] = "semantic"
         scored[derived_id] = item
 

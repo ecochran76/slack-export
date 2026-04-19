@@ -118,6 +118,7 @@ The current repo has:
 - an explicit cross-workspace corpus-search path through `search corpus --all-workspaces`
 - chunk-aware derived-text retrieval so long attachments and OCR-heavy documents surface the matching segment instead of only the top-level document row
 - a machine-readable search health path over readiness plus optional smoke benchmarks through `search health`
+- a shared embedding-provider seam under `slack_mirror.search.embeddings`, with the current `local-hash-128` baseline now owned in one place across sync-time embedding jobs and query-time semantic retrieval
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact

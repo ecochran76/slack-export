@@ -4,7 +4,7 @@ from pathlib import Path
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.search.corpus import search_corpus
-from slack_mirror.search.derived_text import search_derived_text
+from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
 from slack_mirror.sync.embeddings import process_embedding_jobs
 
@@ -171,6 +171,38 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(rows[0]["source_label"], "Playbook")
             self.assertIn("catastrophic rollback", str(rows[0]["matched_text"]))
             self.assertGreaterEqual(int(rows[0]["chunk_index"]), 1)
+
+    def test_search_derived_text_semantic_uses_shared_embedding_model(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F3', 'deploy.txt', 'Deploy Notes', 'text/plain', '/tmp/deploy.txt', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F3",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text="deployment checklist for cooper gateway outage recovery",
+                media_type="text/plain",
+                local_path="/tmp/deploy.txt",
+            )
+
+            rows = search_derived_text_semantic(conn, workspace_id=ws_id, query="gateway outage recovery", limit=5)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["source_label"], "Deploy Notes")
+            self.assertGreater(float(rows[0]["_semantic_score"]), 0.0)
 
     def test_search_corpus_combines_messages_and_derived_text(self):
         with tempfile.TemporaryDirectory() as td:

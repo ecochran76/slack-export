@@ -248,11 +248,14 @@ Planned slice order inside `P09`:
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 
-Status: PLANNED
+Status: OPEN
 
 Purpose:
 - upgrade the current basic local semantic-search baseline into a real retrieval stack that better serves messages, attachments, OCR text, and corpus-wide search
 - keep the first stable MCP-capable user-scoped release as the immediate priority, then flesh this lane out into bounded follow-on plans
+
+Actionable plans:
+- `docs/dev/plans/0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -260,7 +263,9 @@ Current state:
 - the current optional reranking path is heuristic rescoring, not a true learned reranker
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
-- this lane is intentionally sequenced after the first stable MCP-capable release rather than being mixed into current release-hardening work
+- the first stable MCP-capable release work under `P11` is now good enough that this lane can start with a narrow provider/model seam slice rather than staying purely deferred
+- the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
+- derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes provider/model seam hardening the right first slice before broader embedding and reranking rollout
 
 Planned subphases:
 1. provider and model seam hardening:

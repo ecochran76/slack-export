@@ -1,35 +1,17 @@
 from __future__ import annotations
 
-import math
 import shlex
 from dataclasses import dataclass
-from hashlib import blake2b
 from pathlib import Path
 from typing import Any
+
+from slack_mirror.search.embeddings import cosine_similarity, embed_text
 
 
 @dataclass
 class DirDoc:
     path: str
     text: str
-
-
-def _embed_text_local(text: str, dim: int = 128) -> list[float]:
-    vec = [0.0] * dim
-    for tok in shlex.split((text or "").lower().replace("\n", " ")):
-        h = blake2b(tok.encode("utf-8"), digest_size=8).digest()
-        idx = int.from_bytes(h, "little") % dim
-        vec[idx] += 1.0
-    norm = math.sqrt(sum(v * v for v in vec))
-    if norm > 0:
-        vec = [v / norm for v in vec]
-    return vec
-
-
-def _cosine(a: list[float], b: list[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    return sum(x * y for x, y in zip(a, b))
 
 
 def _load_docs(root: str, glob: str = "**/*.md", max_chars: int = 12000) -> list[DirDoc]:
@@ -86,7 +68,7 @@ def query_directory(
     terms = [t for t in shlex.split(q) if ":" not in t and not t.startswith("-")]
     neg_terms = [t[1:] for t in shlex.split(q) if t.startswith("-") and len(t) > 1]
 
-    qvec = _embed_text_local(" ".join(terms) if terms else q)
+    qvec = embed_text(" ".join(terms) if terms else q)
     scored: list[dict[str, Any]] = []
     for d in docs:
         low = d.text.lower()
@@ -94,7 +76,7 @@ def query_directory(
             continue
         term_hits = sum(low.count(t.lower()) for t in terms)
         lex = float(term_hits)
-        sem = _cosine(qvec, _embed_text_local(d.text))
+        sem = cosine_similarity(qvec, embed_text(d.text))
 
         if mode == "lexical":
             final = lex
