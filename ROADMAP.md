@@ -265,6 +265,7 @@ Actionable plans:
 - `docs/dev/plans/0060-2026-04-19-derived-text-retrieval-evaluation.md`
 - `docs/dev/plans/0061-2026-04-19-reranker-provider-seam.md`
 - `docs/dev/plans/0062-2026-04-19-learned-local-reranker-provider.md`
+- `docs/dev/plans/0063-2026-04-19-learned-reranker-live-rehearsal.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -302,7 +303,7 @@ Current state:
   - reranking now sits behind a shared provider seam
   - the existing heuristic reranker remains the shipped baseline
   - corpus search can now opt into bounded reranking over fused message plus derived-text candidates through CLI, API, and MCP
-- the current optional reranking path is still heuristic rescoring, not a true learned reranker
+- the default optional reranking path is still heuristic rescoring; learned reranking remains explicitly configured and experimental
 - attachment and derived-text retrieval now exist, which raises the value of higher-quality local embeddings and reranking substantially
 - the preferred direction for this lane is local-first rather than hosted-first, with the user's RTX 5080-class workstation making stronger local retrieval models practical
 - the first stable MCP-capable release work under `P11` is now good enough that this lane has moved from seam hardening into architecture and the first real message-model path
@@ -313,6 +314,11 @@ Current state:
   - `search reranker-probe` reports dependency/GPU readiness and optional smoke scoring before use
   - default reranking remains heuristic unless config explicitly selects the learned provider
 - the next implementation-critical step is a bounded live-data learned-reranker rehearsal against real tenant search queries, then benchmark threshold tuning if quality improves
+- that rehearsal is now complete under `0063`:
+  - learned reranking is technically viable on the RTX 5080 workstation
+  - cold model warmup is expensive and warm query latency varies by candidate/text size
+  - top-1 did not improve on the bounded live-message query set
+  - learned reranking should remain experimental until stronger semantic rollout controls and labeled benchmarks exist
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -330,7 +336,6 @@ Remaining project phases:
    - decide what remains baseline, what becomes recommended local semantic profile, and what stays experimental
 
 Recommended remaining child plans:
-- `0063`: learned-reranker live rehearsal and benchmark promotion
 - `0064`: semantic retrieval profiles and operator rollout controls
 - `0065`: tenant semantic readiness diagnostics across CLI/API/MCP/frontend
 - `0066`: query fusion and explainability hardening

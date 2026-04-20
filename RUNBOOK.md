@@ -3043,3 +3043,32 @@ This file is the dated turn log for planning and execution continuity.
   - `0063` through `0069`
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 200 | 2026-04-19
+
+- Opened the next bounded `P10` slice:
+  - `0063-2026-04-19-learned-reranker-live-rehearsal.md`
+- Scoped it to bounded live-data learned-reranker evidence gathering:
+  - readiness and GPU/runtime checks
+  - baseline/local-semantic/heuristic-rerank/learned-rerank comparisons where data coverage permits
+  - latency and GPU memory observations
+  - proceed/defer/swap decision before rollout controls
+- Rehearsal findings:
+  - managed tenants have `local-hash-128` message coverage but not `BAAI/bge-m3` message coverage
+  - derived-text chunk coverage is absent in the managed tenant DBs, so this rehearsal was message-only
+  - learned reranker smoke succeeded with `BAAI/bge-reranker-v2-m3` on CUDA
+  - cold learned-reranker warmup was about 10.8-15.7 seconds
+  - GPU memory used increased from about 4.7 GiB before warmup to about 7.2 GiB after warmup and about 8.2 GiB after bounded scoring
+  - four bounded live queries preserved top-1 under learned reranking but did not show a clear relevance improvement
+  - no benchmark fixture was promoted because relevance improvement was not stable enough
+- Decision:
+  - defer learned-reranker rollout
+  - keep learned reranking experimental
+  - proceed next to semantic retrieval profiles and rollout controls
+- Validation:
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search health --workspace default --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search health --workspace pcg --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search health --workspace soylei --json`
+  - `uv run slack-mirror --config <temp learned-reranker config> search reranker-probe --smoke --json`
+  - bounded Python comparison script over `default`, `pcg`, and `soylei` corpus-search variants
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
