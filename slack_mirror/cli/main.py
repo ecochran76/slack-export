@@ -1494,6 +1494,50 @@ def cmd_search_semantic_readiness(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_search_scale_review(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    profile_names = [value.strip() for value in str(args.profiles or "").split(",") if value.strip()]
+    payload = service.search_scale_review(
+        conn,
+        workspace=args.workspace,
+        queries=list(args.query or []),
+        profile_names=profile_names or None,
+        repeats=int(args.repeats),
+        limit=int(args.limit),
+        fusion_method=str(args.fusion),
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    corpus = payload["corpus"]
+    messages = corpus["messages"]
+    derived = corpus["derived_text"]
+    print(
+        f"Search scale review workspace={payload['workspace']} "
+        f"messages={messages['count']} derived={derived['counts']['total']} chunks={derived['chunk_counts']['total']}"
+    )
+    if messages.get("embeddings_by_model"):
+        print(
+            "Message embeddings: "
+            + ", ".join(f"{model}={count}" for model, count in sorted(messages["embeddings_by_model"].items()))
+        )
+    for run in payload["runs"]:
+        latency = run["latency_ms"]
+        print(
+            f"{run['profile']} query={run['query']!r} mode={run['mode']} model={run['model']} "
+            f"avg_ms={latency['avg']} p95_ms={latency['p95']} counts={run['result_counts']}"
+        )
+    decision = payload["decision"]
+    print(f"Decision: {decision['summary']}")
+    print(f"Index: {decision['index_reason']}")
+    print(f"Inference: {decision['inference_reason']}")
+    return 0
+
+
 def cmd_mirror_rollout_plan(args: argparse.Namespace) -> int:
     from slack_mirror.service.app import get_app_service
 
@@ -2096,7 +2140,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health provider-probe reranker-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2286,7 +2330,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health provider-probe reranker-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3153,6 +3197,30 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_semantic_readiness.add_argument("--command-limit", type=int, default=500, help="bounded backfill limit for suggested commands")
     p_search_semantic_readiness.add_argument("--json", action="store_true", help="json output")
     p_search_semantic_readiness.set_defaults(func=cmd_search_semantic_readiness)
+
+    p_search_scale_review = search_sub.add_parser("scale-review", help="measure corpus scale and retrieval-profile latency")
+    p_search_scale_review.add_argument("--workspace", required=True, help="workspace name")
+    p_search_scale_review.add_argument(
+        "--query",
+        action="append",
+        default=[],
+        help="query to time; may be repeated (default: incident review)",
+    )
+    p_search_scale_review.add_argument(
+        "--profiles",
+        default="baseline",
+        help="comma-separated retrieval profile names to time (default: baseline)",
+    )
+    p_search_scale_review.add_argument("--repeats", type=int, default=3, help="number of repeated searches per query/profile")
+    p_search_scale_review.add_argument("--limit", type=int, default=10, help="result window per timed search")
+    p_search_scale_review.add_argument(
+        "--fusion",
+        choices=["weighted", "rrf"],
+        default="weighted",
+        help="hybrid fusion method for corpus results",
+    )
+    p_search_scale_review.add_argument("--json", action="store_true", help="json output")
+    p_search_scale_review.set_defaults(func=cmd_search_scale_review)
 
     p_search_provider_probe = search_sub.add_parser("provider-probe", help="probe configured semantic provider and local GPU readiness")
     p_search_provider_probe.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")

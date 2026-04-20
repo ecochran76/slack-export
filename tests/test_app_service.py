@@ -537,6 +537,65 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(profile_map["local-wide"]["state"], "rollout_needed")
         self.assertIn("message_embeddings_backfill", profile_map["local-wide"]["commands"])
 
+    def test_search_scale_review_reports_counts_latency_and_decision(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "incident review follow-up", "channel": "C123"},
+        )
+        self.conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+            VALUES (?, 'F11', 'incident.txt', 'Incident Notes', 'text/plain', '/tmp/incident.txt', '{}')
+            """,
+            (workspace_id,),
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F11",
+            derivation_kind="attachment_text",
+            extractor="utf8_text",
+            text="incident review attachment notes",
+            media_type="text/plain",
+            local_path="/tmp/incident.txt",
+            metadata={"origin": "test"},
+        )
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, model_id="local-hash-128", limit=20)
+        backfill_derived_text_chunk_embeddings(
+            self.conn,
+            workspace_id=workspace_id,
+            model_id="local-hash-128",
+            limit=100,
+            provider=self.service.message_embedding_provider(),
+        )
+
+        review = self.service.search_scale_review(
+            self.conn,
+            workspace="default",
+            queries=["incident review"],
+            profile_names=["baseline"],
+            repeats=2,
+            limit=5,
+        )
+
+        self.assertEqual(review["workspace"], "default")
+        self.assertEqual(review["corpus"]["messages"]["count"], 1)
+        self.assertEqual(review["corpus"]["messages"]["embeddings_by_model"]["local-hash-128"], 1)
+        self.assertEqual(review["corpus"]["derived_text"]["counts"]["attachment_text"], 1)
+        self.assertGreaterEqual(review["corpus"]["derived_text"]["chunk_counts"]["attachment_text"], 1)
+        self.assertEqual(len(review["runs"]), 1)
+        self.assertEqual(review["runs"][0]["profile"], "baseline")
+        self.assertEqual(review["runs"][0]["repeats"], 2)
+        self.assertEqual(len(review["runs"][0]["result_counts"]), 2)
+        self.assertIn("p95", review["runs"][0]["latency_ms"])
+        self.assertEqual(review["decision"]["index_backend"], "sqlite_exact")
+        self.assertEqual(review["decision"]["inference_boundary"], "in_process_for_baseline")
+
     def test_search_health_rejects_hybrid_for_derived_text_target(self):
         with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):
             self.service.search_health(

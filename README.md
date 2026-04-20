@@ -102,6 +102,7 @@ slack-mirror search corpus --all-workspaces --query "incident review" --mode hyb
 slack-mirror search profiles
 slack-mirror search semantic-readiness --workspace default --json
 slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
+slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
@@ -150,6 +151,7 @@ The current repo has:
   - `local-bge-rerank` for experimental learned local reranking on top of BGE retrieval
 - tenant semantic-readiness diagnostics across CLI, API, MCP, and the authenticated tenant settings page
 - a read-only semantic rollout planner at `slack-mirror mirror rollout-plan`, which reports tenant coverage for the profile model and emits bounded probe/backfill/health commands
+- a read-only scale review at `slack-mirror search scale-review`, which reports corpus size, embedding coverage, timed retrieval-profile latency, and the current SQLite/index plus inference-boundary recommendation
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -164,11 +166,12 @@ Before changing a tenant, inspect the retrieval profile and rollout plan:
 ```bash
 uv run slack-mirror search profiles
 uv run slack-mirror search semantic-readiness --workspace default --json
+uv run slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 uv run slack-mirror search provider-probe --retrieval-profile local-bge --json
 uv run slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 ```
 
-`search semantic-readiness` is read-only and shows which profiles are ready, partial, unavailable, or still need rollout. The rollout plan is also read-only; it reports message and derived-text chunk coverage for the selected profile model and prints the exact bounded commands to run next.
+`search semantic-readiness` is read-only and shows which profiles are ready, partial, unavailable, or still need rollout. `search scale-review` is also read-only; its default `baseline` profile path is safe for release checks and should be run before changing index or inference architecture. The rollout plan is read-only; it reports message and derived-text chunk coverage for the selected profile model and prints the exact bounded commands to run next.
 
 For query-pipeline diagnostics, use `--explain` and optionally compare fusion strategies without changing tenant defaults:
 

@@ -858,6 +858,39 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_scale_review(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "scale-review",
+                "--workspace",
+                "default",
+                "--query",
+                "incident review",
+                "--query",
+                "contract renewal",
+                "--profiles",
+                "baseline,local-bge",
+                "--repeats",
+                "2",
+                "--limit",
+                "5",
+                "--fusion",
+                "rrf",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.query, ["incident review", "contract renewal"])
+        self.assertEqual(args.profiles, "baseline,local-bge")
+        self.assertEqual(args.repeats, 2)
+        self.assertEqual(args.limit, 5)
+        self.assertEqual(args.fusion, "rrf")
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_provider_probe(self):
         parser = build_parser()
         args = parser.parse_args(["search", "provider-probe", "--retrieval-profile", "local-bge", "--model", "BAAI/bge-m3", "--smoke", "--json"])

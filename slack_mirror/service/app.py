@@ -1443,6 +1443,171 @@ class SlackMirrorAppService:
             "workspaces": workspace_payloads,
         }
 
+    def search_scale_review(
+        self,
+        conn,
+        *,
+        workspace: str,
+        queries: list[str] | None = None,
+        profile_names: list[str] | None = None,
+        repeats: int = 3,
+        limit: int = 10,
+        fusion_method: str = "weighted",
+    ) -> dict[str, Any]:
+        if repeats < 1:
+            raise ValueError("repeats must be at least 1")
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        query_values = [value.strip() for value in (queries or ["incident review"]) if value.strip()]
+        if not query_values:
+            raise ValueError("at least one non-empty query is required")
+        profiles = (
+            [self.retrieval_profile(name) for name in profile_names]
+            if profile_names
+            else [self.retrieval_profile("baseline")]
+        )
+        workspace_id = self.workspace_id(conn, workspace)
+        corpus = self._search_scale_corpus_stats(conn, workspace_id=workspace_id)
+
+        runs: list[dict[str, Any]] = []
+        for profile in profiles:
+            profile_config = self.config_for_retrieval_profile(profile)
+            embedding_provider = build_embedding_provider(profile_config)
+            reranker_provider = build_reranker_provider(profile_config) if profile.rerank else None
+            weights = dict(profile.weights or {})
+            lexical_weight = float(weights.get("lexical", 0.6))
+            semantic_weight = float(weights.get("semantic", 0.4))
+            semantic_scale = float(weights.get("semantic_scale", 10.0))
+            for query in query_values:
+                latencies: list[float] = []
+                result_counts: list[int] = []
+                for _ in range(int(repeats)):
+                    started = time.perf_counter()
+                    rows = self.corpus_search(
+                        conn,
+                        workspace=workspace,
+                        query=query,
+                        limit=int(limit),
+                        mode=profile.mode,
+                        model_id=profile.model,
+                        lexical_weight=lexical_weight,
+                        semantic_weight=semantic_weight,
+                        semantic_scale=semantic_scale,
+                        fusion_method=fusion_method,
+                        message_embedding_provider=embedding_provider,
+                        rerank=bool(profile.rerank),
+                        rerank_top_n=int(profile.rerank_top_n),
+                        reranker_provider=reranker_provider,
+                    )
+                    latencies.append(round((time.perf_counter() - started) * 1000.0, 3))
+                    result_counts.append(len(rows))
+                runs.append(
+                    {
+                        "profile": profile.name,
+                        "query": query,
+                        "mode": profile.mode,
+                        "model": profile.model,
+                        "fusion_method": fusion_method,
+                        "rerank": bool(profile.rerank),
+                        "rerank_provider": None if not profile.rerank else dict(profile.rerank_provider or {}),
+                        "repeats": int(repeats),
+                        "limit": int(limit),
+                        "latency_ms": _latency_summary(latencies),
+                        "result_counts": result_counts,
+                    }
+                )
+
+        return {
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "queries": query_values,
+            "profiles": [profile.to_dict() for profile in profiles],
+            "corpus": corpus,
+            "runs": runs,
+            "decision": _search_scale_decision(corpus, runs),
+        }
+
+    def _search_scale_corpus_stats(self, conn, *, workspace_id: int) -> dict[str, Any]:
+        message_count = int(
+            conn.execute(
+                "SELECT COUNT(*) AS c FROM messages WHERE workspace_id = ? AND deleted = 0",
+                (workspace_id,),
+            ).fetchone()["c"]
+        )
+        message_embedding_rows = conn.execute(
+            """
+            SELECT model_id, COUNT(*) AS c
+            FROM message_embeddings
+            WHERE workspace_id = ?
+            GROUP BY model_id
+            ORDER BY model_id
+            """,
+            (workspace_id,),
+        ).fetchall()
+        message_embeddings_by_model = {str(row["model_id"]): int(row["c"]) for row in message_embedding_rows}
+
+        derived_rows = conn.execute(
+            """
+            SELECT derivation_kind, COUNT(*) AS c
+            FROM derived_text
+            WHERE workspace_id = ?
+            GROUP BY derivation_kind
+            ORDER BY derivation_kind
+            """,
+            (workspace_id,),
+        ).fetchall()
+        derived_counts = {str(row["derivation_kind"]): int(row["c"]) for row in derived_rows}
+        chunk_rows = conn.execute(
+            """
+            SELECT dt.derivation_kind, COUNT(*) AS c
+            FROM derived_text_chunks dc
+            JOIN derived_text dt ON dt.id = dc.derived_text_id
+            WHERE dt.workspace_id = ?
+            GROUP BY dt.derivation_kind
+            ORDER BY dt.derivation_kind
+            """,
+            (workspace_id,),
+        ).fetchall()
+        chunk_counts = {str(row["derivation_kind"]): int(row["c"]) for row in chunk_rows}
+        chunk_embedding_rows = conn.execute(
+            """
+            SELECT dt.derivation_kind, dte.model_id, COUNT(*) AS c
+            FROM derived_text_chunk_embeddings dte
+            JOIN derived_text_chunks dc ON dc.id = dte.derived_text_chunk_id
+            JOIN derived_text dt ON dt.id = dc.derived_text_id
+            WHERE dt.workspace_id = ?
+            GROUP BY dt.derivation_kind, dte.model_id
+            ORDER BY dt.derivation_kind, dte.model_id
+            """,
+            (workspace_id,),
+        ).fetchall()
+        chunk_embeddings_by_model: dict[str, dict[str, int]] = {}
+        for row in chunk_embedding_rows:
+            kind = str(row["derivation_kind"])
+            chunk_embeddings_by_model.setdefault(kind, {})[str(row["model_id"])] = int(row["c"])
+
+        return {
+            "messages": {
+                "count": message_count,
+                "embeddings_by_model": message_embeddings_by_model,
+                "embedding_rows": sum(message_embeddings_by_model.values()),
+            },
+            "derived_text": {
+                "counts": {
+                    "attachment_text": int(derived_counts.get("attachment_text", 0)),
+                    "ocr_text": int(derived_counts.get("ocr_text", 0)),
+                    "total": sum(derived_counts.values()),
+                },
+                "chunk_counts": {
+                    "attachment_text": int(chunk_counts.get("attachment_text", 0)),
+                    "ocr_text": int(chunk_counts.get("ocr_text", 0)),
+                    "total": sum(chunk_counts.values()),
+                },
+                "chunk_embeddings_by_model": chunk_embeddings_by_model,
+                "chunk_embedding_rows": sum(sum(model_counts.values()) for model_counts in chunk_embeddings_by_model.values()),
+            },
+        }
+
     def search_health(
         self,
         conn,
@@ -2141,6 +2306,57 @@ def _coverage_payload(total: int, ready: int) -> dict[str, Any]:
         "missing": missing,
         "coverage_ratio": round(ratio, 6),
         "complete": missing == 0,
+    }
+
+
+def _latency_summary(latencies_ms: list[float]) -> dict[str, float]:
+    if not latencies_ms:
+        return {"min": 0.0, "max": 0.0, "avg": 0.0, "p95": 0.0}
+    ordered = sorted(float(value) for value in latencies_ms)
+    p95_index = min(len(ordered) - 1, max(0, int((len(ordered) * 0.95) + 0.999999) - 1))
+    return {
+        "min": round(ordered[0], 3),
+        "max": round(ordered[-1], 3),
+        "avg": round(sum(ordered) / len(ordered), 3),
+        "p95": round(ordered[p95_index], 3),
+    }
+
+
+def _search_scale_decision(corpus: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
+    message_count = int(dict(corpus.get("messages") or {}).get("count") or 0)
+    chunk_counts = dict(dict(corpus.get("derived_text") or {}).get("chunk_counts") or {})
+    chunk_count = int(chunk_counts.get("total") or 0)
+    p95_values = [float(dict(run.get("latency_ms") or {}).get("p95") or 0.0) for run in runs]
+    max_p95 = max(p95_values) if p95_values else 0.0
+    total_vector_rows = message_count + chunk_count
+
+    index_backend = "sqlite_exact"
+    index_reason = "Current corpus size and measured latency do not justify a vector-index migration."
+    if total_vector_rows >= 250_000 or max_p95 >= 1500.0:
+        index_backend = "evaluate_sqlite_vector_extension"
+        index_reason = "Corpus size or measured p95 latency is high enough to evaluate a SQLite-native vector extension before any vector DB."
+    if total_vector_rows >= 1_000_000 or max_p95 >= 5000.0:
+        index_backend = "evaluate_ann_service"
+        index_reason = "Corpus size or measured p95 latency is high enough to evaluate a local ANN service after SQLite-native options."
+
+    uses_heavy_profile = any(
+        str(dict(run).get("model") or "").lower() not in {"", "local-hash-128"} or bool(dict(run).get("rerank"))
+        for run in runs
+    )
+    inference_boundary = "in_process_for_baseline"
+    inference_reason = "The baseline profile is lightweight enough to remain in process."
+    if uses_heavy_profile:
+        inference_boundary = "long_lived_local_inference_service_recommended"
+        inference_reason = "Heavy embedding or reranker profiles should not be independently loaded by every CLI/API/MCP client."
+
+    return {
+        "index_backend": index_backend,
+        "index_reason": index_reason,
+        "inference_boundary": inference_boundary,
+        "inference_reason": inference_reason,
+        "max_p95_ms": round(max_p95, 3),
+        "vector_rows_considered": total_vector_rows,
+        "summary": f"{index_backend}; {inference_boundary}.",
     }
 
 

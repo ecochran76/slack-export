@@ -235,11 +235,14 @@ slack-mirror search profiles
 slack-mirror search semantic-readiness --workspace default --json
 slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
+slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search provider-probe --retrieval-profile local-bge --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 ```
 
 `search semantic-readiness` is read-only and returns profile states for one workspace or all enabled workspaces. `mirror rollout-plan` is read-only. It reports current message and derived-text chunk embedding coverage for the profile model and emits bounded commands for provider probing, message embedding backfill, derived-text chunk embedding backfill, optional reranker probing, and search-health verification.
+
+`search scale-review` is read-only and defaults to the release-safe `baseline` profile. Use it before changing index or inference architecture; it reports corpus counts, embedding coverage, repeated query latency by retrieval profile, and a machine-readable decision recommending whether to stay SQLite/exact, evaluate a SQLite-native vector extension, or evaluate a local ANN service.
 
 The same readiness payload is exposed to API and MCP clients:
 

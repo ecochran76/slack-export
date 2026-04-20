@@ -3175,3 +3175,37 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_search tests.test_cli tests.test_api_server tests.test_mcp_server -v`
   - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search corpus --workspace default --query "incident review" --mode hybrid --limit 1 --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 206 | 2026-04-20
+
+- Opened and closed the next bounded `P10` slice:
+  - `0068-2026-04-20-scale-and-inference-boundary-review.md`
+- Implemented a read-only scale and inference-boundary diagnostic:
+  - `SlackMirrorAppService.search_scale_review`
+  - `slack-mirror search scale-review`
+- The diagnostic reports:
+  - message counts
+  - message embedding rows by model
+  - derived-text counts
+  - derived-text chunk counts
+  - derived-text chunk embedding rows by model
+  - repeated corpus-search latency by retrieval profile and query
+  - a machine-readable index and inference-boundary recommendation
+- Live managed-DB baseline review for `default` measured:
+  - `91,556` messages
+  - `91,556` `local-hash-128` message embeddings
+  - `0` derived-text chunks
+  - `avg=1821 ms` and `p95=2161 ms` over two repeated baseline hybrid corpus searches for `incident review`
+- Decision recorded:
+  - evaluate a SQLite-native vector extension before any vector DB or ANN service
+  - keep lightweight baseline inference in process
+  - do not let heavy BGE/reranker model lifecycle be owned privately by each CLI/API/MCP client
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_app_service.py tests/test_cli.py`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_search_scale_review_reports_counts_latency_and_decision tests.test_cli.CliTests.test_parse_search_scale_review -v`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `uv run python -m unittest tests.test_app_service tests.test_cli -v`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

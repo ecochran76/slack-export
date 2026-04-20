@@ -270,6 +270,7 @@ Actionable plans:
 - `docs/dev/plans/0065-2026-04-19-tenant-semantic-readiness-diagnostics.md`
 - `docs/dev/plans/0066-2026-04-19-query-fusion-and-explainability-hardening.md`
 - `docs/dev/plans/0067-2026-04-19-actionable-search-results.md`
+- `docs/dev/plans/0068-2026-04-20-scale-and-inference-boundary-review.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -339,6 +340,10 @@ Current state:
   - corpus result rows include stable `action_target` metadata for message and derived-text hits
   - API, MCP, and CLI JSON surfaces expose the same shared selection metadata without endpoint-specific mapping
   - later export/report/action workflows can consume selected candidates without re-parsing labels, snippets, or score fields
+- the scale and inference-boundary review slice is now complete under `0068`:
+  - `search scale-review` reports corpus size, embedding coverage, repeated query latency by retrieval profile, and a machine-readable architecture recommendation
+  - the managed `default` baseline review on 2026-04-20 measured `91,556` messages, complete `local-hash-128` coverage, no derived-text chunks, and `p95=2161 ms` for repeated baseline hybrid corpus search
+  - the current recommendation is to evaluate a SQLite-native vector extension before any vector DB, while keeping the lightweight baseline inference path in process
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -356,7 +361,6 @@ Remaining project phases:
    - decide what remains baseline, what becomes recommended local semantic profile, and what stays experimental
 
 Recommended remaining child plans:
-- `0068`: scale and inference-boundary review
 - `0069`: release profile, docs, and final semantic-search policy
 
 Planned outputs:

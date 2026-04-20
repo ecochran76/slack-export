@@ -288,6 +288,22 @@ Acceptance gates:
 
 ### Phase 7: Scale And Inference Boundary Review
 
+Completed:
+
+- `0068` added `search scale-review` as a read-only corpus-size and latency diagnostic
+- the managed `default` baseline review on 2026-04-20 measured:
+  - `91,556` messages
+  - `91,556` `local-hash-128` message embeddings
+  - `0` derived-text chunks
+  - repeated baseline hybrid corpus-search latency of `avg=1821 ms` and `p95=2161 ms`
+- the current index recommendation is to evaluate a SQLite-native vector extension before any vector DB, because baseline exact dense search is already above the desired interactive latency envelope on the current live corpus
+- the current inference-boundary recommendation is to keep the lightweight baseline provider in process, but avoid letting heavy BGE/reranker profiles be independently loaded by every CLI/API/MCP client
+
+Exit state:
+
+- the repo has a repeatable evidence path for future scale reviews
+- the next slice can focus on release/default policy and, if accepted, a SQLite-native vector-extension evaluation plan
+
 Purpose:
 
 - decide whether the current in-process exact-search design is sufficient, or whether the repo needs a stronger local inference/index service
@@ -384,10 +400,6 @@ Do not parallelize before Phase 4:
 
 Recommended remaining child plans:
 
-- `0065`: tenant semantic readiness diagnostics across CLI/API/MCP/frontend
-- `0066`: query fusion and explainability hardening
-- `0067`: actionable search results for export/report workflows
-- `0068`: scale and inference-boundary review
 - `0069`: release profile, docs, and final semantic-search policy
 
 ## Acceptance Criteria

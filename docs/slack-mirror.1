@@ -631,7 +631,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,provider-probe,reranker-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,query-dir}
                            ...
 
 **Arguments**
@@ -654,6 +654,8 @@ usage: slack-mirror search [-h]
 `reindex-keyword`
 .IP \[bu] 2
 `reranker-probe`
+.IP \[bu] 2
+`scale-review`
 .IP \[bu] 2
 `semantic`
 .IP \[bu] 2
@@ -916,6 +918,29 @@ usage: slack-mirror search reranker-probe [-h]
 `--model` — reranker model id (defaults to config search.rerank.provider.model)
 .IP \[bu] 2
 `--smoke` — run a small rerank smoke after readiness checks
+.IP \[bu] 2
+`--json` — json output
+.SH SLACK-MIRROR SEARCH SCALE-REVIEW
+**Usage**
+
+usage: slack-mirror search scale-review [-h] --workspace WORKSPACE
+                                        [--query QUERY] [--profiles PROFILES]
+                                        [--repeats REPEATS] [--limit LIMIT]
+                                        [--fusion {weighted,rrf}] [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--query` — query to time; may be repeated (default: incident review); default: `[]`
+.IP \[bu] 2
+`--profiles` — comma-separated retrieval profile names to time (default: baseline); default: `baseline`
+.IP \[bu] 2
+`--repeats` — number of repeated searches per query/profile; default: `3`
+.IP \[bu] 2
+`--limit` — result window per timed search; default: `10`
+.IP \[bu] 2
+`--fusion` — hybrid fusion method for corpus results; default: `weighted`
 .IP \[bu] 2
 `--json` — json output
 .SH SLACK-MIRROR SEARCH SEMANTIC
