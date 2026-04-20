@@ -9,6 +9,7 @@ from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upse
 from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
+from slack_mirror.search.profiles import config_with_retrieval_profile, list_retrieval_profiles, resolve_retrieval_profile
 from slack_mirror.search.rerankers import (
     SentenceTransformersCrossEncoderRerankerProvider,
     build_reranker_provider,
@@ -20,6 +21,42 @@ from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embedding
 
 
 class SearchTests(unittest.TestCase):
+    def test_retrieval_profiles_resolve_builtin_and_configured_overrides(self):
+        baseline = resolve_retrieval_profile({}, "baseline")
+        self.assertEqual(baseline.model, "local-hash-128")
+        self.assertFalse(baseline.rerank)
+
+        local_bge = resolve_retrieval_profile({}, "local-bge")
+        self.assertEqual(local_bge.model, "BAAI/bge-m3")
+        self.assertEqual(local_bge.semantic_provider["type"], "sentence_transformers")
+
+        configured = resolve_retrieval_profile(
+            {
+                "search": {
+                    "retrieval_profiles": {
+                        "local-bge": {
+                            "weights": {"lexical": 0.2, "semantic": 0.8},
+                            "semantic_provider": {"type": "sentence_transformers", "device": "cuda"},
+                        },
+                        "custom": {
+                            "mode": "semantic",
+                            "model": "custom-model",
+                            "semantic_provider": {"type": "command", "command": "embed"},
+                        },
+                    }
+                }
+            },
+            "local-bge",
+        )
+        self.assertEqual(configured.lexical_weight, 0.2)
+        self.assertEqual(configured.semantic_weight, 0.8)
+        self.assertEqual(configured.semantic_provider["device"], "cuda")
+        self.assertIn("custom", [profile.name for profile in list_retrieval_profiles({"search": {"retrieval_profiles": {"custom": {"model": "x"}}}})])
+
+        overlay = config_with_retrieval_profile({}, configured)
+        self.assertEqual(overlay["search"]["semantic"]["model"], "BAAI/bge-m3")
+        self.assertEqual(overlay["search"]["semantic"]["provider"]["device"], "cuda")
+
     def test_reranker_provider_seam_scores_rows(self):
         class FakeReranker:
             name = "fake_reranker"
@@ -439,6 +476,52 @@ class SearchTests(unittest.TestCase):
             self.assertIn("message", kinds)
             self.assertIn("derived_text", kinds)
             self.assertTrue(any("_hybrid_score" in row for row in rows))
+            self.assertEqual(rows[0]["_explain"]["fusion_method"], "weighted")
+            self.assertIn("scores", rows[0]["_explain"])
+
+    def test_search_corpus_supports_rrf_fusion_explain_metadata(self):
+        class FakeProvider:
+            name = "fake_provider"
+
+            def embed_texts(self, texts, *, model_id):
+                vectors = []
+                for text in texts:
+                    normalized = str(text or "").lower()
+                    vectors.append([1.0, 0.0] if "semantic winner" in normalized or normalized == "alpha" else [0.0, 1.0])
+                return vectors
+
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "alpha alpha lexical top", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "11.0", "text": "semantic winner", "user": "U1"})
+            process_embedding_jobs(conn, workspace_id=ws_id, model_id="fake-model", limit=20, provider=FakeProvider())
+
+            rows = search_corpus(
+                conn,
+                workspace_id=ws_id,
+                query="alpha",
+                limit=5,
+                mode="hybrid",
+                model_id="fake-model",
+                lexical_weight=0.1,
+                semantic_weight=10.0,
+                fusion_method="rrf",
+                message_embedding_provider=FakeProvider(),
+            )
+
+            self.assertEqual(rows[0]["text"], "semantic winner")
+            self.assertEqual(rows[0]["_fusion_method"], "rrf")
+            self.assertEqual(rows[0]["_semantic_rank"], 1)
+            self.assertIsNone(rows[0]["_lexical_rank"])
+            self.assertEqual(rows[0]["_explain"]["fusion_method"], "rrf")
+            self.assertEqual(rows[0]["_explain"]["ranks"]["semantic"], 1)
 
     def test_search_corpus_can_rerank_fused_candidates(self):
         class FakeReranker:

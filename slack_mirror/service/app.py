@@ -32,6 +32,12 @@ from slack_mirror.exports import (
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.embeddings import build_embedding_provider, probe_embedding_provider
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search, evaluate_derived_text_search
+from slack_mirror.search.profiles import (
+    RetrievalProfile,
+    config_with_retrieval_profile,
+    list_retrieval_profiles,
+    resolve_retrieval_profile,
+)
 from slack_mirror.search.rerankers import build_reranker_provider, probe_reranker_provider
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
@@ -168,6 +174,15 @@ class SlackMirrorAppService:
             smoke_query=smoke_query,
             smoke_documents=smoke_documents,
         )
+
+    def retrieval_profiles(self) -> list[dict[str, Any]]:
+        return [profile.to_dict() for profile in list_retrieval_profiles(self.config.data)]
+
+    def retrieval_profile(self, name: str | None) -> RetrievalProfile:
+        return resolve_retrieval_profile(self.config.data, name)
+
+    def config_for_retrieval_profile(self, profile: RetrievalProfile) -> dict[str, Any]:
+        return config_with_retrieval_profile(self.config.data, profile)
 
     def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
         default_paths = default_user_env_paths()
@@ -765,6 +780,7 @@ class SlackMirrorAppService:
         lexical_weight: float = 0.6,
         semantic_weight: float = 0.4,
         semantic_scale: float = 10.0,
+        fusion_method: str = "weighted",
         use_fts: bool = True,
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
@@ -790,6 +806,7 @@ class SlackMirrorAppService:
                 lexical_weight=lexical_weight,
                 semantic_weight=semantic_weight,
                 semantic_scale=semantic_scale,
+                fusion_method=fusion_method,
                 use_fts=use_fts,
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
@@ -814,6 +831,7 @@ class SlackMirrorAppService:
             lexical_weight=lexical_weight,
             semantic_weight=semantic_weight,
             semantic_scale=semantic_scale,
+            fusion_method=fusion_method,
             use_fts=use_fts,
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
@@ -837,6 +855,7 @@ class SlackMirrorAppService:
         lexical_weight: float = 0.6,
         semantic_weight: float = 0.4,
         semantic_scale: float = 10.0,
+        fusion_method: str = "weighted",
         use_fts: bool = True,
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
@@ -862,6 +881,7 @@ class SlackMirrorAppService:
                 lexical_weight=lexical_weight,
                 semantic_weight=semantic_weight,
                 semantic_scale=semantic_scale,
+                fusion_method=fusion_method,
                 use_fts=use_fts,
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
@@ -886,6 +906,7 @@ class SlackMirrorAppService:
             lexical_weight=lexical_weight,
             semantic_weight=semantic_weight,
             semantic_scale=semantic_scale,
+            fusion_method=fusion_method,
             use_fts=use_fts,
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
@@ -1147,6 +1168,281 @@ class SlackMirrorAppService:
             else "degraded",
         }
 
+    def semantic_rollout_plan(
+        self,
+        conn,
+        *,
+        workspace: str,
+        profile_name: str,
+        limit: int = 500,
+        channels: list[str] | None = None,
+        oldest: str | None = None,
+        latest: str | None = None,
+        derived_kind: str | None = None,
+        derived_source_kind: str | None = None,
+    ) -> dict[str, Any]:
+        workspace_id = self.workspace_id(conn, workspace)
+        profile = self.retrieval_profile(profile_name)
+        model = profile.model
+        channel_ids = [value.strip() for value in (channels or []) if value.strip()]
+
+        message_where = ["m.workspace_id = ?", "m.deleted = 0"]
+        message_params: list[Any] = [workspace_id]
+        if channel_ids:
+            message_where.append("m.channel_id IN (" + ",".join("?" for _ in channel_ids) + ")")
+            message_params.extend(channel_ids)
+        if oldest:
+            message_where.append("CAST(m.ts AS REAL) >= CAST(? AS REAL)")
+            message_params.append(oldest)
+        if latest:
+            message_where.append("CAST(m.ts AS REAL) <= CAST(? AS REAL)")
+            message_params.append(latest)
+        message_where_sql = " AND ".join(message_where)
+        message_total = int(
+            conn.execute(
+                f"SELECT COUNT(*) AS c FROM messages m WHERE {message_where_sql}",
+                tuple(message_params),
+            ).fetchone()["c"]
+        )
+        message_embedded = int(
+            conn.execute(
+                f"""
+                SELECT COUNT(*) AS c
+                FROM messages m
+                JOIN message_embeddings me
+                  ON me.workspace_id = m.workspace_id
+                 AND me.channel_id = m.channel_id
+                 AND me.ts = m.ts
+                 AND me.model_id = ?
+                WHERE {message_where_sql}
+                """,
+                tuple([model, *message_params]),
+            ).fetchone()["c"]
+        )
+
+        derived_where = ["dc.workspace_id = ?"]
+        derived_params: list[Any] = [workspace_id]
+        if derived_kind:
+            derived_where.append("dt.derivation_kind = ?")
+            derived_params.append(derived_kind)
+        if derived_source_kind:
+            derived_where.append("dt.source_kind = ?")
+            derived_params.append(derived_source_kind)
+        derived_where_sql = " AND ".join(derived_where)
+        derived_total = int(
+            conn.execute(
+                f"""
+                SELECT COUNT(*) AS c
+                FROM derived_text_chunks dc
+                JOIN derived_text dt ON dt.id = dc.derived_text_id
+                WHERE {derived_where_sql}
+                """,
+                tuple(derived_params),
+            ).fetchone()["c"]
+        )
+        derived_embedded = int(
+            conn.execute(
+                f"""
+                SELECT COUNT(*) AS c
+                FROM derived_text_chunks dc
+                JOIN derived_text dt ON dt.id = dc.derived_text_id
+                JOIN derived_text_chunk_embeddings dte
+                  ON dte.derived_text_chunk_id = dc.id
+                 AND dte.model_id = ?
+                WHERE {derived_where_sql}
+                """,
+                tuple([model, *derived_params]),
+            ).fetchone()["c"]
+        )
+
+        config_arg = str(self.config.path)
+        message_command = [
+            "slack-mirror",
+            "--config",
+            config_arg,
+            "mirror",
+            "embeddings-backfill",
+            "--workspace",
+            workspace,
+            "--retrieval-profile",
+            profile.name,
+            "--model",
+            model,
+            "--limit",
+            str(int(limit)),
+            "--json",
+        ]
+        if channel_ids:
+            message_command.extend(["--channels", ",".join(channel_ids)])
+        if oldest:
+            message_command.extend(["--oldest", oldest])
+        if latest:
+            message_command.extend(["--latest", latest])
+
+        derived_command = [
+            "slack-mirror",
+            "--config",
+            config_arg,
+            "mirror",
+            "derived-text-embeddings-backfill",
+            "--workspace",
+            workspace,
+            "--retrieval-profile",
+            profile.name,
+            "--model",
+            model,
+            "--limit",
+            str(int(limit)),
+            "--json",
+        ]
+        if derived_kind:
+            derived_command.extend(["--kind", derived_kind])
+        if derived_source_kind:
+            derived_command.extend(["--source-kind", derived_source_kind])
+
+        commands = {
+            "provider_probe": [
+                "slack-mirror",
+                "--config",
+                config_arg,
+                "search",
+                "provider-probe",
+                "--retrieval-profile",
+                profile.name,
+                "--smoke",
+                "--json",
+            ],
+            "message_embeddings_backfill": message_command,
+            "derived_text_embeddings_backfill": derived_command,
+            "search_health": [
+                "slack-mirror",
+                "--config",
+                config_arg,
+                "search",
+                "health",
+                "--workspace",
+                workspace,
+                "--retrieval-profile",
+                profile.name,
+                "--json",
+            ],
+        }
+        if profile.rerank:
+            commands["reranker_probe"] = [
+                "slack-mirror",
+                "--config",
+                config_arg,
+                "search",
+                "reranker-probe",
+                "--retrieval-profile",
+                profile.name,
+                "--smoke",
+                "--json",
+            ]
+
+        return {
+            "workspace": workspace,
+            "profile": profile.to_dict(),
+            "filters": {
+                "limit": int(limit),
+                "channels": channel_ids,
+                "oldest": oldest,
+                "latest": latest,
+                "derived_kind": derived_kind,
+                "derived_source_kind": derived_source_kind,
+            },
+            "coverage": {
+                "messages": _coverage_payload(message_total, message_embedded),
+                "derived_text_chunks": _coverage_payload(derived_total, derived_embedded),
+            },
+            "commands": commands,
+            "status": "ready" if message_embedded >= message_total and derived_embedded >= derived_total else "rollout_needed",
+        }
+
+    def semantic_readiness(
+        self,
+        conn,
+        *,
+        workspace: str | None = None,
+        profile_names: list[str] | None = None,
+        include_commands: bool = False,
+        command_limit: int = 500,
+    ) -> dict[str, Any]:
+        workspaces = [workspace] if workspace else self.enabled_workspace_names()
+        profiles = (
+            [self.retrieval_profile(name) for name in profile_names]
+            if profile_names
+            else [self.retrieval_profile(str(profile["name"])) for profile in self.retrieval_profiles()]
+        )
+
+        active_semantic = dict((self.config.get("search", {}) or {}).get("semantic", {}) or {})
+        active_rerank = dict((self.config.get("search", {}) or {}).get("rerank", {}) or {})
+        active_config = {
+            "mode": str(active_semantic.get("mode_default") or "hybrid"),
+            "model": str(active_semantic.get("model") or "local-hash-128"),
+            "semantic_provider": dict(active_semantic.get("provider") or {}),
+            "rerank_provider": dict(active_rerank.get("provider") or {}),
+        }
+
+        workspace_payloads: list[dict[str, Any]] = []
+        for workspace_name in workspaces:
+            profile_payloads: list[dict[str, Any]] = []
+            for profile in profiles:
+                profile_config = self.config_for_retrieval_profile(profile)
+                provider_probe = probe_embedding_provider(profile_config, model_id=profile.model)
+                reranker_probe = probe_reranker_provider(profile_config) if profile.rerank else None
+                plan = self.semantic_rollout_plan(
+                    conn,
+                    workspace=workspace_name,
+                    profile_name=profile.name,
+                    limit=command_limit,
+                )
+                profile_state = _semantic_profile_state(
+                    plan=plan,
+                    provider_probe=provider_probe,
+                    reranker_probe=reranker_probe,
+                )
+                profile_payload: dict[str, Any] = {
+                    "name": profile.name,
+                    "description": profile.description,
+                    "experimental": profile.experimental,
+                    "mode": profile.mode,
+                    "model": profile.model,
+                    "semantic_provider": profile.semantic_provider,
+                    "rerank": profile.rerank,
+                    "rerank_top_n": profile.rerank_top_n,
+                    "rerank_provider": profile.rerank_provider,
+                    "state": profile_state["state"],
+                    "tone": profile_state["tone"],
+                    "summary": profile_state["summary"],
+                    "provider_available": bool(provider_probe.get("available")),
+                    "provider_issues": list(provider_probe.get("issues") or []),
+                    "reranker_available": None if reranker_probe is None else bool(reranker_probe.get("available")),
+                    "reranker_issues": [] if reranker_probe is None else list(reranker_probe.get("issues") or []),
+                    "coverage": plan["coverage"],
+                    "commands": plan["commands"] if include_commands else None,
+                }
+                profile_payloads.append(profile_payload)
+
+            workspace_status = _semantic_workspace_state(profile_payloads)
+            workspace_payloads.append(
+                {
+                    "workspace": workspace_name,
+                    "status": workspace_status["state"],
+                    "tone": workspace_status["tone"],
+                    "summary": workspace_status["summary"],
+                    "active_config": active_config,
+                    "profiles": profile_payloads,
+                }
+            )
+
+        return {
+            "scope": "workspace" if workspace else "all",
+            "workspace": workspace,
+            "profiles": [profile.to_dict() for profile in profiles],
+            "workspaces": workspace_payloads,
+        }
+
     def search_health(
         self,
         conn,
@@ -1163,6 +1459,7 @@ class SlackMirrorAppService:
         max_latency_p95_ms: float = 800.0,
         max_attachment_pending: int = 25,
         max_ocr_pending: int = 25,
+        message_embedding_provider=None,
     ) -> dict[str, Any]:
         if benchmark_target == "derived_text" and mode not in {"lexical", "semantic"}:
             raise ValueError("derived_text benchmark target only supports lexical or semantic mode")
@@ -1225,6 +1522,7 @@ class SlackMirrorAppService:
 
         if dataset_path:
             dataset = dataset_rows(dataset_path)
+            embedding_provider = message_embedding_provider or self.message_embedding_provider()
             if benchmark_target == "derived_text":
                 benchmark = evaluate_derived_text_search(
                     conn,
@@ -1233,7 +1531,7 @@ class SlackMirrorAppService:
                     mode=mode,
                     limit=limit,
                     model_id=model_id,
-                    embedding_provider=self.message_embedding_provider(),
+                    embedding_provider=embedding_provider,
                 )
             else:
                 benchmark = evaluate_corpus_search(
@@ -1243,7 +1541,7 @@ class SlackMirrorAppService:
                     mode=mode,
                     limit=limit,
                     model_id=model_id,
-                    embedding_provider=self.message_embedding_provider(),
+                    embedding_provider=embedding_provider,
                 )
             benchmark["dataset_path"] = dataset_path
             report["benchmark"] = benchmark
@@ -1832,6 +2130,81 @@ class SlackMirrorAppService:
                 error=str(exc),
             )
             raise
+
+
+def _coverage_payload(total: int, ready: int) -> dict[str, Any]:
+    missing = max(int(total) - int(ready), 0)
+    ratio = 1.0 if int(total) <= 0 else int(ready) / max(int(total), 1)
+    return {
+        "total": int(total),
+        "ready": int(ready),
+        "missing": missing,
+        "coverage_ratio": round(ratio, 6),
+        "complete": missing == 0,
+    }
+
+
+def _semantic_profile_state(
+    *,
+    plan: dict[str, Any],
+    provider_probe: dict[str, Any],
+    reranker_probe: dict[str, Any] | None,
+) -> dict[str, str]:
+    if not bool(provider_probe.get("available")):
+        issues = ", ".join(str(item) for item in provider_probe.get("issues") or []) or "provider unavailable"
+        return {
+            "state": "provider_unavailable",
+            "tone": "bad",
+            "summary": f"Embedding provider is unavailable: {issues}.",
+        }
+    if reranker_probe is not None and not bool(reranker_probe.get("available")):
+        issues = ", ".join(str(item) for item in reranker_probe.get("issues") or []) or "reranker unavailable"
+        return {
+            "state": "reranker_unavailable",
+            "tone": "bad",
+            "summary": f"Reranker provider is unavailable: {issues}.",
+        }
+    coverage = dict(plan.get("coverage") or {})
+    messages = dict(coverage.get("messages") or {})
+    chunks = dict(coverage.get("derived_text_chunks") or {})
+    missing_messages = int(messages.get("missing") or 0)
+    missing_chunks = int(chunks.get("missing") or 0)
+    ready_messages = int(messages.get("ready") or 0)
+    ready_chunks = int(chunks.get("ready") or 0)
+    if missing_messages == 0 and missing_chunks == 0:
+        return {
+            "state": "ready",
+            "tone": "ok",
+            "summary": "Profile coverage is complete for messages and current derived-text chunks.",
+        }
+    if ready_messages > 0 or ready_chunks > 0:
+        return {
+            "state": "partial_rollout",
+            "tone": "warn",
+            "summary": f"Profile rollout is partial: {missing_messages} messages and {missing_chunks} derived-text chunks still need embeddings.",
+        }
+    return {
+        "state": "rollout_needed",
+        "tone": "warn",
+        "summary": f"Profile rollout has not started: {missing_messages} messages and {missing_chunks} derived-text chunks need embeddings.",
+    }
+
+
+def _semantic_workspace_state(profiles: list[dict[str, Any]]) -> dict[str, str]:
+    if not profiles:
+        return {"state": "unknown", "tone": "neutral", "summary": "No retrieval profiles are configured."}
+    ready = [profile for profile in profiles if profile.get("state") == "ready"]
+    if ready:
+        names = ", ".join(str(profile.get("name")) for profile in ready)
+        return {"state": "ready", "tone": "ok", "summary": f"Ready profiles: {names}."}
+    bad = [profile for profile in profiles if str(profile.get("state") or "").endswith("_unavailable")]
+    if len(bad) == len(profiles):
+        return {"state": "unavailable", "tone": "bad", "summary": "All semantic profiles have unavailable providers."}
+    partial = [profile for profile in profiles if profile.get("state") == "partial_rollout"]
+    if partial:
+        names = ", ".join(str(profile.get("name")) for profile in partial)
+        return {"state": "partial_rollout", "tone": "warn", "summary": f"Partial rollout profiles: {names}."}
+    return {"state": "rollout_needed", "tone": "warn", "summary": "No stronger semantic profile is ready yet."}
 
 
 def get_app_service(config_path: str | None = None) -> SlackMirrorAppService:

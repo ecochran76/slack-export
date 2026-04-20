@@ -266,6 +266,9 @@ Actionable plans:
 - `docs/dev/plans/0061-2026-04-19-reranker-provider-seam.md`
 - `docs/dev/plans/0062-2026-04-19-learned-local-reranker-provider.md`
 - `docs/dev/plans/0063-2026-04-19-learned-reranker-live-rehearsal.md`
+- `docs/dev/plans/0064-2026-04-19-semantic-retrieval-profiles-rollout-controls.md`
+- `docs/dev/plans/0065-2026-04-19-tenant-semantic-readiness-diagnostics.md`
+- `docs/dev/plans/0066-2026-04-19-query-fusion-and-explainability-hardening.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -319,15 +322,27 @@ Current state:
   - cold model warmup is expensive and warm query latency varies by candidate/text size
   - top-1 did not improve on the bounded live-message query set
   - learned reranking should remain experimental until stronger semantic rollout controls and labeled benchmarks exist
+- the rollout-control slice is now complete under `0064`:
+  - named retrieval profiles now distinguish `baseline`, `local-bge`, and experimental `local-bge-rerank`
+  - corpus search, provider probes, reranker probes, and bounded embedding backfills can use profile-aware provider/model config explicitly
+  - `mirror rollout-plan` is a read-only tenant coverage and command-planning surface for message and derived-text chunk rollout
+- the tenant-readiness diagnostics slice is now complete under `0065`:
+  - CLI, API, MCP, and the authenticated tenant settings page can report semantic readiness for named retrieval profiles
+  - tenant readiness now distinguishes ready profiles, partial rollout, missing rollout, and unavailable providers without running backfills automatically
+  - the current managed default workspace is baseline-current after the bounded catch-up in `0066`, while `local-bge` still needs rollout
+- the query-fusion and explainability slice is now complete under `0066`:
+  - corpus hybrid search preserves weighted fusion as the default
+  - opt-in reciprocal-rank fusion is available through CLI, API, MCP, and the shared service boundary
+  - corpus results include stable `_explain` metadata so agents and frontend clients do not need private ranking logic
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
    - compare baseline, `bge-m3`, heuristic rerank, and learned rerank against real tenant queries
    - promote high-signal cases into durable benchmark fixtures
 2. rollout controls and operator UX:
-   - add explicit retrieval profiles, resumable backfill orchestration, readiness states, and safe fallback visibility
+   - add resumable backfill orchestration and richer operator guidance beyond the shipped read-only readiness and rollout-plan surfaces
 3. query pipeline hardening:
-   - evaluate reciprocal-rank fusion, improve explain output, preserve lexical strength, and stabilize grouped result projection
+   - stabilize grouped result projection now that weighted/RRF fusion and explain metadata are available
 4. actionability and frontend integration:
    - support advanced search controls and selectable result candidates for export/report/action workflows through shared API/MCP contracts
 5. scale and inference-boundary review:
@@ -336,9 +351,6 @@ Remaining project phases:
    - decide what remains baseline, what becomes recommended local semantic profile, and what stays experimental
 
 Recommended remaining child plans:
-- `0064`: semantic retrieval profiles and operator rollout controls
-- `0065`: tenant semantic readiness diagnostics across CLI/API/MCP/frontend
-- `0066`: query fusion and explainability hardening
 - `0067`: actionable search results for export/report workflows
 - `0068`: scale and inference-boundary review
 - `0069`: release profile, docs, and final semantic-search policy

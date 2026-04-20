@@ -276,6 +276,8 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("data-tenant-backfill", page.text)
         self.assertIn("data-tenant-retire", page.text)
         self.assertIn("Activate tenant", page.text)
+        self.assertIn("Semantic readiness", page.text)
+        self.assertIn("semanticProfilesHtml", page.text)
         self.assertIn("Run initial sync", page.text)
         self.assertIn("initial bounded history sync", page.text)
         self.assertIn("Recommended next step", page.text)
@@ -1724,6 +1726,21 @@ class ApiServerTests(unittest.TestCase):
                 "failure_codes": [],
                 "warning_codes": [],
             }
+            service.retrieval_profiles.return_value = [
+                {"name": "baseline", "model": "local-hash-128", "mode": "hybrid"}
+            ]
+            service.semantic_readiness.return_value = {
+                "scope": "workspace",
+                "workspace": "default",
+                "workspaces": [
+                    {
+                        "workspace": "default",
+                        "status": "ready",
+                        "summary": "Ready profiles: baseline.",
+                        "profiles": [{"name": "baseline", "state": "ready"}],
+                    }
+                ],
+            }
             service.get_message_detail.return_value = {
                 "workspace": "default",
                 "channel_id": "C123",
@@ -1764,6 +1781,7 @@ class ApiServerTests(unittest.TestCase):
                     "offset": "10",
                     "rerank": "1",
                     "rerank_top_n": "25",
+                    "fusion": "rrf",
                 },
                 timeout=5,
             )
@@ -1787,6 +1805,7 @@ class ApiServerTests(unittest.TestCase):
             first_call = service.corpus_search_page.call_args_list[0].kwargs
             self.assertTrue(first_call["rerank"])
             self.assertEqual(first_call["rerank_top_n"], 25)
+            self.assertEqual(first_call["fusion_method"], "rrf")
 
             message_detail = requests.get(
                 f"{base_url}/v1/workspaces/default/messages/C123/1712870400.000100",
@@ -1820,6 +1839,20 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(health.status_code, 200)
             self.assertEqual(health.json()["health"]["status"], "pass")
             service.search_health.assert_called_once()
+
+            profiles = requests.get(f"{base_url}/v1/search/profiles", timeout=5)
+            self.assertEqual(profiles.status_code, 200)
+            self.assertEqual(profiles.json()["profiles"][0]["name"], "baseline")
+            service.retrieval_profiles.assert_called_once()
+
+            semantic = requests.get(
+                f"{base_url}/v1/workspaces/default/search/semantic-readiness",
+                params={"profiles": "baseline", "include_commands": "1", "command_limit": "25"},
+                timeout=5,
+            )
+            self.assertEqual(semantic.status_code, 200)
+            self.assertEqual(semantic.json()["readiness"]["workspaces"][0]["status"], "ready")
+            service.semantic_readiness.assert_called_once()
 
     def test_message_send_uses_structured_error_envelope(self):
         resp = requests.post(

@@ -97,7 +97,12 @@ slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --rerank --rerank-top-n 50
+slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
 slack-mirror search corpus --all-workspaces --query "incident review" --mode hybrid
+slack-mirror search profiles
+slack-mirror search semantic-readiness --workspace default --json
+slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
+slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
 slack-mirror search health --workspace default --target derived_text --dataset ./docs/dev/benchmarks/slack_derived_text_smoke.jsonl --mode semantic
@@ -134,6 +139,16 @@ The current repo has:
 - an explicit derived-text benchmark target through `search health --target derived_text`, with chunk-aware benchmark query reports for attachment/OCR evaluation
 - an explicit reranker-provider seam, with the current heuristic reranker available for opt-in message and corpus searches before learned local reranking is introduced
 - an optional learned local reranker provider through `sentence_transformers` CrossEncoder models, with a readiness/smoke probe before use
+- corpus hybrid search now has explicit fusion policy controls:
+  - `weighted` preserves the current release-safe weighted score behavior
+  - `rrf` enables opt-in reciprocal-rank fusion for deterministic lexical/semantic candidate blending
+- corpus results now include machine-readable `_explain` metadata with source, fusion method, lane ranks, score breakdown, weights, and rerank provider when applicable
+- named retrieval profiles for operator rollout control:
+  - `baseline` for the shipped local-hash release-safe path
+  - `local-bge` for bounded `BAAI/bge-m3` semantic rollout
+  - `local-bge-rerank` for experimental learned local reranking on top of BGE retrieval
+- tenant semantic-readiness diagnostics across CLI, API, MCP, and the authenticated tenant settings page
+- a read-only semantic rollout planner at `slack-mirror mirror rollout-plan`, which reports tenant coverage for the profile model and emits bounded probe/backfill/health commands
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -142,6 +157,26 @@ For local semantic model work such as `BAAI/bge-m3`, install the optional extra 
 uv sync --extra local-semantic
 uv run slack-mirror search provider-probe --json
 ```
+
+Before changing a tenant, inspect the retrieval profile and rollout plan:
+
+```bash
+uv run slack-mirror search profiles
+uv run slack-mirror search semantic-readiness --workspace default --json
+uv run slack-mirror search provider-probe --retrieval-profile local-bge --json
+uv run slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
+```
+
+`search semantic-readiness` is read-only and shows which profiles are ready, partial, unavailable, or still need rollout. The rollout plan is also read-only; it reports message and derived-text chunk coverage for the selected profile model and prints the exact bounded commands to run next.
+
+For query-pipeline diagnostics, use `--explain` and optionally compare fusion strategies without changing tenant defaults:
+
+```bash
+uv run slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion weighted --explain
+uv run slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
+```
+
+`weighted` remains the default. `rrf` is an opt-in reciprocal-rank fusion strategy for comparing lexical and semantic candidate blending.
 
 The probe reports:
 

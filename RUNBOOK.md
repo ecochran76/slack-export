@@ -3072,3 +3072,83 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run slack-mirror --config <temp learned-reranker config> search reranker-probe --smoke --json`
   - bounded Python comparison script over `default`, `pcg`, and `soylei` corpus-search variants
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 201 | 2026-04-19
+
+- Opened and closed the next bounded `P10` slice:
+  - `0064-2026-04-19-semantic-retrieval-profiles-rollout-controls.md`
+- Implemented semantic retrieval profile controls:
+  - added builtin `baseline`, `local-bge`, and experimental `local-bge-rerank` retrieval profiles
+  - added config override support under `search.retrieval_profiles`
+  - added `search profiles`
+  - added `--retrieval-profile` to corpus search, provider probe, reranker probe, message embedding backfill, and derived-text chunk embedding backfill
+- Implemented read-only rollout planning:
+  - `mirror rollout-plan --workspace <name> --retrieval-profile <name>`
+  - reports current message and derived-text chunk coverage for the selected profile model
+  - emits profile-aware provider/reranker probe, bounded backfill, and search-health commands
+- Updated docs and generated CLI reference:
+  - `README.md`
+  - `docs/CONFIG.md`
+  - `docs/CLI.md`
+  - `docs/slack-mirror.1`
+  - `config.example.yaml`
+- Validation:
+  - `uv run python -m unittest tests.test_search.SearchTests.test_retrieval_profiles_resolve_builtin_and_configured_overrides tests.test_cli.CliTests.test_parse_embeddings_backfill tests.test_cli.CliTests.test_parse_derived_text_embeddings_backfill tests.test_cli.CliTests.test_parse_search_corpus tests.test_cli.CliTests.test_parse_search_health tests.test_cli.CliTests.test_parse_search_profiles tests.test_cli.CliTests.test_parse_search_provider_probe tests.test_cli.CliTests.test_parse_search_reranker_probe tests.test_cli.CliTests.test_parse_mirror_rollout_plan tests.test_app_service.AppServiceTests.test_semantic_rollout_plan_reports_profile_coverage_and_commands -v`
+  - `python -m py_compile slack_mirror/search/profiles.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_search.py tests/test_app_service.py tests/test_cli.py`
+  - `uv run slack-mirror search profiles --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search provider-probe --retrieval-profile local-bge --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml mirror rollout-plan --workspace default --retrieval-profile baseline --limit 5 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 5 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml mirror embeddings-backfill --workspace default --retrieval-profile local-bge --limit 0 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml mirror derived-text-embeddings-backfill --workspace default --retrieval-profile local-bge --limit 0 --json`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 202 | 2026-04-19
+
+- Opened and closed the next bounded `P10` slice:
+  - `0065-2026-04-19-tenant-semantic-readiness-diagnostics.md`
+- Implemented tenant semantic-readiness diagnostics across the shared service boundary:
+  - `search semantic-readiness` reports one workspace or all enabled workspaces across named retrieval profiles
+  - API routes expose profile listing plus global and per-workspace readiness payloads
+  - MCP exposes `search.profiles` and `search.semantic_readiness`
+  - authenticated tenant cards now include compact semantic readiness chips
+- Readiness states now distinguish ready, partial rollout, rollout needed, provider unavailable, and reranker unavailable without running backfills automatically.
+- Live smoke on the managed `default` workspace showed:
+  - `baseline` partial with `91532/91535` messages covered
+  - `local-bge` rollout needed with `0/91535` messages covered
+- Updated docs and generated CLI reference:
+  - `README.md`
+  - `docs/CONFIG.md`
+  - `docs/CLI.md`
+  - `docs/slack-mirror.1`
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py tests/test_app_service.py tests/test_api_server.py tests/test_mcp_server.py tests/test_cli.py`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_semantic_readiness_reports_profile_states tests.test_cli.CliTests.test_parse_search_semantic_readiness tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_tenant_settings_page_lists_onboarding_surface tests.test_mcp_server.McpServerTests.test_initialize_and_tools_list tests.test_mcp_server.McpServerTests.test_search_tools -v`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search semantic-readiness --workspace default --profiles baseline,local-bge --json`
+
+## Turn 203 | 2026-04-19
+
+- Ran a bounded managed-DB baseline catch-up check for `default`:
+  - `mirror embeddings-backfill --workspace default --retrieval-profile baseline --limit 10 --json`
+  - the command scanned 10 latest messages and skipped 10 because baseline embeddings were already current by scan time
+  - follow-up readiness reported `baseline` ready with `91535/91535` messages covered
+  - a later live smoke observed 8 newly ingested messages, then `mirror embeddings-backfill --workspace default --retrieval-profile baseline --limit 25 --json` embedded those 8 and readiness reported `91543/91543`
+- Opened and closed the next bounded `P10` slice:
+  - `0066-2026-04-19-query-fusion-and-explainability-hardening.md`
+- Implemented query fusion and explainability hardening:
+  - added corpus `fusion_method` with `weighted` default and opt-in `rrf`
+  - threaded `fusion` through CLI, API, MCP, and service calls
+  - added corpus `_explain` metadata for mode, source, fusion method, scores, ranks, weights, and rerank provider
+  - kept existing weighted behavior as the default for existing callers
+- Validation:
+  - `python -m py_compile slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py tests/test_search.py tests/test_cli.py tests/test_api_server.py tests/test_mcp_server.py`
+  - `uv run python -m unittest tests.test_app_service -v`
+  - `uv run python -m unittest tests.test_search tests.test_cli tests.test_api_server tests.test_mcp_server -v`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain --limit 3 --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

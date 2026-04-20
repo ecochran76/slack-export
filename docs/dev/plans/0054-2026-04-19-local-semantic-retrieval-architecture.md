@@ -176,7 +176,18 @@ Exit state:
 
 ### Phase 4: Live Relevance Rehearsal And Benchmark Lock
 
-Purpose:
+Completed:
+
+- learned-reranker live rehearsal across bounded live tenant queries (`0063`)
+- GPU memory and cold-start observations for `BAAI/bge-reranker-v2-m3` on the RTX 5080 workstation (`0063`)
+- decision to keep learned reranking experimental because bounded top-1 quality did not improve enough to justify rollout (`0063`)
+
+Exit state:
+
+- learned reranking is technically viable but not recommended as a default
+- rollout controls should lead before broader semantic backfill or reranker promotion
+
+Original purpose:
 
 - prove whether `bge-m3` plus learned reranking improves real Slack search quality enough to justify operator rollout
 - turn ad hoc quality checks into durable benchmark artifacts
@@ -207,23 +218,30 @@ Acceptance gates:
 
 ### Phase 5: Rollout Controls And Operator UX
 
-Purpose:
+Completed baseline:
+
+- named retrieval profiles for `baseline`, `local-bge`, and experimental `local-bge-rerank` (`0064`)
+- profile-aware corpus search, provider probes, reranker probes, and bounded embedding backfill commands (`0064`)
+- read-only tenant rollout planning with message and derived-text chunk coverage plus copyable bounded commands (`0064`)
+- tenant semantic-readiness diagnostics across CLI, API, MCP, and the authenticated tenant settings page (`0065`)
+
+Remaining purpose:
 
 - make stronger semantic retrieval manageable in normal operations rather than only by expert CLI use
 
 Work packages:
 
 1. Config profiles:
-   - add named retrieval profiles such as `baseline`, `local-bge`, and `local-bge-rerank`
+   - named retrieval profiles such as `baseline`, `local-bge`, and `local-bge-rerank` now exist
    - keep profile selection explicit for CLI/API/MCP callers
    - document safe defaults and expected resource cost
 2. Backfill orchestration:
-   - add resumable, tenant-scoped rollout commands for message embeddings and derived-text chunk embeddings under the configured model
-   - include dry-run, bounded channel/date filters, and progress JSON
+   - read-only tenant-scoped rollout planning now emits bounded message and derived-text chunk embedding commands under the selected profile model/provider
+   - remaining work is resumable orchestration beyond single bounded CLI commands
    - preserve current SQLite-first persistence
 3. Readiness and diagnostics:
-   - surface per-tenant semantic coverage, reranker provider readiness, model/device, backlog, error counts, and last probe status
-   - expose status through CLI/API/MCP and the operator frontend when the frontend lane is ready
+   - per-tenant profile readiness now surfaces through CLI/API/MCP and the current authenticated tenant settings page
+   - remaining work is richer long-running backfill progress, error counts, and last-probe history once orchestration exists
 4. Safe fallback:
    - make fallback mode visible when configured-model coverage is incomplete or the learned provider is unavailable
    - do not silently report strong semantic readiness when the system is using legacy or heuristic paths
@@ -236,6 +254,12 @@ Acceptance gates:
 
 ### Phase 6: Query Pipeline Hardening
 
+Completed baseline:
+
+- weighted corpus fusion remains the default (`0066`)
+- reciprocal-rank fusion is available as an explicit opt-in corpus fusion method (`0066`)
+- corpus results include machine-readable `_explain` metadata with source, fusion method, lane scores, lane ranks, weights, and rerank provider (`0066`)
+
 Purpose:
 
 - improve retrieval quality and debuggability once model choices and rollout controls are proven
@@ -243,8 +267,8 @@ Purpose:
 Work packages:
 
 1. Fusion policy:
-   - evaluate deterministic reciprocal-rank fusion versus current weighted-score fusion
-   - keep lexical, semantic, and rerank scores visible in explain output
+   - deterministic reciprocal-rank fusion is now available for bounded comparison against weighted-score fusion
+   - lexical, semantic, hybrid, and rerank scores plus lane ranks are now visible in explain output
    - avoid replacing lexical relevance with dense retrieval for exact-match or filtered queries
 2. Thread and document projection:
    - decide when results should return messages, threads, files, chunks, or grouped candidates
@@ -360,8 +384,6 @@ Do not parallelize before Phase 4:
 
 Recommended remaining child plans:
 
-- `0063`: learned-reranker live rehearsal and benchmark promotion
-- `0064`: semantic retrieval profiles and operator rollout controls
 - `0065`: tenant semantic readiness diagnostics across CLI/API/MCP/frontend
 - `0066`: query fusion and explainability hardening
 - `0067`: actionable search results for export/report workflows

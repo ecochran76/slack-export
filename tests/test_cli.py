@@ -121,6 +121,8 @@ class CliTests(unittest.TestCase):
                 "embeddings-backfill",
                 "--workspace",
                 "default",
+                "--retrieval-profile",
+                "local-bge",
                 "--model",
                 "BAAI/bge-m3",
                 "--limit",
@@ -138,6 +140,7 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(args.command, "mirror")
         self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.retrieval_profile, "local-bge")
         self.assertEqual(args.model, "BAAI/bge-m3")
         self.assertEqual(args.limit, 50)
         self.assertEqual(args.channels, "C123,C456")
@@ -177,6 +180,8 @@ class CliTests(unittest.TestCase):
                 "derived-text-embeddings-backfill",
                 "--workspace",
                 "default",
+                "--retrieval-profile",
+                "local-bge",
                 "--model",
                 "BAAI/bge-m3",
                 "--limit",
@@ -191,11 +196,43 @@ class CliTests(unittest.TestCase):
             ]
         )
         self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.retrieval_profile, "local-bge")
         self.assertEqual(args.model, "BAAI/bge-m3")
         self.assertEqual(args.limit, 40)
         self.assertEqual(args.kind, "attachment_text")
         self.assertEqual(args.source_kind, "file")
         self.assertEqual(args.order, "oldest")
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_mirror_rollout_plan(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "mirror",
+                "rollout-plan",
+                "--workspace",
+                "default",
+                "--retrieval-profile",
+                "local-bge",
+                "--limit",
+                "25",
+                "--channels",
+                "C123",
+                "--kind",
+                "attachment_text",
+                "--source-kind",
+                "file",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.retrieval_profile, "local-bge")
+        self.assertEqual(args.limit, 25)
+        self.assertEqual(args.channels, "C123")
+        self.assertEqual(args.kind, "attachment_text")
+        self.assertEqual(args.source_kind, "file")
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
@@ -694,6 +731,8 @@ class CliTests(unittest.TestCase):
                 "default",
                 "--query",
                 "incident review",
+                "--retrieval-profile",
+                "local-bge-rerank",
                 "--mode",
                 "hybrid",
                 "--kind",
@@ -703,6 +742,8 @@ class CliTests(unittest.TestCase):
                 "--rerank",
                 "--rerank-top-n",
                 "25",
+                "--fusion",
+                "rrf",
                 "--limit",
                 "8",
                 "--explain",
@@ -712,11 +753,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.command, "search")
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.query, "incident review")
+        self.assertEqual(args.retrieval_profile, "local-bge-rerank")
         self.assertEqual(args.mode, "hybrid")
         self.assertEqual(args.kind, "ocr_text")
         self.assertEqual(args.source_kind, "file")
         self.assertTrue(args.rerank)
         self.assertEqual(args.rerank_top_n, 25)
+        self.assertEqual(args.fusion, "rrf")
         self.assertEqual(args.limit, 8)
         self.assertTrue(args.explain)
         self.assertTrue(args.json)
@@ -753,6 +796,8 @@ class CliTests(unittest.TestCase):
                 "docs/dev/benchmarks/slack_corpus_smoke.jsonl",
                 "--target",
                 "derived_text",
+                "--retrieval-profile",
+                "local-bge",
                 "--mode",
                 "semantic",
                 "--limit",
@@ -772,6 +817,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.workspace, "default")
         self.assertEqual(args.dataset, "docs/dev/benchmarks/slack_corpus_smoke.jsonl")
         self.assertEqual(args.target, "derived_text")
+        self.assertEqual(args.retrieval_profile, "local-bge")
         self.assertEqual(args.mode, "semantic")
         self.assertEqual(args.limit, 12)
         self.assertEqual(args.min_hit_at_3, 0.6)
@@ -781,10 +827,42 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_profiles(self):
+        parser = build_parser()
+        args = parser.parse_args(["search", "profiles", "--json"])
+        self.assertEqual(args.command, "search")
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
+    def test_parse_search_semantic_readiness(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "semantic-readiness",
+                "--workspace",
+                "default",
+                "--profiles",
+                "baseline,local-bge",
+                "--include-commands",
+                "--command-limit",
+                "25",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.profiles, "baseline,local-bge")
+        self.assertTrue(args.include_commands)
+        self.assertEqual(args.command_limit, 25)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_provider_probe(self):
         parser = build_parser()
-        args = parser.parse_args(["search", "provider-probe", "--model", "BAAI/bge-m3", "--smoke", "--json"])
+        args = parser.parse_args(["search", "provider-probe", "--retrieval-profile", "local-bge", "--model", "BAAI/bge-m3", "--smoke", "--json"])
         self.assertEqual(args.command, "search")
+        self.assertEqual(args.retrieval_profile, "local-bge")
         self.assertEqual(args.model, "BAAI/bge-m3")
         self.assertTrue(args.smoke)
         self.assertTrue(args.json)
@@ -792,8 +870,11 @@ class CliTests(unittest.TestCase):
 
     def test_parse_search_reranker_probe(self):
         parser = build_parser()
-        args = parser.parse_args(["search", "reranker-probe", "--model", "BAAI/bge-reranker-v2-m3", "--smoke", "--json"])
+        args = parser.parse_args(
+            ["search", "reranker-probe", "--retrieval-profile", "local-bge-rerank", "--model", "BAAI/bge-reranker-v2-m3", "--smoke", "--json"]
+        )
         self.assertEqual(args.command, "search")
+        self.assertEqual(args.retrieval_profile, "local-bge-rerank")
         self.assertEqual(args.model, "BAAI/bge-reranker-v2-m3")
         self.assertTrue(args.smoke)
         self.assertTrue(args.json)

@@ -220,7 +220,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 
 ```
 usage: slack-mirror mirror [-h]
-                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,rollout-plan,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 ```
 
@@ -239,6 +239,7 @@ usage: slack-mirror mirror [-h]
 - `process-embedding-jobs`
 - `process-events`
 - `reconcile-files`
+- `rollout-plan`
 - `serve-socket-mode`
 - `serve-webhooks`
 - `status`
@@ -318,15 +319,16 @@ usage: slack-mirror mirror daemon [-h] [--workspace WORKSPACE]
 
 ```
 usage: slack-mirror mirror derived-text-embeddings-backfill
-       [-h] --workspace WORKSPACE [--model MODEL] [--limit LIMIT]
-       [--kind {attachment_text,ocr_text}] [--source-kind {file,canvas}]
-       [--order {latest,oldest}] [--json]
+       [-h] --workspace WORKSPACE [--retrieval-profile RETRIEVAL_PROFILE]
+       [--model MODEL] [--limit LIMIT] [--kind {attachment_text,ocr_text}]
+       [--source-kind {file,canvas}] [--order {latest,oldest}] [--json]
 ```
 
 **Options**
 
 - `--workspace` — workspace name
-- `--model` — embedding model id; default: `local-hash-128`
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
+- `--model` — embedding model id
 - `--limit` — maximum derived-text chunks to scan; default: `500`
 - `--kind` — optional derived-text kind filter
 - `--source-kind` — optional source kind filter
@@ -339,6 +341,7 @@ usage: slack-mirror mirror derived-text-embeddings-backfill
 
 ```
 usage: slack-mirror mirror embeddings-backfill [-h] --workspace WORKSPACE
+                                               [--retrieval-profile RETRIEVAL_PROFILE]
                                                [--model MODEL] [--limit LIMIT]
                                                [--channels CHANNELS]
                                                [--oldest OLDEST]
@@ -350,7 +353,8 @@ usage: slack-mirror mirror embeddings-backfill [-h] --workspace WORKSPACE
 **Options**
 
 - `--workspace` — workspace name
-- `--model` — embedding model id; default: `local-hash-128`
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
+- `--model` — embedding model id
 - `--limit` — maximum messages to scan; default: `1000`
 - `--channels` — optional comma-separated channel IDs to bound the rollout; default: ``
 - `--oldest` — optional oldest ts boundary (inclusive)
@@ -483,6 +487,31 @@ usage: slack-mirror mirror reconcile-files [-h] --workspace WORKSPACE
 - `--auth-mode` — auth mode for file download repair; default: `user`
 - `--limit` — maximum file downloads to attempt in this run; default: `100`
 - `--cache-root` — override cache root (defaults to storage.cache_root from config)
+- `--json` — json output
+
+
+### `slack-mirror mirror rollout-plan`
+**Usage**
+
+```
+usage: slack-mirror mirror rollout-plan [-h] --workspace WORKSPACE
+                                        --retrieval-profile RETRIEVAL_PROFILE
+                                        [--limit LIMIT] [--channels CHANNELS]
+                                        [--oldest OLDEST] [--latest LATEST]
+                                        [--kind {attachment_text,ocr_text}]
+                                        [--source-kind {file,canvas}] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--retrieval-profile` — named search.retrieval_profiles profile
+- `--limit` — bounded backfill limit to include in suggested commands; default: `500`
+- `--channels` — optional comma-separated channel IDs to bound message rollout; default: ``
+- `--oldest` — optional oldest message ts boundary
+- `--latest` — optional latest message ts boundary
+- `--kind` — optional derived-text kind filter
+- `--source-kind` — optional derived-text source kind filter
 - `--json` — json output
 
 
@@ -625,7 +654,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,provider-probe,reranker-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,provider-probe,reranker-probe,query-dir}
                            ...
 ```
 
@@ -638,11 +667,13 @@ usage: slack-mirror search [-h]
 - `derived-text`
 - `health`
 - `keyword`
+- `profiles`
 - `provider-probe`
 - `query-dir`
 - `reindex-keyword`
 - `reranker-probe`
 - `semantic`
+- `semantic-readiness`
 
 ### `slack-mirror search corpus`
 **Usage**
@@ -651,11 +682,13 @@ usage: slack-mirror search [-h]
 usage: slack-mirror search corpus [-h]
                                   (--workspace WORKSPACE | --all-workspaces)
                                   --query QUERY [--limit LIMIT]
+                                  [--retrieval-profile RETRIEVAL_PROFILE]
                                   [--mode {lexical,semantic,hybrid}]
                                   [--model MODEL]
                                   [--lexical-weight LEXICAL_WEIGHT]
                                   [--semantic-weight SEMANTIC_WEIGHT]
-                                  [--semantic-scale SEMANTIC_SCALE] [--no-fts]
+                                  [--semantic-scale SEMANTIC_SCALE]
+                                  [--fusion {weighted,rrf}] [--no-fts]
                                   [--rerank] [--rerank-top-n RERANK_TOP_N]
                                   [--kind {attachment_text,ocr_text}]
                                   [--source-kind {file,canvas}] [--explain]
@@ -668,11 +701,13 @@ usage: slack-mirror search corpus [-h]
 - `--all-workspaces` — search across all enabled workspaces
 - `--query` — query text
 - `--limit` — maximum result rows; default: `20`
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
 - `--mode` — corpus retrieval mode
 - `--model` — embedding model id
 - `--lexical-weight` — hybrid lexical score weight
 - `--semantic-weight` — hybrid semantic score weight
 - `--semantic-scale` — semantic score scaling factor
+- `--fusion` — hybrid fusion method for corpus results; default: `weighted`
 - `--no-fts` — disable FTS prefilter for message lexical search
 - `--rerank` — rerank the top corpus candidates
 - `--rerank-top-n` — number of top corpus candidates to rerank; default: `50`
@@ -713,6 +748,7 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 usage: slack-mirror search health [-h] --workspace WORKSPACE
                                   [--dataset DATASET]
                                   [--target {corpus,derived_text}]
+                                  [--retrieval-profile RETRIEVAL_PROFILE]
                                   [--mode {lexical,semantic,hybrid}]
                                   [--limit LIMIT] [--model MODEL]
                                   [--min-hit-at-3 MIN_HIT_AT_3]
@@ -727,9 +763,10 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
 - `--workspace` — workspace name
 - `--dataset` — optional JSONL benchmark dataset path
 - `--target` — benchmark target when dataset is provided; default: `corpus`
-- `--mode` — benchmark retrieval mode; default: `hybrid`
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
+- `--mode` — benchmark retrieval mode
 - `--limit` — benchmark result window; default: `10`
-- `--model` — embedding model id for benchmark mode; default: `local-hash-128`
+- `--model` — embedding model id for benchmark mode
 - `--min-hit-at-3` — minimum acceptable hit@3 when dataset is provided; default: `0.5`
 - `--min-hit-at-10` — minimum acceptable hit@10 when dataset is provided; default: `0.8`
 - `--min-ndcg-at-k` — minimum acceptable ndcg@k when dataset is provided; default: `0.6`
@@ -793,16 +830,30 @@ slack-mirror --config config.yaml search semantic --workspace default --query "r
 ```
 
 
-### `slack-mirror search provider-probe`
+### `slack-mirror search profiles`
 **Usage**
 
 ```
-usage: slack-mirror search provider-probe [-h] [--model MODEL] [--smoke]
-                                          [--json]
+usage: slack-mirror search profiles [-h] [--json]
 ```
 
 **Options**
 
+- `--json` — json output
+
+
+### `slack-mirror search provider-probe`
+**Usage**
+
+```
+usage: slack-mirror search provider-probe [-h]
+                                          [--retrieval-profile RETRIEVAL_PROFILE]
+                                          [--model MODEL] [--smoke] [--json]
+```
+
+**Options**
+
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
 - `--model` — embedding model id (defaults to config search.semantic.model)
 - `--smoke` — run a small embed smoke after readiness checks
 - `--json` — json output
@@ -843,12 +894,14 @@ usage: slack-mirror search reindex-keyword [-h] --workspace WORKSPACE
 **Usage**
 
 ```
-usage: slack-mirror search reranker-probe [-h] [--model MODEL] [--smoke]
-                                          [--json]
+usage: slack-mirror search reranker-probe [-h]
+                                          [--retrieval-profile RETRIEVAL_PROFILE]
+                                          [--model MODEL] [--smoke] [--json]
 ```
 
 **Options**
 
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
 - `--model` — reranker model id (defaults to config search.rerank.provider.model)
 - `--smoke` — run a small rerank smoke after readiness checks
 - `--json` — json output
@@ -880,6 +933,26 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 - `--explain` — show score/source details per result
 - `--rerank` — apply optional heuristic reranking
 - `--rerank-top-n` — top N rows to rerank when --rerank is enabled; default: `50`
+- `--json` — json output
+
+
+### `slack-mirror search semantic-readiness`
+**Usage**
+
+```
+usage: slack-mirror search semantic-readiness [-h] [--workspace WORKSPACE]
+                                              [--profiles PROFILES]
+                                              [--include-commands]
+                                              [--command-limit COMMAND_LIMIT]
+                                              [--json]
+```
+
+**Options**
+
+- `--workspace` — optional workspace name; defaults to all enabled workspaces
+- `--profiles` — optional comma-separated retrieval profile names; default: ``
+- `--include-commands` — include rollout commands in JSON output
+- `--command-limit` — bounded backfill limit for suggested commands; default: `500`
 - `--json` — json output
 
 

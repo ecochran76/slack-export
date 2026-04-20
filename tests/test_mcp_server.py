@@ -96,6 +96,8 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("search.corpus", names)
         self.assertIn("search.health", names)
         self.assertIn("search.readiness", names)
+        self.assertIn("search.profiles", names)
+        self.assertIn("search.semantic_readiness", names)
         self.assertIn("messages.send", names)
         self.assertIn("listeners.register", names)
 
@@ -612,7 +614,19 @@ class McpServerTests(unittest.TestCase):
                     "ocr_text": {"count": 2, "pending": 0, "errors": 0},
                 },
             },
-        ) as mock_readiness:
+        ) as mock_readiness, patch.object(
+            self.server.service,
+            "retrieval_profiles",
+            return_value=[{"name": "baseline", "model": "local-hash-128"}],
+        ) as mock_profiles, patch.object(
+            self.server.service,
+            "semantic_readiness",
+            return_value={
+                "scope": "workspace",
+                "workspace": "default",
+                "workspaces": [{"workspace": "default", "status": "ready", "profiles": [{"name": "baseline", "state": "ready"}]}],
+            },
+        ) as mock_semantic_readiness:
             corpus = self.server.handle_request(
                 {
                     "jsonrpc": "2.0",
@@ -624,6 +638,7 @@ class McpServerTests(unittest.TestCase):
                             "workspace": "default",
                             "query": "incident review",
                             "mode": "hybrid",
+                            "fusion": "rrf",
                             "rerank": True,
                             "rerank_top_n": 25,
                         },
@@ -652,15 +667,39 @@ class McpServerTests(unittest.TestCase):
                     },
                 }
             )
+            profiles = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 65,
+                    "method": "tools/call",
+                    "params": {"name": "search.profiles", "arguments": {}},
+                }
+            )
+            semantic_readiness = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 66,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.semantic_readiness",
+                        "arguments": {"workspace": "default", "profiles": ["baseline"], "include_commands": True},
+                    },
+                }
+            )
 
         self.assertIn('"result_kind": "message"', corpus["result"]["content"][0]["text"])
         self.assertIn('"result_kind": "message"', corpus_all["result"]["content"][0]["text"])
         self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
+        self.assertIn('"name": "baseline"', profiles["result"]["content"][0]["text"])
+        self.assertIn('"status": "ready"', semantic_readiness["result"]["content"][0]["text"])
         self.assertEqual(mock_corpus.call_count, 2)
         first_call = mock_corpus.call_args_list[0].kwargs
         self.assertTrue(first_call["rerank"])
         self.assertEqual(first_call["rerank_top_n"], 25)
+        self.assertEqual(first_call["fusion_method"], "rrf")
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
+        mock_profiles.assert_called_once()
+        mock_semantic_readiness.assert_called_once()
 
     def test_search_health_tool(self):
         with patch.object(

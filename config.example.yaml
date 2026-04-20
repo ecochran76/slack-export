@@ -57,6 +57,52 @@ search:
       batch_size: ${SLACK_MIRROR_RERANK_BATCH_SIZE:-16}
       trust_remote_code: ${SLACK_MIRROR_RERANK_TRUST_REMOTE_CODE:-false}
       cache_folder: ${SLACK_MIRROR_RERANK_CACHE_FOLDER:-}
+  retrieval_profiles:
+    baseline:
+      description: "Release-safe hybrid retrieval with the built-in local hash embedding baseline."
+      mode: hybrid
+      model: local-hash-128
+      semantic_provider:
+        type: local_hash
+      weights:
+        lexical: 0.6
+        semantic: 0.4
+        semantic_scale: 10.0
+      rerank: false
+    local-bge:
+      description: "Local sentence-transformers semantic retrieval with BAAI/bge-m3."
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: sentence_transformers
+        device: ${SLACK_MIRROR_SEARCH_PROVIDER_DEVICE:-cuda}
+        batch_size: ${SLACK_MIRROR_SEARCH_PROVIDER_BATCH_SIZE:-16}
+      weights:
+        lexical: 0.45
+        semantic: 0.55
+        semantic_scale: 10.0
+      rerank: false
+      experimental: true
+    local-bge-rerank:
+      description: "Local BGE retrieval plus the experimental local CrossEncoder reranker."
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: sentence_transformers
+        device: ${SLACK_MIRROR_SEARCH_PROVIDER_DEVICE:-cuda}
+        batch_size: ${SLACK_MIRROR_SEARCH_PROVIDER_BATCH_SIZE:-16}
+      weights:
+        lexical: 0.45
+        semantic: 0.55
+        semantic_scale: 10.0
+      rerank: true
+      rerank_top_n: 50
+      rerank_provider:
+        type: sentence_transformers
+        model: BAAI/bge-reranker-v2-m3
+        device: ${SLACK_MIRROR_RERANK_DEVICE:-cuda}
+        batch_size: ${SLACK_MIRROR_RERANK_BATCH_SIZE:-16}
+      experimental: true
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}

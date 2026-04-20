@@ -62,6 +62,33 @@ search:
       batch_size: ${SLACK_MIRROR_RERANK_BATCH_SIZE:-16}
       trust_remote_code: ${SLACK_MIRROR_RERANK_TRUST_REMOTE_CODE:-false}
       cache_folder: ${SLACK_MIRROR_RERANK_CACHE_FOLDER:-}
+  retrieval_profiles:
+    baseline:
+      mode: hybrid
+      model: local-hash-128
+      semantic_provider:
+        type: local_hash
+      rerank: false
+    local-bge:
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: sentence_transformers
+        device: cuda
+      rerank: false
+      experimental: true
+    local-bge-rerank:
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: sentence_transformers
+        device: cuda
+      rerank: true
+      rerank_provider:
+        type: sentence_transformers
+        model: BAAI/bge-reranker-v2-m3
+        device: cuda
+      experimental: true
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}
@@ -188,6 +215,55 @@ search:
       batch_size: 16
 ```
 
+## Retrieval profiles
+
+Retrieval profiles are named operator presets under `search.retrieval_profiles`. They bundle corpus-search mode, embedding model/provider, hybrid weights, and reranker intent without changing the global default search behavior.
+
+The repo ships builtin profiles even if config does not define them:
+
+- `baseline`
+  - `local-hash-128`, `local_hash`, hybrid mode, no reranking
+- `local-bge`
+  - `BAAI/bge-m3`, `sentence_transformers`, hybrid mode, no reranking
+- `local-bge-rerank`
+  - `BAAI/bge-m3`, `sentence_transformers`, hybrid mode, experimental CrossEncoder reranking
+
+Use these commands to inspect and plan rollout:
+
+```bash
+slack-mirror search profiles
+slack-mirror search semantic-readiness --workspace default --json
+slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
+slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
+slack-mirror search provider-probe --retrieval-profile local-bge --json
+slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
+```
+
+`search semantic-readiness` is read-only and returns profile states for one workspace or all enabled workspaces. `mirror rollout-plan` is read-only. It reports current message and derived-text chunk embedding coverage for the profile model and emits bounded commands for provider probing, message embedding backfill, derived-text chunk embedding backfill, optional reranker probing, and search-health verification.
+
+The same readiness payload is exposed to API and MCP clients:
+
+- `GET /v1/search/profiles`
+- `GET /v1/search/semantic-readiness`
+- `GET /v1/workspaces/<workspace>/search/semantic-readiness`
+- MCP `search.profiles`
+- MCP `search.semantic_readiness`
+
+Do not use `local-bge-rerank` as the release default yet. The learned reranker is available for bounded experiments, but live rehearsal has not shown enough stable relevance lift to justify default rollout.
+
+## Corpus Fusion And Explainability
+
+Corpus hybrid search supports explicit fusion policies:
+
+- `weighted`
+  - default release-safe behavior
+  - combines lexical score plus scaled semantic score using `search.semantic.weights`
+- `rrf`
+  - opt-in reciprocal-rank fusion
+  - combines lexical and semantic candidate ranks while preserving deterministic ordering
+
+Use CLI `--fusion weighted|rrf`, API query parameter `fusion=weighted|rrf`, or MCP `search.corpus` argument `fusion`. Results include `_explain` metadata with mode, source, fusion method, lane scores, lane ranks, weights, and rerank provider when applicable.
+
 Provider field semantics:
 
 - `type`
@@ -248,6 +324,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 
 - `search.keyword.weights.*` tunes the lexical scorer.
 - `search.semantic.weights.*` tunes hybrid lexical-vs-semantic fusion for message and corpus search.
+- `search corpus --fusion` chooses the corpus hybrid fusion algorithm for a request. `weighted` is the default; `rrf` is opt-in.
 - `search.derived_text.provider.*` controls attachment and OCR extraction providers separately from message embeddings.
 - `search.rerank.provider.type` selects the reranker provider for explicit `--rerank` searches. The shipped baseline supports `heuristic` and `none`; optional learned local reranking uses `sentence_transformers`.
 - `search.rerank.provider.model`, `device`, `batch_size`, `trust_remote_code`, and `cache_folder` configure the optional `sentence_transformers` CrossEncoder reranker. This path is still opt-in and should be probed before live use.

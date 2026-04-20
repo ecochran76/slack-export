@@ -8,6 +8,10 @@ from slack_mirror.search.derived_text import search_derived_text, search_derived
 from slack_mirror.search.keyword import search_messages
 from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 
+FUSION_WEIGHTED = "weighted"
+FUSION_RRF = "rrf"
+DEFAULT_RRF_K = 60.0
+
 
 def _message_key(row: dict[str, Any]) -> tuple[str, str]:
     return ("message", f"{row.get('channel_id')}:{row.get('ts')}")
@@ -35,6 +39,55 @@ def _normalize_derived_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _normalize_fusion_method(value: str | None) -> str:
+    method = (value or FUSION_WEIGHTED).strip().lower().replace("_", "-")
+    if method in {"weighted", "weighted-score", "score"}:
+        return FUSION_WEIGHTED
+    if method in {"rrf", "reciprocal-rank", "reciprocal-rank-fusion"}:
+        return FUSION_RRF
+    raise ValueError(f"Unsupported corpus fusion method: {value}")
+
+
+def _rank_by_key(rows: list[dict[str, Any]], key_fn) -> dict[tuple[str, str], int]:
+    ranks: dict[tuple[str, str], int] = {}
+    for index, row in enumerate(rows, start=1):
+        ranks.setdefault(key_fn(row), index)
+    return ranks
+
+
+def _attach_explain(
+    row: dict[str, Any],
+    *,
+    mode: str,
+    fusion_method: str | None = None,
+    lexical_weight: float | None = None,
+    semantic_weight: float | None = None,
+    semantic_scale: float | None = None,
+) -> dict[str, Any]:
+    row["_explain"] = {
+        "mode": mode,
+        "source": row.get("_source"),
+        "fusion_method": fusion_method,
+        "scores": {
+            "lexical": row.get("_lexical_score", row.get("_score")),
+            "semantic": row.get("_semantic_score"),
+            "hybrid": row.get("_hybrid_score"),
+            "rerank": row.get("_rerank_score"),
+        },
+        "ranks": {
+            "lexical": row.get("_lexical_rank"),
+            "semantic": row.get("_semantic_rank"),
+        },
+        "weights": {
+            "lexical": lexical_weight,
+            "semantic": semantic_weight,
+            "semantic_scale": semantic_scale,
+        },
+        "rerank_provider": row.get("_rerank_provider"),
+    }
+    return row
+
+
 def _search_corpus_rows(
     conn: sqlite3.Connection,
     *,
@@ -48,6 +101,7 @@ def _search_corpus_rows(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    fusion_method: str = FUSION_WEIGHTED,
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
@@ -60,6 +114,7 @@ def _search_corpus_rows(
     if not q:
         return []
     mode = (mode or "hybrid").lower()
+    normalized_fusion_method = _normalize_fusion_method(fusion_method)
     requested_limit = max(1, int(limit or 20))
     requested_offset = max(0, int(offset or 0))
     lexical_limit = max((requested_limit + requested_offset) * 2, 20)
@@ -72,8 +127,11 @@ def _search_corpus_rows(
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
+            _attach_explain(row, mode="lexical")
         if rerank:
             merged = rerank_rows(merged, query=q, top_n=rerank_top_n, provider=reranker_provider)
+            for row in merged:
+                _attach_explain(row, mode="lexical")
         return merged
 
     if mode == "semantic":
@@ -107,8 +165,11 @@ def _search_corpus_rows(
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
+            _attach_explain(row, mode="semantic")
         if rerank:
             merged = rerank_rows(merged, query=q, top_n=rerank_top_n, provider=reranker_provider)
+            for row in merged:
+                _attach_explain(row, mode="semantic")
         return merged
 
     msg_lexical = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
@@ -138,34 +199,86 @@ def _search_corpus_rows(
             provider=message_embedding_provider,
         )
     ]
+    lexical_ranks = _rank_by_key(msg_lexical, _message_key)
+    lexical_ranks.update(_rank_by_key(derived_lexical, _derived_key))
+    semantic_ranks = _rank_by_key(msg_semantic, _message_key)
+    semantic_ranks.update(_rank_by_key(derived_semantic, _derived_key))
 
     merged: dict[tuple[str, str], dict[str, Any]] = {}
     for row in msg_lexical:
-        merged[_message_key(row)] = {**row, "_lexical_score": float(row.get("_score") or 0.0), "_semantic_score": 0.0, "_source": "lexical"}
+        key = _message_key(row)
+        merged[key] = {
+            **row,
+            "_lexical_score": float(row.get("_score") or 0.0),
+            "_semantic_score": 0.0,
+            "_lexical_rank": lexical_ranks.get(key),
+            "_semantic_rank": None,
+            "_source": "lexical",
+        }
     for row in derived_lexical:
-        merged[_derived_key(row)] = {**row, "_lexical_score": float(row.get("_score") or 0.0), "_semantic_score": 0.0, "_source": "lexical"}
+        key = _derived_key(row)
+        merged[key] = {
+            **row,
+            "_lexical_score": float(row.get("_score") or 0.0),
+            "_semantic_score": 0.0,
+            "_lexical_rank": lexical_ranks.get(key),
+            "_semantic_rank": None,
+            "_source": "lexical",
+        }
 
     for row in msg_semantic:
         key = _message_key(row)
         if key in merged:
             merged[key]["_semantic_score"] = float(row.get("_semantic_score") or 0.0)
+            merged[key]["_semantic_rank"] = semantic_ranks.get(key)
             merged[key]["_source"] = "hybrid"
         else:
-            merged[key] = {**row, "_lexical_score": 0.0, "_semantic_score": float(row.get("_semantic_score") or 0.0), "_source": "semantic"}
+            merged[key] = {
+                **row,
+                "_lexical_score": 0.0,
+                "_semantic_score": float(row.get("_semantic_score") or 0.0),
+                "_lexical_rank": None,
+                "_semantic_rank": semantic_ranks.get(key),
+                "_source": "semantic",
+            }
 
     for row in derived_semantic:
         key = _derived_key(row)
         if key in merged:
             merged[key]["_semantic_score"] = float(row.get("_semantic_score") or 0.0)
+            merged[key]["_semantic_rank"] = semantic_ranks.get(key)
             merged[key]["_source"] = "hybrid"
         else:
-            merged[key] = {**row, "_lexical_score": 0.0, "_semantic_score": float(row.get("_semantic_score") or 0.0), "_source": "semantic"}
+            merged[key] = {
+                **row,
+                "_lexical_score": 0.0,
+                "_semantic_score": float(row.get("_semantic_score") or 0.0),
+                "_lexical_rank": None,
+                "_semantic_rank": semantic_ranks.get(key),
+                "_source": "semantic",
+            }
 
     for row in merged.values():
-        row["_hybrid_score"] = round(
-            (lexical_weight * float(row.get("_lexical_score") or 0.0))
-            + (semantic_weight * float(row.get("_semantic_score") or 0.0) * semantic_scale),
-            6,
+        if normalized_fusion_method == FUSION_RRF:
+            lexical_rank = row.get("_lexical_rank")
+            semantic_rank = row.get("_semantic_rank")
+            lexical_component = (lexical_weight / (DEFAULT_RRF_K + float(lexical_rank))) if lexical_rank else 0.0
+            semantic_component = (semantic_weight / (DEFAULT_RRF_K + float(semantic_rank))) if semantic_rank else 0.0
+            row["_hybrid_score"] = round(lexical_component + semantic_component, 6)
+        else:
+            row["_hybrid_score"] = round(
+                (lexical_weight * float(row.get("_lexical_score") or 0.0))
+                + (semantic_weight * float(row.get("_semantic_score") or 0.0) * semantic_scale),
+                6,
+            )
+        row["_fusion_method"] = normalized_fusion_method
+        _attach_explain(
+            row,
+            mode="hybrid",
+            fusion_method=normalized_fusion_method,
+            lexical_weight=lexical_weight,
+            semantic_weight=semantic_weight,
+            semantic_scale=semantic_scale,
         )
 
     out = sorted(
@@ -178,6 +291,15 @@ def _search_corpus_rows(
         row["workspace"] = workspace_name
     if rerank:
         out = rerank_rows(out, query=q, top_n=rerank_top_n, provider=reranker_provider)
+        for row in out:
+            _attach_explain(
+                row,
+                mode="hybrid",
+                fusion_method=normalized_fusion_method,
+                lexical_weight=lexical_weight,
+                semantic_weight=semantic_weight,
+                semantic_scale=semantic_scale,
+            )
     return out
 
 
@@ -194,6 +316,7 @@ def search_corpus(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    fusion_method: str = FUSION_WEIGHTED,
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
@@ -216,6 +339,7 @@ def search_corpus(
         lexical_weight=lexical_weight,
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
+        fusion_method=fusion_method,
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
@@ -240,6 +364,7 @@ def search_corpus_page(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    fusion_method: str = FUSION_WEIGHTED,
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
@@ -262,6 +387,7 @@ def search_corpus_page(
         lexical_weight=lexical_weight,
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
+        fusion_method=fusion_method,
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
@@ -290,6 +416,7 @@ def _search_corpus_multi_rows(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    fusion_method: str = FUSION_WEIGHTED,
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
@@ -318,6 +445,7 @@ def _search_corpus_multi_rows(
                 lexical_weight=lexical_weight,
                 semantic_weight=semantic_weight,
                 semantic_scale=semantic_scale,
+                fusion_method=fusion_method,
                 use_fts=use_fts,
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
@@ -349,6 +477,7 @@ def search_corpus_multi(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    fusion_method: str = FUSION_WEIGHTED,
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
@@ -370,6 +499,7 @@ def search_corpus_multi(
         lexical_weight=lexical_weight,
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
+        fusion_method=fusion_method,
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
@@ -393,6 +523,7 @@ def search_corpus_multi_page(
     lexical_weight: float = 0.6,
     semantic_weight: float = 0.4,
     semantic_scale: float = 10.0,
+    fusion_method: str = FUSION_WEIGHTED,
     use_fts: bool = True,
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
@@ -414,6 +545,7 @@ def search_corpus_multi_page(
         lexical_weight=lexical_weight,
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
+        fusion_method=fusion_method,
         use_fts=use_fts,
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,

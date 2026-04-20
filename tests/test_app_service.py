@@ -452,6 +452,91 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(first_query["top_result_details"][0]["source_id"], "F9")
         self.assertIsNotNone(first_query["top_result_details"][0]["chunk_index"])
 
+    def test_semantic_rollout_plan_reports_profile_coverage_and_commands(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "incident review follow-up", "channel": "C123"},
+        )
+        self.conn.execute(
+            """
+            INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+            VALUES (?, 'F10', 'notes.txt', 'Notes', 'text/plain', '/tmp/notes.txt', '{}')
+            """,
+            (workspace_id,),
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F10",
+            derivation_kind="attachment_text",
+            extractor="utf8_text",
+            text="incident review attachment text",
+            media_type="text/plain",
+            local_path="/tmp/notes.txt",
+            metadata={"origin": "test"},
+        )
+
+        plan = self.service.semantic_rollout_plan(
+            self.conn,
+            workspace="default",
+            profile_name="local-bge",
+            limit=25,
+            channels=["C123"],
+            derived_kind="attachment_text",
+            derived_source_kind="file",
+        )
+
+        self.assertEqual(plan["profile"]["name"], "local-bge")
+        self.assertEqual(plan["profile"]["model"], "BAAI/bge-m3")
+        self.assertEqual(plan["coverage"]["messages"]["total"], 1)
+        self.assertEqual(plan["coverage"]["messages"]["missing"], 1)
+        self.assertGreaterEqual(plan["coverage"]["derived_text_chunks"]["total"], 1)
+        self.assertEqual(plan["status"], "rollout_needed")
+        self.assertIn("provider-probe", plan["commands"]["provider_probe"])
+        self.assertIn("embeddings-backfill", plan["commands"]["message_embeddings_backfill"])
+        self.assertIn("--retrieval-profile", plan["commands"]["message_embeddings_backfill"])
+        self.assertIn("--retrieval-profile", plan["commands"]["derived_text_embeddings_backfill"])
+        self.assertIn("--retrieval-profile", plan["commands"]["search_health"])
+
+    def test_semantic_readiness_reports_profile_states(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "1700000000.000100", "user": "U1", "text": "incident review follow-up", "channel": "C123"},
+        )
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, model_id="local-hash-128", limit=20)
+        self.service.config.data.setdefault("search", {})["retrieval_profiles"] = {
+            "local-wide": {
+                "mode": "hybrid",
+                "model": "local-hash-256",
+                "semantic_provider": {"type": "local_hash"},
+                "rerank": False,
+            }
+        }
+
+        readiness = self.service.semantic_readiness(
+            self.conn,
+            workspace="default",
+            profile_names=["baseline", "local-wide"],
+            include_commands=True,
+            command_limit=10,
+        )
+
+        self.assertEqual(readiness["scope"], "workspace")
+        workspace = readiness["workspaces"][0]
+        profile_map = {profile["name"]: profile for profile in workspace["profiles"]}
+        self.assertEqual(profile_map["baseline"]["state"], "ready")
+        self.assertEqual(profile_map["local-wide"]["state"], "rollout_needed")
+        self.assertIn("message_embeddings_backfill", profile_map["local-wide"]["commands"])
+
     def test_search_health_rejects_hybrid_for_derived_text_target(self):
         with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):
             self.service.search_health(

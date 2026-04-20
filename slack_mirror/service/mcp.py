@@ -132,6 +132,7 @@ class SlackMirrorMcpServer:
                         "lexical_weight": {"type": "number", "default": 0.6},
                         "semantic_weight": {"type": "number", "default": 0.4},
                         "semantic_scale": {"type": "number", "default": 10.0},
+                        "fusion": {"type": "string", "enum": ["weighted", "rrf"], "default": "weighted"},
                         "no_fts": {"type": "boolean", "default": False},
                         "rerank": {"type": "boolean", "default": False},
                         "rerank_top_n": {"type": "integer", "default": 50},
@@ -148,6 +149,25 @@ class SlackMirrorMcpServer:
                     "type": "object",
                     "properties": {"workspace": {"type": "string"}},
                     "required": ["workspace"],
+                },
+            ),
+            _tool(
+                "search.profiles",
+                "List semantic retrieval profiles",
+                {"type": "object", "properties": {}, "additionalProperties": False},
+            ),
+            _tool(
+                "search.semantic_readiness",
+                "Show retrieval-profile semantic readiness for one workspace or all enabled workspaces",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "profiles": {"type": "array", "items": {"type": "string"}},
+                        "include_commands": {"type": "boolean", "default": False},
+                        "command_limit": {"type": "integer", "default": 500},
+                    },
+                    "additionalProperties": False,
                 },
             ),
             _tool(
@@ -334,6 +354,7 @@ class SlackMirrorMcpServer:
                         lexical_weight=float(args.get("lexical_weight", 0.6)),
                         semantic_weight=float(args.get("semantic_weight", 0.4)),
                         semantic_scale=float(args.get("semantic_scale", 10.0)),
+                        fusion_method=str(args.get("fusion", "weighted")),
                         use_fts=not bool(args.get("no_fts", False)),
                         derived_kind=str(args["kind"]) if args.get("kind") is not None else None,
                         derived_source_kind=str(args["source_kind"]) if args.get("source_kind") is not None else None,
@@ -347,6 +368,20 @@ class SlackMirrorMcpServer:
                 self.service.search_readiness(
                     conn,
                     workspace=str(args["workspace"]),
+                )
+            )
+        if name == "search.profiles":
+            return self._mcp_result({"profiles": self.service.retrieval_profiles()})
+        if name == "search.semantic_readiness":
+            raw_profiles = args.get("profiles")
+            profile_names = [str(item) for item in raw_profiles] if isinstance(raw_profiles, list) else None
+            return self._mcp_result(
+                self.service.semantic_readiness(
+                    conn,
+                    workspace=str(args["workspace"]) if args.get("workspace") is not None else None,
+                    profile_names=profile_names,
+                    include_commands=bool(args.get("include_commands", False)),
+                    command_limit=int(args.get("command_limit", 500)),
                 )
             )
         if name == "search.health":

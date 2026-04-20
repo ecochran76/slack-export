@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shlex
 import sys
 import time
 from pathlib import Path
@@ -1279,21 +1280,39 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
 
 def cmd_search_corpus(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider
+    from slack_mirror.search.profiles import config_with_retrieval_profile
     from slack_mirror.search.rerankers import build_reranker_provider
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
     conn = service.connect()
 
+    profile = service.retrieval_profile(args.retrieval_profile) if getattr(args, "retrieval_profile", None) else None
+    provider_config = config_with_retrieval_profile(service.config.data, profile) if profile else service.config.data
     search_cfg = service.config.get("search", {})
     semantic_cfg = search_cfg.get("semantic", {})
-    mode = args.mode or semantic_cfg.get("mode_default", "hybrid")
-    model = args.model or semantic_cfg.get("model", "local-hash-128")
-    lexical_weight = float(args.lexical_weight if args.lexical_weight is not None else semantic_cfg.get("weights", {}).get("lexical", 0.6))
-    semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
-    semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
-    embedding_provider = build_embedding_provider(service.config.data)
-    reranker_provider = build_reranker_provider(service.config.data) if args.rerank else None
+    profile_weights = profile.weights if profile else {}
+    mode = args.mode or (profile.mode if profile else semantic_cfg.get("mode_default", "hybrid"))
+    model = args.model or (profile.model if profile else semantic_cfg.get("model", "local-hash-128"))
+    lexical_weight = float(
+        args.lexical_weight
+        if args.lexical_weight is not None
+        else profile_weights.get("lexical", semantic_cfg.get("weights", {}).get("lexical", 0.6))
+    )
+    semantic_weight = float(
+        args.semantic_weight
+        if args.semantic_weight is not None
+        else profile_weights.get("semantic", semantic_cfg.get("weights", {}).get("semantic", 0.4))
+    )
+    semantic_scale = float(
+        args.semantic_scale
+        if args.semantic_scale is not None
+        else profile_weights.get("semantic_scale", semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
+    )
+    rerank = bool(args.rerank or (profile.rerank if profile else False))
+    rerank_top_n = int(args.rerank_top_n or (profile.rerank_top_n if profile else 50))
+    embedding_provider = build_embedding_provider(provider_config)
+    reranker_provider = build_reranker_provider(provider_config) if rerank else None
 
     rows = service.corpus_search(
         conn,
@@ -1306,12 +1325,13 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
         lexical_weight=lexical_weight,
         semantic_weight=semantic_weight,
         semantic_scale=semantic_scale,
+        fusion_method=args.fusion,
         use_fts=not args.no_fts,
         derived_kind=args.kind,
         derived_source_kind=args.source_kind,
         message_embedding_provider=embedding_provider,
-        rerank=args.rerank,
-        rerank_top_n=args.rerank_top_n,
+        rerank=rerank,
+        rerank_top_n=rerank_top_n,
         reranker_provider=reranker_provider,
     )
     if args.json:
@@ -1331,35 +1351,47 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
                     f" lex={row.get('_lexical_score', row.get('_score', 0))}"
                     f" sem={row.get('_semantic_score', 0)}"
                     f" hyb={row.get('_hybrid_score', 0)}"
+                    f" fusion={row.get('_fusion_method', 'n/a')}"
+                    f" ranks={row.get('_lexical_rank', '-')}/{row.get('_semantic_rank', '-')}"
                     f" rerank={row.get('_rerank_score', 0)}"
                 )
             print(line)
     scope = "all" if args.all_workspaces else str(args.workspace)
     print(
         f"Corpus search workspace={scope} mode={mode} query={args.query!r} results={len(rows)} "
-        f"kind={args.kind or 'any'} source_kind={args.source_kind or 'any'}"
+        f"kind={args.kind or 'any'} source_kind={args.source_kind or 'any'} profile={profile.name if profile else 'config'}"
     )
     return 0
 
 
 def cmd_search_health(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider
+    from slack_mirror.search.profiles import config_with_retrieval_profile
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
     conn = service.connect()
+    profile = service.retrieval_profile(args.retrieval_profile) if getattr(args, "retrieval_profile", None) else None
+    provider_config = config_with_retrieval_profile(service.config.data, profile) if profile else service.config.data
+    model = args.model or (profile.model if profile else "local-hash-128")
+    mode = args.mode or (profile.mode if profile else "hybrid")
+    embedding_provider = build_embedding_provider(provider_config)
     payload = service.search_health(
         conn,
         workspace=args.workspace,
         dataset_path=args.dataset,
         benchmark_target=args.target,
-        mode=args.mode,
+        mode=mode,
         limit=args.limit,
-        model_id=args.model,
+        model_id=model,
         min_hit_at_3=args.min_hit_at_3,
         min_hit_at_10=args.min_hit_at_10,
         min_ndcg_at_k=args.min_ndcg_at_k,
         max_latency_p95_ms=args.max_latency_p95_ms,
+        message_embedding_provider=embedding_provider,
     )
+    if profile:
+        payload["retrieval_profile"] = profile.to_dict()
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
@@ -1413,14 +1445,105 @@ def cmd_search_health(args: argparse.Namespace) -> int:
     return 0 if payload["status"] != "fail" else 1
 
 
-def cmd_search_provider_probe(args: argparse.Namespace) -> int:
+def cmd_search_profiles(args: argparse.Namespace) -> int:
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
-    semantic_cfg = service.config.get("search", {}).get("semantic", {})
-    model_id = args.model or semantic_cfg.get("model", "local-hash-128")
+    profiles = service.retrieval_profiles()
+    if args.json:
+        print(json.dumps({"profiles": profiles}, indent=2))
+        return 0
+    for profile in profiles:
+        rerank = "yes" if profile.get("rerank") else "no"
+        marker = " experimental" if profile.get("experimental") else ""
+        print(
+            f"{profile['name']}: mode={profile['mode']} model={profile['model']} "
+            f"semantic_provider={profile['semantic_provider'].get('type')} rerank={rerank}{marker}"
+        )
+        if profile.get("description"):
+            print(f"  {profile['description']}")
+    return 0
+
+
+def cmd_search_semantic_readiness(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    profile_names = [value.strip() for value in str(args.profiles or "").split(",") if value.strip()]
+    payload = service.semantic_readiness(
+        conn,
+        workspace=args.workspace,
+        profile_names=profile_names or None,
+        include_commands=bool(args.include_commands),
+        command_limit=int(args.command_limit),
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    for workspace in payload["workspaces"]:
+        print(f"Semantic readiness workspace={workspace['workspace']} status={workspace['status']} summary={workspace['summary']}")
+        for profile in workspace["profiles"]:
+            messages = profile["coverage"]["messages"]
+            chunks = profile["coverage"]["derived_text_chunks"]
+            print(
+                f"  {profile['name']}: state={profile['state']} model={profile['model']} "
+                f"messages={messages['ready']}/{messages['total']} chunks={chunks['ready']}/{chunks['total']}"
+            )
+    return 0
+
+
+def cmd_mirror_rollout_plan(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    channels = [value.strip() for value in str(args.channels or "").split(",") if value.strip()]
+    payload = service.semantic_rollout_plan(
+        conn,
+        workspace=args.workspace,
+        profile_name=args.retrieval_profile,
+        limit=args.limit,
+        channels=channels,
+        oldest=args.oldest,
+        latest=args.latest,
+        derived_kind=args.kind,
+        derived_source_kind=args.source_kind,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+        return 0
+    profile = payload["profile"]
+    print(
+        f"Semantic rollout workspace={payload['workspace']} profile={profile['name']} "
+        f"model={profile['model']} status={payload['status']}"
+    )
+    for label, coverage in payload["coverage"].items():
+        print(
+            f"{label}: ready={coverage['ready']} total={coverage['total']} "
+            f"missing={coverage['missing']} coverage={coverage['coverage_ratio']}"
+        )
+    print("Commands:")
+    for label, command in payload["commands"].items():
+        print(f"  {label}: " + " ".join(shlex.quote(str(part)) for part in command))
+    return 0
+
+
+def cmd_search_provider_probe(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import probe_embedding_provider
+    from slack_mirror.search.profiles import config_with_retrieval_profile
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    profile = service.retrieval_profile(args.retrieval_profile) if getattr(args, "retrieval_profile", None) else None
+    provider_config = config_with_retrieval_profile(service.config.data, profile) if profile else service.config.data
+    semantic_cfg = provider_config.get("search", {}).get("semantic", {})
+    model_id = args.model or (profile.model if profile else semantic_cfg.get("model", "local-hash-128"))
     smoke_texts = ["semantic search probe", "gateway outage on cooper"] if args.smoke else None
-    payload = service.message_embedding_probe(model_id=model_id, smoke_texts=smoke_texts)
+    payload = probe_embedding_provider(provider_config, model_id=model_id, smoke_texts=smoke_texts)
+    if profile:
+        payload["retrieval_profile"] = profile.to_dict()
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
@@ -1456,21 +1579,28 @@ def cmd_search_provider_probe(args: argparse.Namespace) -> int:
 
 
 def cmd_search_reranker_probe(args: argparse.Namespace) -> int:
+    from slack_mirror.search.profiles import config_with_retrieval_profile
+    from slack_mirror.search.rerankers import probe_reranker_provider
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
-    rerank_cfg = service.config.get("search", {}).get("rerank", {})
+    profile = service.retrieval_profile(args.retrieval_profile) if getattr(args, "retrieval_profile", None) else None
+    provider_config = config_with_retrieval_profile(service.config.data, profile) if profile else service.config.data
+    rerank_cfg = provider_config.get("search", {}).get("rerank", {})
     provider_cfg = rerank_cfg.get("provider", {}) if isinstance(rerank_cfg.get("provider"), dict) else {}
     model_id = args.model or provider_cfg.get("model") or provider_cfg.get("model_id") or rerank_cfg.get("model")
     smoke_documents = [
         "gateway outage on cooper with recovery notes",
         "monthly catering invoice and receipt",
     ] if args.smoke else None
-    payload = service.reranker_probe(
+    payload = probe_reranker_provider(
+        provider_config,
         model_id=model_id,
         smoke_query="gateway outage recovery" if args.smoke else None,
         smoke_documents=smoke_documents,
     )
+    if profile:
+        payload["retrieval_profile"] = profile.to_dict()
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
@@ -1544,13 +1674,17 @@ def cmd_search_reindex(args: argparse.Namespace) -> int:
 
 def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider, provider_name
+    from slack_mirror.search.profiles import config_with_retrieval_profile, resolve_retrieval_profile
     from slack_mirror.sync.embeddings import backfill_message_embeddings
 
     cfg = load_config(args.config)
     db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
-    embedding_provider = build_embedding_provider(cfg.data)
+    profile = resolve_retrieval_profile(cfg.data, args.retrieval_profile) if getattr(args, "retrieval_profile", None) else None
+    provider_config = config_with_retrieval_profile(cfg.data, profile) if profile else cfg.data
+    model_id = args.model or (profile.model if profile else "local-hash-128")
+    embedding_provider = build_embedding_provider(provider_config)
 
     ws_row = get_workspace_by_name(conn, args.workspace)
     if not ws_row:
@@ -1561,7 +1695,7 @@ def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
     result = backfill_message_embeddings(
         conn,
         workspace_id=int(ws_row["id"]),
-        model_id=args.model,
+        model_id=model_id,
         limit=args.limit,
         channel_ids=channel_ids or None,
         oldest=args.oldest,
@@ -1571,7 +1705,8 @@ def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
     )
     payload = {
         "workspace": args.workspace,
-        "model": args.model,
+        "model": model_id,
+        "retrieval_profile": profile.to_dict() if profile else None,
         "provider": provider_name(embedding_provider),
         "limit": int(args.limit),
         "order": str(args.order),
@@ -1584,7 +1719,7 @@ def cmd_embeddings_backfill(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2))
         return 0
     print(
-        f"Embeddings backfill workspace={args.workspace} model={args.model} provider={provider_name(embedding_provider)} "
+        f"Embeddings backfill workspace={args.workspace} model={model_id} provider={provider_name(embedding_provider)} "
         f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']} channels={result['channels']} "
         f"order={args.order}"
     )
@@ -1655,13 +1790,17 @@ def cmd_process_derived_text_jobs(args: argparse.Namespace) -> int:
 
 def cmd_derived_text_embeddings_backfill(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider, provider_name
+    from slack_mirror.search.profiles import config_with_retrieval_profile, resolve_retrieval_profile
     from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 
     cfg = load_config(args.config)
     db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
     conn = connect(db_path)
     apply_migrations(conn, str(Path(__file__).resolve().parents[1] / "core" / "migrations"))
-    embedding_provider = build_embedding_provider(cfg.data)
+    profile = resolve_retrieval_profile(cfg.data, args.retrieval_profile) if getattr(args, "retrieval_profile", None) else None
+    provider_config = config_with_retrieval_profile(cfg.data, profile) if profile else cfg.data
+    model_id = args.model or (profile.model if profile else "local-hash-128")
+    embedding_provider = build_embedding_provider(provider_config)
 
     ws_row = get_workspace_by_name(conn, args.workspace)
     if not ws_row:
@@ -1670,7 +1809,7 @@ def cmd_derived_text_embeddings_backfill(args: argparse.Namespace) -> int:
     result = backfill_derived_text_chunk_embeddings(
         conn,
         workspace_id=int(ws_row["id"]),
-        model_id=args.model,
+        model_id=model_id,
         limit=args.limit,
         derivation_kind=args.kind,
         source_kind=args.source_kind,
@@ -1679,7 +1818,8 @@ def cmd_derived_text_embeddings_backfill(args: argparse.Namespace) -> int:
     )
     payload = {
         "workspace": args.workspace,
-        "model": args.model,
+        "model": model_id,
+        "retrieval_profile": profile.to_dict() if profile else None,
         "provider": provider_name(embedding_provider),
         "kind": args.kind,
         "source_kind": args.source_kind,
@@ -1690,7 +1830,7 @@ def cmd_derived_text_embeddings_backfill(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2))
         return 0
     print(
-        f"Derived-text chunk embeddings backfill workspace={args.workspace} model={args.model} provider={provider_name(embedding_provider)} "
+        f"Derived-text chunk embeddings backfill workspace={args.workspace} model={model_id} provider={provider_name(embedding_provider)} "
         f"scanned={result['scanned']} embedded={result['embedded']} skipped={result['skipped']} "
         f"documents={result['documents']} chunks={result['chunks']} kind={args.kind or 'any'} source_kind={args.source_kind or 'any'} order={args.order}"
     )
@@ -1893,7 +2033,7 @@ _slack_mirror_complete() {
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
   local tenants_sub="status onboard credentials activate live backfill retire"
-  local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
+  local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs rollout-plan oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -1976,8 +2116,12 @@ except Exception:
             COMPREPLY=( $(compgen -W "lexical semantic hybrid" -- "$cur") )
             return 0
             ;;
+          --fusion)
+            COMPREPLY=( $(compgen -W "weighted rrf" -- "$cur") )
+            return 0
+            ;;
         esac
-        COMPREPLY=( $(compgen -W "--workspace --profile --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --rerank --rerank-top-n --no-fts --kind --source-kind --json" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--workspace --profile --path --glob --query --limit --mode --model --lexical-weight --semantic-weight --semantic-scale --fusion --rank-term-weight --rank-link-weight --rank-thread-weight --rank-recency-weight --group-by-thread --dedupe --snippet-chars --explain --rerank --rerank-top-n --no-fts --kind --source-kind --json" -- "$cur") )
       fi
       ;;
     docs)
@@ -2057,7 +2201,7 @@ _slack_mirror() {
   mcp_sub=(serve)
   release_sub=(check)
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
-  mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
+  mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs rollout-plan oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
   tenants_sub=(status onboard credentials activate live backfill retire)
 
@@ -2157,6 +2301,7 @@ _slack_mirror() {
         '--lexical-weight[hybrid lexical weight]:number:' \
         '--semantic-weight[hybrid semantic weight]:number:' \
         '--semantic-scale[semantic score scaling factor]:number:' \
+        '--fusion[hybrid fusion method]:fusion:(weighted rrf)' \
         '--rank-term-weight[keyword term-frequency weight]:number:' \
         '--rank-link-weight[keyword link boost weight]:number:' \
         '--rank-thread-weight[keyword thread boost weight]:number:' \
@@ -2673,7 +2818,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_emb_backfill = mirror_sub.add_parser("embeddings-backfill", help="backfill message embeddings")
     p_emb_backfill.add_argument("--workspace", required=True, help="workspace name")
-    p_emb_backfill.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_emb_backfill.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
+    p_emb_backfill.add_argument("--model", default=None, help="embedding model id")
     p_emb_backfill.add_argument("--limit", type=int, default=1000, help="maximum messages to scan")
     p_emb_backfill.add_argument("--channels", default="", help="optional comma-separated channel IDs to bound the rollout")
     p_emb_backfill.add_argument("--oldest", help="optional oldest ts boundary (inclusive)")
@@ -2706,7 +2852,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_derived_emb_backfill = mirror_sub.add_parser("derived-text-embeddings-backfill", help="backfill derived-text chunk embeddings")
     p_derived_emb_backfill.add_argument("--workspace", required=True, help="workspace name")
-    p_derived_emb_backfill.add_argument("--model", default="local-hash-128", help="embedding model id")
+    p_derived_emb_backfill.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
+    p_derived_emb_backfill.add_argument("--model", default=None, help="embedding model id")
     p_derived_emb_backfill.add_argument("--limit", type=int, default=500, help="maximum derived-text chunks to scan")
     p_derived_emb_backfill.add_argument(
         "--kind",
@@ -2728,6 +2875,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_derived_emb_backfill.add_argument("--json", action="store_true", help="json output")
     p_derived_emb_backfill.set_defaults(func=cmd_derived_text_embeddings_backfill)
+
+    p_rollout_plan = mirror_sub.add_parser("rollout-plan", help="plan semantic embedding rollout for a retrieval profile")
+    p_rollout_plan.add_argument("--workspace", required=True, help="workspace name")
+    p_rollout_plan.add_argument("--retrieval-profile", required=True, help="named search.retrieval_profiles profile")
+    p_rollout_plan.add_argument("--limit", type=int, default=500, help="bounded backfill limit to include in suggested commands")
+    p_rollout_plan.add_argument("--channels", default="", help="optional comma-separated channel IDs to bound message rollout")
+    p_rollout_plan.add_argument("--oldest", help="optional oldest message ts boundary")
+    p_rollout_plan.add_argument("--latest", help="optional latest message ts boundary")
+    p_rollout_plan.add_argument(
+        "--kind",
+        choices=["attachment_text", "ocr_text"],
+        default=None,
+        help="optional derived-text kind filter",
+    )
+    p_rollout_plan.add_argument(
+        "--source-kind",
+        choices=["file", "canvas"],
+        default=None,
+        help="optional derived-text source kind filter",
+    )
+    p_rollout_plan.add_argument("--json", action="store_true", help="json output")
+    p_rollout_plan.set_defaults(func=cmd_mirror_rollout_plan)
 
     p_oauth = mirror_sub.add_parser("oauth-callback", help="run local HTTPS Slack OAuth callback handler")
     p_oauth.add_argument("--workspace", required=True, help="workspace name from config")
@@ -2927,11 +3096,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_scope.add_argument("--all-workspaces", action="store_true", help="search across all enabled workspaces")
     p_search_corpus.add_argument("--query", required=True, help="query text")
     p_search_corpus.add_argument("--limit", type=int, default=20, help="maximum result rows")
+    p_search_corpus.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
     p_search_corpus.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="corpus retrieval mode")
     p_search_corpus.add_argument("--model", default=None, help="embedding model id")
     p_search_corpus.add_argument("--lexical-weight", type=float, default=None, help="hybrid lexical score weight")
     p_search_corpus.add_argument("--semantic-weight", type=float, default=None, help="hybrid semantic score weight")
     p_search_corpus.add_argument("--semantic-scale", type=float, default=None, help="semantic score scaling factor")
+    p_search_corpus.add_argument(
+        "--fusion",
+        choices=["weighted", "rrf"],
+        default="weighted",
+        help="hybrid fusion method for corpus results",
+    )
     p_search_corpus.add_argument("--no-fts", action="store_true", help="disable FTS prefilter for message lexical search")
     p_search_corpus.add_argument("--rerank", action="store_true", help="rerank the top corpus candidates")
     p_search_corpus.add_argument("--rerank-top-n", type=int, default=50, help="number of top corpus candidates to rerank")
@@ -2955,9 +3131,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health.add_argument("--workspace", required=True, help="workspace name")
     p_search_health.add_argument("--dataset", help="optional JSONL benchmark dataset path")
     p_search_health.add_argument("--target", choices=["corpus", "derived_text"], default="corpus", help="benchmark target when dataset is provided")
-    p_search_health.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default="hybrid", help="benchmark retrieval mode")
+    p_search_health.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
+    p_search_health.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="benchmark retrieval mode")
     p_search_health.add_argument("--limit", type=int, default=10, help="benchmark result window")
-    p_search_health.add_argument("--model", default="local-hash-128", help="embedding model id for benchmark mode")
+    p_search_health.add_argument("--model", default=None, help="embedding model id for benchmark mode")
     p_search_health.add_argument("--min-hit-at-3", type=float, default=0.5, help="minimum acceptable hit@3 when dataset is provided")
     p_search_health.add_argument("--min-hit-at-10", type=float, default=0.8, help="minimum acceptable hit@10 when dataset is provided")
     p_search_health.add_argument("--min-ndcg-at-k", type=float, default=0.6, help="minimum acceptable ndcg@k when dataset is provided")
@@ -2965,13 +3142,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health.add_argument("--json", action="store_true", help="json output")
     p_search_health.set_defaults(func=cmd_search_health)
 
+    p_search_profiles = search_sub.add_parser("profiles", help="list semantic retrieval profiles")
+    p_search_profiles.add_argument("--json", action="store_true", help="json output")
+    p_search_profiles.set_defaults(func=cmd_search_profiles)
+
+    p_search_semantic_readiness = search_sub.add_parser("semantic-readiness", help="show retrieval-profile semantic readiness")
+    p_search_semantic_readiness.add_argument("--workspace", default=None, help="optional workspace name; defaults to all enabled workspaces")
+    p_search_semantic_readiness.add_argument("--profiles", default="", help="optional comma-separated retrieval profile names")
+    p_search_semantic_readiness.add_argument("--include-commands", action="store_true", help="include rollout commands in JSON output")
+    p_search_semantic_readiness.add_argument("--command-limit", type=int, default=500, help="bounded backfill limit for suggested commands")
+    p_search_semantic_readiness.add_argument("--json", action="store_true", help="json output")
+    p_search_semantic_readiness.set_defaults(func=cmd_search_semantic_readiness)
+
     p_search_provider_probe = search_sub.add_parser("provider-probe", help="probe configured semantic provider and local GPU readiness")
+    p_search_provider_probe.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
     p_search_provider_probe.add_argument("--model", default=None, help="embedding model id (defaults to config search.semantic.model)")
     p_search_provider_probe.add_argument("--smoke", action="store_true", help="run a small embed smoke after readiness checks")
     p_search_provider_probe.add_argument("--json", action="store_true", help="json output")
     p_search_provider_probe.set_defaults(func=cmd_search_provider_probe)
 
     p_search_reranker_probe = search_sub.add_parser("reranker-probe", help="probe configured reranker provider and local GPU readiness")
+    p_search_reranker_probe.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
     p_search_reranker_probe.add_argument("--model", default=None, help="reranker model id (defaults to config search.rerank.provider.model)")
     p_search_reranker_probe.add_argument("--smoke", action="store_true", help="run a small rerank smoke after readiness checks")
     p_search_reranker_probe.add_argument("--json", action="store_true", help="json output")
