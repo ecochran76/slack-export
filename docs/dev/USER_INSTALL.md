@@ -107,6 +107,8 @@ Use `check-live` as the best single signoff that the managed install, config, AP
 
 After `check-live` passes, configure agent clients against `~/.local/bin/slack-mirror-mcp`. The supported MCP release-baseline tool groups, readiness preflight, write-action cautions, listener workflow, tracing flags, and current non-goals are documented in [../API_MCP_CONTRACT.md](../API_MCP_CONTRACT.md#mcp-release-baseline).
 
+Restart or reconnect long-lived MCP clients after every `slack-mirror-user user-env update`; clients keep the tool schema and server code loaded when their MCP process started.
+
 For release signoff from a repo checkout, run:
 
 ```bash

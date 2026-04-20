@@ -630,12 +630,28 @@ def _user_unit_path(paths: UserEnvPaths, unit_name: str) -> Path:
     return paths.home_dir / ".config" / "systemd" / "user" / unit_name
 
 
+def _systemctl_user_env() -> dict[str, str]:
+    env = os.environ.copy()
+    runtime_dir = env.get("XDG_RUNTIME_DIR")
+    if not runtime_dir:
+        candidate = Path(f"/run/user/{os.getuid()}")
+        if candidate.exists():
+            runtime_dir = str(candidate)
+            env["XDG_RUNTIME_DIR"] = runtime_dir
+    if runtime_dir and not env.get("DBUS_SESSION_BUS_ADDRESS"):
+        bus_path = Path(runtime_dir) / "bus"
+        if bus_path.exists():
+            env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={bus_path}"
+    return env
+
+
 def _systemctl_state(runner: RunFn, unit_name: str) -> str:
     completed = runner(
         ["systemctl", "--user", "is-active", unit_name],
         check=False,
         text=True,
         capture_output=True,
+        env=_systemctl_user_env(),
     )
     state = (completed.stdout or "").strip()
     if state:

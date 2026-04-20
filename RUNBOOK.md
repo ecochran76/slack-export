@@ -3263,3 +3263,36 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_mcp_server -v`
   - `uv run slack-mirror release check --require-managed-runtime --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 210 | 2026-04-20
+
+- Opened and closed the next bounded `P11` live MCP acceptance slice:
+  - `0072-2026-04-20-live-mcp-client-acceptance.md`
+- Live MCP acceptance found one real agent-client blocker:
+  - MCP/client processes launched without the normal user DBus environment could falsely report all systemd user units as inactive
+  - the managed CLI and direct `systemctl --user` checks showed the units were actually active
+- Fixed the shared status probe by rehydrating `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS` before `systemctl --user is-active`.
+- Updated the managed install after the fix:
+  - `uv run slack-mirror user-env update`
+- Verified the installed `~/.local/bin/slack-mirror-mcp` wrapper directly with DBus environment variables stripped:
+  - `initialize`
+  - `tools/list`
+  - `runtime.status`
+  - `runtime.live_validation`
+  - `search.semantic_readiness`
+- Exercised connected MCP tools for:
+  - service health
+  - latest runtime report
+  - workspace listing and workspace status
+  - workspace and all-workspace corpus search
+  - search readiness and search health
+  - listener registration, status, listing, delivery polling, and cleanup
+  - one idempotent outbound DM acceptance message to Eric only
+- Recorded one operator rule in the docs:
+  - reconnect long-lived MCP clients after `user-env update` so they load the new tool schema and server code
+- Validation:
+  - `env -u XDG_RUNTIME_DIR -u DBUS_SESSION_BUS_ADDRESS uv run slack-mirror user-env status --json`
+  - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_systemctl_state_rehydrates_user_bus_env tests.test_mcp_server.McpServerTests.test_runtime_status_tool tests.test_mcp_server.McpServerTests.test_runtime_live_validation_tool -v`
+  - `uv run python -m unittest tests.test_user_env tests.test_mcp_server -v`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

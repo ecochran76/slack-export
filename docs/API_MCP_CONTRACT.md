@@ -70,6 +70,10 @@ slack-mirror release check --require-managed-runtime --json
 
 The managed-runtime checks verify the MCP wrapper with a real stdio health request and a bounded concurrent readiness probe. A passing single process does not replace `check-live` when multiple clients will be configured.
 
+MCP clients should reconnect after `slack-mirror user-env update` or `slack-mirror-user user-env update`. Long-lived clients keep the tool schema and server code they loaded at process start.
+
+The managed runtime status probes are safe for agent-client environments that do not inherit the normal interactive shell DBus variables. The service rehydrates the user runtime and bus environment before calling `systemctl --user`, so `runtime.status` and `runtime.live_validation` should not report every unit inactive solely because `XDG_RUNTIME_DIR` or `DBUS_SESSION_BUS_ADDRESS` was missing at client launch.
+
 Supported release-baseline MCP tool groups:
 
 - runtime and install health: `health`, `runtime.status`, `runtime.live_validation`, `runtime.report.latest`, `workspaces.list`, `workspace.status`

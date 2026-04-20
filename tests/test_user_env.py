@@ -137,6 +137,23 @@ class UserEnvTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def test_systemctl_state_rehydrates_user_bus_env(self):
+        runtime_dir = self.root / "runtime"
+        runtime_dir.mkdir()
+        (runtime_dir / "bus").touch()
+        seen_env = {}
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            seen_env.update(env or {})
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="active\n", stderr="")
+
+        with patch.dict(os.environ, {"XDG_RUNTIME_DIR": str(runtime_dir)}, clear=True):
+            state = user_env._systemctl_state(runner, "slack-mirror-api.service")
+
+        self.assertEqual(state, "active")
+        self.assertEqual(seen_env["XDG_RUNTIME_DIR"], str(runtime_dir))
+        self.assertEqual(seen_env["DBUS_SESSION_BUS_ADDRESS"], f"unix:path={runtime_dir / 'bus'}")
+
     def test_install_bootstraps_user_env(self):
         calls, runner = self._runner()
 
@@ -1830,6 +1847,7 @@ class UserEnvTests(unittest.TestCase):
             CREATE TABLE embedding_jobs (workspace_id INTEGER, status TEXT);
             INSERT INTO workspaces(id, name) VALUES (1, 'default');
             INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C1', 'general', 0, 0, 0);
+            INSERT INTO channels(workspace_id, channel_id, name, is_im, is_mpim, is_private) VALUES (1, 'C2', 'empty-public', 0, 0, 0);
             INSERT INTO messages(workspace_id, channel_id, ts) VALUES (1, 'C1', '1000.0');
             """
         )
@@ -1865,7 +1883,7 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual(report.workspaces[0].stale_channels, 1)
         self.assertEqual(report.workspaces[0].daemon_heartbeat_age_seconds, 1.0)
         self.assertEqual(report.workspaces[0].active_recent_channels, 0)
-        self.assertEqual(report.workspaces[0].unexpected_empty_channels, 0)
+        self.assertEqual(report.workspaces[0].unexpected_empty_channels, 1)
         self.assertFalse(report.workspaces[0].stale_warning_suppressed)
 
     def test_validate_live_suppresses_stale_mirror_when_recent_activity_and_no_unexpected_empty(self):

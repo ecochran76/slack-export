@@ -386,6 +386,7 @@ Actionable plans:
 - `docs/dev/plans/0052-2026-04-18-stable-mcp-capable-user-scoped-release.md`
 - `docs/dev/plans/0070-2026-04-20-release-check-managed-runtime-gate.md`
 - `docs/dev/plans/0071-2026-04-20-mcp-operator-usability-guide.md`
+- `docs/dev/plans/0072-2026-04-20-live-mcp-client-acceptance.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -402,6 +403,8 @@ Current state:
 - MCP is present and functional, but it has not yet been hardened and validated as a release-quality interface with clear readiness criteria, predictable failure handling, and explicit operator guidance
 - `release check --require-managed-runtime` now combines repo release discipline with the installed `slack-mirror-user user-env check-live --json` gate, including real MCP stdio and concurrent MCP readiness probes
 - the release MCP operator baseline is now documented around runtime checks, workspace status, search/readiness, outbound sends, listener deliveries, supported preflight gates, tracing, and non-goals
+- live MCP client acceptance found and fixed a missing user-bus environment fallback so agent clients launched without `XDG_RUNTIME_DIR` or `DBUS_SESSION_BUS_ADDRESS` no longer misreport active systemd user units as inactive
+- the installed MCP wrapper now passes the documented baseline for stdio handshake, tool listing, runtime status, live validation, workspace status, search/readiness, listener lifecycle, and an idempotent DM send to Eric
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:

@@ -55,8 +55,12 @@ This plan does not include:
   - the supported MCP release-baseline tool groups are now documented for runtime checks, workspace status, search/readiness, outbound sends, listener deliveries, and latest runtime-report access
   - operator preflight guidance now points to `user-env status`, `user-env check-live`, and `release check --require-managed-runtime` before adding multiple agent clients
   - adjacent workflows that remain CLI/API/browser-only are documented as first-release MCP non-goals
+- the next `P11` slice is also landed:
+  - live MCP client acceptance exposed that MCP clients launched without the normal user DBus environment could falsely report active systemd user units as inactive
+  - shared systemctl status probes now rehydrate the user runtime/bus environment before querying `systemctl --user`
+  - the managed MCP wrapper now passes stripped-environment runtime-status and live-validation checks, plus workspace/search/listener/outbound acceptance checks
 - the current baseline is functional, but the product still lacks one bounded release lane that treats install/update, managed-runtime health, and MCP usability as one coordinated target
-- MCP exists and the release-baseline tool coverage is now documented, but follow-on work may still harden specific machine-readable preconditions or error hints where real operator testing exposes gaps
+- MCP exists, the release-baseline tool coverage is documented, and the first live client acceptance blocker is fixed; follow-on work may still harden specific machine-readable preconditions or error hints where further operator testing exposes gaps
 - the user wants this worktree to focus on the stable release line, while frontend migration proceeds separately in its own worktree
 
 ## Target Outcome
