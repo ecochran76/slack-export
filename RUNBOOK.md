@@ -3152,3 +3152,11 @@ This file is the dated turn log for planning and execution continuity.
   - `python scripts/check_generated_docs.py`
   - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain --limit 3 --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 204 | 2026-04-19
+
+- Committed the completed `P10` semantic retrieval stack:
+  - `65e3cb7 feat(search): add semantic retrieval profiles and fusion diagnostics`
+- Opened the next bounded `P10` slice:
+  - `0067-2026-04-19-actionable-search-results.md`
+- Scoped `0067` to stable action-target metadata and result-selection contracts for message and derived-text corpus hits, so later export/report/action workflows can consume selected candidates without clients re-parsing display rows.

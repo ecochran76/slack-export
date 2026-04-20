@@ -269,6 +269,7 @@ Actionable plans:
 - `docs/dev/plans/0064-2026-04-19-semantic-retrieval-profiles-rollout-controls.md`
 - `docs/dev/plans/0065-2026-04-19-tenant-semantic-readiness-diagnostics.md`
 - `docs/dev/plans/0066-2026-04-19-query-fusion-and-explainability-hardening.md`
+- `docs/dev/plans/0067-2026-04-19-actionable-search-results.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -334,6 +335,7 @@ Current state:
   - corpus hybrid search preserves weighted fusion as the default
   - opt-in reciprocal-rank fusion is available through CLI, API, MCP, and the shared service boundary
   - corpus results include stable `_explain` metadata so agents and frontend clients do not need private ranking logic
+- the next open slice is `0067`, which will add stable action-target metadata and result-selection contracts so search hits can flow into export/report/action workflows without clients re-parsing display fields
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -351,7 +353,6 @@ Remaining project phases:
    - decide what remains baseline, what becomes recommended local semantic profile, and what stays experimental
 
 Recommended remaining child plans:
-- `0067`: actionable search results for export/report workflows
 - `0068`: scale and inference-boundary review
 - `0069`: release profile, docs, and final semantic-search policy
 

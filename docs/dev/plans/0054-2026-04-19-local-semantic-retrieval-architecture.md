@@ -277,7 +277,7 @@ Work packages:
    - expose candidate window sizes, rerank top-K, derived-text kind/source filters, and profile selection consistently across CLI/API/MCP
    - ensure frontend advanced search controls reuse the same contracts
 4. Result actionability:
-   - support selecting candidate results for export/report/action workflows without needing another search pass
+   - `0067` is open to support selecting candidate results for export/report/action workflows without needing another search pass
    - preserve stable result identifiers for message, thread, file, canvas, and chunk targets
 
 Acceptance gates:
