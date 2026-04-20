@@ -314,24 +314,32 @@ Current state:
   - default reranking remains heuristic unless config explicitly selects the learned provider
 - the next implementation-critical step is a bounded live-data learned-reranker rehearsal against real tenant search queries, then benchmark threshold tuning if quality improves
 
-Planned subphases:
-1. provider and model seam hardening:
-   - explicit embedding-provider and reranker-provider boundaries instead of treating `model_id` as enough abstraction
-2. local retrieval architecture:
-   - decide the durable local-first retrieval stack, service boundary, storage/index strategy, and rollout phases before adding heavy models
-3. local embedding upgrade:
-   - replace or supplement `local-hash-128` with a real local embedding model, likely centered on `bge-m3` or an equivalent local-first alternative
-4. chunk and derived-text retrieval upgrade:
-   - embed and retrieve over `derived_text` and `derived_text_chunks` as first-class semantic targets, not only messages
-5. learned reranking:
-   - introduce a real local reranker, likely centered on `bge-reranker-v2-m3` or an equivalent cross-encoder path, over top-K hybrid candidates
-6. evaluation and operator diagnostics:
-   - add Slack-specific retrieval benchmarks, relevance diagnostics, and live operator visibility for embedding backlog, model health, and rerank coverage
-7. MCP and API contract refinement:
-   - expose the stronger retrieval options through stable CLI, API, and MCP semantics without breaking the first-release contract
+Remaining project phases:
+1. live relevance rehearsal and benchmark lock:
+   - compare baseline, `bge-m3`, heuristic rerank, and learned rerank against real tenant queries
+   - promote high-signal cases into durable benchmark fixtures
+2. rollout controls and operator UX:
+   - add explicit retrieval profiles, resumable backfill orchestration, readiness states, and safe fallback visibility
+3. query pipeline hardening:
+   - evaluate reciprocal-rank fusion, improve explain output, preserve lexical strength, and stabilize grouped result projection
+4. actionability and frontend integration:
+   - support advanced search controls and selectable result candidates for export/report/action workflows through shared API/MCP contracts
+5. scale and inference-boundary review:
+   - measure exact dense search, model-load latency, GPU contention, and multi-client MCP behavior before considering SQLite vector extensions or ANN services
+6. release/default policy:
+   - decide what remains baseline, what becomes recommended local semantic profile, and what stays experimental
+
+Recommended remaining child plans:
+- `0063`: learned-reranker live rehearsal and benchmark promotion
+- `0064`: semantic retrieval profiles and operator rollout controls
+- `0065`: tenant semantic readiness diagnostics across CLI/API/MCP/frontend
+- `0066`: query fusion and explainability hardening
+- `0067`: actionable search results for export/report workflows
+- `0068`: scale and inference-boundary review
+- `0069`: release profile, docs, and final semantic-search policy
 
 Planned outputs:
-- bounded child plans under `docs/dev/plans/`, starting with a retrieval-architecture plan that locks the next implementation direction
+- bounded child plans under `docs/dev/plans/`, following the remaining project phases above
 - a local-first retrieval profile that improves message, attachment, and OCR search quality without forcing a vector-DB migration
 
 ## P11 | Stable MCP-Capable User-Scoped Release

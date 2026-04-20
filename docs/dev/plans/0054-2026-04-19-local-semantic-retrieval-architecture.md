@@ -129,41 +129,244 @@ Planned policy:
 
 ## Planned Rollout
 
-### Phase 1
+### Phase 1: Provider Seams And Local Model Proof
 
 Completed:
 
 - shared embedding-provider seam (`0053`)
+- provider-routed `BAAI/bge-m3` message embedding path (`0055`)
+- provider probe and GPU/runtime visibility (`0056`)
+- bounded live-data `bge-m3` message rehearsal (`0057`)
+- bounded message embedding rollout controls and coverage reporting (`0058`)
 
-### Phase 2
+Exit state:
 
-Current implementation direction:
+- the repo can run stronger local message embeddings without changing the default baseline
+- readiness and health distinguish configured-model coverage from legacy embedding coverage
+- local workstation capability has been validated without assuming broad rollout safety
 
-- local embedder integration for messages using `bge-m3`
-- bounded stepping-stone implementation through provider-routed `sentence_transformers`
-- preserve the longer-term inference-adapter direction for later phases
-- evaluation on the known failing paraphrase queries
+### Phase 2: Derived-Text Semantic Coverage
 
-### Phase 3
+Completed:
 
-- derived-text chunk embeddings
-- chunk-level dense retrieval
-- readiness and backlog reporting for the stronger embedding path
+- persisted derived-text chunk embeddings (`0059`)
+- chunk-level semantic derived-text retrieval (`0059`)
+- derived-text benchmark target and chunk-aware query reports (`0060`)
 
-### Phase 4
+Exit state:
 
-- local reranker integration using `bge-reranker-v2-m3`
-- top-K rerank path over fused candidates
+- attachment and OCR text can participate as first-class semantic targets
+- coverage gaps are visible separately for messages, attachment text, and OCR text
+- evaluation can target derived text directly instead of inferring quality through corpus search
 
-### Phase 5
+### Phase 3: Reranker Provider And Learned Local Reranker
 
-- Slack-specific evaluation suite and relevance gates
-- operator diagnostics for model health, backlog, and fallback mode
+Completed:
 
-### Phase 6
+- shared reranker provider seam (`0061`)
+- opt-in corpus reranking over fused message plus derived-text candidates (`0061`)
+- optional `sentence_transformers` CrossEncoder provider for `BAAI/bge-reranker-v2-m3` (`0062`)
+- reranker readiness and smoke probe (`0062`)
 
-- latency and scale review
-- optional ANN/index backend evaluation if exact dense retrieval is no longer sufficient
+Exit state:
+
+- learned reranking is available but not default
+- CLI, API, and MCP rerank semantics remain stable
+- provider config, not transport contracts, selects heuristic versus learned reranking
+
+### Phase 4: Live Relevance Rehearsal And Benchmark Lock
+
+Purpose:
+
+- prove whether `bge-m3` plus learned reranking improves real Slack search quality enough to justify operator rollout
+- turn ad hoc quality checks into durable benchmark artifacts
+
+Work packages:
+
+1. Query set design:
+   - collect real tenant search scenarios across exact-match, paraphrase, attachment/OCR, people/channel filters, and stale operational incidents
+   - include negative/control queries where lexical should remain dominant
+   - define expected target messages, files, chunks, or threads with stable identifiers
+2. Rehearsal harness:
+   - run baseline lexical/hybrid, `bge-m3` hybrid, heuristic rerank, and learned rerank variants against the same query set
+   - record top-k deltas, hit@k, ndcg/mrr, latency, and GPU memory before/after
+   - keep test DB copies or bounded live scopes so rehearsal is repeatable and non-destructive
+3. Benchmark promotion:
+   - promote high-signal rehearsal cases into repo-owned benchmark JSONL fixtures
+   - add a reranked benchmark mode if needed, without changing existing `search health` defaults
+4. Decision gate:
+   - if learned reranking improves quality within acceptable latency, proceed to rollout controls
+   - if quality is mixed or latency is too high, keep it experimental and evaluate a lighter reranker before rollout
+
+Acceptance gates:
+
+- at least one benchmark fixture covers message paraphrase retrieval
+- at least one benchmark fixture covers derived-text chunk retrieval
+- learned reranker latency and memory are measured on the RTX 5080 workstation
+- the decision to proceed, defer, or swap reranker model is recorded in this plan and the runbook
+
+### Phase 5: Rollout Controls And Operator UX
+
+Purpose:
+
+- make stronger semantic retrieval manageable in normal operations rather than only by expert CLI use
+
+Work packages:
+
+1. Config profiles:
+   - add named retrieval profiles such as `baseline`, `local-bge`, and `local-bge-rerank`
+   - keep profile selection explicit for CLI/API/MCP callers
+   - document safe defaults and expected resource cost
+2. Backfill orchestration:
+   - add resumable, tenant-scoped rollout commands for message embeddings and derived-text chunk embeddings under the configured model
+   - include dry-run, bounded channel/date filters, and progress JSON
+   - preserve current SQLite-first persistence
+3. Readiness and diagnostics:
+   - surface per-tenant semantic coverage, reranker provider readiness, model/device, backlog, error counts, and last probe status
+   - expose status through CLI/API/MCP and the operator frontend when the frontend lane is ready
+4. Safe fallback:
+   - make fallback mode visible when configured-model coverage is incomplete or the learned provider is unavailable
+   - do not silently report strong semantic readiness when the system is using legacy or heuristic paths
+
+Acceptance gates:
+
+- operators can tell whether a tenant is `baseline`, `embedding rollout`, `ready for local semantic`, or `ready for rerank`
+- rollback is configuration-only for search behavior
+- benchmark and readiness output use the same model/provider names operators see in config
+
+### Phase 6: Query Pipeline Hardening
+
+Purpose:
+
+- improve retrieval quality and debuggability once model choices and rollout controls are proven
+
+Work packages:
+
+1. Fusion policy:
+   - evaluate deterministic reciprocal-rank fusion versus current weighted-score fusion
+   - keep lexical, semantic, and rerank scores visible in explain output
+   - avoid replacing lexical relevance with dense retrieval for exact-match or filtered queries
+2. Thread and document projection:
+   - decide when results should return messages, threads, files, chunks, or grouped candidates
+   - keep MCP/API result shapes stable while adding richer context fields
+3. Advanced controls:
+   - expose candidate window sizes, rerank top-K, derived-text kind/source filters, and profile selection consistently across CLI/API/MCP
+   - ensure frontend advanced search controls reuse the same contracts
+4. Result actionability:
+   - support selecting candidate results for export/report/action workflows without needing another search pass
+   - preserve stable result identifiers for message, thread, file, canvas, and chunk targets
+
+Acceptance gates:
+
+- explain output is sufficient to diagnose why a result ranked highly
+- API/MCP search contracts remain thin over shared search logic
+- frontend and agent clients do not need private ranking logic
+
+### Phase 7: Scale And Inference Boundary Review
+
+Purpose:
+
+- decide whether the current in-process exact-search design is sufficient, or whether the repo needs a stronger local inference/index service
+
+Work packages:
+
+1. Latency and corpus-size review:
+   - measure current exact dense comparison cost on real tenant corpus sizes
+   - separate query latency from model-load latency and DB scan latency
+2. Inference lifecycle:
+   - decide whether embeddings and reranking should move from in-process providers to a long-lived local inference service
+   - preserve the existing provider contracts so service migration is an implementation detail
+3. Index backend evaluation:
+   - only if measured latency requires it, evaluate SQLite-native vector extensions first
+   - evaluate ANN-backed local services or vector databases only if SQLite-native options do not meet requirements
+4. Multi-client behavior:
+   - validate concurrent MCP/API/CLI search calls under model-loaded conditions
+   - document memory and concurrency limits for 10+ agent clients
+
+Acceptance gates:
+
+- a documented decision exists for staying SQLite/exact, adopting SQLite vector extensions, or adding a local ANN service
+- MCP multi-client behavior is validated under the intended semantic profile
+- no client path owns private model lifecycle code
+
+### Phase 8: Release And Default Policy
+
+Purpose:
+
+- decide what becomes recommended, what remains experimental, and what ships as release-safe behavior
+
+Work packages:
+
+1. Release profile:
+   - choose default installed behavior for user-scoped release
+   - likely default remains lexical/hybrid baseline, with local semantic/rerank as explicit opt-in profiles
+2. Documentation:
+   - publish an operator guide for enabling local semantic retrieval
+   - include hardware expectations, backfill steps, readiness gates, and rollback
+3. Regression suite:
+   - add benchmark checks appropriate for CI without requiring GPU
+   - keep GPU/model smoke as local/operator validation, not universal CI
+4. Final policy:
+   - record when to recommend `bge-m3`
+   - record when to recommend learned reranking
+   - record when to avoid learned reranking due to latency, memory, or marginal quality
+
+Acceptance gates:
+
+- release docs clearly distinguish baseline, recommended local semantic, and experimental search modes
+- operators have one repeatable enablement path and one rollback path
+- benchmark health can be used as a gate before enabling stronger retrieval for a tenant
+
+## Dependency Graph
+
+Critical path:
+
+1. Phase 4 live relevance rehearsal.
+2. Benchmark fixture promotion.
+3. Rollout controls and readiness UX.
+4. Query pipeline hardening.
+5. Scale/inference boundary decision.
+6. Release/default policy.
+
+Parallelizable tracks after Phase 4:
+
+- operator UX and status reporting
+- frontend advanced search controls
+- benchmark fixture expansion
+- inference-service exploration
+- export/report result-action integration
+
+Do not parallelize before Phase 4:
+
+- default-profile changes
+- vector-index migration
+- broad live rollout
+- frontend controls that imply learned reranking is production-ready
+
+## Risk Register
+
+- Model load cost:
+  - learned reranker may be too slow or memory-heavy for routine MCP use unless kept warm
+- Quality ambiguity:
+  - reranking can improve paraphrase queries while hurting exact-match/operator queries
+- Coverage mismatch:
+  - semantic search quality is limited if tenant message or derived-text embeddings are only partially backfilled
+- Client concurrency:
+  - multiple Codex/OpenClaw clients can create unacceptable cold-start or GPU contention without a long-lived inference boundary
+- UI overpromise:
+  - frontend status must not imply strong semantic readiness when only baseline or partial coverage exists
+
+## Remaining Plan Slices
+
+Recommended remaining child plans:
+
+- `0063`: learned-reranker live rehearsal and benchmark promotion
+- `0064`: semantic retrieval profiles and operator rollout controls
+- `0065`: tenant semantic readiness diagnostics across CLI/API/MCP/frontend
+- `0066`: query fusion and explainability hardening
+- `0067`: actionable search results for export/report workflows
+- `0068`: scale and inference-boundary review
+- `0069`: release profile, docs, and final semantic-search policy
 
 ## Acceptance Criteria
 

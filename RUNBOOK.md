@@ -3029,3 +3029,17 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
   - `python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 199 | 2026-04-19
+
+- Expanded the open `P10` architecture plan into a full remaining semantic-search upgrade plan:
+  - live relevance rehearsal and benchmark lock
+  - rollout controls and operator UX
+  - query pipeline hardening
+  - actionability and frontend integration
+  - scale and inference-boundary review
+  - release/default policy
+- Updated `ROADMAP.md` to replace the previous coarse subphase list with the remaining project phases and recommended child-plan sequence:
+  - `0063` through `0069`
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
