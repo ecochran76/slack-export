@@ -273,6 +273,7 @@ Actionable plans:
 - `docs/dev/plans/0068-2026-04-20-scale-and-inference-boundary-review.md`
 - `docs/dev/plans/0069-2026-04-20-release-profile-and-semantic-search-policy.md`
 - `docs/dev/plans/0074-2026-04-20-mcp-retrieval-profile-search.md`
+- `docs/dev/plans/0075-2026-04-20-default-search-backlog-drain.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -356,6 +357,11 @@ Current state:
   - API and MCP corpus search accept `retrieval_profile`
   - shared app service resolution applies the selected profile's provider/model/weights/rerank settings
   - invalid profile names return structured MCP errors rather than silently falling back
+- the managed `default` backlog-drain slice is now complete under `0075`:
+  - baseline readiness is now complete for `91,572/91,572` messages and `11,142/11,142` derived-text chunks
+  - no derived-text jobs remain pending or errored; remaining extraction warnings are classified skips such as unsupported media or no OCR text
+  - no-dataset MCP `search.health` passes with warnings, while derived-text and corpus benchmark checks still fail on local-hash ranking quality and latency
+- the next bounded semantic-search slice should treat benchmark failures as a retrieval-quality and search-performance problem, not as backlog hygiene
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

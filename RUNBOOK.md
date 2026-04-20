@@ -3344,3 +3344,34 @@ This file is the dated turn log for planning and execution continuity.
   - `retrieval_profile=baseline` returns corpus results
   - an unknown profile returns structured MCP `INVALID_REQUEST`
 - The installed long-lived MCP process still needs `user-env update` before connected clients see the new schema.
+
+## Turn 213 | 2026-04-20
+
+- Opened the next bounded `P10` backlog-drain slice:
+  - `0075-2026-04-20-default-search-backlog-drain.md`
+- Goal:
+  - drain the managed `default` search backlog found during semantic MCP smoke
+  - rerun readiness and search-health smoke after queue processing
+- Closed the backlog-drain slice after processing the managed `default` workspace queues:
+  - pre-check showed message embeddings were already complete at `91,572/91,572`
+  - pre-check showed derived-text backlog of `99` attachment-text jobs and `45` OCR-text jobs
+  - attachment processing inspected `99` jobs, processed `52`, skipped `47` unsupported-media jobs, and errored `0`
+  - OCR processing inspected `45` jobs, processed `32`, skipped `13`, and errored `0`
+  - derived-text chunk backfill embedded the remaining `7,858` baseline attachment chunks, leaving `11,142/11,142` derived-text chunks covered by `local-hash-128`
+- Final MCP readiness evidence:
+  - `search.readiness workspace=default` returned `status=ready`
+  - messages: `91,572/91,572` configured-model coverage
+  - attachment chunks: `11,100/11,100` configured-model coverage
+  - OCR chunks: `42/42` configured-model coverage
+  - no pending or errored derived-text jobs remained
+- Final health evidence:
+  - MCP `search.health workspace=default mode=hybrid` returned `pass_with_warnings`
+  - warnings were limited to classified extraction issue reasons: unsupported attachment media, OCR images with no detected text, and PDFs with an existing text layer
+- Benchmark evidence after backlog cleanup:
+  - derived-text semantic smoke still failed with `hit_at_3=0.0`, `hit_at_10=0.0`, `ndcg_at_k=0.0`, and `p95=1100.941 ms`
+  - corpus hybrid smoke still failed with `hit_at_3=0.0`, `hit_at_10=0.0`, `ndcg_at_k=0.0`, and `p95=54561.510 ms`
+  - corpus hybrid depth still failed with `hit_at_3=0.0`, `hit_at_10=0.0`, `ndcg_at_k=0.0`, and `p95=54690.619 ms`
+- Interpretation:
+  - the release baseline is operationally caught up
+  - the remaining failures are local-hash retrieval quality and full-corpus benchmark latency, not extraction or embedding backlog
+  - optional `local-bge` and `local-bge-rerank` profiles remain unavailable in the managed install until the local semantic dependencies are installed and rolled out deliberately
