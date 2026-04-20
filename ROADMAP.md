@@ -385,6 +385,7 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0052-2026-04-18-stable-mcp-capable-user-scoped-release.md`
 - `docs/dev/plans/0070-2026-04-20-release-check-managed-runtime-gate.md`
+- `docs/dev/plans/0071-2026-04-20-mcp-operator-usability-guide.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -400,6 +401,7 @@ Current state:
 - the repo still lacks one explicit release-hardening lane that treats install/update reliability, managed-service health, and MCP usability as one coordinated product target
 - MCP is present and functional, but it has not yet been hardened and validated as a release-quality interface with clear readiness criteria, predictable failure handling, and explicit operator guidance
 - `release check --require-managed-runtime` now combines repo release discipline with the installed `slack-mirror-user user-env check-live --json` gate, including real MCP stdio and concurrent MCP readiness probes
+- the release MCP operator baseline is now documented around runtime checks, workspace status, search/readiness, outbound sends, listener deliveries, supported preflight gates, tracing, and non-goals
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:
@@ -411,7 +413,7 @@ Planned subprojects:
    - API, daemon, webhook/socket-mode, and runtime-report service stability after install, restart, and update
    - operator-visible health gates and bounded recovery paths
 3. MCP contract usability:
-   - clarify supported MCP tool coverage
+   - supported MCP tool coverage is now documented for the first release baseline
    - harden machine-readable success and error behavior
    - reduce surprising preconditions and weak operator feedback
 4. release validation and smoke coverage:

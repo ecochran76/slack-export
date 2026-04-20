@@ -3246,3 +3246,20 @@ This file is the dated turn log for planning and execution continuity.
   - `python scripts/check_generated_docs.py`
   - `uv run slack-mirror release check --require-managed-runtime --json`
   - managed-runtime release gate passed with only expected `DEV_VERSION` warning
+
+## Turn 209 | 2026-04-20
+
+- Opened and closed the next bounded `P11` MCP-usability documentation slice:
+  - `0071-2026-04-20-mcp-operator-usability-guide.md`
+- Documented the release-baseline MCP operator contract in `docs/API_MCP_CONTRACT.md`:
+  - runtime and install health tools
+  - search and semantic-readiness tools
+  - outbound send and thread-reply tools
+  - listener registration, polling, and acknowledgement tools
+  - managed preflight gates before adding multiple agent clients
+  - first-release MCP non-goals for onboarding, auth/session management, report/export CRUD, and heavy semantic rollout
+- Updated `README.md` and `docs/dev/USER_INSTALL.md` so operators know to use `~/.local/bin/slack-mirror-mcp` only after `check-live` passes.
+- Validation:
+  - `uv run python -m unittest tests.test_mcp_server -v`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

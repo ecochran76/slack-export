@@ -52,6 +52,52 @@ When enabled, the server emits one JSON object per line for:
 
 If `SLACK_MIRROR_MCP_TRACE_FILE` is unset, trace lines go to stderr.
 
+## MCP Release Baseline
+
+The first stable user-scoped release treats MCP as a supported local operator interface when it is reached through the managed launcher:
+
+```bash
+~/.local/bin/slack-mirror-mcp
+```
+
+Before adding MCP clients such as Codex, OpenClaw, or another agent runtime, use these gates:
+
+```bash
+slack-mirror-user user-env status --json
+slack-mirror-user user-env check-live --json
+slack-mirror release check --require-managed-runtime --json
+```
+
+The managed-runtime checks verify the MCP wrapper with a real stdio health request and a bounded concurrent readiness probe. A passing single process does not replace `check-live` when multiple clients will be configured.
+
+Supported release-baseline MCP tool groups:
+
+- runtime and install health: `health`, `runtime.status`, `runtime.live_validation`, `runtime.report.latest`, `workspaces.list`, `workspace.status`
+- search and retrieval diagnostics: `search.corpus`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
+- outbound actions: `messages.send`, `threads.reply`
+- listener workflow: `listeners.register`, `listeners.list`, `listeners.status`, `listeners.unregister`, `deliveries.list`, `deliveries.ack`
+
+Recommended operator preflight from MCP clients:
+
+- call `health` to confirm the stdio server is responsive
+- call `runtime.status` to read managed artifact, service, MCP smoke, and concurrent-MCP readiness state
+- call `runtime.live_validation` when the client needs stricter workspace, token, queue, DB, and live-unit health
+- call `workspace.status` before workspace-scoped search or outbound actions
+- call `search.readiness` or `search.semantic_readiness` before assuming semantic coverage is complete
+
+Outbound tools are real writes. Use them only after workspace token verification, and prefer an `options.idempotency_key` for retryable sends. `messages.send` accepts channel references or DM-style targets according to the shared outbound service contract; `threads.reply` requires an existing channel reference and thread timestamp/reference.
+
+Listener tools are for agent-consumable event delivery. Register a listener with `listeners.register`, inspect it with `listeners.status`, poll work with `deliveries.list`, and acknowledge completion or failure with `deliveries.ack`.
+
+First-release MCP non-goals:
+
+- tenant onboarding, manifest generation, Slack credential installation, and live-service installation remain CLI/browser workflows
+- frontend auth, password/session management, and browser user provisioning remain API/browser/CLI workflows
+- named runtime-report browsing, runtime-report CRUD, export CRUD, and HTML/PDF/DOCX export generation remain API/browser/CLI workflows
+- heavy semantic rollout, BGE backfill, and reranker rollout remain explicit CLI/operator work rather than automatic MCP side effects
+
+MCP tool failures use JSON-RPC `error` responses. The `error.data` value contains the shared service error envelope so clients can branch on stable fields instead of parsing prose.
+
 ## Frontend Auth
 
 API only:

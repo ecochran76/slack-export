@@ -51,8 +51,12 @@ This plan does not include:
   - `release check --require-managed-runtime` combines repo-local release discipline with the installed `slack-mirror-user user-env check-live --json` gate
   - the stronger release gate is opt-in so repo-only development machines and CI are not blocked by the absence of a managed user install
   - managed runtime failures now surface through the same release-check issue envelope as docs, planning, version, and worktree failures
+- the next `P11` slice is also landed:
+  - the supported MCP release-baseline tool groups are now documented for runtime checks, workspace status, search/readiness, outbound sends, listener deliveries, and latest runtime-report access
+  - operator preflight guidance now points to `user-env status`, `user-env check-live`, and `release check --require-managed-runtime` before adding multiple agent clients
+  - adjacent workflows that remain CLI/API/browser-only are documented as first-release MCP non-goals
 - the current baseline is functional, but the product still lacks one bounded release lane that treats install/update, managed-runtime health, and MCP usability as one coordinated target
-- MCP exists, but it is not yet clearly validated as a stable release interface with explicit readiness criteria, bounded failure modes, and strong operator guidance
+- MCP exists and the release-baseline tool coverage is now documented, but follow-on work may still harden specific machine-readable preconditions or error hints where real operator testing exposes gaps
 - the user wants this worktree to focus on the stable release line, while frontend migration proceeds separately in its own worktree
 
 ## Target Outcome
@@ -82,6 +86,7 @@ The release should be boring in the right ways:
 ### 3. MCP Contract Usability
 
 - audit current MCP tools and arguments against real operator tasks
+- shipped baseline: documented the supported MCP operator tool groups and adjacent non-goals
 - harden machine-readable error behavior and precondition handling
 - document what MCP is supported to do in the release baseline
 
@@ -101,8 +106,9 @@ The release should be boring in the right ways:
 
 1. audit and tighten the release gate plus current failure modes
 2. installer/updater hardening where the gate still fails or is ambiguous
-3. MCP usability and contract-hardening slice
-4. docs and release-check closure
+3. MCP usability documentation slice
+4. targeted MCP error/precondition hardening if testing exposes concrete gaps
+5. docs and release-check closure
 
 ## Acceptance Criteria
 
