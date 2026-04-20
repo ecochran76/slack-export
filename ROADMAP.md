@@ -335,7 +335,10 @@ Current state:
   - corpus hybrid search preserves weighted fusion as the default
   - opt-in reciprocal-rank fusion is available through CLI, API, MCP, and the shared service boundary
   - corpus results include stable `_explain` metadata so agents and frontend clients do not need private ranking logic
-- the next open slice is `0067`, which will add stable action-target metadata and result-selection contracts so search hits can flow into export/report/action workflows without clients re-parsing display fields
+- the actionability slice is now complete under `0067`:
+  - corpus result rows include stable `action_target` metadata for message and derived-text hits
+  - API, MCP, and CLI JSON surfaces expose the same shared selection metadata without endpoint-specific mapping
+  - later export/report/action workflows can consume selected candidates without re-parsing labels, snippets, or score fields
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -346,7 +349,7 @@ Remaining project phases:
 3. query pipeline hardening:
    - stabilize grouped result projection now that weighted/RRF fusion and explain metadata are available
 4. actionability and frontend integration:
-   - support advanced search controls and selectable result candidates for export/report/action workflows through shared API/MCP contracts
+   - build higher-level export/report/action workflows on top of the shipped `action_target` selection metadata
 5. scale and inference-boundary review:
    - measure exact dense search, model-load latency, GPU contention, and multi-client MCP behavior before considering SQLite vector extensions or ANN services
 6. release/default policy:

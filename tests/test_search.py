@@ -478,6 +478,19 @@ class SearchTests(unittest.TestCase):
             self.assertTrue(any("_hybrid_score" in row for row in rows))
             self.assertEqual(rows[0]["_explain"]["fusion_method"], "weighted")
             self.assertIn("scores", rows[0]["_explain"])
+            by_kind = {row["result_kind"]: row for row in rows}
+            message_target = by_kind["message"]["action_target"]
+            self.assertEqual(message_target["kind"], "message")
+            self.assertEqual(message_target["workspace_id"], ws_id)
+            self.assertEqual(message_target["channel_id"], "C1")
+            self.assertEqual(message_target["ts"], "10.0")
+            self.assertTrue(message_target["id"].startswith("message|"))
+            derived_target = by_kind["derived_text"]["action_target"]
+            self.assertEqual(derived_target["kind"], "derived_text")
+            self.assertEqual(derived_target["source_kind"], "file")
+            self.assertEqual(derived_target["source_id"], "F1")
+            self.assertEqual(derived_target["derivation_kind"], "ocr_text")
+            self.assertTrue(derived_target["id"].startswith("derived_text|"))
 
     def test_search_corpus_supports_rrf_fusion_explain_metadata(self):
         class FakeProvider:
@@ -622,6 +635,8 @@ class SearchTests(unittest.TestCase):
             rows = search_corpus(conn, workspace_id=ws_id, workspace_name="default", query="metadata check", limit=5, mode="lexical")
             self.assertEqual(rows[0]["workspace"], "default")
             self.assertEqual(rows[0]["workspace_id"], ws_id)
+            self.assertEqual(rows[0]["action_target"]["workspace"], "default")
+            self.assertEqual(rows[0]["action_target"]["selection_label"], "default:C1:12.0")
 
 
 if __name__ == "__main__":

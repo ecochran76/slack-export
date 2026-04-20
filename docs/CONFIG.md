@@ -264,6 +264,8 @@ Corpus hybrid search supports explicit fusion policies:
 
 Use CLI `--fusion weighted|rrf`, API query parameter `fusion=weighted|rrf`, or MCP `search.corpus` argument `fusion`. Results include `_explain` metadata with mode, source, fusion method, lane scores, lane ranks, weights, and rerank provider when applicable.
 
+Corpus result rows also include `action_target` metadata for stable selection. Use `action_target` when moving search hits into export, report, or action workflows instead of parsing `source_label`, snippets, or display text.
+
 Provider field semantics:
 
 - `type`

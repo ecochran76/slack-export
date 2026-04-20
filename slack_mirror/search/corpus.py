@@ -88,6 +88,63 @@ def _attach_explain(
     return row
 
 
+def _stable_part(value: Any) -> str:
+    return str(value or "").replace("|", "%7C")
+
+
+def _attach_action_target(row: dict[str, Any], *, workspace_id: int, workspace_name: str | None) -> dict[str, Any]:
+    result_kind = str(row.get("result_kind") or "")
+    if result_kind == "message":
+        channel_id = str(row.get("channel_id") or "")
+        ts = str(row.get("ts") or "")
+        target_id = f"message|{_stable_part(workspace_name or workspace_id)}|{_stable_part(channel_id)}|{_stable_part(ts)}"
+        row["action_target"] = {
+            "version": 1,
+            "kind": "message",
+            "id": target_id,
+            "workspace": workspace_name,
+            "workspace_id": workspace_id,
+            "channel_id": channel_id,
+            "channel_name": row.get("channel_name"),
+            "ts": ts,
+            "thread_ts": row.get("thread_ts"),
+            "user_id": row.get("user_id"),
+            "selection_label": f"{workspace_name or workspace_id}:{channel_id}:{ts}",
+        }
+        return row
+
+    if result_kind == "derived_text":
+        source_kind = str(row.get("source_kind") or "")
+        source_id = str(row.get("source_id") or "")
+        derivation_kind = str(row.get("derivation_kind") or "")
+        extractor = str(row.get("extractor") or "")
+        chunk_index = row.get("chunk_index")
+        target_id = (
+            f"derived_text|{_stable_part(workspace_name or workspace_id)}|{_stable_part(source_kind)}|"
+            f"{_stable_part(source_id)}|{_stable_part(derivation_kind)}|{_stable_part(extractor)}"
+        )
+        if chunk_index is not None:
+            target_id = f"{target_id}|chunk:{_stable_part(chunk_index)}"
+        row["action_target"] = {
+            "version": 1,
+            "kind": "derived_text",
+            "id": target_id,
+            "workspace": workspace_name,
+            "workspace_id": workspace_id,
+            "derived_text_id": row.get("id"),
+            "source_kind": source_kind,
+            "source_id": source_id,
+            "source_label": row.get("source_label"),
+            "derivation_kind": derivation_kind,
+            "extractor": extractor,
+            "chunk_index": chunk_index,
+            "start_offset": row.get("start_offset"),
+            "end_offset": row.get("end_offset"),
+            "selection_label": f"{workspace_name or workspace_id}:{source_kind}:{source_id}",
+        }
+    return row
+
+
 def _search_corpus_rows(
     conn: sqlite3.Connection,
     *,
@@ -127,10 +184,12 @@ def _search_corpus_rows(
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
+            _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
             _attach_explain(row, mode="lexical")
         if rerank:
             merged = rerank_rows(merged, query=q, top_n=rerank_top_n, provider=reranker_provider)
             for row in merged:
+                _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
                 _attach_explain(row, mode="lexical")
         return merged
 
@@ -165,10 +224,12 @@ def _search_corpus_rows(
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
+            _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
             _attach_explain(row, mode="semantic")
         if rerank:
             merged = rerank_rows(merged, query=q, top_n=rerank_top_n, provider=reranker_provider)
             for row in merged:
+                _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
                 _attach_explain(row, mode="semantic")
         return merged
 
@@ -289,9 +350,11 @@ def _search_corpus_rows(
     for row in out:
         row["workspace_id"] = workspace_id
         row["workspace"] = workspace_name
+        _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
     if rerank:
         out = rerank_rows(out, query=q, top_n=rerank_top_n, provider=reranker_provider)
         for row in out:
+            _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
             _attach_explain(
                 row,
                 mode="hybrid",

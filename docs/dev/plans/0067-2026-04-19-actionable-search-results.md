@@ -1,6 +1,6 @@
 # 0067 | Actionable Search Results
 
-State: OPEN
+State: CLOSED
 
 Roadmap: P10
 
@@ -39,3 +39,10 @@ Roadmap: P10
 - Code, docs, roadmap, runbook, and tests are updated.
 - Targeted search, service, API, MCP, and CLI tests pass.
 - Planning audit passes.
+
+## Closure Notes
+
+- Added additive `action_target` metadata to corpus message and derived-text results.
+- Message targets include stable workspace/channel/timestamp identity.
+- Derived-text targets include stable source, derivation, extractor, and chunk location identity where available.
+- API, MCP, and CLI JSON surfaces receive the same shared result metadata without endpoint-specific mapping.

@@ -143,6 +143,7 @@ The current repo has:
   - `weighted` preserves the current release-safe weighted score behavior
   - `rrf` enables opt-in reciprocal-rank fusion for deterministic lexical/semantic candidate blending
 - corpus results now include machine-readable `_explain` metadata with source, fusion method, lane ranks, score breakdown, weights, and rerank provider when applicable
+- corpus results now include stable `action_target` metadata for message and derived-text hits so agents and future browser workflows can select candidates for export/report/action handoff without re-parsing display fields
 - named retrieval profiles for operator rollout control:
   - `baseline` for the shipped local-hash release-safe path
   - `local-bge` for bounded `BAAI/bge-m3` semantic rollout

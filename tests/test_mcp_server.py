@@ -600,6 +600,7 @@ class McpServerTests(unittest.TestCase):
                     "text": "incident review follow-up",
                     "_source": "hybrid",
                     "_hybrid_score": 5.1,
+                    "action_target": {"version": 1, "kind": "message", "id": "message|default|C1|10.0"},
                 }
             ],
         ) as mock_corpus, patch.object(
@@ -688,6 +689,7 @@ class McpServerTests(unittest.TestCase):
             )
 
         self.assertIn('"result_kind": "message"', corpus["result"]["content"][0]["text"])
+        self.assertIn('"action_target"', corpus["result"]["content"][0]["text"])
         self.assertIn('"result_kind": "message"', corpus_all["result"]["content"][0]["text"])
         self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
         self.assertIn('"name": "baseline"', profiles["result"]["content"][0]["text"])

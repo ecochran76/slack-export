@@ -500,6 +500,7 @@ Important result fields:
 - `source_label`
 - `workspace`
 - `workspace_id`
+- `action_target`
 - `_source`
   - `lexical`
   - `semantic`
@@ -507,6 +508,41 @@ Important result fields:
 - `_lexical_score`
 - `_semantic_score`
 - `_hybrid_score`
+- `_explain`
+
+`action_target` is the stable selection contract for downstream workflows. It is additive to the display-oriented row fields and should be preferred by API, MCP, browser, and agent clients that need to stage search hits for later export, reporting, or actions.
+
+Message action targets include:
+
+- `version`
+- `kind: message`
+- `id`
+- `workspace`
+- `workspace_id`
+- `channel_id`
+- `channel_name`
+- `ts`
+- `thread_ts`
+- `user_id`
+- `selection_label`
+
+Derived-text action targets include:
+
+- `version`
+- `kind: derived_text`
+- `id`
+- `workspace`
+- `workspace_id`
+- `derived_text_id`
+- `source_kind`
+- `source_id`
+- `source_label`
+- `derivation_kind`
+- `extractor`
+- `chunk_index`
+- `start_offset`
+- `end_offset`
+- `selection_label`
 
 Current semantics:
 
@@ -515,6 +551,7 @@ Current semantics:
 - derived-text results reuse shared-core `derived_text` rows
 - long derived-text rows may be retrieved through chunk-level matches but still resolve to one owning derived-text result
 - `matched_text` and `snippet_text` are best-match snippet fields for long documents and OCR-heavy attachments
+- selected search candidates should be persisted or handed off using `action_target`, not by scraping labels, snippets, or score fields
 - derived-text semantic scoring currently uses the same local embedding baseline used elsewhere in-repo
 - cross-workspace corpus search is explicit rather than implicit:
   - CLI uses `--all-workspaces`

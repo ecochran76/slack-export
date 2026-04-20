@@ -3160,3 +3160,18 @@ This file is the dated turn log for planning and execution continuity.
 - Opened the next bounded `P10` slice:
   - `0067-2026-04-19-actionable-search-results.md`
 - Scoped `0067` to stable action-target metadata and result-selection contracts for message and derived-text corpus hits, so later export/report/action workflows can consume selected candidates without clients re-parsing display rows.
+
+## Turn 205 | 2026-04-20
+
+- Closed the `0067` actionable search results slice.
+- Implemented stable corpus result `action_target` metadata:
+  - message hits include workspace, channel, timestamp, thread, user, stable id, and selection label
+  - derived-text hits include workspace, source kind/id, derivation kind, extractor, derived-text id, chunk offsets when present, stable id, and selection label
+- Kept the change additive in the shared corpus search layer, so CLI JSON, API, and MCP receive the same metadata without separate mapping.
+- Updated the API/MCP contract docs and search configuration docs to tell clients to use `action_target` for export/report/action handoff instead of display fields.
+- Validation:
+  - `python -m py_compile slack_mirror/search/corpus.py tests/test_search.py tests/test_api_server.py tests/test_mcp_server.py`
+  - `uv run python -m unittest tests.test_search.SearchTests.test_search_corpus_combines_messages_and_derived_text tests.test_search.SearchTests.test_search_corpus_sets_workspace_metadata tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_mcp_server.McpServerTests.test_search_tools -v`
+  - `uv run python -m unittest tests.test_search tests.test_cli tests.test_api_server tests.test_mcp_server -v`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search corpus --workspace default --query "incident review" --mode hybrid --limit 1 --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

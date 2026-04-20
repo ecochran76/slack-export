@@ -1678,6 +1678,7 @@ class ApiServerTests(unittest.TestCase):
                             "text": "incident review appendix",
                             "_source": "hybrid",
                             "_hybrid_score": 4.2,
+                            "action_target": {"version": 1, "kind": "derived_text", "id": "derived_text|default|file|F1|ocr_text|tesseract"},
                         }
                     ],
                     "total": 37,
@@ -1788,6 +1789,7 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(corpus.status_code, 200)
             self.assertTrue(corpus.json()["ok"])
             self.assertEqual(corpus.json()["results"][0]["result_kind"], "derived_text")
+            self.assertEqual(corpus.json()["results"][0]["action_target"]["kind"], "derived_text")
             self.assertEqual(corpus.json()["offset"], 10)
             self.assertEqual(corpus.json()["total"], 37)
 
