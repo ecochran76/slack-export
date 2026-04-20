@@ -529,6 +529,11 @@ Important request fields:
   - `lexical`
   - `semantic`
   - `hybrid`
+- `retrieval_profile`
+  - optional named `search.retrieval_profiles` profile for API and MCP corpus search
+  - when set, the profile's provider, model, weights, and rerank settings are used through the shared service layer
+  - release-safe value: `baseline`
+  - stronger profiles such as `local-bge` require the corresponding optional local semantic dependencies and completed rollout coverage
 - `limit`
 - `offset`
 - `kind`

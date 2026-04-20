@@ -1780,6 +1780,7 @@ class ApiServerTests(unittest.TestCase):
                     "kind": "ocr_text",
                     "source_kind": "file",
                     "offset": "10",
+                    "retrieval_profile": "baseline",
                     "rerank": "1",
                     "rerank_top_n": "25",
                     "fusion": "rrf",
@@ -1808,6 +1809,7 @@ class ApiServerTests(unittest.TestCase):
             self.assertTrue(first_call["rerank"])
             self.assertEqual(first_call["rerank_top_n"], 25)
             self.assertEqual(first_call["fusion_method"], "rrf")
+            self.assertEqual(first_call["retrieval_profile_name"], "baseline")
 
             message_detail = requests.get(
                 f"{base_url}/v1/workspaces/default/messages/C123/1712870400.000100",

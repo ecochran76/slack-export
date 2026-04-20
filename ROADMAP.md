@@ -272,6 +272,7 @@ Actionable plans:
 - `docs/dev/plans/0067-2026-04-19-actionable-search-results.md`
 - `docs/dev/plans/0068-2026-04-20-scale-and-inference-boundary-review.md`
 - `docs/dev/plans/0069-2026-04-20-release-profile-and-semantic-search-policy.md`
+- `docs/dev/plans/0074-2026-04-20-mcp-retrieval-profile-search.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -351,6 +352,10 @@ Current state:
   - `local-bge-rerank` remains experimental
   - DuckDB is sidelined for the first MCP-capable release path and may be revisited later as an analytics/reporting/search sidecar
   - SQLite remains the canonical store; SQLite-native vector extension evaluation is the next search-performance follow-up if latency remains above target
+- the MCP retrieval-profile search slice is now complete under `0074`:
+  - API and MCP corpus search accept `retrieval_profile`
+  - shared app service resolution applies the selected profile's provider/model/weights/rerank settings
+  - invalid profile names return structured MCP errors rather than silently falling back
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

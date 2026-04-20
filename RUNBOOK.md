@@ -3326,3 +3326,21 @@ This file is the dated turn log for planning and execution continuity.
   - release `baseline` local-hash semantic search is transport-healthy but weak on conceptual relevance
   - lexical and hybrid/RRF searches are stronger when exact terms are present
   - direct MCP corpus search with `model=BAAI/bge-m3` fails under the current local-hash provider, so profile-driven dense search is not yet exposed as an agent-facing MCP corpus-search contract
+
+## Turn 212 | 2026-04-20
+
+- Opened and closed the next bounded `P10` MCP profile-selection slice:
+  - `0074-2026-04-20-mcp-retrieval-profile-search.md`
+- Added profile-aware corpus search to the shared app service:
+  - `corpus_search(..., retrieval_profile_name=...)`
+  - `corpus_search_page(..., retrieval_profile_name=...)`
+- When a profile is supplied, the shared service now resolves the profile and applies its provider, model, weights, rerank flag, and rerank top-K before calling the existing corpus-search implementation.
+- Exposed the profile selector through:
+  - MCP `search.corpus` argument `retrieval_profile`
+  - API query parameter `retrieval_profile` on workspace-scoped and all-workspace corpus routes
+- Updated `README.md` and `docs/API_MCP_CONTRACT.md` so agent clients can use named retrieval profiles instead of guessing low-level provider/model settings.
+- Local repo MCP smoke confirmed:
+  - `tools/list` exposes `retrieval_profile`
+  - `retrieval_profile=baseline` returns corpus results
+  - an unknown profile returns structured MCP `INVALID_REQUEST`
+- The installed long-lived MCP process still needs `user-env update` before connected clients see the new schema.

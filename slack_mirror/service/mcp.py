@@ -127,6 +127,10 @@ class SlackMirrorMcpServer:
                         "all_workspaces": {"type": "boolean", "default": False},
                         "query": {"type": "string"},
                         "limit": {"type": "integer", "default": 20},
+                        "retrieval_profile": {
+                            "type": "string",
+                            "description": "Named search.retrieval_profiles profile. When set, profile provider/model/weights/rerank settings are used.",
+                        },
                         "mode": {"type": "string", "enum": ["lexical", "semantic", "hybrid"], "default": "hybrid"},
                         "model": {"type": "string", "default": "local-hash-128"},
                         "lexical_weight": {"type": "number", "default": 0.6},
@@ -348,6 +352,7 @@ class SlackMirrorMcpServer:
                         workspace=workspace,
                         all_workspaces=all_workspaces,
                         query=str(args["query"]),
+                        retrieval_profile_name=str(args["retrieval_profile"]) if args.get("retrieval_profile") is not None else None,
                         limit=int(args.get("limit", 20)),
                         mode=str(args.get("mode", "hybrid")),
                         model_id=str(args.get("model", "local-hash-128")),

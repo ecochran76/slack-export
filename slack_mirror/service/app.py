@@ -766,6 +766,21 @@ class SlackMirrorAppService:
                 names.append(name)
         return names
 
+    def _corpus_profile_search_options(self, profile_name: str) -> dict[str, Any]:
+        profile = self.retrieval_profile(profile_name)
+        profile_config = self.config_for_retrieval_profile(profile)
+        return {
+            "mode": profile.mode,
+            "model_id": profile.model,
+            "lexical_weight": profile.lexical_weight,
+            "semantic_weight": profile.semantic_weight,
+            "semantic_scale": profile.semantic_scale,
+            "rerank": profile.rerank,
+            "rerank_top_n": profile.rerank_top_n,
+            "message_embedding_provider": build_embedding_provider(profile_config),
+            "reranker_provider": build_reranker_provider(profile_config) if profile.rerank else None,
+        }
+
     def corpus_search(
         self,
         conn,
@@ -773,6 +788,7 @@ class SlackMirrorAppService:
         workspace: str | None = None,
         all_workspaces: bool = False,
         query: str,
+        retrieval_profile_name: str | None = None,
         limit: int = 20,
         offset: int = 0,
         mode: str = "hybrid",
@@ -789,6 +805,18 @@ class SlackMirrorAppService:
         rerank_top_n: int = 50,
         reranker_provider=None,
     ) -> list[dict[str, Any]]:
+        if retrieval_profile_name:
+            profile_options = self._corpus_profile_search_options(retrieval_profile_name)
+            mode = profile_options["mode"]
+            model_id = profile_options["model_id"]
+            lexical_weight = profile_options["lexical_weight"]
+            semantic_weight = profile_options["semantic_weight"]
+            semantic_scale = profile_options["semantic_scale"]
+            rerank = profile_options["rerank"]
+            rerank_top_n = profile_options["rerank_top_n"]
+            message_embedding_provider = profile_options["message_embedding_provider"]
+            reranker_provider = profile_options["reranker_provider"]
+
         provider = message_embedding_provider or self.message_embedding_provider()
         active_reranker_provider = (reranker_provider or self.reranker_provider()) if rerank else None
         if all_workspaces:
@@ -848,6 +876,7 @@ class SlackMirrorAppService:
         workspace: str | None = None,
         all_workspaces: bool = False,
         query: str,
+        retrieval_profile_name: str | None = None,
         limit: int = 20,
         offset: int = 0,
         mode: str = "hybrid",
@@ -864,6 +893,18 @@ class SlackMirrorAppService:
         rerank_top_n: int = 50,
         reranker_provider=None,
     ) -> dict[str, Any]:
+        if retrieval_profile_name:
+            profile_options = self._corpus_profile_search_options(retrieval_profile_name)
+            mode = profile_options["mode"]
+            model_id = profile_options["model_id"]
+            lexical_weight = profile_options["lexical_weight"]
+            semantic_weight = profile_options["semantic_weight"]
+            semantic_scale = profile_options["semantic_scale"]
+            rerank = profile_options["rerank"]
+            rerank_top_n = profile_options["rerank_top_n"]
+            message_embedding_provider = profile_options["message_embedding_provider"]
+            reranker_provider = profile_options["reranker_provider"]
+
         provider = message_embedding_provider or self.message_embedding_provider()
         active_reranker_provider = (reranker_provider or self.reranker_provider()) if rerank else None
         if all_workspaces:

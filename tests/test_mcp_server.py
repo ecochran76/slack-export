@@ -638,6 +638,7 @@ class McpServerTests(unittest.TestCase):
                         "arguments": {
                             "workspace": "default",
                             "query": "incident review",
+                            "retrieval_profile": "baseline",
                             "mode": "hybrid",
                             "fusion": "rrf",
                             "rerank": True,
@@ -699,9 +700,36 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(first_call["rerank"])
         self.assertEqual(first_call["rerank_top_n"], 25)
         self.assertEqual(first_call["fusion_method"], "rrf")
+        self.assertEqual(first_call["retrieval_profile_name"], "baseline")
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
         mock_profiles.assert_called_once()
         mock_semantic_readiness.assert_called_once()
+
+    def test_search_corpus_schema_exposes_retrieval_profile(self):
+        tools = self.server.handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+        corpus_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "search.corpus")
+        self.assertIn("retrieval_profile", corpus_tool["inputSchema"]["properties"])
+
+    def test_search_corpus_invalid_retrieval_profile_returns_structured_error(self):
+        result = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 74,
+                "method": "tools/call",
+                "params": {
+                    "name": "search.corpus",
+                    "arguments": {
+                        "workspace": "default",
+                        "query": "incident review",
+                        "retrieval_profile": "missing-profile",
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(result["error"]["code"], -32000)
+        self.assertEqual(result["error"]["data"]["code"], "INVALID_REQUEST")
+        self.assertIn("Unknown retrieval profile", result["error"]["message"])
 
     def test_search_health_tool(self):
         with patch.object(
