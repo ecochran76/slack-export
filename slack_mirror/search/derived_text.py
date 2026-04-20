@@ -13,7 +13,12 @@ def _fts_escape(term: str) -> str:
     return f'"{t}"' if t else ""
 
 
-def _base_doc_sql(*, include_chunk: bool = False, include_chunk_embedding: bool = False) -> str:
+def _base_doc_sql(
+    *,
+    include_chunk: bool = False,
+    include_chunk_embedding: bool = False,
+    include_full_text: bool = True,
+) -> str:
     chunk_sql = ""
     if include_chunk:
         embedding_sql = "\n          , dte.embedding_blob" if include_chunk_embedding else ""
@@ -30,7 +35,7 @@ def _base_doc_sql(*, include_chunk: bool = False, include_chunk_embedding: bool 
           dt.source_id,
           dt.derivation_kind,
           dt.extractor,
-          dt.text,
+          {"dt.text" if include_full_text else "NULL"} AS text,
           dt.media_type,
           dt.local_path,
           dt.updated_at,
@@ -86,7 +91,7 @@ def _fetch_chunk_candidates(
         source_kind=source_kind,
         negative_terms=negative_terms,
     )
-    sql = _base_doc_sql(include_chunk=True) + """
+    sql = _base_doc_sql(include_chunk=True, include_full_text=False) + """
         JOIN derived_text_chunks dc
           ON dc.derived_text_id = dt.id
     """
@@ -180,7 +185,7 @@ def _fetch_chunk_semantic_candidates(
         source_kind=source_kind,
         negative_terms=negative_terms,
     )
-    sql = _base_doc_sql(include_chunk=True, include_chunk_embedding=True) + """
+    sql = _base_doc_sql(include_chunk=True, include_chunk_embedding=True, include_full_text=False) + """
         JOIN derived_text_chunks dc
           ON dc.derived_text_id = dt.id
         LEFT JOIN derived_text_chunk_embeddings dte

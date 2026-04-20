@@ -16,6 +16,7 @@ from slack_mirror.search.rerankers import (
     probe_reranker_provider,
     rerank_rows,
 )
+from slack_mirror.search.sqlite_adapter import SQLiteCorpusAdapter
 from slack_mirror.sync.embeddings import process_embedding_jobs
 from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 
@@ -182,6 +183,38 @@ class SearchTests(unittest.TestCase):
             )
             self.assertGreaterEqual(len(rows), 1)
             self.assertIn("OpenClaw gateway is down on cooper", rows[0]["text"])
+
+    def test_sqlite_semantic_candidates_honor_candidate_limit(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            for index in range(5):
+                upsert_message(
+                    conn,
+                    ws_id,
+                    "C1",
+                    {
+                        "ts": f"{10 + index}.0",
+                        "text": f"bounded semantic candidate {index}",
+                        "user": "U1",
+                    },
+                )
+            process_embedding_jobs(conn, workspace_id=ws_id, model_id="local-hash-128", limit=10)
+
+            rows = SQLiteCorpusAdapter(conn).semantic_candidates(
+                workspace_id=ws_id,
+                where_sql="m.workspace_id = ? AND m.deleted = 0",
+                params=[],
+                model_id="local-hash-128",
+                candidate_limit=2,
+            )
+
+            self.assertEqual([row["ts"] for row in rows], ["14.0", "13.0"])
 
     def test_keyword_search_messages(self):
         with tempfile.TemporaryDirectory() as td:
@@ -437,6 +470,8 @@ class SearchTests(unittest.TestCase):
             )
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["source_label"], "Deploy Notes")
+            self.assertIn("gateway outage recovery", str(rows[0]["matched_text"]))
+            self.assertIsNone(rows[0]["text"])
             self.assertGreater(float(rows[0]["_semantic_score"]), 0.0)
 
     def test_search_corpus_combines_messages_and_derived_text(self):

@@ -158,6 +158,9 @@ The current repo has:
 - tenant semantic-readiness diagnostics across CLI, API, MCP, and the authenticated tenant settings page
 - a read-only semantic rollout planner at `slack-mirror mirror rollout-plan`, which reports tenant coverage for the profile model and emits bounded probe/backfill/health commands
 - a read-only scale review at `slack-mirror search scale-review`, which reports corpus size, embedding coverage, timed retrieval-profile latency, and the current SQLite/index plus inference-boundary recommendation
+- bounded exact-scan discipline for the shipped SQLite path:
+  - message semantic retrieval honors the computed candidate cap
+  - chunk-backed derived-text semantic retrieval projects matched chunk text and stored embeddings without duplicating full document bodies per candidate
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -200,7 +203,7 @@ Release policy for the first stable MCP-capable user-scoped install:
 - `baseline` remains the default installed retrieval profile.
 - `local-bge` is supported as an explicit operator-controlled rollout profile after provider probe, rollout plan, bounded backfill, semantic readiness, and search health checks.
 - `local-bge-rerank` remains experimental until benchmark and live-query evidence justify promotion.
-- SQLite remains the canonical store. If search latency remains above target, evaluate a SQLite-native vector extension before any vector DB or ANN service.
+- SQLite remains the canonical store. After the semantic candidate/projection fix, the measured release `baseline` path is interactive on `default`; evaluate a SQLite-native vector extension only if new exact-scan measurements regress above target.
 - DuckDB is sidelined for this release path. It may be revisited later as an analytics, reporting, or search-sidecar experiment, not as canonical storage.
 
 The probe reports:

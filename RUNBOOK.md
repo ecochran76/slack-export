@@ -3414,3 +3414,30 @@ This file is the dated turn log for planning and execution continuity.
   - partial `local-bge` measured about `49.0s` p95 for the same query
   - the recommendation is to solve query performance and long-lived model lifecycle before broad BGE rollout
 - Closed `0076` with the conclusion that managed BGE is now technically available, but broad rollout should wait for index/performance work.
+
+## Turn 215 | 2026-04-20
+
+- Opened the next bounded `P10` semantic query performance slice:
+  - `0077-2026-04-20-semantic-query-performance-cap.md`
+- Initial code inspection found a concrete exact-scan defect:
+  - message semantic search computes a bounded `candidate_limit`
+  - `SQLiteCorpusAdapter.semantic_candidates` currently ignores that limit and returns every embedding row for the workspace/model
+- Goal:
+  - enforce the existing candidate cap at the SQLite adapter boundary
+  - add targeted regression coverage
+  - rerun managed `default` scale-review timing without exposing private Slack content
+- Implemented the bounded exact-scan fixes:
+  - `SQLiteCorpusAdapter.semantic_candidates` now applies `ORDER BY CAST(m.ts AS REAL) DESC LIMIT ?`
+  - chunk-backed derived-text candidate SQL no longer projects duplicated full document text during chunk search
+- Profiling evidence:
+  - message semantic stage on live `default`: about `216 ms`
+  - derived-text semantic stage before projection fix: about `40,158 ms`
+  - derived-text semantic stage after projection fix: about `19 ms`
+- Managed install was refreshed with:
+  - `uv run slack-mirror user-env update --extra local-semantic`
+- Managed `default` scale-review after the fix:
+  - `baseline` measured `p95=396.445 ms`
+  - partial `local-bge` measured one warm run at `283.057 ms` and one cold/model-load run at `15704.844 ms`
+- Interpretation:
+  - release `baseline` exact search is now interactive for the measured query
+  - broader BGE rollout is still blocked on long-lived local inference lifecycle, not baseline SQLite exact-scan latency

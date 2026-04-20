@@ -73,7 +73,9 @@ class SQLiteCorpusAdapter:
               ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
             WHERE {where_sql}
               AND e.model_id = ?
+            ORDER BY CAST(m.ts AS REAL) DESC
+            LIMIT ?
             """,
-            (workspace_id, *params, model_id),
+            (workspace_id, *params, model_id, max(1, int(candidate_limit))),
         ).fetchall()
         return [dict(r) for r in rows]
