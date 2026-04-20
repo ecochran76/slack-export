@@ -271,6 +271,7 @@ Actionable plans:
 - `docs/dev/plans/0066-2026-04-19-query-fusion-and-explainability-hardening.md`
 - `docs/dev/plans/0067-2026-04-19-actionable-search-results.md`
 - `docs/dev/plans/0068-2026-04-20-scale-and-inference-boundary-review.md`
+- `docs/dev/plans/0069-2026-04-20-release-profile-and-semantic-search-policy.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -344,6 +345,12 @@ Current state:
   - `search scale-review` reports corpus size, embedding coverage, repeated query latency by retrieval profile, and a machine-readable architecture recommendation
   - the managed `default` baseline review on 2026-04-20 measured `91,556` messages, complete `local-hash-128` coverage, no derived-text chunks, and `p95=2161 ms` for repeated baseline hybrid corpus search
   - the current recommendation is to evaluate a SQLite-native vector extension before any vector DB, while keeping the lightweight baseline inference path in process
+- the release/default policy slice is now complete under `0069`:
+  - `baseline` remains the installed release-safe default
+  - `local-bge` is supported as an explicit operator-controlled local semantic rollout profile
+  - `local-bge-rerank` remains experimental
+  - DuckDB is sidelined for the first MCP-capable release path and may be revisited later as an analytics/reporting/search sidecar
+  - SQLite remains the canonical store; SQLite-native vector extension evaluation is the next search-performance follow-up if latency remains above target
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -358,10 +365,10 @@ Remaining project phases:
 5. scale and inference-boundary review:
    - measure exact dense search, model-load latency, GPU contention, and multi-client MCP behavior before considering SQLite vector extensions or ANN services
 6. release/default policy:
-   - decide what remains baseline, what becomes recommended local semantic profile, and what stays experimental
+   - completed under `0069`
 
 Recommended remaining child plans:
-- `0069`: release profile, docs, and final semantic-search policy
+- none for the first MCP-capable release path; future semantic-search work should open a new bounded evaluation plan, starting with SQLite-native vector extension evaluation if search latency remains above target
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above

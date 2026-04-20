@@ -182,6 +182,14 @@ uv run slack-mirror search corpus --workspace default --query "incident review" 
 
 `weighted` remains the default. `rrf` is an opt-in reciprocal-rank fusion strategy for comparing lexical and semantic candidate blending.
 
+Release policy for the first stable MCP-capable user-scoped install:
+
+- `baseline` remains the default installed retrieval profile.
+- `local-bge` is supported as an explicit operator-controlled rollout profile after provider probe, rollout plan, bounded backfill, semantic readiness, and search health checks.
+- `local-bge-rerank` remains experimental until benchmark and live-query evidence justify promotion.
+- SQLite remains the canonical store. If search latency remains above target, evaluate a SQLite-native vector extension before any vector DB or ANN service.
+- DuckDB is sidelined for this release path. It may be revisited later as an analytics, reporting, or search-sidecar experiment, not as canonical storage.
+
 The probe reports:
 
 - configured provider type

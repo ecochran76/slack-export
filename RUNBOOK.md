@@ -3209,3 +3209,20 @@ This file is the dated turn log for planning and execution continuity.
   - `python scripts/check_generated_docs.py`
   - `uv run python -m unittest tests.test_app_service tests.test_cli -v`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 207 | 2026-04-20
+
+- Opened and closed the final first-release `P10` semantic-search policy slice:
+  - `0069-2026-04-20-release-profile-and-semantic-search-policy.md`
+- Locked release/default policy for the first stable MCP-capable user-scoped install:
+  - `baseline` remains the installed default retrieval profile
+  - `local-bge` is supported as an explicit operator-controlled rollout profile
+  - `local-bge-rerank` remains experimental
+  - SQLite remains canonical storage
+  - SQLite-native vector extension evaluation is the next performance follow-up if measured search latency remains above target
+  - DuckDB is sidelined for this release path and may be revisited later only as an analytics/reporting/search sidecar
+- No runtime defaults were changed in this slice.
+- Runtime smoke:
+  - `search profiles --json` showed `baseline`, `local-bge`, and `local-bge-rerank` profiles with only `baseline` non-experimental
+  - `search semantic-readiness --workspace default --profiles baseline,local-bge,local-bge-rerank --json` reported `baseline` ready and both BGE profiles rollout-needed on `default`
+  - `search scale-review --workspace default --profiles baseline --query "incident review" --repeats 1 --limit 5 --json` reported `91,557` messages, complete `local-hash-128` coverage, and `p95=1482 ms`

@@ -331,6 +331,22 @@ Acceptance gates:
 
 ### Phase 8: Release And Default Policy
 
+Completed:
+
+- `0069` locked the first MCP-capable release policy:
+  - `baseline` remains the installed default
+  - `local-bge` is supported for explicit operator-controlled local semantic rollout
+  - `local-bge-rerank` remains experimental
+  - DuckDB is sidelined for the current release path
+  - SQLite remains canonical storage
+  - SQLite-native vector extension evaluation is the next performance follow-up if latency remains above target
+
+Exit state:
+
+- the repo has a clear release-safe default and opt-in semantic profile policy
+- no search runtime defaults changed for the first stable MCP-capable release
+- heavier search architecture work is no longer part of the release-critical path
+
 Purpose:
 
 - decide what becomes recommended, what remains experimental, and what ships as release-safe behavior
@@ -400,7 +416,8 @@ Do not parallelize before Phase 4:
 
 Recommended remaining child plans:
 
-- `0069`: release profile, docs, and final semantic-search policy
+- none for the first MCP-capable release path
+- future semantic-search follow-ups should open new bounded plans, starting with SQLite-native vector extension evaluation if measured latency remains above target
 
 ## Acceptance Criteria
 

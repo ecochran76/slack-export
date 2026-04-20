@@ -254,6 +254,15 @@ The same readiness payload is exposed to API and MCP clients:
 
 Do not use `local-bge-rerank` as the release default yet. The learned reranker is available for bounded experiments, but live rehearsal has not shown enough stable relevance lift to justify default rollout.
 
+Release policy for the first stable MCP-capable user-scoped install:
+
+- keep `baseline` as the default installed retrieval profile
+- treat `local-bge` as a supported opt-in profile that requires provider probe, rollout plan, bounded backfill, semantic readiness, and search health checks before tenant promotion
+- keep `local-bge-rerank` experimental
+- keep SQLite as canonical storage
+- evaluate a SQLite-native vector extension before any vector DB or ANN service if latency remains above target
+- sideline DuckDB for this release path; it may be revisited later as an analytics, reporting, or search-sidecar experiment, not as canonical storage
+
 ## Corpus Fusion And Explainability
 
 Corpus hybrid search supports explicit fusion policies:
