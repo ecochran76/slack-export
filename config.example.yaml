@@ -52,6 +52,11 @@ search:
   rerank:
     provider:
       type: ${SLACK_MIRROR_RERANK_PROVIDER:-heuristic}
+      model: ${SLACK_MIRROR_RERANK_MODEL:-BAAI/bge-reranker-v2-m3}
+      device: ${SLACK_MIRROR_RERANK_DEVICE:-}
+      batch_size: ${SLACK_MIRROR_RERANK_BATCH_SIZE:-16}
+      trust_remote_code: ${SLACK_MIRROR_RERANK_TRUST_REMOTE_CODE:-false}
+      cache_folder: ${SLACK_MIRROR_RERANK_CACHE_FOLDER:-}
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}

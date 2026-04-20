@@ -625,7 +625,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,provider-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,provider-probe,reranker-probe,query-dir}
                            ...
 ```
 
@@ -641,6 +641,7 @@ usage: slack-mirror search [-h]
 - `provider-probe`
 - `query-dir`
 - `reindex-keyword`
+- `reranker-probe`
 - `semantic`
 
 ### `slack-mirror search corpus`
@@ -836,6 +837,21 @@ usage: slack-mirror search reindex-keyword [-h] --workspace WORKSPACE
 **Options**
 
 - `--workspace` — workspace name
+
+
+### `slack-mirror search reranker-probe`
+**Usage**
+
+```
+usage: slack-mirror search reranker-probe [-h] [--model MODEL] [--smoke]
+                                          [--json]
+```
+
+**Options**
+
+- `--model` — reranker model id (defaults to config search.rerank.provider.model)
+- `--smoke` — run a small rerank smoke after readiness checks
+- `--json` — json output
 
 
 ### `slack-mirror search semantic`

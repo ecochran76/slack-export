@@ -1,12 +1,20 @@
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
-from slack_mirror.search.rerankers import build_reranker_provider, rerank_rows
+from slack_mirror.search.rerankers import (
+    SentenceTransformersCrossEncoderRerankerProvider,
+    build_reranker_provider,
+    probe_reranker_provider,
+    rerank_rows,
+)
 from slack_mirror.sync.embeddings import process_embedding_jobs
 from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 
@@ -30,6 +38,73 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(reranked[0]["_rerank_provider"], "fake_reranker")
         self.assertGreater(reranked[0]["_rerank_score"], reranked[1]["_rerank_score"])
         self.assertEqual(build_reranker_provider({"search": {"rerank": {"provider": {"type": "none"}}}}).name, "none")
+
+    def test_cross_encoder_reranker_uses_sentence_transformers_provider(self):
+        calls = {}
+
+        class FakeCrossEncoder:
+            def __init__(self, model_id, **kwargs):
+                calls["model_id"] = model_id
+                calls["kwargs"] = kwargs
+
+            def predict(self, pairs, *, batch_size, show_progress_bar):
+                calls["pairs"] = pairs
+                calls["batch_size"] = batch_size
+                calls["show_progress_bar"] = show_progress_bar
+                return [0.1, 2.5]
+
+        fake_module = types.ModuleType("sentence_transformers")
+        fake_module.CrossEncoder = FakeCrossEncoder
+
+        with patch.dict(sys.modules, {"sentence_transformers": fake_module}):
+            provider = SentenceTransformersCrossEncoderRerankerProvider(
+                model_id="BAAI/bge-reranker-v2-m3",
+                device="cpu",
+                batch_size=2,
+            )
+            scores = provider.score(query="gateway outage", documents=["ordinary", "gateway outage recovery"])
+
+        self.assertEqual(scores, [0.1, 2.5])
+        self.assertEqual(calls["model_id"], "BAAI/bge-reranker-v2-m3")
+        self.assertEqual(calls["kwargs"]["device"], "cpu")
+        self.assertEqual(calls["batch_size"], 2)
+        self.assertEqual(calls["pairs"][1], ("gateway outage", "gateway outage recovery"))
+
+    def test_reranker_provider_probe_reports_smoke_and_unsupported_provider(self):
+        smoke = probe_reranker_provider(
+            {},
+            smoke_query="target",
+            smoke_documents=["target result", "ordinary result"],
+        )
+        self.assertTrue(smoke["available"])
+        self.assertEqual(smoke["provider_type"], "heuristic")
+        self.assertTrue(smoke["runtime"]["smoke"]["ok"])
+        self.assertEqual(smoke["runtime"]["smoke"]["documents"], 2)
+
+        unsupported = probe_reranker_provider({"search": {"rerank": {"provider": {"type": "bogus"}}}})
+        self.assertFalse(unsupported["available"])
+        self.assertIn("unsupported_provider_type", unsupported["issues"])
+
+    def test_build_reranker_provider_supports_cross_encoder_config(self):
+        provider = build_reranker_provider(
+            {
+                "search": {
+                    "rerank": {
+                        "provider": {
+                            "type": "sentence_transformers",
+                            "model": "BAAI/bge-reranker-v2-m3",
+                            "device": "cuda",
+                            "batch_size": 4,
+                        }
+                    }
+                }
+            }
+        )
+
+        self.assertIsInstance(provider, SentenceTransformersCrossEncoderRerankerProvider)
+        self.assertEqual(provider.model_id, "BAAI/bge-reranker-v2-m3")
+        self.assertEqual(provider.device, "cuda")
+        self.assertEqual(provider.batch_size, 4)
 
     def test_search_messages_semantic_uses_provider_routing(self):
         class FakeProvider:

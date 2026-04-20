@@ -133,6 +133,7 @@ The current repo has:
 - model-aware readiness and health reporting, so partial rollout of the configured semantic model is visible instead of silently looking complete
 - an explicit derived-text benchmark target through `search health --target derived_text`, with chunk-aware benchmark query reports for attachment/OCR evaluation
 - an explicit reranker-provider seam, with the current heuristic reranker available for opt-in message and corpus searches before learned local reranking is introduced
+- an optional learned local reranker provider through `sentence_transformers` CrossEncoder models, with a readiness/smoke probe before use
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -199,7 +200,25 @@ uv run slack-mirror search corpus \
   --explain
 ```
 
-The shipped reranker provider is still heuristic. This is a provider-seam and control-surface step; learned local reranking with a model such as `BAAI/bge-reranker-v2-m3` remains a follow-on `P10` slice.
+The default shipped reranker provider is still heuristic. To try learned local reranking, configure the optional CrossEncoder provider and probe it before use:
+
+```yaml
+search:
+  rerank:
+    provider:
+      type: sentence_transformers
+      model: BAAI/bge-reranker-v2-m3
+      device: cuda
+      batch_size: 16
+```
+
+```bash
+uv sync --extra local-semantic
+uv run slack-mirror search reranker-probe --smoke --json
+uv run slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --rerank --rerank-top-n 50 --explain
+```
+
+This remains opt-in. The CLI/API/MCP `rerank` controls select whether reranking runs; config selects whether that reranker is the heuristic baseline or the learned local CrossEncoder.
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults

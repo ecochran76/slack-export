@@ -612,6 +612,18 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(readiness["derived_text"]["ocr_text"]["count"], 0)
         self.assertEqual(readiness["derived_text"]["ocr_text"]["pending"], 0)
 
+    def test_reranker_probe_reports_default_heuristic_smoke(self):
+        payload = self.service.reranker_probe(
+            smoke_query="gateway outage",
+            smoke_documents=["gateway outage recovery", "ordinary invoice"],
+        )
+
+        self.assertTrue(payload["available"])
+        self.assertEqual(payload["provider_type"], "heuristic")
+        self.assertEqual(payload["model"], "BAAI/bge-reranker-v2-m3")
+        self.assertTrue(payload["runtime"]["smoke"]["ok"])
+        self.assertEqual(payload["runtime"]["smoke"]["documents"], 2)
+
     def test_search_readiness_reports_configured_model_coverage(self):
         self.config_path.write_text(
             "\n".join(

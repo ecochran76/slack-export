@@ -32,7 +32,7 @@ from slack_mirror.exports import (
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.embeddings import build_embedding_provider, probe_embedding_provider
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search, evaluate_derived_text_search
-from slack_mirror.search.rerankers import build_reranker_provider
+from slack_mirror.search.rerankers import build_reranker_provider, probe_reranker_provider
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
     FrontendAuthIssueResult,
@@ -154,6 +154,20 @@ class SlackMirrorAppService:
         if self._reranker_provider is None:
             self._reranker_provider = build_reranker_provider(self.config.data)
         return self._reranker_provider
+
+    def reranker_probe(
+        self,
+        *,
+        model_id: str | None = None,
+        smoke_query: str | None = None,
+        smoke_documents: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return probe_reranker_provider(
+            self.config.data,
+            model_id=model_id,
+            smoke_query=smoke_query,
+            smoke_documents=smoke_documents,
+        )
 
     def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
         default_paths = default_user_env_paths()

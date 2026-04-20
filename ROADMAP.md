@@ -264,6 +264,7 @@ Actionable plans:
 - `docs/dev/plans/0059-2026-04-19-derived-text-chunk-embeddings.md`
 - `docs/dev/plans/0060-2026-04-19-derived-text-retrieval-evaluation.md`
 - `docs/dev/plans/0061-2026-04-19-reranker-provider-seam.md`
+- `docs/dev/plans/0062-2026-04-19-learned-local-reranker-provider.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -307,7 +308,11 @@ Current state:
 - the first stable MCP-capable release work under `P11` is now good enough that this lane has moved from seam hardening into architecture and the first real message-model path
 - the live audit on 2026-04-19 shows the current lexical path is serviceable for exact-match retrieval, while semantic and hybrid paraphrase behavior are poor enough that stronger local retrieval is now an active product need
 - derived-text retrieval is structurally present, but live coverage is still sparse to absent in current workspaces, which makes architecture-first rollout preferable to jumping straight into a model swap
-- the next implementation-critical step is learned local reranker integration behind the shipped provider seam, in a bounded follow-on slice
+- that next bounded slice is now also complete under `0062`:
+  - optional learned local reranking is available through a `sentence_transformers` CrossEncoder provider
+  - `search reranker-probe` reports dependency/GPU readiness and optional smoke scoring before use
+  - default reranking remains heuristic unless config explicitly selects the learned provider
+- the next implementation-critical step is a bounded live-data learned-reranker rehearsal against real tenant search queries, then benchmark threshold tuning if quality improves
 
 Planned subphases:
 1. provider and model seam hardening:

@@ -790,6 +790,15 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_reranker_probe(self):
+        parser = build_parser()
+        args = parser.parse_args(["search", "reranker-probe", "--model", "BAAI/bge-reranker-v2-m3", "--smoke", "--json"])
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.model, "BAAI/bge-reranker-v2-m3")
+        self.assertTrue(args.smoke)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_user_env_install(self):
         parser = build_parser()
         args = parser.parse_args(["user-env", "install"])

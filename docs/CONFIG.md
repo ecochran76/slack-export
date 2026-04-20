@@ -57,6 +57,11 @@ search:
   rerank:
     provider:
       type: ${SLACK_MIRROR_RERANK_PROVIDER:-heuristic}
+      model: ${SLACK_MIRROR_RERANK_MODEL:-BAAI/bge-reranker-v2-m3}
+      device: ${SLACK_MIRROR_RERANK_DEVICE:-}
+      batch_size: ${SLACK_MIRROR_RERANK_BATCH_SIZE:-16}
+      trust_remote_code: ${SLACK_MIRROR_RERANK_TRUST_REMOTE_CODE:-false}
+      cache_folder: ${SLACK_MIRROR_RERANK_CACHE_FOLDER:-}
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}
@@ -168,7 +173,20 @@ Notes:
   - message search: `slack-mirror search keyword ... --rerank`
   - corpus search: `slack-mirror search corpus ... --rerank`
   - current provider: `search.rerank.provider.type: heuristic`
-  - planned learned provider: local cross-encoder reranking in a later bounded slice
+  - learned local provider: `search.rerank.provider.type: sentence_transformers`
+  - probe before use: `slack-mirror search reranker-probe --smoke --json`
+
+Example learned local reranker config:
+
+```yaml
+search:
+  rerank:
+    provider:
+      type: sentence_transformers
+      model: BAAI/bge-reranker-v2-m3
+      device: cuda
+      batch_size: 16
+```
 
 Provider field semantics:
 
@@ -231,7 +249,8 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `search.keyword.weights.*` tunes the lexical scorer.
 - `search.semantic.weights.*` tunes hybrid lexical-vs-semantic fusion for message and corpus search.
 - `search.derived_text.provider.*` controls attachment and OCR extraction providers separately from message embeddings.
-- `search.rerank.provider.type` selects the reranker provider for explicit `--rerank` searches. The shipped baseline supports `heuristic` and `none`; learned local reranking is a later `P10` slice.
+- `search.rerank.provider.type` selects the reranker provider for explicit `--rerank` searches. The shipped baseline supports `heuristic` and `none`; optional learned local reranking uses `sentence_transformers`.
+- `search.rerank.provider.model`, `device`, `batch_size`, `trust_remote_code`, and `cache_folder` configure the optional `sentence_transformers` CrossEncoder reranker. This path is still opt-in and should be probed before live use.
 - `search.embeddings_model` remains as a legacy field from earlier hosted-embedding work and is no longer the primary selector for the local message-semantic path; prefer `search.semantic.model`.
 - `search readiness` and `search health` now report configured-model coverage separately for:
   - message embeddings

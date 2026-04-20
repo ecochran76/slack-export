@@ -1455,6 +1455,56 @@ def cmd_search_provider_probe(args: argparse.Namespace) -> int:
     return 0 if payload.get("available") else 1
 
 
+def cmd_search_reranker_probe(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    rerank_cfg = service.config.get("search", {}).get("rerank", {})
+    provider_cfg = rerank_cfg.get("provider", {}) if isinstance(rerank_cfg.get("provider"), dict) else {}
+    model_id = args.model or provider_cfg.get("model") or provider_cfg.get("model_id") or rerank_cfg.get("model")
+    smoke_documents = [
+        "gateway outage on cooper with recovery notes",
+        "monthly catering invoice and receipt",
+    ] if args.smoke else None
+    payload = service.reranker_probe(
+        model_id=model_id,
+        smoke_query="gateway outage recovery" if args.smoke else None,
+        smoke_documents=smoke_documents,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"Reranker provider probe model={payload['model']} provider={payload['provider_type']} "
+            f"available={payload['available']}"
+        )
+        runtime = dict(payload.get("runtime") or {})
+        if runtime.get("configured_device"):
+            print(f"Configured device: {runtime['configured_device']}")
+        if "cuda_available" in runtime:
+            print(
+                f"CUDA: available={runtime.get('cuda_available')} "
+                f"devices={runtime.get('cuda_device_count', 0)}"
+            )
+        for gpu in runtime.get("nvidia_smi") or []:
+            print(
+                f"GPU: {gpu['name']} free={gpu['memory_free_mib']}MiB "
+                f"used={gpu['memory_used_mib']}MiB total={gpu['memory_total_mib']}MiB "
+                f"driver={gpu['driver_version']}"
+            )
+        smoke = runtime.get("smoke")
+        if smoke:
+            if smoke.get("ok"):
+                print(
+                    f"Smoke: ok documents={smoke['documents']} scores={smoke['scores']} latency_ms={smoke['latency_ms']}"
+                )
+            else:
+                print(f"Smoke: failed error={smoke.get('error')}")
+        if payload.get("issues"):
+            print("Issues: " + ", ".join(payload["issues"]))
+    return 0 if payload.get("available") else 1
+
+
 def cmd_search_query_dir(args: argparse.Namespace) -> int:
     from slack_mirror.search.dir_adapter import query_directory
 
@@ -1906,7 +1956,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health provider-probe reranker-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2092,7 +2142,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health provider-probe reranker-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -2920,6 +2970,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_provider_probe.add_argument("--smoke", action="store_true", help="run a small embed smoke after readiness checks")
     p_search_provider_probe.add_argument("--json", action="store_true", help="json output")
     p_search_provider_probe.set_defaults(func=cmd_search_provider_probe)
+
+    p_search_reranker_probe = search_sub.add_parser("reranker-probe", help="probe configured reranker provider and local GPU readiness")
+    p_search_reranker_probe.add_argument("--model", default=None, help="reranker model id (defaults to config search.rerank.provider.model)")
+    p_search_reranker_probe.add_argument("--smoke", action="store_true", help="run a small rerank smoke after readiness checks")
+    p_search_reranker_probe.add_argument("--json", action="store_true", help="json output")
+    p_search_reranker_probe.set_defaults(func=cmd_search_reranker_probe)
 
     p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
     p_search_dir.add_argument("--path", required=True, help="root directory")

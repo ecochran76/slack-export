@@ -3003,3 +3003,29 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
   - `python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 198 | 2026-04-19
+
+- Opened the next bounded `P10` slice:
+  - `0062-2026-04-19-learned-local-reranker-provider.md`
+- Scoped it to learned local reranker integration behind the shipped provider seam:
+  - add a `sentence_transformers` CrossEncoder-backed reranker provider
+  - add a reranker readiness/smoke probe
+  - keep learned reranking explicitly configured and opt-in, with no default search behavior change
+- Implemented the learned local reranker provider slice:
+  - added CrossEncoder-backed `sentence_transformers` reranking
+  - added `search reranker-probe`
+  - documented the config and bounded usage loop
+  - generated CLI docs
+- Runtime checks:
+  - `nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,driver_version --format=csv,noheader,nounits`
+  - `uv run slack-mirror search reranker-probe --smoke --json`
+  - `uv run slack-mirror --config <temp learned-reranker config> search reranker-probe --json`
+- Validation:
+  - `uv run python -m unittest tests.test_search tests.test_cli.CliTests.test_parse_search_reranker_probe tests.test_app_service.AppServiceTests.test_reranker_probe_reports_default_heuristic_smoke -v`
+  - `python -m py_compile slack_mirror/search/rerankers.py slack_mirror/service/app.py slack_mirror/cli/main.py tests/test_search.py tests/test_app_service.py tests/test_cli.py`
+  - `uv run python -m unittest tests.test_search tests.test_cli tests.test_app_service -v`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
