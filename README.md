@@ -167,6 +167,13 @@ uv sync --extra local-semantic
 uv run slack-mirror search provider-probe --json
 ```
 
+For the managed user-scoped runtime, keep the default install lightweight and opt into the local semantic stack explicitly:
+
+```bash
+slack-mirror-user user-env update --extra local-semantic
+slack-mirror-user search provider-probe --retrieval-profile local-bge --smoke --json
+```
+
 Before changing a tenant, inspect the retrieval profile and rollout plan:
 
 ```bash

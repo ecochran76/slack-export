@@ -1192,8 +1192,12 @@ usage: slack-mirror user-env check-live [-h] [--json]
 **Usage**
 
 ```
-usage: slack-mirror user-env install [-h]
+usage: slack-mirror user-env install [-h] [--extra EXTRA]
 ```
+
+**Options**
+
+- `--extra` — optional package extra to install into the managed venv, e.g. local-semantic; may be repeated or comma-separated; default: `[]`
 
 
 ### `slack-mirror user-env provision-frontend-user`
@@ -1284,8 +1288,12 @@ usage: slack-mirror user-env uninstall [-h] [--purge-data]
 **Usage**
 
 ```
-usage: slack-mirror user-env update [-h]
+usage: slack-mirror user-env update [-h] [--extra EXTRA]
 ```
+
+**Options**
+
+- `--extra` — optional package extra to install into the managed venv, e.g. local-semantic; may be repeated or comma-separated; default: `[]`
 
 
 ### `slack-mirror user-env validate-live`

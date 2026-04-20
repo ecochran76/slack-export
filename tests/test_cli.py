@@ -915,9 +915,10 @@ class CliTests(unittest.TestCase):
 
     def test_parse_user_env_install(self):
         parser = build_parser()
-        args = parser.parse_args(["user-env", "install"])
+        args = parser.parse_args(["user-env", "install", "--extra", "local-semantic"])
         self.assertEqual(args.command, "user-env")
         self.assertEqual(args.user_env_cmd, "install")
+        self.assertEqual(args.extra, ["local-semantic"])
         self.assertTrue(hasattr(args, "func"))
 
     def test_parse_user_env_uninstall(self):
@@ -1015,16 +1016,16 @@ class CliTests(unittest.TestCase):
     @patch("slack_mirror.service.user_env.install_user_env", return_value=0)
     def test_user_env_install_dispatches_to_service(self, mock_install):
         parser = build_parser()
-        args = parser.parse_args(["user-env", "install"])
+        args = parser.parse_args(["user-env", "install", "--extra", "local-semantic"])
         self.assertEqual(cmd_user_env_install(args), 0)
-        mock_install.assert_called_once_with()
+        mock_install.assert_called_once_with(extras=["local-semantic"])
 
     @patch("slack_mirror.service.user_env.update_user_env", return_value=0)
     def test_user_env_update_dispatches_to_service(self, mock_update):
         parser = build_parser()
-        args = parser.parse_args(["user-env", "update"])
+        args = parser.parse_args(["user-env", "update", "--extra", "local-semantic"])
         self.assertEqual(cmd_user_env_update(args), 0)
-        mock_update.assert_called_once_with()
+        mock_update.assert_called_once_with(extras=["local-semantic"])
 
     @patch("slack_mirror.service.user_env.rollback_user_env", return_value=0)
     def test_user_env_rollback_dispatches_to_service(self, mock_rollback):

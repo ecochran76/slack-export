@@ -314,6 +314,36 @@ class UserEnvTests(unittest.TestCase):
         self.assertEqual((self.paths.backup_app_dir / "README.md").read_text(encoding="utf-8"), "old snapshot\n")
         self.assertEqual((self.paths.app_dir / "README.md").read_text(encoding="utf-8"), "repo snapshot\n")
 
+    def test_update_installs_requested_extras(self):
+        self.paths.app_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {db_path}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        calls, runner = self._runner()
+
+        rc = user_env.update_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            extras=["local-semantic"],
+            mcp_probe=lambda _: (True, None),
+            out=lambda _: None,
+        )
+
+        self.assertEqual(rc, 0)
+        pip_install_calls = [call["args"] for call in calls if call["args"][:3] == [str(self.paths.venv_dir / "bin" / "pip"), "install", "--upgrade"]]
+        self.assertTrue(any(arg.endswith("[local-semantic]") for call in pip_install_calls for arg in call))
+
     def test_update_runs_silent_baseline_then_live_smoke_output(self):
         self.paths.app_dir.mkdir(parents=True, exist_ok=True)
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)

@@ -274,6 +274,7 @@ Actionable plans:
 - `docs/dev/plans/0069-2026-04-20-release-profile-and-semantic-search-policy.md`
 - `docs/dev/plans/0074-2026-04-20-mcp-retrieval-profile-search.md`
 - `docs/dev/plans/0075-2026-04-20-default-search-backlog-drain.md`
+- `docs/dev/plans/0076-2026-04-20-managed-local-bge-rollout-rehearsal.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -361,7 +362,11 @@ Current state:
   - baseline readiness is now complete for `91,572/91,572` messages and `11,142/11,142` derived-text chunks
   - no derived-text jobs remain pending or errored; remaining extraction warnings are classified skips such as unsupported media or no OCR text
   - no-dataset MCP `search.health` passes with warnings, while derived-text and corpus benchmark checks still fail on local-hash ranking quality and latency
-- the next bounded semantic-search slice should treat benchmark failures as a retrieval-quality and search-performance problem, not as backlog hygiene
+- the managed local-BGE rehearsal slice is now complete under `0076`:
+  - managed `user-env install/update --extra local-semantic` now makes optional semantic dependencies reproducible without changing the lightweight default install
+  - `local-bge` and `local-bge-rerank` are CUDA-available in the managed runtime
+  - `default` has a bounded partial BGE rollout of `500` messages and `500` derived-text chunks
+  - full-corpus profile timing remains too slow (`~42.5s` baseline and `~49.0s` partial BGE for the measured query), so broad rollout should wait for search-performance/index and long-lived inference work
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -379,7 +384,7 @@ Remaining project phases:
    - completed under `0069`
 
 Recommended remaining child plans:
-- none for the first MCP-capable release path; future semantic-search work should open a new bounded evaluation plan, starting with SQLite-native vector extension evaluation if search latency remains above target
+- next semantic child plan should focus on query performance/index architecture and long-lived local inference before broader BGE rollout; SQLite-native vector extension evaluation remains the preferred first index step, with ANN service evaluation if SQLite-native options do not meet latency targets
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above

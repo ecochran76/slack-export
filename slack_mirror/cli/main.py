@@ -2206,6 +2206,8 @@ except Exception:
       fi
       if [[ "${COMP_WORDS[2]}" == "uninstall" ]]; then
         COMPREPLY=( $(compgen -W "--purge-data" -- "$cur") )
+      elif [[ "${COMP_WORDS[2]}" == "install" || "${COMP_WORDS[2]}" == "update" ]]; then
+        COMPREPLY=( $(compgen -W "--extra" -- "$cur") )
       elif [[ "${COMP_WORDS[2]}" == "status" || "${COMP_WORDS[2]}" == "validate-live" || "${COMP_WORDS[2]}" == "check-live" ]]; then
         COMPREPLY=( $(compgen -W "--json" -- "$cur") )
       elif [[ "${COMP_WORDS[2]}" == "recover-live" ]]; then
@@ -2396,6 +2398,8 @@ _slack_mirror() {
       fi
       if [[ "$words[3]" == "uninstall" ]]; then
         _arguments '--purge-data[also remove config, DB, and cache]'
+      elif [[ "$words[3]" == "install" || "$words[3]" == "update" ]]; then
+        _arguments '--extra[optional package extra to install into the managed venv]:extra:'
       elif [[ "$words[3]" == "status" || "$words[3]" == "validate-live" || "$words[3]" == "check-live" ]]; then
         _arguments '--json[json output]'
       elif [[ "$words[3]" == "recover-live" ]]; then
@@ -2442,13 +2446,13 @@ def cmd_release_check(args: argparse.Namespace) -> int:
 def cmd_user_env_install(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import install_user_env
 
-    return install_user_env()
+    return install_user_env(extras=args.extra)
 
 
 def cmd_user_env_update(args: argparse.Namespace) -> int:
     from slack_mirror.service.user_env import update_user_env
 
-    return update_user_env()
+    return update_user_env(extras=args.extra)
 
 
 def cmd_user_env_rollback(args: argparse.Namespace) -> int:
@@ -3349,8 +3353,20 @@ def build_parser() -> argparse.ArgumentParser:
     user_env = sub.add_parser("user-env", help="supported user-scope install/update commands")
     user_env_sub = user_env.add_subparsers(dest="user_env_cmd")
     p_user_install = user_env_sub.add_parser("install", help="install isolated user runtime from the current repo")
+    p_user_install.add_argument(
+        "--extra",
+        action="append",
+        default=[],
+        help="optional package extra to install into the managed venv, e.g. local-semantic; may be repeated or comma-separated",
+    )
     p_user_install.set_defaults(func=cmd_user_env_install)
     p_user_update = user_env_sub.add_parser("update", help="update isolated user runtime from the current repo")
+    p_user_update.add_argument(
+        "--extra",
+        action="append",
+        default=[],
+        help="optional package extra to install into the managed venv, e.g. local-semantic; may be repeated or comma-separated",
+    )
     p_user_update.set_defaults(func=cmd_user_env_update)
     p_user_rollback = user_env_sub.add_parser(
         "rollback",

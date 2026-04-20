@@ -13,7 +13,7 @@ from getpass import getpass
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from slack_mirror.core.config import _resolve_dotenv_path, load_config
 from slack_mirror.service.runtime_heartbeat import heartbeat_path_for_config, load_reconcile_state
@@ -477,12 +477,28 @@ def _ensure_venv(
         python = python_executable or sys.executable or "python3"
         _log(out, f"creating venv: {paths.venv_dir}")
         _run(runner, [python, "-m", "venv", str(paths.venv_dir)])
-    _run(runner, [str(paths.venv_dir / "bin" / "pip"), "install", "--upgrade", "pip", "wheel", "setuptools"])
+    _run(runner, [str(paths.venv_dir / "bin" / "pip"), "install", "--upgrade", "pip", "wheel", "setuptools<82"])
 
 
-def _install_python_package(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn) -> None:
-    _log(out, "installing package into venv")
-    _run(runner, [str(paths.venv_dir / "bin" / "pip"), "install", "--upgrade", str(paths.app_dir)])
+def _normalise_install_extras(extras: Sequence[str] | None) -> list[str]:
+    normalised: list[str] = []
+    for raw_extra in extras or []:
+        for part in str(raw_extra).split(","):
+            extra = part.strip()
+            if extra and extra not in normalised:
+                normalised.append(extra)
+    return normalised
+
+
+def _install_python_package(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn, extras: Sequence[str] | None = None) -> None:
+    install_target = str(paths.app_dir)
+    normalised_extras = _normalise_install_extras(extras)
+    if normalised_extras:
+        install_target = f"{install_target}[{','.join(normalised_extras)}]"
+        _log(out, f"installing package into venv with extras: {', '.join(normalised_extras)}")
+    else:
+        _log(out, "installing package into venv")
+    _run(runner, [str(paths.venv_dir / "bin" / "pip"), "install", "--upgrade", install_target])
 
 
 def _ensure_config(paths: UserEnvPaths, *, out: PrintFn) -> None:
@@ -1766,6 +1782,7 @@ def install_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     python_executable: str | None = None,
+    extras: Sequence[str] | None = None,
     mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
 ) -> int:
@@ -1775,7 +1792,7 @@ def install_user_env(
     _write_env_file(target)
     _copy_repo_snapshot(target)
     _ensure_venv(target, runner=runner, python_executable=python_executable, out=out)
-    _install_python_package(target, runner=runner, out=out)
+    _install_python_package(target, runner=runner, out=out, extras=extras)
     _ensure_config(target, out=out)
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
@@ -1809,6 +1826,7 @@ def update_user_env(
     paths: UserEnvPaths | None = None,
     runner: RunFn = subprocess.run,
     python_executable: str | None = None,
+    extras: Sequence[str] | None = None,
     mcp_probe: McpProbeFn = _probe_managed_mcp_wrapper,
     out: PrintFn = print,
 ) -> int:
@@ -1820,7 +1838,7 @@ def update_user_env(
     _rotate_app_snapshot_backup(target, out=out)
     _copy_repo_snapshot(target)
     _ensure_venv(target, runner=runner, python_executable=python_executable, out=out)
-    _install_python_package(target, runner=runner, out=out)
+    _install_python_package(target, runner=runner, out=out, extras=extras)
     _ensure_config(target, out=out)
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)

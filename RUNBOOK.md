@@ -3375,3 +3375,42 @@ This file is the dated turn log for planning and execution continuity.
   - the release baseline is operationally caught up
   - the remaining failures are local-hash retrieval quality and full-corpus benchmark latency, not extraction or embedding backlog
   - optional `local-bge` and `local-bge-rerank` profiles remain unavailable in the managed install until the local semantic dependencies are installed and rolled out deliberately
+
+## Turn 214 | 2026-04-20
+
+- Opened the next bounded `P10` managed local-BGE rehearsal slice:
+  - `0076-2026-04-20-managed-local-bge-rollout-rehearsal.md`
+- Initial runtime inspection:
+  - repo venv has `sentence_transformers` and `torch`
+  - managed runtime venv does not yet have `sentence_transformers` or `torch`
+  - `nvidia-smi` reports `NVIDIA GeForce RTX 5080` with available memory, so bounded model smoke is reasonable
+- Goal:
+  - enable/probe managed-runtime `local-bge` without changing the release `baseline` default
+  - run a bounded `default` rollout rehearsal and compare readiness, benchmark quality, and latency against the clean `0075` baseline
+- Added reproducible managed-runtime optional-extra support:
+  - `slack-mirror user-env install --extra local-semantic`
+  - `slack-mirror user-env update --extra local-semantic`
+  - extras may be repeated or comma-separated
+  - default install/update behavior remains lightweight when no extra is supplied
+- Tightened managed venv bootstrap to `setuptools<82` so torch 2.11 semantic installs do not emit a setuptools dependency conflict.
+- Refreshed the managed install with:
+  - `uv run slack-mirror user-env update --extra local-semantic`
+- Managed local semantic evidence:
+  - `local-bge` provider probe passes with `sentence_transformers` and `torch` installed
+  - CUDA is available on `NVIDIA GeForce RTX 5080`
+  - BGE smoke produced `1024`-dimension vectors with about `10.2s` cold latency for two texts
+  - `local-bge-rerank` reranker probe passes for `BAAI/bge-reranker-v2-m3`
+- Bounded rollout evidence:
+  - `slack-mirror-user mirror embeddings-backfill --workspace default --retrieval-profile local-bge --limit 500 --order latest --json`
+  - message backfill scanned `500`, embedded `500`, skipped `0`
+  - `slack-mirror-user mirror derived-text-embeddings-backfill --workspace default --retrieval-profile local-bge --limit 500 --json`
+  - derived-text backfill scanned `500`, embedded `500`, skipped `0`
+- Readiness after rehearsal:
+  - `baseline` remains ready for `91,586` messages and `11,142` derived-text chunks
+  - `local-bge` is provider-available but partial: `500/91,586` messages and `500/11,142` derived-text chunks
+  - `local-bge-rerank` is also provider/reranker-available but partial on the same coverage
+- Scale-review evidence:
+  - baseline measured about `42.5s` p95 for the one query checked
+  - partial `local-bge` measured about `49.0s` p95 for the same query
+  - the recommendation is to solve query performance and long-lived model lifecycle before broad BGE rollout
+- Closed `0076` with the conclusion that managed BGE is now technically available, but broad rollout should wait for index/performance work.
