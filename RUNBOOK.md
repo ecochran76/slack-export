@@ -3296,3 +3296,33 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_user_env tests.test_mcp_server -v`
   - `uv run slack-mirror release check --require-managed-runtime --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 211 | 2026-04-20
+
+- Opened and closed the post-restart semantic MCP smoke slice:
+  - `0073-2026-04-20-semantic-mcp-smoke-after-client-restart.md`
+- Confirmed the restarted MCP client can see and call the semantic-search tools:
+  - `search.profiles`
+  - `search.semantic_readiness`
+  - `search.readiness`
+  - `search.corpus`
+  - `search.health`
+- Runtime evidence:
+  - `health` passed
+  - `runtime.status` reported `mcp_ready=true`, `mcp_multi_client_ready=true`, and `clients=4`
+  - `runtime.live_validation(require_live_units=true)` passed with one `default` embedding-pending warning
+- Semantic readiness evidence:
+  - `baseline` is ready across `default`, `pcg`, and `soylei`
+  - `default` has complete message embedding coverage for `91,566` messages under `local-hash-128`
+  - `pcg` has complete message embedding coverage for `19,994` messages under `local-hash-128`
+  - `soylei` has complete message embedding coverage for `18,925` messages under `local-hash-128`
+  - `local-bge` and `local-bge-rerank` remain unavailable in the managed environment because optional model dependencies are not installed there
+- Search-health evidence:
+  - no-dataset `search.health` passes for `pcg` and `soylei`
+  - no-dataset `search.health` passes with warnings for `default` because derived-text extraction still has pending attachment-text and OCR jobs
+  - benchmark fixture checks against the live `default` corpus failed on hit-rate and latency, which is useful `P10` quality evidence but not an MCP transport failure
+- Search-behavior evidence:
+  - MCP corpus search executes in semantic, lexical, hybrid/RRF, all-workspace, and heuristic-rerank modes
+  - release `baseline` local-hash semantic search is transport-healthy but weak on conceptual relevance
+  - lexical and hybrid/RRF searches are stronger when exact terms are present
+  - direct MCP corpus search with `model=BAAI/bge-m3` fails under the current local-hash provider, so profile-driven dense search is not yet exposed as an agent-facing MCP corpus-search contract

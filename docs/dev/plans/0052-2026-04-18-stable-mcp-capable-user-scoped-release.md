@@ -59,6 +59,12 @@ This plan does not include:
   - live MCP client acceptance exposed that MCP clients launched without the normal user DBus environment could falsely report active systemd user units as inactive
   - shared systemctl status probes now rehydrate the user runtime/bus environment before querying `systemctl --user`
   - the managed MCP wrapper now passes stripped-environment runtime-status and live-validation checks, plus workspace/search/listener/outbound acceptance checks
+- the next `P11` slice is also landed:
+  - after MCP client restart, connected semantic MCP smoke sees `search.profiles` and `search.semantic_readiness`
+  - release `baseline` semantic readiness is complete across `default`, `pcg`, and `soylei`
+  - no-dataset `search.health` passes for `pcg` and `soylei`, and passes with derived-text extraction warnings on `default`
+  - corpus search works through MCP in semantic, lexical, hybrid/RRF, all-workspace, and heuristic-rerank modes
+  - BGE profile use and relevance-quality improvement remain `P10` follow-on work, not first-release blockers
 - the current baseline is functional, but the product still lacks one bounded release lane that treats install/update, managed-runtime health, and MCP usability as one coordinated target
 - MCP exists, the release-baseline tool coverage is documented, and the first live client acceptance blocker is fixed; follow-on work may still harden specific machine-readable preconditions or error hints where further operator testing exposes gaps
 - the user wants this worktree to focus on the stable release line, while frontend migration proceeds separately in its own worktree

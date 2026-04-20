@@ -387,6 +387,7 @@ Actionable plans:
 - `docs/dev/plans/0070-2026-04-20-release-check-managed-runtime-gate.md`
 - `docs/dev/plans/0071-2026-04-20-mcp-operator-usability-guide.md`
 - `docs/dev/plans/0072-2026-04-20-live-mcp-client-acceptance.md`
+- `docs/dev/plans/0073-2026-04-20-semantic-mcp-smoke-after-client-restart.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -405,6 +406,9 @@ Current state:
 - the release MCP operator baseline is now documented around runtime checks, workspace status, search/readiness, outbound sends, listener deliveries, supported preflight gates, tracing, and non-goals
 - live MCP client acceptance found and fixed a missing user-bus environment fallback so agent clients launched without `XDG_RUNTIME_DIR` or `DBUS_SESSION_BUS_ADDRESS` no longer misreport active systemd user units as inactive
 - the installed MCP wrapper now passes the documented baseline for stdio handshake, tool listing, runtime status, live validation, workspace status, search/readiness, listener lifecycle, and an idempotent DM send to Eric
+- after MCP client restart, the connected MCP semantic smoke passed for tool visibility, runtime status, semantic readiness, no-dataset search health, and corpus search across semantic, lexical, hybrid/RRF, all-workspace, and heuristic-rerank modes
+- semantic smoke confirmed the release `baseline` profile is ready across `default`, `pcg`, and `soylei`; opt-in BGE profiles remain unavailable in the managed environment until optional model dependencies are installed
+- semantic smoke also confirmed two follow-up gaps for `P10`: baseline local-hash semantic relevance is weak on conceptual queries, and MCP corpus search does not yet expose retrieval-profile selection for profile-driven dense search
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:
