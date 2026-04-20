@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 import shlex
 import time
 from typing import Any, Protocol
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 
 from slack_mirror.search.embeddings import _nvidia_smi_probe
 
@@ -98,6 +103,65 @@ class SentenceTransformersCrossEncoderRerankerProvider:
         return [float(value) for value in values]
 
 
+class HttpRerankerProvider:
+    def __init__(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        bearer_token_env: str | None = None,
+        timeout_s: float = 120.0,
+    ):
+        normalized_url = str(url or "").strip()
+        if not normalized_url:
+            raise ValueError("http reranker provider requires a non-empty url")
+        parsed = urllib_parse.urlparse(normalized_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("http reranker provider requires an absolute http(s) url")
+        self.url = normalized_url
+        self.headers = {str(k): str(v) for k, v in (headers or {}).items()}
+        self.bearer_token_env = None if bearer_token_env is None else (str(bearer_token_env).strip() or None)
+        self.timeout_s = float(timeout_s)
+        self.name = f"http:{parsed.netloc}"
+
+    def score(self, *, query: str, documents: list[str]) -> list[float]:
+        payload = {
+            "action": "rerank_score",
+            "query": str(query or ""),
+            "documents": [str(document or "") for document in documents],
+        }
+        headers = {"Content-Type": "application/json", "Accept": "application/json", **self.headers}
+        if self.bearer_token_env:
+            token = os.environ.get(self.bearer_token_env, "").strip()
+            if not token:
+                raise RuntimeError("reranker provider auth token is missing")
+            headers.setdefault("Authorization", f"Bearer {token}")
+        req = urllib_request.Request(
+            self.url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib_request.urlopen(req, timeout=self.timeout_s) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+        except urllib_error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"http reranker provider error {exc.code}: {body.strip()}") from exc
+        except urllib_error.URLError as exc:
+            raise RuntimeError(f"http reranker provider connection failed: {exc.reason}") from exc
+        try:
+            response = json.loads(body or "{}")
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("http reranker provider returned invalid JSON") from exc
+        if not response.get("ok", True):
+            raise RuntimeError(str(response.get("error") or "reranker_provider_error"))
+        scores = response.get("scores")
+        if not isinstance(scores, list) or len(scores) != len(documents):
+            raise RuntimeError("http reranker provider returned invalid scores payload")
+        return [float(value) for value in scores]
+
+
 def build_reranker_provider(config: dict[str, Any] | None = None) -> RerankerProvider:
     rerank_cfg = dict(((config or {}).get("search") or {}).get("rerank") or {})
     provider_cfg = rerank_cfg.get("provider")
@@ -118,6 +182,15 @@ def build_reranker_provider(config: dict[str, Any] | None = None) -> RerankerPro
             batch_size=int(provider_cfg.get("batch_size") or 16),
             trust_remote_code=_config_bool(provider_cfg.get("trust_remote_code"), default=False),
             cache_folder=provider_cfg.get("cache_folder"),
+        )
+    if provider_type == "http":
+        headers_value = provider_cfg.get("headers")
+        headers = headers_value if isinstance(headers_value, dict) else {}
+        return HttpRerankerProvider(
+            str(provider_cfg.get("url") or ""),
+            headers=headers,
+            bearer_token_env=provider_cfg.get("bearer_token_env"),
+            timeout_s=float(provider_cfg.get("timeout_s") or 120.0),
         )
     raise ValueError(f"Unsupported reranker provider type: {provider_type}")
 
@@ -181,6 +254,12 @@ def probe_reranker_provider(
         nvidia = _nvidia_smi_probe()
         if nvidia is not None:
             probe["runtime"]["nvidia_smi"] = nvidia
+    elif provider_type == "http":
+        url = str(provider_cfg.get("url") or "").strip()
+        probe["runtime"]["url"] = url
+        if not url:
+            probe["available"] = False
+            probe["issues"].append("url_missing")
     else:
         probe["available"] = False
         probe["issues"].append("unsupported_provider_type")

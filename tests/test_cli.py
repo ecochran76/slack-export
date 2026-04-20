@@ -913,6 +913,19 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_inference_probe(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            ["search", "inference-probe", "--url", "http://127.0.0.1:8791/", "--model", "local-hash-128", "--timeout", "5", "--smoke", "--json"]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.url, "http://127.0.0.1:8791/")
+        self.assertEqual(args.model, "local-hash-128")
+        self.assertEqual(args.timeout, 5.0)
+        self.assertTrue(args.smoke)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_user_env_install(self):
         parser = build_parser()
         args = parser.parse_args(["user-env", "install", "--extra", "local-semantic"])

@@ -634,7 +634,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 
 **Arguments**
@@ -645,6 +645,10 @@ usage: slack-mirror search [-h]
 `derived-text`
 .IP \[bu] 2
 `health`
+.IP \[bu] 2
+`inference-probe`
+.IP \[bu] 2
+`inference-serve`
 .IP \[bu] 2
 `keyword`
 .IP \[bu] 2
@@ -785,6 +789,34 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
 `--max-latency-p95-ms` — maximum acceptable benchmark latency p95; default: `800.0`
 .IP \[bu] 2
 `--json` — json output
+.SH SLACK-MIRROR SEARCH INFERENCE-PROBE
+**Usage**
+
+usage: slack-mirror search inference-probe [-h] [--url URL] [--model MODEL]
+                                           [--timeout TIMEOUT] [--smoke]
+                                           [--json]
+
+**Options**
+.IP \[bu] 2
+`--url` — service URL (defaults to config search.inference.url or bind/port)
+.IP \[bu] 2
+`--model` — embedding model id for smoke; default: `BAAI/bge-m3`
+.IP \[bu] 2
+`--timeout` — request timeout seconds; default: `120.0`
+.IP \[bu] 2
+`--smoke` — run embedding and rerank smoke requests
+.IP \[bu] 2
+`--json` — json output
+.SH SLACK-MIRROR SEARCH INFERENCE-SERVE
+**Usage**
+
+usage: slack-mirror search inference-serve [-h] [--bind BIND] [--port PORT]
+
+**Options**
+.IP \[bu] 2
+`--bind` — bind address (defaults to config search.inference.bind)
+.IP \[bu] 2
+`--port` — listen port (defaults to config search.inference.port)
 .SH SLACK-MIRROR SEARCH KEYWORD
 **Usage**
 

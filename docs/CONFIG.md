@@ -167,6 +167,7 @@ Supported message-semantic provider types:
   - external local helper process over stdin/stdout JSON
 - `http`
   - external HTTP embedding service using the same request shape
+  - can target the repo-owned loopback inference service (`slack-mirror search inference-serve`)
 
 Example stronger local message-semantic config:
 
@@ -187,10 +188,13 @@ Notes:
 - Derived-text semantic retrieval now uses the same configured provider/model seam for query vectors.
 - Persisted derived-text chunk embeddings are rolled out separately from messages and are tracked separately in readiness/health output.
 - Heavy ML dependencies are intentionally optional so baseline installs and CI do not require `sentence-transformers`.
-- The longer-term semantic architecture still prefers a dedicated local inference adapter for heavy model lifecycle; the in-process `sentence_transformers` path is the bounded first implementation slice.
+- The preferred heavy-model path is now the loopback-only local inference service, which keeps model objects warm in one process while CLI/API/MCP callers use HTTP-backed providers.
 - The repo now exposes a readiness probe for this path:
   - `uv run slack-mirror search provider-probe --json`
   - add `--smoke` to force a tiny embed call after the dependency/runtime checks
+- The repo-owned inference service can be run and probed with:
+  - `uv run slack-mirror search inference-serve`
+  - `uv run slack-mirror search inference-probe --smoke --model local-hash-128 --json`
 - The optional dependency group for this local path is:
   - `uv sync --extra local-semantic`
 - Message rollout and derived-text chunk rollout are intentionally separate:
@@ -201,6 +205,7 @@ Notes:
   - corpus search: `slack-mirror search corpus ... --rerank`
   - current provider: `search.rerank.provider.type: heuristic`
   - learned local provider: `search.rerank.provider.type: sentence_transformers`
+  - HTTP local-service provider: `search.rerank.provider.type: http`
   - probe before use: `slack-mirror search reranker-probe --smoke --json`
 
 Example learned local reranker config:
@@ -213,6 +218,36 @@ search:
       model: BAAI/bge-reranker-v2-m3
       device: cuda
       batch_size: 16
+```
+
+Example local inference service client config:
+
+```yaml
+search:
+  inference:
+    bind: 127.0.0.1
+    port: 8791
+    semantic_provider:
+      type: sentence_transformers
+      device: cuda
+      batch_size: 16
+      normalize_embeddings: true
+    rerank_provider:
+      type: sentence_transformers
+      model: BAAI/bge-reranker-v2-m3
+      device: cuda
+      batch_size: 16
+  semantic:
+    model: BAAI/bge-m3
+    provider:
+      type: http
+      url: http://127.0.0.1:8791/
+      timeout_s: 120
+  rerank:
+    provider:
+      type: http
+      url: http://127.0.0.1:8791/
+      timeout_s: 120
 ```
 
 ## Retrieval profiles

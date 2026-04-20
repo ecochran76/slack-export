@@ -145,6 +145,8 @@ The current repo has:
 - an explicit derived-text benchmark target through `search health --target derived_text`, with chunk-aware benchmark query reports for attachment/OCR evaluation
 - an explicit reranker-provider seam, with the current heuristic reranker available for opt-in message and corpus searches before learned local reranking is introduced
 - an optional learned local reranker provider through `sentence_transformers` CrossEncoder models, with a readiness/smoke probe before use
+- a loopback-only local inference service boundary through `search inference-serve`, so heavier embedding and reranker models can stay warm for CLI/API/MCP clients instead of paying cold-load cost per process
+- HTTP-backed embedding and reranker providers that can target the same local inference service with the existing `embed_texts` and `rerank_score` request shapes
 - corpus hybrid search now has explicit fusion policy controls:
   - `weighted` preserves the current release-safe weighted score behavior
   - `rrf` enables opt-in reciprocal-rank fusion for deterministic lexical/semantic candidate blending
@@ -175,6 +177,7 @@ For the managed user-scoped runtime, keep the default install lightweight and op
 ```bash
 slack-mirror-user user-env update --extra local-semantic
 slack-mirror-user search provider-probe --retrieval-profile local-bge --smoke --json
+slack-mirror-user search inference-probe --smoke --model local-hash-128 --json
 ```
 
 Before changing a tenant, inspect the retrieval profile and rollout plan:
@@ -204,6 +207,7 @@ Release policy for the first stable MCP-capable user-scoped install:
 - `local-bge` is supported as an explicit operator-controlled rollout profile after provider probe, rollout plan, bounded backfill, semantic readiness, and search health checks.
 - `local-bge-rerank` remains experimental until benchmark and live-query evidence justify promotion.
 - SQLite remains the canonical store. After the semantic candidate/projection fix, the measured release `baseline` path is interactive on `default`; evaluate a SQLite-native vector extension only if new exact-scan measurements regress above target.
+- The local inference service is installed as a user-scoped loopback unit for opt-in semantic acceleration, but the release `baseline` profile does not depend on it being active.
 - DuckDB is sidelined for this release path. It may be revisited later as an analytics, reporting, or search-sidecar experiment, not as canonical storage.
 
 The probe reports:

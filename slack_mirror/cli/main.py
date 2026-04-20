@@ -1679,6 +1679,52 @@ def cmd_search_reranker_probe(args: argparse.Namespace) -> int:
     return 0 if payload.get("available") else 1
 
 
+def cmd_search_inference_serve(args: argparse.Namespace) -> int:
+    from slack_mirror.core.config import load_config
+    from slack_mirror.service.inference import DEFAULT_INFERENCE_BIND, DEFAULT_INFERENCE_PORT, inference_endpoint_from_config, run_inference_server
+
+    config = load_config(args.config)
+    default_bind, default_port, _ = inference_endpoint_from_config(config.data)
+    bind = args.bind or default_bind or DEFAULT_INFERENCE_BIND
+    port = int(args.port or default_port or DEFAULT_INFERENCE_PORT)
+    run_inference_server(bind=bind, port=port, config_path=args.config)
+    return 0
+
+
+def cmd_search_inference_probe(args: argparse.Namespace) -> int:
+    from slack_mirror.core.config import load_config
+    from slack_mirror.service.inference import inference_endpoint_from_config, probe_inference_server
+
+    config = load_config(args.config)
+    _, _, default_url = inference_endpoint_from_config(config.data)
+    payload = probe_inference_server(
+        url=args.url or default_url,
+        smoke=bool(args.smoke),
+        embedding_model=str(args.model or "BAAI/bge-m3"),
+        timeout_s=float(args.timeout),
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"Inference probe url={payload['url']} available={payload['available']}")
+        health = dict(payload.get("health") or {})
+        if health:
+            print(
+                f"Providers: embedding={health.get('embedding_provider')} "
+                f"reranker={health.get('reranker_provider')}"
+            )
+        runtime = dict(payload.get("runtime") or {})
+        if runtime.get("embedding_smoke"):
+            smoke = runtime["embedding_smoke"]
+            print(f"Embedding smoke: ok={smoke.get('ok')} texts={smoke.get('texts')} dims={smoke.get('dimensions')}")
+        if runtime.get("rerank_smoke"):
+            smoke = runtime["rerank_smoke"]
+            print(f"Rerank smoke: ok={smoke.get('ok')} documents={smoke.get('documents')} scores={smoke.get('scores')}")
+        if payload.get("issues"):
+            print("Issues: " + ", ".join(payload["issues"]))
+    return 0 if payload.get("available") else 1
+
+
 def cmd_search_query_dir(args: argparse.Namespace) -> int:
     from slack_mirror.search.dir_adapter import query_directory
 
@@ -2140,7 +2186,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2332,7 +2378,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3240,6 +3286,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_reranker_probe.add_argument("--smoke", action="store_true", help="run a small rerank smoke after readiness checks")
     p_search_reranker_probe.add_argument("--json", action="store_true", help="json output")
     p_search_reranker_probe.set_defaults(func=cmd_search_reranker_probe)
+
+    p_search_inference_serve = search_sub.add_parser("inference-serve", help="run the local loopback inference HTTP service")
+    p_search_inference_serve.add_argument("--bind", default=None, help="bind address (defaults to config search.inference.bind)")
+    p_search_inference_serve.add_argument("--port", type=int, default=None, help="listen port (defaults to config search.inference.port)")
+    p_search_inference_serve.set_defaults(func=cmd_search_inference_serve)
+
+    p_search_inference_probe = search_sub.add_parser("inference-probe", help="probe the local loopback inference HTTP service")
+    p_search_inference_probe.add_argument("--url", default=None, help="service URL (defaults to config search.inference.url or bind/port)")
+    p_search_inference_probe.add_argument("--model", default="BAAI/bge-m3", help="embedding model id for smoke")
+    p_search_inference_probe.add_argument("--timeout", type=float, default=120.0, help="request timeout seconds")
+    p_search_inference_probe.add_argument("--smoke", action="store_true", help="run embedding and rerank smoke requests")
+    p_search_inference_probe.add_argument("--json", action="store_true", help="json output")
+    p_search_inference_probe.set_defaults(func=cmd_search_inference_probe)
 
     p_search_dir = search_sub.add_parser("query-dir", help="search a directory corpus")
     p_search_dir.add_argument("--path", required=True, help="root directory")

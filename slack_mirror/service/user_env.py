@@ -54,8 +54,10 @@ class UserEnvPaths:
     env_path: Path
     wrapper_path: Path
     api_wrapper_path: Path
+    inference_wrapper_path: Path
     mcp_wrapper_path: Path
     api_service_path: Path
+    inference_service_path: Path
     snapshot_service_path: Path
     snapshot_timer_path: Path
 
@@ -129,6 +131,8 @@ class UserEnvStatusReport:
     cache_present: bool
     services: dict[str, str]
     reconcile_workspaces: list[dict[str, Any]]
+    inference_wrapper_present: bool = False
+    inference_service_present: bool = False
 
 
 @dataclass(frozen=True)
@@ -204,8 +208,10 @@ def default_user_env_paths(
         env_path=config_dir / "env.sh",
         wrapper_path=bin_dir / "slack-mirror-user",
         api_wrapper_path=bin_dir / "slack-mirror-api",
+        inference_wrapper_path=bin_dir / "slack-mirror-inference",
         mcp_wrapper_path=bin_dir / "slack-mirror-mcp",
         api_service_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-api.service",
+        inference_service_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-inference.service",
         snapshot_service_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-runtime-report.service",
         snapshot_timer_path=user_home / ".config" / "systemd" / "user" / "slack-mirror-runtime-report.timer",
     )
@@ -587,6 +593,7 @@ def _write_mcp_wrapper(paths: UserEnvPaths) -> None:
 def _write_wrappers(paths: UserEnvPaths) -> None:
     _write_wrapper(paths, args=[], target_path=paths.wrapper_path)
     _write_wrapper(paths, args=["api", "serve"], target_path=paths.api_wrapper_path)
+    _write_wrapper(paths, args=["search", "inference-serve"], target_path=paths.inference_wrapper_path)
     _write_mcp_wrapper(paths)
 
 
@@ -608,6 +615,26 @@ def _write_api_service(paths: UserEnvPaths) -> None:
     )
     paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
     paths.api_service_path.write_text(content, encoding="utf-8")
+
+
+def _write_inference_service(paths: UserEnvPaths) -> None:
+    content = (
+        "[Unit]\n"
+        "Description=Slack Mirror Local Inference Service\n"
+        "After=network-online.target\n"
+        "Wants=network-online.target\n"
+        "\n"
+        "[Service]\n"
+        "Type=simple\n"
+        f"ExecStart={paths.inference_wrapper_path}\n"
+        "Restart=on-failure\n"
+        "RestartSec=2\n"
+        "\n"
+        "[Install]\n"
+        "WantedBy=default.target\n"
+    )
+    paths.inference_service_path.parent.mkdir(parents=True, exist_ok=True)
+    paths.inference_service_path.write_text(content, encoding="utf-8")
 
 
 def _write_snapshot_report_units(paths: UserEnvPaths) -> None:
@@ -1218,6 +1245,7 @@ def _build_status_report(
     service_units = sorted(
         {
             "slack-mirror-api.service",
+            "slack-mirror-inference.service",
             *[path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.service")],
             *[path.name for path in (target.home_dir / ".config" / "systemd" / "user").glob("slack-mirror-*.timer")],
         }
@@ -1297,6 +1325,8 @@ def _build_status_report(
         mcp_multi_client_error=mcp_multi_client_error,
         mcp_multi_client_clients=mcp_multi_client_clients,
         api_service_present=target.api_service_path.exists(),
+        inference_wrapper_present=target.inference_wrapper_path.exists(),
+        inference_service_present=target.inference_service_path.exists(),
         snapshot_service_present=target.snapshot_service_path.exists(),
         snapshot_timer_present=target.snapshot_timer_path.exists(),
         rollback_snapshot_present=target.backup_app_dir.exists(),
@@ -1319,6 +1349,8 @@ def _status_report_payload(report: UserEnvStatusReport) -> dict[str, Any]:
         "mcp_multi_client_error": report.mcp_multi_client_error,
         "mcp_multi_client_clients": report.mcp_multi_client_clients,
         "api_service_present": report.api_service_present,
+        "inference_wrapper_present": report.inference_wrapper_present,
+        "inference_service_present": report.inference_service_present,
         "snapshot_service_present": report.snapshot_service_present,
         "snapshot_timer_present": report.snapshot_timer_present,
         "rollback_snapshot_present": report.rollback_snapshot_present,
@@ -1348,6 +1380,12 @@ def _managed_runtime_issues(status_report: UserEnvStatusReport) -> list[LiveVali
             "slack-mirror-api wrapper missing",
             "rerun `slack-mirror user-env update` to restore the managed API launcher",
         )
+    if not status_report.inference_wrapper_present:
+        fail(
+            "INFERENCE_WRAPPER_MISSING",
+            "slack-mirror-inference wrapper missing",
+            "rerun `slack-mirror user-env update` to restore the managed local inference launcher",
+        )
     if not status_report.mcp_wrapper_present:
         fail(
             "MCP_WRAPPER_MISSING",
@@ -1373,6 +1411,12 @@ def _managed_runtime_issues(status_report: UserEnvStatusReport) -> list[LiveVali
             "API_SERVICE_FILE_MISSING",
             "managed API service unit file missing",
             "rerun `slack-mirror user-env update` to recreate slack-mirror-api.service",
+        )
+    if not status_report.inference_service_present:
+        fail(
+            "INFERENCE_SERVICE_FILE_MISSING",
+            "managed local inference service unit file missing",
+            "rerun `slack-mirror user-env update` to recreate slack-mirror-inference.service",
         )
     if not status_report.snapshot_service_present:
         fail(
@@ -1614,6 +1658,8 @@ def _emit_live_validation_report(
 
     if target.api_service_path.exists():
         out("OK    slack-mirror-api.service unit file present")
+    if target.inference_service_path.exists():
+        out("OK    slack-mirror-inference.service unit file present")
     if _systemctl_state(runner, "slack-mirror-api.service") == "active":
         out("OK    slack-mirror-api.service active")
 
@@ -1717,9 +1763,11 @@ def _build_live_recovery_report(
         if issue.code in {
             "USER_WRAPPER_MISSING",
             "API_WRAPPER_MISSING",
+            "INFERENCE_WRAPPER_MISSING",
             "MCP_WRAPPER_MISSING",
             "MCP_SMOKE_FAILED",
             "API_SERVICE_FILE_MISSING",
+            "INFERENCE_SERVICE_FILE_MISSING",
             "SNAPSHOT_SERVICE_FILE_MISSING",
             "SNAPSHOT_TIMER_FILE_MISSING",
         }:
@@ -1797,6 +1845,7 @@ def install_user_env(
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
     _write_api_service(target)
+    _write_inference_service(target)
     _write_snapshot_report_units(target)
     _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
@@ -1810,8 +1859,10 @@ def install_user_env(
     out("")
     out(f"CLI wrapper: {target.wrapper_path}")
     out(f"API wrapper:  {target.api_wrapper_path}")
+    out(f"Inf wrapper:  {target.inference_wrapper_path}")
     out(f"MCP wrapper:  {target.mcp_wrapper_path}")
     out(f"API unit:    {target.api_service_path}")
+    out(f"Inf unit:    {target.inference_service_path}")
     out(f"Config:      {target.config_path}")
     out(f"State dir:   {target.state_dir}")
     out(f"Cache dir:   {target.cache_dir}")
@@ -1843,6 +1894,7 @@ def update_user_env(
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
     _write_api_service(target)
+    _write_inference_service(target)
     _write_snapshot_report_units(target)
     _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
@@ -1891,6 +1943,7 @@ def rollback_user_env(
     _migrate_legacy_state(target, out=out)
     _write_wrappers(target)
     _write_api_service(target)
+    _write_inference_service(target)
     _write_snapshot_report_units(target)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
@@ -1919,6 +1972,7 @@ def uninstall_user_env(
         "slack-mirror-events.service",
         "slack-mirror-embeddings.service",
         "slack-mirror-api.service",
+        "slack-mirror-inference.service",
         "slack-mirror-runtime-report.service",
         "slack-mirror-runtime-report.timer",
     ]
@@ -1930,11 +1984,13 @@ def uninstall_user_env(
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
 
     _log(out, "removing wrapper + app + venv")
-    for wrapper in (target.wrapper_path, target.api_wrapper_path, target.mcp_wrapper_path):
+    for wrapper in (target.wrapper_path, target.api_wrapper_path, target.inference_wrapper_path, target.mcp_wrapper_path):
         if wrapper.exists():
             wrapper.unlink()
     if target.api_service_path.exists():
         target.api_service_path.unlink()
+    if target.inference_service_path.exists():
+        target.inference_service_path.unlink()
     if target.snapshot_service_path.exists():
         target.snapshot_service_path.unlink()
     if target.snapshot_timer_path.exists():
@@ -1976,6 +2032,8 @@ def status_user_env(
     out("  status: present" if target.wrapper_path.exists() else "  status: missing")
     out(f"API:      {target.api_wrapper_path}")
     out("  status: present" if target.api_wrapper_path.exists() else "  status: missing")
+    out(f"Inf:      {target.inference_wrapper_path}")
+    out("  status: present" if target.inference_wrapper_path.exists() else "  status: missing")
     out(f"MCP:      {target.mcp_wrapper_path}")
     out("  status: present" if target.mcp_wrapper_path.exists() else "  status: missing")
     if target.mcp_wrapper_path.exists():
@@ -1991,6 +2049,8 @@ def status_user_env(
             out(f"  concurrent detail: {report.mcp_multi_client_error}")
     out(f"API svc:  {target.api_service_path}")
     out("  status: present" if target.api_service_path.exists() else "  status: missing")
+    out(f"Inf svc:  {target.inference_service_path}")
+    out("  status: present" if target.inference_service_path.exists() else "  status: missing")
     out(f"Rpt svc:  {target.snapshot_service_path}")
     out("  status: present" if target.snapshot_service_path.exists() else "  status: missing")
     out(f"Rpt tmr:  {target.snapshot_timer_path}")
@@ -2106,6 +2166,7 @@ def check_live_user_env(
     out("Managed Runtime:")
     out(f"  wrapper: {'present' if report.status_report.wrapper_present else 'missing'}")
     out(f"  api wrapper: {'present' if report.status_report.api_wrapper_present else 'missing'}")
+    out(f"  inference wrapper: {'present' if report.status_report.inference_wrapper_present else 'missing'}")
     out(f"  mcp wrapper: {'present' if report.status_report.mcp_wrapper_present else 'missing'}")
     if report.status_report.mcp_wrapper_present:
         out(f"  mcp probe: {'pass' if report.status_report.mcp_smoke_ok else 'fail'}")
@@ -2119,6 +2180,7 @@ def check_live_user_env(
         if report.status_report.mcp_multi_client_error:
             out(f"  mcp concurrent detail: {report.status_report.mcp_multi_client_error}")
     out(f"  api unit file: {'present' if report.status_report.api_service_present else 'missing'}")
+    out(f"  inference unit file: {'present' if report.status_report.inference_service_present else 'missing'}")
     out(f"  runtime-report service file: {'present' if report.status_report.snapshot_service_present else 'missing'}")
     out(f"  runtime-report timer file: {'present' if report.status_report.snapshot_timer_present else 'missing'}")
     timer_state = report.status_report.services.get("slack-mirror-runtime-report.timer", "unknown")
@@ -2130,9 +2192,11 @@ def check_live_user_env(
     wrapper_failures = [item for item in report.failures if item.code in {
         "USER_WRAPPER_MISSING",
         "API_WRAPPER_MISSING",
+        "INFERENCE_WRAPPER_MISSING",
         "MCP_WRAPPER_MISSING",
         "MCP_SMOKE_FAILED",
         "API_SERVICE_FILE_MISSING",
+        "INFERENCE_SERVICE_FILE_MISSING",
         "SNAPSHOT_SERVICE_FILE_MISSING",
         "SNAPSHOT_TIMER_FILE_MISSING",
         "SNAPSHOT_TIMER_INACTIVE",

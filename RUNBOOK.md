@@ -3441,3 +3441,29 @@ This file is the dated turn log for planning and execution continuity.
 - Interpretation:
   - release `baseline` exact search is now interactive for the measured query
   - broader BGE rollout is still blocked on long-lived local inference lifecycle, not baseline SQLite exact-scan latency
+
+## Turn 216 | 2026-04-20
+
+- Opened the next bounded `P10` local inference service boundary slice:
+  - `0078-2026-04-20-local-inference-service-boundary.md`
+- Direction:
+  - keep `baseline` unchanged
+  - add a loopback-only HTTP inference process for warm BGE embeddings and reranking
+  - reuse the existing embedding HTTP provider contract
+  - add matching HTTP reranker provider support
+  - wire the managed user environment with an inference wrapper and systemd unit
+- Implemented and closed `0078`:
+  - added `slack_mirror.service.inference` with loopback-only HTTP actions for `embed_texts` and `rerank_score`
+  - added `search inference-serve` and `search inference-probe`
+  - added HTTP reranker-provider support
+  - updated managed `user-env` install/update/rollback/status/check-live/uninstall to own `slack-mirror-inference` and `slack-mirror-inference.service`
+  - refreshed README, config docs, and generated CLI/man docs
+- Validation:
+  - `uv run python -m unittest tests.test_inference_service tests.test_user_env tests.test_cli tests.test_search tests.test_embeddings -v`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+  - `uv run python scripts/check_generated_docs.py`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+  - `systemctl --user start slack-mirror-inference.service && slack-mirror-user search inference-probe --smoke --model local-hash-128 --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning

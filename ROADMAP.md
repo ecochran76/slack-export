@@ -276,6 +276,7 @@ Actionable plans:
 - `docs/dev/plans/0075-2026-04-20-default-search-backlog-drain.md`
 - `docs/dev/plans/0076-2026-04-20-managed-local-bge-rollout-rehearsal.md`
 - `docs/dev/plans/0077-2026-04-20-semantic-query-performance-cap.md`
+- `docs/dev/plans/0078-2026-04-20-local-inference-service-boundary.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -373,6 +374,11 @@ Current state:
   - derived-text semantic chunk candidates no longer project duplicated full document bodies during chunk search
   - managed `default` baseline scale-review improved from roughly `42-44s` to `p95=396.445 ms` for the measured query
   - partial `local-bge` now has a fast warm run but still pays cold model-load latency, so the next blocking issue is long-lived local inference lifecycle rather than baseline SQLite exact-scan latency
+- the local inference service boundary slice is now complete under `0078`:
+  - `search inference-serve` starts a loopback-only HTTP service for embedding and rerank requests
+  - `search inference-probe` verifies health plus optional embedding/rerank smoke checks
+  - HTTP-backed embedding and reranker providers can target the same warm local service
+  - managed `user-env` writes and reports a `slack-mirror-inference` wrapper and `slack-mirror-inference.service` unit without making `baseline` dependent on active ML services
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -386,12 +392,12 @@ Remaining project phases:
    - build higher-level export/report/action workflows on top of the shipped `action_target` selection metadata
 5. scale and inference-boundary review:
    - baseline exact search is now interactive for the measured `default` query after `0077`
-   - measure model-load latency, GPU contention, and multi-client MCP behavior before broader BGE rollout or ANN service work
+   - `0078` has landed the long-lived loopback inference-service boundary needed to remove BGE cold-load cost from CLI/API/MCP client processes
 6. release/default policy:
    - completed under `0069`
 
 Recommended remaining child plans:
-- next semantic child plan should focus on the long-lived local inference boundary for BGE and reranking before broader rollout; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
+- next semantic child plan should focus on live relevance rehearsal and benchmark lock using the new local inference boundary; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above

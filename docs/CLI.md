@@ -656,7 +656,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 ```
 
@@ -668,6 +668,8 @@ usage: slack-mirror search [-h]
 - `corpus`
 - `derived-text`
 - `health`
+- `inference-probe`
+- `inference-serve`
 - `keyword`
 - `profiles`
 - `provider-probe`
@@ -775,6 +777,37 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
 - `--min-ndcg-at-k` — minimum acceptable ndcg@k when dataset is provided; default: `0.6`
 - `--max-latency-p95-ms` — maximum acceptable benchmark latency p95; default: `800.0`
 - `--json` — json output
+
+
+### `slack-mirror search inference-probe`
+**Usage**
+
+```
+usage: slack-mirror search inference-probe [-h] [--url URL] [--model MODEL]
+                                           [--timeout TIMEOUT] [--smoke]
+                                           [--json]
+```
+
+**Options**
+
+- `--url` — service URL (defaults to config search.inference.url or bind/port)
+- `--model` — embedding model id for smoke; default: `BAAI/bge-m3`
+- `--timeout` — request timeout seconds; default: `120.0`
+- `--smoke` — run embedding and rerank smoke requests
+- `--json` — json output
+
+
+### `slack-mirror search inference-serve`
+**Usage**
+
+```
+usage: slack-mirror search inference-serve [-h] [--bind BIND] [--port PORT]
+```
+
+**Options**
+
+- `--bind` — bind address (defaults to config search.inference.bind)
+- `--port` — listen port (defaults to config search.inference.port)
 
 
 ### `slack-mirror search keyword`
