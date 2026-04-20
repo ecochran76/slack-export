@@ -3226,3 +3226,23 @@ This file is the dated turn log for planning and execution continuity.
   - `search profiles --json` showed `baseline`, `local-bge`, and `local-bge-rerank` profiles with only `baseline` non-experimental
   - `search semantic-readiness --workspace default --profiles baseline,local-bge,local-bge-rerank --json` reported `baseline` ready and both BGE profiles rollout-needed on `default`
   - `search scale-review --workspace default --profiles baseline --query "incident review" --repeats 1 --limit 5 --json` reported `91,557` messages, complete `local-hash-128` coverage, and `p95=1482 ms`
+
+## Turn 208 | 2026-04-20
+
+- Opened and closed the next bounded `P11` release-hardening slice:
+  - `0070-2026-04-20-release-check-managed-runtime-gate.md`
+- Added an opt-in managed-runtime release gate:
+  - `slack-mirror release check --require-managed-runtime`
+- The stronger gate keeps existing repo-local release checks and also runs:
+  - `slack-mirror-user user-env check-live --json`
+- Managed-runtime check failures now surface through the same release-check issue envelope as docs, planning, version, and clean-worktree checks:
+  - `MANAGED_RUNTIME_CHECK_FAILED`
+- The default `release check` remains repo-only so CI and development machines without a managed install are not blocked.
+- Validation:
+  - `python -m py_compile slack_mirror/service/release.py slack_mirror/cli/main.py tests/test_release.py tests/test_cli.py`
+  - `uv run python -m unittest tests.test_release tests.test_cli.CliTests.test_parse_release_check tests.test_cli.CliTests.test_release_check_dispatches_to_service -v`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+  - managed-runtime release gate passed with only expected `DEV_VERSION` warning

@@ -619,6 +619,7 @@ usage: slack-mirror release [-h] {check} ...
 
 usage: slack-mirror release check [-h] [--json] [--require-clean]
                                   [--require-release-version]
+                                  [--require-managed-runtime]
 
 **Options**
 .IP \[bu] 2
@@ -627,6 +628,8 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 `--require-clean` — fail when git worktree is dirty
 .IP \[bu] 2
 `--require-release-version` — fail when pyproject version is still a development version
+.IP \[bu] 2
+`--require-managed-runtime` — fail unless the managed user runtime passes user-env check-live
 .SH SLACK-MIRROR SEARCH
 **Usage**
 

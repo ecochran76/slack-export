@@ -384,6 +384,7 @@ Purpose:
 
 Actionable plans:
 - `docs/dev/plans/0052-2026-04-18-stable-mcp-capable-user-scoped-release.md`
+- `docs/dev/plans/0070-2026-04-20-release-check-managed-runtime-gate.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -398,6 +399,7 @@ Current state:
   - `check-live` remains the stricter post-onboarding gate for credentials and live units
 - the repo still lacks one explicit release-hardening lane that treats install/update reliability, managed-service health, and MCP usability as one coordinated product target
 - MCP is present and functional, but it has not yet been hardened and validated as a release-quality interface with clear readiness criteria, predictable failure handling, and explicit operator guidance
+- `release check --require-managed-runtime` now combines repo release discipline with the installed `slack-mirror-user user-env check-live --json` gate, including real MCP stdio and concurrent MCP readiness probes
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:

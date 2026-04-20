@@ -2197,7 +2197,7 @@ except Exception:
         COMPREPLY=( $(compgen -W "$release_sub" -- "$cur") )
         return 0
       fi
-      COMPREPLY=( $(compgen -W "--json --require-clean --require-release-version" -- "$cur") )
+      COMPREPLY=( $(compgen -W "--json --require-clean --require-release-version --require-managed-runtime" -- "$cur") )
       ;;
     user-env)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
@@ -2387,7 +2387,7 @@ _slack_mirror() {
         _describe 'release command' release_sub
         return
       fi
-      _arguments '--json[json output]' '--require-clean[fail when git worktree is dirty]' '--require-release-version[fail when version is still a development version]'
+      _arguments '--json[json output]' '--require-clean[fail when git worktree is dirty]' '--require-release-version[fail when version is still a development version]' '--require-managed-runtime[fail unless the managed user runtime passes user-env check-live]'
       ;;
     user-env)
       if (( CURRENT == 3 )); then
@@ -2435,6 +2435,7 @@ def cmd_release_check(args: argparse.Namespace) -> int:
         json_output=bool(args.json),
         require_clean=bool(args.require_clean),
         require_release_version=bool(args.require_release_version),
+        require_managed_runtime=bool(args.require_managed_runtime),
     )
 
 
@@ -3279,6 +3280,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-release-version",
         action="store_true",
         help="fail when pyproject version is still a development version",
+    )
+    p_release_check.add_argument(
+        "--require-managed-runtime",
+        action="store_true",
+        help="fail unless the managed user runtime passes user-env check-live",
     )
     p_release_check.set_defaults(func=cmd_release_check)
 

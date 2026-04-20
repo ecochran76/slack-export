@@ -119,3 +119,54 @@ class ReleaseCheckTests(unittest.TestCase):
         payload = json.loads(output[0])
         self.assertEqual(payload["status"], "fail")
         self.assertIn("DIRTY_WORKTREE", payload["failure_codes"])
+
+    def test_release_check_requires_managed_runtime_when_requested(self):
+        output = []
+        seen_managed = []
+
+        def runner(args, check=False, text=False, cwd=None, capture_output=False):
+            if "check_generated_docs.py" in " ".join(args):
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok\n", stderr="")
+            if "audit_planning_contract.py" in " ".join(args):
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout='{"ok": true}\n', stderr="")
+            if args[:4] == ["slack-mirror-user", "user-env", "check-live", "--json"]:
+                seen_managed.append(list(args))
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout='{"ok": true}\n', stderr="")
+            raise AssertionError(f"unexpected command: {args}")
+
+        rc = release_check(
+            repo_root=self.root,
+            runner=runner,
+            out=output.append,
+            json_output=True,
+            require_managed_runtime=True,
+        )
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(output[0])
+        self.assertTrue(payload["require_managed_runtime"])
+        self.assertEqual(len(seen_managed), 1)
+
+    def test_release_check_fails_when_managed_runtime_check_fails(self):
+        output = []
+
+        def runner(args, check=False, text=False, cwd=None, capture_output=False):
+            if "check_generated_docs.py" in " ".join(args):
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok\n", stderr="")
+            if "audit_planning_contract.py" in " ".join(args):
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout='{"ok": true}\n', stderr="")
+            if args[:4] == ["slack-mirror-user", "user-env", "check-live", "--json"]:
+                return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="mcp probe failed")
+            raise AssertionError(f"unexpected command: {args}")
+
+        rc = release_check(
+            repo_root=self.root,
+            runner=runner,
+            out=output.append,
+            json_output=True,
+            require_managed_runtime=True,
+        )
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(output[0])
+        self.assertIn("MANAGED_RUNTIME_CHECK_FAILED", payload["failure_codes"])

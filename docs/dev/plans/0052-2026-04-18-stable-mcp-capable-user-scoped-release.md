@@ -47,6 +47,10 @@ This plan does not include:
 - the next `P11` slice is also landed:
   - `user-env status` and `user-env check-live` now include a bounded concurrent MCP readiness probe instead of validating only a single stdio client
   - the shared lightweight runtime status surface now exposes concurrent MCP readiness state so API and MCP callers can see the same release gate
+- the next `P11` slice is also landed:
+  - `release check --require-managed-runtime` combines repo-local release discipline with the installed `slack-mirror-user user-env check-live --json` gate
+  - the stronger release gate is opt-in so repo-only development machines and CI are not blocked by the absence of a managed user install
+  - managed runtime failures now surface through the same release-check issue envelope as docs, planning, version, and worktree failures
 - the current baseline is functional, but the product still lacks one bounded release lane that treats install/update, managed-runtime health, and MCP usability as one coordinated target
 - MCP exists, but it is not yet clearly validated as a stable release interface with explicit readiness criteria, bounded failure modes, and strong operator guidance
 - the user wants this worktree to focus on the stable release line, while frontend migration proceeds separately in its own worktree

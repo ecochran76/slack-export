@@ -34,6 +34,8 @@ For release smoke and unattended installs, treat `slack-mirror user-env check-li
 - a bounded concurrent MCP readiness probe across multiple simultaneous wrapper launches
 - full live validation for config, DB, workspace sync, tokens, queue health, and live units
 
+For release signoff from a repo checkout, use `slack-mirror release check --require-managed-runtime` to combine repo release discipline with the installed `slack-mirror-user user-env check-live --json` gate. Keep plain `slack-mirror release check` for repo-only development machines that do not have a managed install.
+
 A fresh `user-env install` is intentionally narrower: it bootstraps the managed runtime, seeds the configured dotenv file if needed, and leaves workspace credentials plus live units for the later onboarding steps.
 
 For adding another tenant/workspace to an existing managed install, prefer the guided scaffold path:
@@ -109,6 +111,7 @@ slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/s
 slack-mirror search health --workspace default --target derived_text --dataset ./docs/dev/benchmarks/slack_derived_text_smoke.jsonl --mode semantic
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_depth.jsonl
 slack-mirror release check
+slack-mirror release check --require-managed-runtime
 slack-mirror release check --require-clean --require-release-version
 ./.venv/bin/python -m unittest discover -s tests -v
 ```

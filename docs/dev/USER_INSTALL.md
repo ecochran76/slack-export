@@ -105,6 +105,14 @@ slack-mirror-user user-env check-live --json
 
 Use `check-live` as the best single signoff that the managed install, config, API service, MCP launcher, workspace sync, and live units are aligned.
 
+For release signoff from a repo checkout, run:
+
+```bash
+slack-mirror release check --require-managed-runtime
+```
+
+That command keeps the normal repo release checks and also runs the installed `slack-mirror-user user-env check-live --json` gate. Use plain `slack-mirror release check` when you only want repo-local validation on a development machine that does not have a managed install.
+
 7. Bootstrap the first browser user without reopening public self-registration:
 
 ```bash

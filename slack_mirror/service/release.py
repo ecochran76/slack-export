@@ -32,6 +32,7 @@ class ReleaseCheckReport:
     version: str
     require_clean: bool
     require_release_version: bool
+    require_managed_runtime: bool
     failure_codes: list[str]
     warning_codes: list[str]
     failures: list[ReleaseCheckIssue]
@@ -110,6 +111,7 @@ def _report_payload(report: ReleaseCheckReport) -> dict[str, object]:
         "version": report.version,
         "require_clean": report.require_clean,
         "require_release_version": report.require_release_version,
+        "require_managed_runtime": report.require_managed_runtime,
         "failure_codes": report.failure_codes,
         "warning_codes": report.warning_codes,
         "failures": _issue_payload(report.failures),
@@ -125,6 +127,7 @@ def release_check(
     json_output: bool = False,
     require_clean: bool = False,
     require_release_version: bool = False,
+    require_managed_runtime: bool = False,
 ) -> int:
     root = (repo_root or _repo_root()).resolve()
     failures: list[ReleaseCheckIssue] = []
@@ -183,6 +186,13 @@ def release_check(
         except Exception as exc:  # noqa: BLE001
             fail("GIT_STATUS_FAILED", f"git status check failed: {exc}", git_cmd)
 
+    if require_managed_runtime:
+        managed_cmd = ["slack-mirror-user", "user-env", "check-live", "--json"]
+        try:
+            _run_checked(runner, managed_cmd, cwd=root)
+        except Exception as exc:  # noqa: BLE001
+            fail("MANAGED_RUNTIME_CHECK_FAILED", f"managed runtime check failed: {exc}", managed_cmd)
+
     if failures:
         report = ReleaseCheckReport(
             ok=False,
@@ -192,6 +202,7 @@ def release_check(
             version=version,
             require_clean=require_clean,
             require_release_version=require_release_version,
+            require_managed_runtime=require_managed_runtime,
             failure_codes=sorted({item.code for item in failures}),
             warning_codes=sorted({item.code for item in warnings}),
             failures=failures,
@@ -206,6 +217,7 @@ def release_check(
             version=version,
             require_clean=require_clean,
             require_release_version=require_release_version,
+            require_managed_runtime=require_managed_runtime,
             failure_codes=[],
             warning_codes=sorted({item.code for item in warnings}),
             failures=[],
@@ -220,6 +232,7 @@ def release_check(
             version=version,
             require_clean=require_clean,
             require_release_version=require_release_version,
+            require_managed_runtime=require_managed_runtime,
             failure_codes=[],
             warning_codes=[],
             failures=[],
