@@ -2373,6 +2373,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         use_fts=query.get("no_fts", ["0"])[0] not in {"1", "true", "yes"},
                         derived_kind=query.get("kind", [None])[0],
                         derived_source_kind=query.get("source_kind", [None])[0],
+                        rerank=query.get("rerank", ["0"])[0] in {"1", "true", "yes"},
+                        rerank_top_n=int(query.get("rerank_top_n", [50])[0]),
                     )
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, workspace=m.group(1), operation="search.corpus")
@@ -2401,6 +2403,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                         use_fts=query.get("no_fts", ["0"])[0] not in {"1", "true", "yes"},
                         derived_kind=query.get("kind", [None])[0],
                         derived_source_kind=query.get("source_kind", [None])[0],
+                        rerank=query.get("rerank", ["0"])[0] in {"1", "true", "yes"},
+                        rerank_top_n=int(query.get("rerank_top_n", [50])[0]),
                     )
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, operation="search.corpus")

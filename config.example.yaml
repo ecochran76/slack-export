@@ -49,6 +49,9 @@ search:
       lexical: ${SLACK_MIRROR_SEARCH_LEXICAL_WEIGHT:-0.6}
       semantic: ${SLACK_MIRROR_SEARCH_SEMANTIC_WEIGHT:-0.4}
       semantic_scale: ${SLACK_MIRROR_SEARCH_SEMANTIC_SCALE:-10.0}
+  rerank:
+    provider:
+      type: ${SLACK_MIRROR_RERANK_PROVIDER:-heuristic}
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}

@@ -1044,6 +1044,7 @@ def cmd_messages_list(args: argparse.Namespace) -> int:
 def cmd_search_keyword(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.search.keyword import search_messages
+    from slack_mirror.search.rerankers import build_reranker_provider
 
     cfg = load_config(args.config)
     db_path = cfg.get("storage", {}).get("db_path", "./data/slack_mirror.db")
@@ -1060,6 +1061,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
     profiles = search_cfg.get("query_profiles", {})
     profile_cfg = profiles.get(args.profile, {}) if args.profile else {}
     embedding_provider = build_embedding_provider(cfg.data)
+    reranker_provider = build_reranker_provider(cfg.data) if args.rerank else None
 
     mode = args.mode or profile_cfg.get("mode") or semantic_cfg.get("mode_default", "lexical")
     model = args.model or profile_cfg.get("model") or semantic_cfg.get("model", "local-hash-128")
@@ -1097,6 +1099,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
         rerank=args.rerank,
         rerank_top_n=args.rerank_top_n,
         provider=embedding_provider,
+        reranker_provider=reranker_provider,
     )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -1167,6 +1170,7 @@ def cmd_search_keyword(args: argparse.Namespace) -> int:
                     f" lex={r.get('_lexical_score', r.get('_score', 0))}"
                     f" sem={r.get('_semantic_score', 0)}"
                     f" hyb={r.get('_hybrid_score', 0)}"
+                    f" rerank={r.get('_rerank_score', 0)}"
                 )
             print(line)
 
@@ -1275,6 +1279,7 @@ def cmd_search_derived_text(args: argparse.Namespace) -> int:
 
 def cmd_search_corpus(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider
+    from slack_mirror.search.rerankers import build_reranker_provider
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
@@ -1288,6 +1293,7 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
     semantic_weight = float(args.semantic_weight if args.semantic_weight is not None else semantic_cfg.get("weights", {}).get("semantic", 0.4))
     semantic_scale = float(args.semantic_scale if args.semantic_scale is not None else semantic_cfg.get("weights", {}).get("semantic_scale", 10.0))
     embedding_provider = build_embedding_provider(service.config.data)
+    reranker_provider = build_reranker_provider(service.config.data) if args.rerank else None
 
     rows = service.corpus_search(
         conn,
@@ -1304,6 +1310,9 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
         derived_kind=args.kind,
         derived_source_kind=args.source_kind,
         message_embedding_provider=embedding_provider,
+        rerank=args.rerank,
+        rerank_top_n=args.rerank_top_n,
+        reranker_provider=reranker_provider,
     )
     if args.json:
         print(json.dumps(rows, indent=2))
@@ -1322,6 +1331,7 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
                     f" lex={row.get('_lexical_score', row.get('_score', 0))}"
                     f" sem={row.get('_semantic_score', 0)}"
                     f" hyb={row.get('_hybrid_score', 0)}"
+                    f" rerank={row.get('_rerank_score', 0)}"
                 )
             print(line)
     scope = "all" if args.all_workspaces else str(args.workspace)
@@ -2873,6 +2883,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_corpus.add_argument("--semantic-weight", type=float, default=None, help="hybrid semantic score weight")
     p_search_corpus.add_argument("--semantic-scale", type=float, default=None, help="semantic score scaling factor")
     p_search_corpus.add_argument("--no-fts", action="store_true", help="disable FTS prefilter for message lexical search")
+    p_search_corpus.add_argument("--rerank", action="store_true", help="rerank the top corpus candidates")
+    p_search_corpus.add_argument("--rerank-top-n", type=int, default=50, help="number of top corpus candidates to rerank")
     p_search_corpus.add_argument(
         "--kind",
         choices=["attachment_text", "ocr_text"],

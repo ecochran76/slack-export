@@ -6,6 +6,7 @@ from typing import Any
 from slack_mirror.search.embeddings import EmbeddingProvider
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import search_messages
+from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 
 
 def _message_key(row: dict[str, Any]) -> tuple[str, str]:
@@ -51,6 +52,9 @@ def _search_corpus_rows(
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
     message_embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -68,6 +72,8 @@ def _search_corpus_rows(
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
+        if rerank:
+            merged = rerank_rows(merged, query=q, top_n=rerank_top_n, provider=reranker_provider)
         return merged
 
     if mode == "semantic":
@@ -101,6 +107,8 @@ def _search_corpus_rows(
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
+        if rerank:
+            merged = rerank_rows(merged, query=q, top_n=rerank_top_n, provider=reranker_provider)
         return merged
 
     msg_lexical = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
@@ -168,6 +176,8 @@ def _search_corpus_rows(
     for row in out:
         row["workspace_id"] = workspace_id
         row["workspace"] = workspace_name
+    if rerank:
+        out = rerank_rows(out, query=q, top_n=rerank_top_n, provider=reranker_provider)
     return out
 
 
@@ -188,6 +198,9 @@ def search_corpus(
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
     message_embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> list[dict[str, Any]]:
     slice_limit = max(1, int(limit or 20))
     slice_offset = max(0, int(offset or 0))
@@ -207,6 +220,9 @@ def search_corpus(
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
         message_embedding_provider=message_embedding_provider,
+        rerank=rerank,
+        rerank_top_n=rerank_top_n,
+        reranker_provider=reranker_provider,
     )
     return rows[slice_offset : slice_offset + slice_limit]
 
@@ -228,6 +244,9 @@ def search_corpus_page(
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
     message_embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> dict[str, Any]:
     page_limit = max(1, int(limit or 20))
     page_offset = max(0, int(offset or 0))
@@ -247,6 +266,9 @@ def search_corpus_page(
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
         message_embedding_provider=message_embedding_provider,
+        rerank=rerank,
+        rerank_top_n=rerank_top_n,
+        reranker_provider=reranker_provider,
     )
     return {
         "results": rows[page_offset : page_offset + page_limit],
@@ -272,6 +294,9 @@ def _search_corpus_multi_rows(
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
     message_embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> list[dict[str, Any]]:
     if not workspaces:
         return []
@@ -297,6 +322,7 @@ def _search_corpus_multi_rows(
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
                 message_embedding_provider=message_embedding_provider,
+                rerank=False,
             )
         )
 
@@ -306,6 +332,8 @@ def _search_corpus_multi_rows(
         rows.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
     else:
         rows.sort(key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+    if rerank:
+        rows = rerank_rows(rows, query=query, top_n=rerank_top_n, provider=reranker_provider)
     return rows
 
 
@@ -325,6 +353,9 @@ def search_corpus_multi(
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
     message_embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> list[dict[str, Any]]:
     slice_limit = max(1, int(limit or 20))
     slice_offset = max(0, int(offset or 0))
@@ -343,6 +374,9 @@ def search_corpus_multi(
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
         message_embedding_provider=message_embedding_provider,
+        rerank=rerank,
+        rerank_top_n=rerank_top_n,
+        reranker_provider=reranker_provider,
     )
     return rows[slice_offset : slice_offset + slice_limit]
 
@@ -363,6 +397,9 @@ def search_corpus_multi_page(
     derived_kind: str | None = None,
     derived_source_kind: str | None = None,
     message_embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> dict[str, Any]:
     page_limit = max(1, int(limit or 20))
     page_offset = max(0, int(offset or 0))
@@ -381,6 +418,9 @@ def search_corpus_multi_page(
         derived_kind=derived_kind,
         derived_source_kind=derived_source_kind,
         message_embedding_provider=message_embedding_provider,
+        rerank=rerank,
+        rerank_top_n=rerank_top_n,
+        reranker_provider=reranker_provider,
     )
     return {
         "results": rows[page_offset : page_offset + page_limit],

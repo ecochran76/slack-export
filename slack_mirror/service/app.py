@@ -32,6 +32,7 @@ from slack_mirror.exports import (
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.embeddings import build_embedding_provider, probe_embedding_provider
 from slack_mirror.search.eval import dataset_rows, evaluate_corpus_search, evaluate_derived_text_search
+from slack_mirror.search.rerankers import build_reranker_provider
 from slack_mirror.service.frontend_auth import (
     FrontendAuthConfig,
     FrontendAuthIssueResult,
@@ -134,6 +135,7 @@ class SlackMirrorAppService:
         self.db_path = self.config.get("storage", {}).get("db_path", "./data/slack_mirror.db")
         self.migrations_dir = str(Path(__file__).resolve().parents[1] / "core" / "migrations")
         self._message_embedding_provider = None
+        self._reranker_provider = None
 
     def connect(self):
         conn = connect(self.db_path)
@@ -147,6 +149,11 @@ class SlackMirrorAppService:
 
     def message_embedding_probe(self, *, model_id: str | None = None, smoke_texts: list[str] | None = None) -> dict[str, Any]:
         return probe_embedding_provider(self.config.data, model_id=model_id, smoke_texts=smoke_texts)
+
+    def reranker_provider(self):
+        if self._reranker_provider is None:
+            self._reranker_provider = build_reranker_provider(self.config.data)
+        return self._reranker_provider
 
     def validate_live_runtime(self, *, require_live_units: bool = True) -> LiveValidationResult:
         default_paths = default_user_env_paths()
@@ -748,8 +755,12 @@ class SlackMirrorAppService:
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
         message_embedding_provider=None,
+        rerank: bool = False,
+        rerank_top_n: int = 50,
+        reranker_provider=None,
     ) -> list[dict[str, Any]]:
         provider = message_embedding_provider or self.message_embedding_provider()
+        active_reranker_provider = (reranker_provider or self.reranker_provider()) if rerank else None
         if all_workspaces:
             if workspace:
                 raise ValueError("workspace must not be set when all_workspaces is true")
@@ -769,6 +780,9 @@ class SlackMirrorAppService:
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
                 message_embedding_provider=provider,
+                rerank=rerank,
+                rerank_top_n=rerank_top_n,
+                reranker_provider=active_reranker_provider,
             )
 
         if not workspace:
@@ -790,6 +804,9 @@ class SlackMirrorAppService:
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
             message_embedding_provider=provider,
+            rerank=rerank,
+            rerank_top_n=rerank_top_n,
+            reranker_provider=active_reranker_provider,
         )
 
     def corpus_search_page(
@@ -810,8 +827,12 @@ class SlackMirrorAppService:
         derived_kind: str | None = None,
         derived_source_kind: str | None = None,
         message_embedding_provider=None,
+        rerank: bool = False,
+        rerank_top_n: int = 50,
+        reranker_provider=None,
     ) -> dict[str, Any]:
         provider = message_embedding_provider or self.message_embedding_provider()
+        active_reranker_provider = (reranker_provider or self.reranker_provider()) if rerank else None
         if all_workspaces:
             if workspace:
                 raise ValueError("workspace must not be set when all_workspaces is true")
@@ -831,6 +852,9 @@ class SlackMirrorAppService:
                 derived_kind=derived_kind,
                 derived_source_kind=derived_source_kind,
                 message_embedding_provider=provider,
+                rerank=rerank,
+                rerank_top_n=rerank_top_n,
+                reranker_provider=active_reranker_provider,
             )
 
         if not workspace:
@@ -852,6 +876,9 @@ class SlackMirrorAppService:
             derived_kind=derived_kind,
             derived_source_kind=derived_source_kind,
             message_embedding_provider=provider,
+            rerank=rerank,
+            rerank_top_n=rerank_top_n,
+            reranker_provider=active_reranker_provider,
         )
 
     def get_message_detail(

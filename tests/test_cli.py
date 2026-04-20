@@ -700,6 +700,9 @@ class CliTests(unittest.TestCase):
                 "ocr_text",
                 "--source-kind",
                 "file",
+                "--rerank",
+                "--rerank-top-n",
+                "25",
                 "--limit",
                 "8",
                 "--explain",
@@ -712,6 +715,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.mode, "hybrid")
         self.assertEqual(args.kind, "ocr_text")
         self.assertEqual(args.source_kind, "file")
+        self.assertTrue(args.rerank)
+        self.assertEqual(args.rerank_top_n, 25)
         self.assertEqual(args.limit, 8)
         self.assertTrue(args.explain)
         self.assertTrue(args.json)

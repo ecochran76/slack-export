@@ -1756,7 +1756,15 @@ class ApiServerTests(unittest.TestCase):
 
             corpus = requests.get(
                 f"{base_url}/v1/workspaces/default/search/corpus",
-                params={"query": "incident review", "mode": "hybrid", "kind": "ocr_text", "source_kind": "file", "offset": "10"},
+                params={
+                    "query": "incident review",
+                    "mode": "hybrid",
+                    "kind": "ocr_text",
+                    "source_kind": "file",
+                    "offset": "10",
+                    "rerank": "1",
+                    "rerank_top_n": "25",
+                },
                 timeout=5,
             )
             self.assertEqual(corpus.status_code, 200)
@@ -1776,6 +1784,9 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(all_corpus.json()["offset"], 20)
             self.assertEqual(all_corpus.json()["total"], 37)
             self.assertEqual(service.corpus_search_page.call_count, 2)
+            first_call = service.corpus_search_page.call_args_list[0].kwargs
+            self.assertTrue(first_call["rerank"])
+            self.assertEqual(first_call["rerank_top_n"], 25)
 
             message_detail = requests.get(
                 f"{base_url}/v1/workspaces/default/messages/C123/1712870400.000100",

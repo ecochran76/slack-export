@@ -96,6 +96,7 @@ slack-mirror api serve
 slack-mirror search derived-text --workspace default --query "incident review"
 slack-mirror search derived-text --workspace default --query "invoice total" --kind ocr_text
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid
+slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --rerank --rerank-top-n 50
 slack-mirror search corpus --all-workspaces --query "incident review" --mode hybrid
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
@@ -131,6 +132,7 @@ The current repo has:
 - bounded derived-text chunk rollout controls through `slack-mirror mirror derived-text-embeddings-backfill --kind ... --source-kind ... --order ...`
 - model-aware readiness and health reporting, so partial rollout of the configured semantic model is visible instead of silently looking complete
 - an explicit derived-text benchmark target through `search health --target derived_text`, with chunk-aware benchmark query reports for attachment/OCR evaluation
+- an explicit reranker-provider seam, with the current heuristic reranker available for opt-in message and corpus searches before learned local reranking is introduced
 - a bounded DOCX-grade export follow-up lane, with channel/day JSON as the canonical artifact for future DOCX rendering
 
 For local semantic model work such as `BAAI/bge-m3`, install the optional extra into the repo env first:
@@ -184,6 +186,20 @@ uv run slack-mirror search health \
 ```
 
 The derived-text benchmark target emits chunk-aware query reports, including `chunk_index`, `matched_text`, and source metadata for the top derived-text results, so degraded attachment/OCR queries are diagnosable without ad hoc local probing.
+
+For bounded reranking on top of the current retrieval candidates, use:
+
+```bash
+uv run slack-mirror search corpus \
+  --workspace default \
+  --query "incident review" \
+  --mode hybrid \
+  --rerank \
+  --rerank-top-n 50 \
+  --explain
+```
+
+The shipped reranker provider is still heuristic. This is a provider-seam and control-surface step; learned local reranking with a model such as `BAAI/bge-reranker-v2-m3` remains a follow-on `P10` slice.
 - the shipped DOCX baseline now includes:
   - explicit paragraph styles over the same channel/day JSON artifact
   - compact 1in-margin, sans-serif 10pt defaults

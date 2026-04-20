@@ -2977,3 +2977,29 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
   - `python scripts/check_generated_docs.py`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+
+## Turn 197 | 2026-04-19
+
+- Opened the next bounded `P10` slice:
+  - `0061-2026-04-19-reranker-provider-seam.md`
+- Scoped it to the reranking seam before learned reranker rollout:
+  - add a shared reranker provider contract
+  - preserve the existing heuristic reranker as the baseline implementation
+  - add opt-in corpus reranking over message plus derived-text candidates
+- Implemented the reranker seam slice:
+  - added `slack_mirror.search.rerankers` with `none` and `heuristic` providers
+  - migrated message reranking through the shared provider boundary
+  - added opt-in corpus reranking controls across CLI, API, MCP, and service calls
+- Updated docs and generated CLI reference:
+  - `README.md`
+  - `docs/CONFIG.md`
+  - `docs/CLI.md`
+  - `docs/slack-mirror.1`
+- Validation:
+  - `uv run python -m unittest tests.test_search tests.test_cli.CliTests.test_parse_search_keyword_ranking_weights tests.test_cli.CliTests.test_parse_search_corpus tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_mcp_server.McpServerTests.test_search_tools -v`
+  - `python -m py_compile slack_mirror/search/rerankers.py slack_mirror/search/keyword.py slack_mirror/search/corpus.py slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py tests/test_search.py tests/test_cli.py tests/test_api_server.py tests/test_mcp_server.py`
+  - `uv run python -m unittest tests.test_search tests.test_cli tests.test_api_server tests.test_mcp_server -v`
+  - `uv run slack-mirror docs generate --format markdown --output docs/CLI.md`
+  - `uv run slack-mirror docs generate --format man --output docs/slack-mirror.1`
+  - `python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`

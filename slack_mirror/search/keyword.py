@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import shlex
 import sqlite3
+import shlex
 from array import array
 from typing import Any
 
 from slack_mirror.search.embeddings import EmbeddingProvider, cosine_similarity, embed_text
+from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 from slack_mirror.search.sqlite_adapter import SQLiteCorpusAdapter
 
 
@@ -343,33 +344,6 @@ def _search_semantic(
     return scored[: max(1, limit)]
 
 
-def _heuristic_rerank(rows: list[dict[str, Any]], query: str, top_n: int) -> list[dict[str, Any]]:
-    if not rows or top_n <= 1:
-        return rows
-    q_terms = [t.lower() for t in shlex.split(query or "") if t and ":" not in t and not t.startswith("-")]
-    if not q_terms:
-        return rows
-
-    head = rows[:top_n]
-    tail = rows[top_n:]
-    rescored: list[dict[str, Any]] = []
-    for r in head:
-        text = (r.get("text") or "").lower()
-        term_presence = sum(1 for t in set(q_terms) if t in text)
-        density = term_presence / max(1, len(text.split()))
-        proximity = 0.0
-        for t in set(q_terms):
-            i = text.find(t)
-            if i >= 0:
-                proximity += 1.0 / (1.0 + i)
-        base = float(r.get("_hybrid_score") or r.get("_score") or r.get("_semantic_score") or 0.0)
-        rerank = base + (term_presence * 0.15) + (density * 5.0) + proximity
-        rescored.append({**r, "_rerank_score": round(rerank, 6)})
-
-    rescored.sort(key=lambda x: float(x.get("_rerank_score") or 0.0), reverse=True)
-    return rescored + tail
-
-
 def search_messages(
     conn: sqlite3.Connection,
     *,
@@ -389,6 +363,7 @@ def search_messages(
     rerank: bool = False,
     rerank_top_n: int = 50,
     provider: EmbeddingProvider | None = None,
+    reranker_provider: RerankerProvider | None = None,
 ) -> list[dict[str, Any]]:
     q = (query or "").strip()
     if not q:
@@ -407,10 +382,10 @@ def search_messages(
             rank_thread_weight=rank_thread_weight,
             rank_recency_weight=rank_recency_weight,
         )
-        return _heuristic_rerank(out, q, rerank_top_n)[: max(1, limit)] if rerank else out
+        return rerank_rows(out, query=q, top_n=rerank_top_n, provider=reranker_provider)[: max(1, limit)] if rerank else out
     if mode == "semantic":
         out = _search_semantic(conn, workspace_id=workspace_id, query=q, model_id=model_id, limit=limit, provider=provider)
-        return _heuristic_rerank(out, q, rerank_top_n)[: max(1, limit)] if rerank else out
+        return rerank_rows(out, query=q, top_n=rerank_top_n, provider=reranker_provider)[: max(1, limit)] if rerank else out
 
     lexical = _search_lexical(
         conn,
@@ -463,5 +438,5 @@ def search_messages(
 
     out = sorted(merged.values(), key=lambda x: (float(x.get("_hybrid_score") or 0.0), float(x.get("ts") or 0.0)), reverse=True)
     if rerank:
-        out = _heuristic_rerank(out, q, rerank_top_n)
+        out = rerank_rows(out, query=q, top_n=rerank_top_n, provider=reranker_provider)
     return out[: max(1, limit)]

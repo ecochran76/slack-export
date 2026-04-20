@@ -54,6 +54,9 @@ search:
       lexical: ${SLACK_MIRROR_SEARCH_LEXICAL_WEIGHT:-0.6}
       semantic: ${SLACK_MIRROR_SEARCH_SEMANTIC_WEIGHT:-0.4}
       semantic_scale: ${SLACK_MIRROR_SEARCH_SEMANTIC_SCALE:-10.0}
+  rerank:
+    provider:
+      type: ${SLACK_MIRROR_RERANK_PROVIDER:-heuristic}
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}
@@ -161,6 +164,11 @@ Notes:
 - Message rollout and derived-text chunk rollout are intentionally separate:
   - messages: `uv run slack-mirror mirror embeddings-backfill ...`
   - derived-text chunks: `uv run slack-mirror mirror derived-text-embeddings-backfill ...`
+- Reranking is currently an explicit opt-in search behavior:
+  - message search: `slack-mirror search keyword ... --rerank`
+  - corpus search: `slack-mirror search corpus ... --rerank`
+  - current provider: `search.rerank.provider.type: heuristic`
+  - planned learned provider: local cross-encoder reranking in a later bounded slice
 
 Provider field semantics:
 
@@ -223,6 +231,7 @@ For automation, prefer passing an explicit `--config` path anyway.
 - `search.keyword.weights.*` tunes the lexical scorer.
 - `search.semantic.weights.*` tunes hybrid lexical-vs-semantic fusion for message and corpus search.
 - `search.derived_text.provider.*` controls attachment and OCR extraction providers separately from message embeddings.
+- `search.rerank.provider.type` selects the reranker provider for explicit `--rerank` searches. The shipped baseline supports `heuristic` and `none`; learned local reranking is a later `P10` slice.
 - `search.embeddings_model` remains as a legacy field from earlier hosted-embedding work and is no longer the primary selector for the local message-semantic path; prefer `search.semantic.model`.
 - `search readiness` and `search health` now report configured-model coverage separately for:
   - message embeddings

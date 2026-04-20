@@ -6,11 +6,31 @@ from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upse
 from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
+from slack_mirror.search.rerankers import build_reranker_provider, rerank_rows
 from slack_mirror.sync.embeddings import process_embedding_jobs
 from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 
 
 class SearchTests(unittest.TestCase):
+    def test_reranker_provider_seam_scores_rows(self):
+        class FakeReranker:
+            name = "fake_reranker"
+
+            def score(self, *, query, documents):
+                return [10.0 if "target" in doc else 0.0 for doc in documents]
+
+        rows = [
+            {"text": "ordinary result", "_score": 5.0},
+            {"text": "target result", "_score": 1.0},
+        ]
+
+        reranked = rerank_rows(rows, query="target", top_n=2, provider=FakeReranker())
+
+        self.assertEqual(reranked[0]["text"], "target result")
+        self.assertEqual(reranked[0]["_rerank_provider"], "fake_reranker")
+        self.assertGreater(reranked[0]["_rerank_score"], reranked[1]["_rerank_score"])
+        self.assertEqual(build_reranker_provider({"search": {"rerank": {"provider": {"type": "none"}}}}).name, "none")
+
     def test_search_messages_semantic_uses_provider_routing(self):
         class FakeProvider:
             name = "fake_provider"
@@ -141,6 +161,38 @@ class SearchTests(unittest.TestCase):
             )
             self.assertGreaterEqual(len(hyb_rows), 1)
             self.assertIn("_hybrid_score", hyb_rows[0])
+
+    def test_search_messages_rerank_uses_provider(self):
+        class FakeReranker:
+            name = "fake_reranker"
+
+            def score(self, *, query, documents):
+                return [10.0 if "second" in doc else 0.0 for doc in documents]
+
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "deploy first candidate", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "2.0", "text": "deploy second candidate", "user": "U1"})
+
+            rows = search_messages(
+                conn,
+                workspace_id=ws_id,
+                query="deploy",
+                limit=2,
+                rerank=True,
+                rerank_top_n=2,
+                reranker_provider=FakeReranker(),
+            )
+
+            self.assertEqual(rows[0]["text"], "deploy second candidate")
+            self.assertEqual(rows[0]["_rerank_provider"], "fake_reranker")
 
     def test_search_derived_text_rows(self):
         with tempfile.TemporaryDirectory() as td:
@@ -312,6 +364,58 @@ class SearchTests(unittest.TestCase):
             self.assertIn("message", kinds)
             self.assertIn("derived_text", kinds)
             self.assertTrue(any("_hybrid_score" in row for row in rows))
+
+    def test_search_corpus_can_rerank_fused_candidates(self):
+        class FakeReranker:
+            name = "fake_reranker"
+
+            def score(self, *, query, documents):
+                return [10.0 if "appendix target" in doc else 0.0 for doc in documents]
+
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "incident ordinary message", "user": "U1"})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F9', 'appendix.txt', 'Appendix', 'text/plain', '/tmp/appendix.txt', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F9",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text="incident appendix target",
+                media_type="text/plain",
+                local_path="/tmp/appendix.txt",
+            )
+
+            rows = search_corpus(
+                conn,
+                workspace_id=ws_id,
+                query="incident",
+                limit=5,
+                mode="lexical",
+                rerank=True,
+                rerank_top_n=5,
+                reranker_provider=FakeReranker(),
+            )
+
+            self.assertEqual(rows[0]["result_kind"], "derived_text")
+            self.assertEqual(rows[0]["source_id"], "F9")
+            self.assertEqual(rows[0]["_rerank_provider"], "fake_reranker")
+            self.assertIn("_rerank_score", rows[0])
 
     def test_search_corpus_uses_chunk_snippet_for_derived_text(self):
         with tempfile.TemporaryDirectory() as td:

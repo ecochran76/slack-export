@@ -620,7 +620,13 @@ class McpServerTests(unittest.TestCase):
                     "method": "tools/call",
                     "params": {
                         "name": "search.corpus",
-                        "arguments": {"workspace": "default", "query": "incident review", "mode": "hybrid"},
+                        "arguments": {
+                            "workspace": "default",
+                            "query": "incident review",
+                            "mode": "hybrid",
+                            "rerank": True,
+                            "rerank_top_n": 25,
+                        },
                     },
                 }
             )
@@ -651,6 +657,9 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"result_kind": "message"', corpus_all["result"]["content"][0]["text"])
         self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
         self.assertEqual(mock_corpus.call_count, 2)
+        first_call = mock_corpus.call_args_list[0].kwargs
+        self.assertTrue(first_call["rerank"])
+        self.assertEqual(first_call["rerank_top_n"], 25)
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
 
     def test_search_health_tool(self):

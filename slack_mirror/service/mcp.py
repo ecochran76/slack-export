@@ -133,6 +133,8 @@ class SlackMirrorMcpServer:
                         "semantic_weight": {"type": "number", "default": 0.4},
                         "semantic_scale": {"type": "number", "default": 10.0},
                         "no_fts": {"type": "boolean", "default": False},
+                        "rerank": {"type": "boolean", "default": False},
+                        "rerank_top_n": {"type": "integer", "default": 50},
                         "kind": {"type": "string", "enum": ["attachment_text", "ocr_text"]},
                         "source_kind": {"type": "string", "enum": ["file", "canvas"]},
                     },
@@ -335,6 +337,8 @@ class SlackMirrorMcpServer:
                         use_fts=not bool(args.get("no_fts", False)),
                         derived_kind=str(args["kind"]) if args.get("kind") is not None else None,
                         derived_source_kind=str(args["source_kind"]) if args.get("source_kind") is not None else None,
+                        rerank=bool(args.get("rerank", False)),
+                        rerank_top_n=int(args.get("rerank_top_n", 50)),
                     )
                 }
             )

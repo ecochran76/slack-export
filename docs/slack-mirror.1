@@ -627,6 +627,7 @@ usage: slack-mirror search corpus [-h]
                                   [--lexical-weight LEXICAL_WEIGHT]
                                   [--semantic-weight SEMANTIC_WEIGHT]
                                   [--semantic-scale SEMANTIC_SCALE] [--no-fts]
+                                  [--rerank] [--rerank-top-n RERANK_TOP_N]
                                   [--kind {attachment_text,ocr_text}]
                                   [--source-kind {file,canvas}] [--explain]
                                   [--json]
@@ -652,6 +653,10 @@ usage: slack-mirror search corpus [-h]
 `--semantic-scale` — semantic score scaling factor
 .IP \[bu] 2
 `--no-fts` — disable FTS prefilter for message lexical search
+.IP \[bu] 2
+`--rerank` — rerank the top corpus candidates
+.IP \[bu] 2
+`--rerank-top-n` — number of top corpus candidates to rerank; default: `50`
 .IP \[bu] 2
 `--kind` — optional derived-text kind filter
 .IP \[bu] 2
