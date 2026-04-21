@@ -788,7 +788,10 @@ usage: slack-mirror search context-pack [-h] --targets-json TARGETS_JSON
                                         [--before BEFORE] [--after AFTER]
                                         [--no-text]
                                         [--max-text-chars MAX_TEXT_CHARS]
-                                        [--json]
+                                        [--managed-export]
+                                        [--export-id EXPORT_ID]
+                                        [--title TITLE]
+                                        [--audience {local,external}] [--json]
 ```
 
 **Options**
@@ -798,6 +801,10 @@ usage: slack-mirror search context-pack [-h] --targets-json TARGETS_JSON
 - `--after` — message/chunk context items after each selected target; default: `2`
 - `--no-text` — omit message and chunk text from the context pack
 - `--max-text-chars` — maximum text characters per context item; default: `4000`
+- `--managed-export` — persist the context pack as a managed selected-results export
+- `--export-id` — explicit export id for --managed-export
+- `--title` — human title for --managed-export
+- `--audience` — default link audience for --managed-export; default: `local`
 - `--json` — json output
 
 

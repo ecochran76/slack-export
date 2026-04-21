@@ -202,6 +202,12 @@ def rename_export_bundle(
         rewritten = _rewrite_export_payload_urls(payload, old_export_id=safe_export_id, new_export_id=safe_new_export_id)
         channel_day_path.write_text(json.dumps(rewritten, indent=2), encoding="utf-8")
 
+    selected_results_path = target_dir / "selected-results.json"
+    if selected_results_path.exists():
+        payload = json.loads(selected_results_path.read_text(encoding="utf-8"))
+        rewritten = _rewrite_export_payload_urls(payload, old_export_id=safe_export_id, new_export_id=safe_new_export_id)
+        selected_results_path.write_text(json.dumps(rewritten, indent=2), encoding="utf-8")
+
     index_path = target_dir / "index.html"
     if index_path.exists():
         html = index_path.read_text(encoding="utf-8")
@@ -260,6 +266,25 @@ def read_export_metadata(bundle_dir: Path) -> dict[str, Any]:
                     "tz": payload.get("tz"),
                     "export_id": payload.get("export_id") or bundle_dir.name,
                     "_metadata_source": "channel_day_json",
+                }
+        except Exception:
+            pass
+
+    selected_results_path = bundle_dir / "selected-results.json"
+    if selected_results_path.exists():
+        try:
+            payload = json.loads(selected_results_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                context_pack = payload.get("context_pack") if isinstance(payload.get("context_pack"), dict) else {}
+                return {
+                    "kind": "selected-results",
+                    "title": payload.get("title"),
+                    "workspace": payload.get("workspace"),
+                    "export_id": payload.get("export_id") or bundle_dir.name,
+                    "item_count": payload.get("item_count") or context_pack.get("item_count"),
+                    "resolved_count": payload.get("resolved_count") or context_pack.get("resolved_count"),
+                    "unresolved_count": payload.get("unresolved_count") or context_pack.get("unresolved_count"),
+                    "_metadata_source": "selected_results_json",
                 }
         except Exception:
             pass
@@ -323,11 +348,15 @@ def build_export_manifest(
         },
         "export_id": export_id,
         "kind": metadata.get("kind") or "export-bundle",
+        "title": metadata.get("title"),
         "workspace": metadata.get("workspace"),
         "channel": metadata.get("channel"),
         "channel_id": metadata.get("channel_id"),
         "day": metadata.get("day"),
         "tz": metadata.get("tz"),
+        "item_count": metadata.get("item_count"),
+        "resolved_count": metadata.get("resolved_count"),
+        "unresolved_count": metadata.get("unresolved_count"),
         "default_audience": default_audience,
         "bundle_urls": bundle_urls,
         "bundle_url": select_export_url(bundle_urls, default_audience),

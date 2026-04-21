@@ -1382,9 +1382,34 @@ def cmd_search_context_pack(args: argparse.Namespace) -> int:
 
     service = get_app_service(args.config)
     conn = service.connect()
+    targets = _load_targets_json(args.targets_json)
+    if args.managed_export:
+        payload = service.create_selected_result_export(
+            conn,
+            targets=targets,
+            before=args.before,
+            after=args.after,
+            include_text=not args.no_text,
+            max_text_chars=args.max_text_chars,
+            audience=args.audience,
+            export_id=args.export_id,
+            title=args.title,
+        )
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"Selected result export: {payload['export_id']}")
+            if payload.get("bundle_url"):
+                print(f"Export URL: {payload['bundle_url']}")
+            print(
+                f"items={payload.get('item_count', 0)} resolved={payload.get('resolved_count', 0)} "
+                f"unresolved={payload.get('unresolved_count', 0)}"
+            )
+        return 0
+
     payload = service.build_search_context_pack(
         conn,
-        targets=_load_targets_json(args.targets_json),
+        targets=targets,
         before=args.before,
         after=args.after,
         include_text=not args.no_text,
@@ -3565,6 +3590,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_context.add_argument("--after", type=int, default=2, help="message/chunk context items after each selected target")
     p_search_context.add_argument("--no-text", action="store_true", help="omit message and chunk text from the context pack")
     p_search_context.add_argument("--max-text-chars", type=int, default=4000, help="maximum text characters per context item")
+    p_search_context.add_argument("--managed-export", action="store_true", help="persist the context pack as a managed selected-results export")
+    p_search_context.add_argument("--export-id", help="explicit export id for --managed-export")
+    p_search_context.add_argument("--title", help="human title for --managed-export")
+    p_search_context.add_argument(
+        "--audience",
+        choices=["local", "external"],
+        default="local",
+        help="default link audience for --managed-export",
+    )
     p_search_context.add_argument("--json", action="store_true", help="json output")
     p_search_context.set_defaults(func=cmd_search_context_pack)
 

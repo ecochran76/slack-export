@@ -702,7 +702,17 @@ class ApiServerTests(unittest.TestCase):
             "export_id": "channel-day-default-general-renamed",
             "bundle_url": "http://slack.localhost/exports/channel-day-default-general-renamed",
         }
+        selected_payload = {
+            "export_id": "selected-default-smoke",
+            "kind": "selected-results",
+            "bundle_url": "http://slack.localhost/exports/selected-default-smoke",
+            "item_count": 1,
+            "resolved_count": 1,
+            "files": [],
+        }
         with patch.object(service, "create_channel_day_export", return_value=created_payload) as mock_create, patch.object(
+            service, "create_selected_result_export", return_value=selected_payload
+        ) as mock_create_selected, patch.object(
             service, "rename_export", return_value=renamed_payload
         ) as mock_rename, patch.object(service, "delete_export", return_value=True) as mock_delete, patch(
             "slack_mirror.service.api.get_app_service", return_value=service
@@ -737,6 +747,34 @@ class ApiServerTests(unittest.TestCase):
                 audience="local",
                 export_id=None,
             )
+
+            selected = requests.post(
+                f"{base_url}/v1/exports",
+                headers={"Origin": base_url},
+                json={
+                    "kind": "selected-results",
+                    "targets": [{"kind": "message", "workspace": "default", "channel_id": "C123", "ts": "11.0"}],
+                    "before": 1,
+                    "after": 1,
+                    "include_text": False,
+                    "max_text_chars": 500,
+                    "audience": "local",
+                    "export_id": "selected-default-smoke",
+                    "title": "Smoke Selection",
+                },
+                timeout=5,
+            )
+            self.assertEqual(selected.status_code, 201)
+            self.assertEqual(selected.json()["export"]["kind"], "selected-results")
+            mock_create_selected.assert_called_once()
+            selected_call = mock_create_selected.call_args
+            self.assertEqual(len(selected_call.args), 1)
+            self.assertEqual(selected_call.kwargs["before"], 1)
+            self.assertEqual(selected_call.kwargs["after"], 1)
+            self.assertFalse(selected_call.kwargs["include_text"])
+            self.assertEqual(selected_call.kwargs["max_text_chars"], 500)
+            self.assertEqual(selected_call.kwargs["export_id"], "selected-default-smoke")
+            self.assertEqual(selected_call.kwargs["title"], "Smoke Selection")
 
             renamed = requests.post(
                 f"{base_url}/v1/exports/channel-day-default-general-2026-04-12-abc123/rename",
@@ -956,6 +994,12 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("local path", search_page.text)
         self.assertIn("Page ${page} of ${pageCount}", search_page.text)
         self.assertIn("results ${start}-${end} of ${total}", search_page.text)
+        self.assertIn("id='selected-results-tray'", search_page.text)
+        self.assertIn("id='create-selected-report-button'", search_page.text)
+        self.assertIn("selectedSearchTargets", search_page.text)
+        self.assertIn("data-action-target", search_page.text)
+        self.assertIn("kind:'selected-results'", search_page.text)
+        self.assertIn("fetchJsonResponse('/v1/exports'", search_page.text)
 
         logs_page = session.get(f"{base_url}/logs?tenant=default&source=api", timeout=5)
         self.assertEqual(logs_page.status_code, 200)

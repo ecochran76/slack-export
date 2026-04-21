@@ -821,6 +821,13 @@ class CliTests(unittest.TestCase):
                 "--no-text",
                 "--max-text-chars",
                 "250",
+                "--managed-export",
+                "--export-id",
+                "selected-default-smoke",
+                "--title",
+                "Smoke Selection",
+                "--audience",
+                "external",
                 "--json",
             ]
         )
@@ -830,6 +837,10 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.after, 4)
         self.assertTrue(args.no_text)
         self.assertEqual(args.max_text_chars, 250)
+        self.assertTrue(args.managed_export)
+        self.assertEqual(args.export_id, "selected-default-smoke")
+        self.assertEqual(args.title, "Smoke Selection")
+        self.assertEqual(args.audience, "external")
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 

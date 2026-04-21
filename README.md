@@ -107,6 +107,7 @@ slack-mirror search profiles
 slack-mirror search semantic-readiness --workspace default --json
 slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
 slack-mirror search context-pack --targets-json '[{"kind":"message","workspace":"default","channel_id":"C123","ts":"1712870400.000100"}]' --before 2 --after 2 --json
+slack-mirror search context-pack --targets-json '[{"kind":"message","workspace":"default","channel_id":"C123","ts":"1712870400.000100"}]' --managed-export --title "Selected incident context" --json
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search benchmark-validate --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http --json
 slack-mirror search profile-benchmark --workspace default --dataset ./docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http --json
@@ -160,6 +161,8 @@ The current repo has:
 - corpus results now include machine-readable `_explain` metadata with source, fusion method, lane ranks, score breakdown, weights, and rerank provider when applicable
 - corpus results now include stable `action_target` metadata for message and derived-text hits so agents and future browser workflows can select candidates for export/report/action handoff without re-parsing display fields
 - selected corpus `action_target` values can now be expanded into bounded context packs through CLI/API/MCP, including before/hit/after message context, derived-text chunk context, and linked Slack messages for file-backed derived text
+- selected corpus `action_target` values can now be persisted as managed `selected-results` export bundles, with a neutral `selected-results.json` artifact, a human-readable HTML report at `/exports/{export_id}`, and a manifest for later report rendering or agent handoff
+- the authenticated `/search` page can now select result candidates with `action_target` metadata and create managed `selected-results` reports directly from the browser
 - named retrieval profiles for operator rollout control:
   - `baseline` for the shipped local-hash release-safe path
   - `local-bge` for bounded `BAAI/bge-m3` semantic rollout

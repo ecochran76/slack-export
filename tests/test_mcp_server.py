@@ -633,6 +633,15 @@ class McpServerTests(unittest.TestCase):
             },
         ) as mock_context_pack, patch.object(
             self.server.service,
+            "create_selected_result_export",
+            return_value={
+                "export_id": "selected-default-smoke",
+                "kind": "selected-results",
+                "item_count": 1,
+                "resolved_count": 1,
+            },
+        ) as mock_context_export, patch.object(
+            self.server.service,
             "semantic_readiness",
             return_value={
                 "scope": "workspace",
@@ -715,6 +724,24 @@ class McpServerTests(unittest.TestCase):
                     },
                 }
             )
+            context_export = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 68,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.context_export",
+                        "arguments": {
+                            "targets": [{"kind": "message", "workspace": "default", "channel_id": "C1", "ts": "10.0"}],
+                            "before": 1,
+                            "after": 1,
+                            "include_text": False,
+                            "export_id": "selected-default-smoke",
+                            "title": "Smoke Selection",
+                        },
+                    },
+                }
+            )
 
         self.assertIn('"result_kind": "message"', corpus["result"]["content"][0]["text"])
         self.assertIn('"action_target"', corpus["result"]["content"][0]["text"])
@@ -723,6 +750,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"name": "baseline"', profiles["result"]["content"][0]["text"])
         self.assertIn('"status": "ready"', semantic_readiness["result"]["content"][0]["text"])
         self.assertIn('"kind": "search_context_pack"', context_pack["result"]["content"][0]["text"])
+        self.assertIn('"kind": "selected-results"', context_export["result"]["content"][0]["text"])
         self.assertEqual(mock_corpus.call_count, 2)
         first_call = mock_corpus.call_args_list[0].kwargs
         self.assertTrue(first_call["rerank"])
@@ -732,12 +760,16 @@ class McpServerTests(unittest.TestCase):
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
         mock_profiles.assert_called_once()
         mock_context_pack.assert_called_once()
+        mock_context_export.assert_called_once()
         mock_semantic_readiness.assert_called_once()
 
     def test_search_corpus_schema_exposes_retrieval_profile(self):
         tools = self.server.handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         corpus_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "search.corpus")
+        context_export_tool = next(tool for tool in tools["result"]["tools"] if tool["name"] == "search.context_export")
         self.assertIn("retrieval_profile", corpus_tool["inputSchema"]["properties"])
+        self.assertIn("targets", context_export_tool["inputSchema"]["required"])
+        self.assertIn("audience", context_export_tool["inputSchema"]["properties"])
 
     def test_search_corpus_invalid_retrieval_profile_returns_structured_error(self):
         result = self.server.handle_request(

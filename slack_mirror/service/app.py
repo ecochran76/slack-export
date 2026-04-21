@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field, replace
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 
@@ -22,12 +23,14 @@ from slack_mirror.core.db import (
     upsert_workspace,
 )
 from slack_mirror.exports import (
+    build_export_id,
     build_export_manifest,
     delete_export_bundle,
     list_export_manifests,
     rename_export_bundle,
     resolve_export_base_urls,
     resolve_export_root,
+    validate_export_id,
 )
 from slack_mirror.core.slack_api import SlackApiClient
 from slack_mirror.search.embeddings import build_embedding_provider, probe_embedding_provider
@@ -653,6 +656,257 @@ class SlackMirrorAppService:
             base_urls=resolve_export_base_urls(self.config),
             default_audience=audience,
         )
+
+    def create_selected_result_export(
+        self,
+        conn,
+        *,
+        targets: list[dict[str, Any]],
+        before: int = 2,
+        after: int = 2,
+        include_text: bool = True,
+        max_text_chars: int = 4000,
+        audience: str = "local",
+        export_id: str | None = None,
+        title: str | None = None,
+    ) -> dict[str, Any]:
+        context_pack = self.build_search_context_pack(
+            conn,
+            targets=targets,
+            before=before,
+            after=after,
+            include_text=include_text,
+            max_text_chars=max_text_chars,
+        )
+        target_workspaces = sorted(
+            {
+                str(target.get("workspace") or "").strip()
+                for target in targets
+                if str(target.get("workspace") or "").strip()
+            }
+        )
+        workspace_label = target_workspaces[0] if len(target_workspaces) == 1 else "multi"
+        export_title = str(title or "Selected search results").strip() or "Selected search results"
+        if export_id:
+            resolved_export_id = validate_export_id(export_id)
+        else:
+            resolved_export_id = build_export_id(
+                "selected-results",
+                workspace=workspace_label,
+                descriptor=export_title,
+                seed_extra={
+                    "targets": targets,
+                    "before": before,
+                    "after": after,
+                    "include_text": include_text,
+                    "max_text_chars": max_text_chars,
+                    "generated_at": time.time_ns(),
+                },
+            )
+
+        export_root = resolve_export_root(self.config)
+        bundle_dir = export_root / resolved_export_id
+        if bundle_dir.exists():
+            raise FileExistsError(f"export bundle already exists: {resolved_export_id}")
+        bundle_dir.mkdir(parents=True, exist_ok=False)
+
+        generated_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        payload = {
+            "schema_version": 1,
+            "kind": "selected-results",
+            "generated_at": generated_at,
+            "producer": {"name": "slack-mirror"},
+            "export_id": resolved_export_id,
+            "title": export_title,
+            "workspace": workspace_label,
+            "workspaces": target_workspaces,
+            "source": {
+                "targets": targets,
+                "context_policy": context_pack.get("context_policy", {}),
+            },
+            "item_count": context_pack.get("item_count", 0),
+            "resolved_count": context_pack.get("resolved_count", 0),
+            "unresolved_count": context_pack.get("unresolved_count", 0),
+            "context_pack": context_pack,
+        }
+        (bundle_dir / "selected-results.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        index_html = self._selected_result_export_index_html(payload)
+        (bundle_dir / "index.html").write_text(index_html, encoding="utf-8")
+        manifest = build_export_manifest(
+            bundle_dir,
+            export_id=resolved_export_id,
+            base_urls=resolve_export_base_urls(self.config),
+            default_audience=audience,
+        )
+        (bundle_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        return manifest
+
+    @staticmethod
+    def _selected_result_export_index_html(payload: dict[str, Any]) -> str:
+        title = html_escape(str(payload.get("title") or "Selected search results"))
+        export_id = html_escape(str(payload.get("export_id") or ""))
+        item_count = int(payload.get("item_count") or 0)
+        resolved_count = int(payload.get("resolved_count") or 0)
+        unresolved_count = int(payload.get("unresolved_count") or 0)
+        generated_at = html_escape(str(payload.get("generated_at") or ""))
+        context_pack = payload.get("context_pack") if isinstance(payload.get("context_pack"), dict) else {}
+        context_policy = context_pack.get("context_policy") if isinstance(context_pack.get("context_policy"), dict) else {}
+        include_text = bool(context_policy.get("include_text", True))
+        items = context_pack.get("items") if isinstance(context_pack.get("items"), list) else []
+        item_cards = "\n".join(SlackMirrorAppService._selected_result_report_item_html(item) for item in items)
+        if not item_cards:
+            item_cards = "<section class=\"empty\">No selected result items were stored in this bundle.</section>"
+        policy_bits = [
+            f"before={html_escape(str(context_policy.get('before', 0)))}",
+            f"after={html_escape(str(context_policy.get('after', 0)))}",
+            f"text={'included' if include_text else 'omitted'}",
+            f"max_text_chars={html_escape(str(context_policy.get('max_text_chars', 0)))}",
+        ]
+        return (
+            "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            f"<title>{title}</title>"
+            "<style>:root{--ink:#152033;--muted:#66717f;--line:#ded4c4;--paper:#fffdf8;--field:#fbf6ec;--accent:#8a3b12;--good:#236245;--bad:#9d2c2c}"
+            "body{font-family:ui-sans-serif,system-ui,sans-serif;margin:0;background:radial-gradient(circle at top left,#efe3cf,#f8f3ea 38%,#eef1ec);color:var(--ink)}"
+            "main{max-width:1120px;margin:0 auto;padding:44px 24px 72px}.hero{padding:30px;background:rgba(255,253,248,.92);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 70px rgba(21,32,51,.14)}"
+            "h1{margin:0 0 10px;font-size:clamp(30px,5vw,56px);line-height:.98;letter-spacing:-.04em}.meta{color:var(--muted);margin:0 0 22px;line-height:1.6}.policy{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}"
+            ".chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:#fffaf0;color:#5c5147;padding:6px 10px;font-size:12px;font-weight:700}.chip.good{color:var(--good)}.chip.bad{color:var(--bad)}"
+            ".stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:24px 0}.stat{padding:16px;border:1px solid #e6ddcf;border-radius:18px;background:var(--field)}"
+            ".num{font-size:34px;font-weight:800}.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6d6257}.items{display:grid;gap:18px;margin-top:22px}"
+            ".item{background:rgba(255,253,248,.94);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 12px 36px rgba(21,32,51,.08)}.item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}"
+            ".item h2{margin:0;font-size:22px;letter-spacing:-.02em}.target{color:var(--muted);font-size:13px;line-height:1.5}.section-title{margin:18px 0 8px;color:#4c5664;text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:800}"
+            ".timeline{display:grid;gap:10px}.message,.chunk{border:1px solid #e9dfd0;border-radius:16px;background:#fffaf3;padding:12px}.message.hit,.chunk.hit{border-color:#b87b45;background:#fff2df}.message.linked{border-style:dashed}.row{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-bottom:8px}"
+            ".text{white-space:pre-wrap;margin:0;color:#1c2838;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.omitted{margin:0;color:var(--muted);font-style:italic}.empty{padding:20px;border:1px dashed var(--line);border-radius:18px;background:#fffaf3;color:var(--muted)}"
+            "a{color:var(--accent);font-weight:800}@media(max-width:720px){main{padding:0}.hero,.item{border-radius:0;border-left:0;border-right:0}.stats{grid-template-columns:1fr}.item-head{display:block}}</style></head>"
+            f"<body><main><section class=\"hero\"><h1>{title}</h1><p class=\"meta\">Export <code>{export_id}</code><br>Generated {generated_at}</p>"
+            "<div class=\"stats\">"
+            f"<div class=\"stat\"><div class=\"num\">{item_count}</div><div class=\"label\">Selected</div></div>"
+            f"<div class=\"stat\"><div class=\"num\">{resolved_count}</div><div class=\"label\">Resolved</div></div>"
+            f"<div class=\"stat\"><div class=\"num\">{unresolved_count}</div><div class=\"label\">Unresolved</div></div>"
+            "</div>"
+            f"<div class=\"policy\">{''.join(f'<span class=\"chip\">{bit}</span>' for bit in policy_bits)}</div>"
+            "<p class=\"meta\">This report is rendered from the neutral <a href=\"selected-results.json\">selected-results.json</a> artifact.</p></section>"
+            f"<section class=\"items\">{item_cards}</section></main></body></html>"
+        )
+
+    @staticmethod
+    def _selected_result_report_item_html(item: dict[str, Any]) -> str:
+        index = html_escape(str(item.get("index") or "?"))
+        kind = html_escape(str(item.get("kind") or "unknown"))
+        target = item.get("target") if isinstance(item.get("target"), dict) else {}
+        target_label = html_escape(
+            str(target.get("selection_label") or target.get("id") or target.get("source_id") or target.get("ts") or "unlabeled")
+        )
+        resolved = bool(item.get("resolved"))
+        status_class = "good" if resolved else "bad"
+        status_label = "resolved" if resolved else html_escape(str(item.get("reason") or "unresolved"))
+        if kind == "message":
+            body = SlackMirrorAppService._selected_result_message_item_html(item)
+        elif kind == "derived_text":
+            body = SlackMirrorAppService._selected_result_derived_item_html(item)
+        else:
+            body = f"<p class=\"omitted\">Unsupported selected-result kind: {kind}</p>"
+        return (
+            "<article class=\"item\">"
+            "<div class=\"item-head\">"
+            f"<div><h2>#{index} {kind}</h2><div class=\"target\">{target_label}</div></div>"
+            f"<span class=\"chip {status_class}\">{status_label}</span>"
+            "</div>"
+            f"{body}</article>"
+        )
+
+    @staticmethod
+    def _selected_result_message_item_html(item: dict[str, Any]) -> str:
+        conversation = item.get("conversation") if isinstance(item.get("conversation"), dict) else {}
+        context = item.get("context") if isinstance(item.get("context"), list) else []
+        heading = html_escape(str(conversation.get("channel_name") or conversation.get("channel_id") or "conversation"))
+        if not item.get("resolved"):
+            return f"<p class=\"omitted\">Message target was not resolved: {html_escape(str(item.get('reason') or 'not_found'))}</p>"
+        cards = "\n".join(SlackMirrorAppService._selected_result_message_card_html(row) for row in context)
+        if not cards:
+            cards = "<p class=\"omitted\">No message context was stored.</p>"
+        return f"<div class=\"section-title\">Message context: {heading}</div><div class=\"timeline\">{cards}</div>"
+
+    @staticmethod
+    def _selected_result_derived_item_html(item: dict[str, Any]) -> str:
+        if not item.get("resolved"):
+            return f"<p class=\"omitted\">Derived-text target was not resolved: {html_escape(str(item.get('reason') or 'not_found'))}</p>"
+        source = item.get("source") if isinstance(item.get("source"), dict) else {}
+        derived = item.get("derived_text") if isinstance(item.get("derived_text"), dict) else {}
+        chunks = item.get("context_chunks") if isinstance(item.get("context_chunks"), list) else []
+        linked_messages = item.get("linked_messages") if isinstance(item.get("linked_messages"), list) else []
+        source_label = html_escape(str(source.get("label") or source.get("id") or "source"))
+        derived_bits = [
+            html_escape(str(value))
+            for value in [
+                source.get("kind"),
+                derived.get("derivation_kind"),
+                derived.get("extractor"),
+                derived.get("media_type"),
+            ]
+            if value
+        ]
+        chunk_cards = "\n".join(SlackMirrorAppService._selected_result_chunk_card_html(chunk) for chunk in chunks)
+        if not chunk_cards:
+            chunk_cards = "<p class=\"omitted\">No derived-text chunks were stored.</p>"
+        linked_cards = "\n".join(SlackMirrorAppService._selected_result_message_card_html(row) for row in linked_messages)
+        linked_section = (
+            f"<div class=\"section-title\">Linked Slack messages</div><div class=\"timeline\">{linked_cards}</div>"
+            if linked_cards
+            else "<p class=\"omitted\">No linked Slack messages were stored for this source.</p>"
+        )
+        return (
+            f"<div class=\"section-title\">Derived text: {source_label}</div>"
+            f"<div class=\"target\">{' / '.join(derived_bits)}</div>"
+            f"<div class=\"section-title\">Chunk context</div><div class=\"timeline\">{chunk_cards}</div>"
+            f"{linked_section}"
+        )
+
+    @staticmethod
+    def _selected_result_message_card_html(row: dict[str, Any]) -> str:
+        selected = bool(row.get("selected"))
+        relation = html_escape(str(row.get("relation") or ("hit" if selected else "context")))
+        class_names = ["message"]
+        if selected or relation == "hit":
+            class_names.append("hit")
+        if relation == "linked":
+            class_names.append("linked")
+        label_bits = [
+            html_escape(str(value))
+            for value in [relation, row.get("workspace"), row.get("channel_name") or row.get("channel_id"), row.get("ts"), row.get("user_label") or row.get("user_id")]
+            if value
+        ]
+        return (
+            f"<div class=\"{' '.join(class_names)}\"><div class=\"row\">"
+            + "".join(f"<span class=\"chip\">{bit}</span>" for bit in label_bits)
+            + "</div>"
+            + SlackMirrorAppService._selected_result_text_html(row)
+            + "</div>"
+        )
+
+    @staticmethod
+    def _selected_result_chunk_card_html(row: dict[str, Any]) -> str:
+        selected = bool(row.get("selected"))
+        class_names = "chunk hit" if selected else "chunk"
+        label_bits = [
+            f"chunk {html_escape(str(row.get('chunk_index')))}",
+            f"offset {html_escape(str(row.get('start_offset')))}-{html_escape(str(row.get('end_offset')))}",
+        ]
+        return (
+            f"<div class=\"{class_names}\"><div class=\"row\">"
+            + "".join(f"<span class=\"chip\">{bit}</span>" for bit in label_bits)
+            + "</div>"
+            + SlackMirrorAppService._selected_result_text_html(row)
+            + "</div>"
+        )
+
+    @staticmethod
+    def _selected_result_text_html(row: dict[str, Any]) -> str:
+        if "text" not in row:
+            return "<p class=\"omitted\">Text omitted in this export.</p>"
+        text = str(row.get("text") or "").strip()
+        if not text:
+            return "<p class=\"omitted\">No text stored for this item.</p>"
+        return f"<pre class=\"text\">{html_escape(text)}</pre>"
 
     def rename_export(self, *, export_id: str, new_export_id: str, audience: str = "local") -> dict[str, Any]:
         return rename_export_bundle(

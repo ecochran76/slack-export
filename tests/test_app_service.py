@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -149,6 +150,111 @@ class AppServiceTests(unittest.TestCase):
         self.assertIn("default", invoked)
         self.assertIn("--channel", invoked)
         self.assertIn("general", invoked)
+
+    def test_create_selected_result_export_writes_context_artifact_and_manifest(self):
+        export_root = self.root / "selected-exports"
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "exports:",
+                    f"  root_dir: {export_root}",
+                    "  local_base_url: http://slack.localhost",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        service = SlackMirrorAppService(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+        upsert_channel(conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_message(
+            conn,
+            workspace_id,
+            "C123",
+            {
+                "ts": "11.0",
+                "user": "U1",
+                "text": "selected message",
+                "channel": "C123",
+            },
+        )
+
+        manifest = service.create_selected_result_export(
+            conn,
+            targets=[{"kind": "message", "workspace": "default", "channel_id": "C123", "ts": "11.0"}],
+            before=1,
+            after=1,
+            export_id="selected-default-smoke",
+            title="Smoke Selection",
+        )
+
+        bundle_dir = export_root / "selected-default-smoke"
+        artifact = json.loads((bundle_dir / "selected-results.json").read_text(encoding="utf-8"))
+        saved_manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
+        index_html = (bundle_dir / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(manifest["kind"], "selected-results")
+        self.assertEqual(manifest["title"], "Smoke Selection")
+        self.assertEqual(manifest["item_count"], 1)
+        self.assertEqual(manifest["resolved_count"], 1)
+        self.assertEqual(artifact["context_pack"]["kind"], "search_context_pack")
+        self.assertEqual(artifact["context_pack"]["resolved_count"], 1)
+        self.assertIn("Message context: general", index_html)
+        self.assertIn("selected message", index_html)
+        self.assertIn("selected-results.json", index_html)
+        self.assertEqual(saved_manifest["export_id"], "selected-default-smoke")
+        self.assertIn("selected-results.json", {item["relpath"] for item in manifest["files"]})
+
+    def test_selected_result_report_renders_derived_text_and_omitted_text(self):
+        html = SlackMirrorAppService._selected_result_export_index_html(
+            {
+                "title": "Derived Selection",
+                "export_id": "selected-derived",
+                "generated_at": "2026-04-21T14:00:00Z",
+                "item_count": 1,
+                "resolved_count": 1,
+                "unresolved_count": 0,
+                "context_pack": {
+                    "context_policy": {"before": 1, "after": 1, "include_text": False, "max_text_chars": 0},
+                    "items": [
+                        {
+                            "index": 1,
+                            "kind": "derived_text",
+                            "resolved": True,
+                            "target": {
+                                "id": "derived_text|default|file|F1|attachment_text|pdftotext|chunk:2",
+                                "source_id": "F1",
+                            },
+                            "source": {"kind": "file", "id": "F1", "label": "incident.pdf"},
+                            "derived_text": {
+                                "derivation_kind": "attachment_text",
+                                "extractor": "pdftotext",
+                                "media_type": "application/pdf",
+                            },
+                            "context_chunks": [
+                                {"chunk_index": 2, "start_offset": 120, "end_offset": 240, "selected": True}
+                            ],
+                            "linked_messages": [
+                                {
+                                    "workspace": "default",
+                                    "channel_name": "general",
+                                    "ts": "11.0",
+                                    "user_label": "Eric",
+                                    "relation": "linked",
+                                }
+                            ],
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertIn("Derived text: incident.pdf", html)
+        self.assertIn("attachment_text / pdftotext / application/pdf", html)
+        self.assertIn("chunk 2", html)
+        self.assertIn("Linked Slack messages", html)
+        self.assertIn("Text omitted in this export.", html)
 
     def test_list_workspace_channels_returns_valid_choices(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

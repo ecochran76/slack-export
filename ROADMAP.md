@@ -302,6 +302,9 @@ Actionable plans:
 - `docs/dev/plans/0088-2026-04-21-litscout-informed-attachment-query-operators.md`
 - `docs/dev/plans/0089-2026-04-21-message-file-linkage-for-attachment-filters.md`
 - `docs/dev/plans/0090-2026-04-21-selected-result-context-packs.md`
+- `docs/dev/plans/0091-2026-04-21-selected-result-export-artifacts.md`
+- `docs/dev/plans/0092-2026-04-21-selected-result-report-viewer.md`
+- `docs/dev/plans/0093-2026-04-21-browser-selected-result-report-creation.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -457,6 +460,18 @@ Current state:
   - selected message `action_target` values can be expanded into bounded before/hit/after message context
   - selected derived-text `action_target` values can be expanded into bounded chunk context and linked Slack messages when backed by attached files
   - CLI, API, and MCP now expose the same context-pack contract as the next handoff layer before selected-result export/report rendering
+- the selected-result export artifact slice is now complete under `0091`:
+  - selected `action_target` values can now be persisted as managed `selected-results` bundles through CLI, API, and MCP
+  - the bundle's neutral `selected-results.json` artifact preserves the generated context pack for later report rendering, action review, or agent handoff
+  - the export manifest describes selected-result counts without requiring channel/day metadata
+- the selected-result report-viewer slice is now complete under `0092`:
+  - managed selected-result bundles now render a human-readable `index.html` report instead of only linking to raw JSON
+  - the report shows selected item state, target metadata, message context, derived-text chunk context, and linked Slack messages when present
+  - no-text exports render structure while explicitly marking omitted text
+- the browser selected-result report-creation slice is now complete under `0093`:
+  - authenticated `/search` result cards can select and unselect hits with stable `action_target` metadata
+  - the in-page selection tray shows selected count, clears selections, controls context-window/text settings, and posts `kind=selected-results` to the protected export API
+  - successful browser-created reports link directly to the managed `/exports/{export_id}` report
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align
@@ -471,8 +486,10 @@ Remaining project phases:
 3. query pipeline hardening:
    - stabilize grouped result projection now that weighted/RRF fusion and explain metadata are available
 4. actionability and frontend integration:
-   - build higher-level selected-result export/report/action workflows on top
-     of the shipped `action_target` selection metadata
+   - browser-side selected-result report creation is now shipped on top of the
+     `selected-results.json` artifact and HTML report viewer
+   - next actionability work should focus on bulk result manipulation and
+     export/report polish without bloating the temporary Python-rendered UI
    - keep the first implementation Slack-owned, but shape the JSON/report
      artifact so it can become a proving input for a future shared
      communications export contract
@@ -484,10 +501,7 @@ Remaining project phases:
 
 Recommended remaining child plans:
 - next semantic child plan should focus on profile-aware ranking diagnostics for the covered benchmark fixture; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
-- the next export/report actionability child plan should add selected-result
-  export inputs and neutral report JSON mapping on top of the existing
-  managed channel/day export baseline, without moving Slack runtime or
-  tenant-onboarding behavior into a shared package
+- the next export/report actionability child plan should add bulk selected-result manipulation affordances or report polish on top of the managed selected-result export/report contract, without moving Slack runtime or tenant-onboarding behavior into a shared package
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above

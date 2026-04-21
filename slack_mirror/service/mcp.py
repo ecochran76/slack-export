@@ -176,6 +176,24 @@ class SlackMirrorMcpServer:
                 },
             ),
             _tool(
+                "search.context_export",
+                "Persist selected search action targets as a managed selected-results export",
+                {
+                    "type": "object",
+                    "properties": {
+                        "targets": {"type": "array", "items": {"type": "object"}},
+                        "before": {"type": "integer", "default": 2},
+                        "after": {"type": "integer", "default": 2},
+                        "include_text": {"type": "boolean", "default": True},
+                        "max_text_chars": {"type": "integer", "default": 4000},
+                        "audience": {"type": "string", "enum": ["local", "external"], "default": "local"},
+                        "export_id": {"type": "string"},
+                        "title": {"type": "string"},
+                    },
+                    "required": ["targets"],
+                },
+            ),
+            _tool(
                 "search.semantic_readiness",
                 "Show retrieval-profile semantic readiness for one workspace or all enabled workspaces",
                 {
@@ -402,6 +420,22 @@ class SlackMirrorMcpServer:
                         after=int(args.get("after", 2)),
                         include_text=bool(args.get("include_text", True)),
                         max_text_chars=int(args.get("max_text_chars", 4000)),
+                    )
+                }
+            )
+        if name == "search.context_export":
+            return self._mcp_result(
+                {
+                    "export": self.service.create_selected_result_export(
+                        conn,
+                        targets=list(args.get("targets") or []),
+                        before=int(args.get("before", 2)),
+                        after=int(args.get("after", 2)),
+                        include_text=bool(args.get("include_text", True)),
+                        max_text_chars=int(args.get("max_text_chars", 4000)),
+                        audience=str(args.get("audience", "local")),
+                        export_id=str(args["export_id"]) if args.get("export_id") is not None else None,
+                        title=str(args["title"]) if args.get("title") is not None else None,
                     )
                 }
             )

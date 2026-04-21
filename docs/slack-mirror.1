@@ -787,7 +787,10 @@ usage: slack-mirror search context-pack [-h] --targets-json TARGETS_JSON
                                         [--before BEFORE] [--after AFTER]
                                         [--no-text]
                                         [--max-text-chars MAX_TEXT_CHARS]
-                                        [--json]
+                                        [--managed-export]
+                                        [--export-id EXPORT_ID]
+                                        [--title TITLE]
+                                        [--audience {local,external}] [--json]
 
 **Options**
 .IP \[bu] 2
@@ -800,6 +803,14 @@ usage: slack-mirror search context-pack [-h] --targets-json TARGETS_JSON
 `--no-text` — omit message and chunk text from the context pack
 .IP \[bu] 2
 `--max-text-chars` — maximum text characters per context item; default: `4000`
+.IP \[bu] 2
+`--managed-export` — persist the context pack as a managed selected-results export
+.IP \[bu] 2
+`--export-id` — explicit export id for --managed-export
+.IP \[bu] 2
+`--title` — human title for --managed-export
+.IP \[bu] 2
+`--audience` — default link audience for --managed-export; default: `local`
 .IP \[bu] 2
 `--json` — json output
 .SH SLACK-MIRROR SEARCH CORPUS

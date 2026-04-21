@@ -328,7 +328,7 @@ API:
 Current semantics:
 
 - `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
-- `POST /v1/exports` is intentionally bounded to `kind=channel-day`
+- `POST /v1/exports` supports bounded managed bundle creation for `kind=channel-day` and `kind=selected-results`
 - export updates are intentionally bounded to rename only
 - the API remains a thin wrapper over the existing managed bundle ownership in `slack_mirror.exports`
 
@@ -344,10 +344,14 @@ Important fields for export listing/detail routes:
   - `url_contract_source`
 - `export_id`
 - `kind`
+- `title`
 - `workspace`
 - `channel`
 - `channel_id`
 - `day`
+- `item_count`
+- `resolved_count`
+- `unresolved_count`
 - `default_audience`
 - `bundle_urls`
 - `bundle_url`
@@ -372,10 +376,10 @@ Important fields for `GET /v1/workspaces/{workspace}/channels`:
 - `latest_message_ts`
 - `latest_message_day`
 
-Create semantics for `POST /v1/exports`:
+Channel/day create semantics for `POST /v1/exports`:
 
 - request fields:
-  - `kind`
+  - `kind: channel-day`
   - `workspace`
   - `channel`
   - `day`
@@ -385,6 +389,30 @@ Create semantics for `POST /v1/exports`:
 - response:
   - `ok`
   - `export`
+
+Selected-result create semantics for `POST /v1/exports`:
+
+- request fields:
+  - `kind: selected-results`
+  - `targets`: array of corpus-search `action_target` objects
+  - optional `before`
+  - optional `after`
+  - optional `include_text`
+  - optional `max_text_chars`
+  - optional `audience`
+  - optional `export_id`
+  - optional `title`
+- response:
+  - `ok`
+  - `export`
+
+Selected-result export bundles contain:
+
+- `selected-results.json`: the neutral selected-result artifact containing the generated context pack
+- `index.html`: a human-readable selected-result report rendered from that neutral JSON artifact
+- `manifest.json`: the same schema-versioned export manifest used by other managed bundles
+
+The HTML report shows selected items, target identity, resolved/unresolved status, message context, derived-text chunk context, and linked Slack messages when present. If `include_text=false`, the report still renders the selected structure and explicitly marks text as omitted instead of looking empty.
 
 Update semantics for `POST /v1/exports/{export_id}/rename`:
 
@@ -589,6 +617,15 @@ The context-pack request accepts:
 - `max_text_chars`: per-context-item text cap
 
 The context-pack response is intentionally a handoff artifact, not a rendered export. Message targets resolve to before/hit/after message context in the same workspace and channel. Derived-text targets resolve to bounded chunk context and, for file-backed derived text, linked Slack messages through the persisted message-file edge table.
+
+Selected search candidates can also be persisted as a managed neutral export artifact with:
+
+- CLI: `slack-mirror search context-pack --targets-json ... --managed-export`
+- API: `POST /v1/exports` with `kind=selected-results`
+- MCP: `search.context_export`
+- Browser: select candidates on the authenticated `/search` page, then create a selected-result report from the in-page tray
+
+The selected-result export request uses the same target and context-window fields as the context-pack request, plus optional `audience`, `export_id`, and `title`. The created bundle preserves the context pack in `selected-results.json` and renders a first-pass HTML report at `/exports/{export_id}`. DOCX/PDF rendering remains a later layer on top of this neutral artifact.
 
 Message action targets include:
 

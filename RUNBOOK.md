@@ -3879,6 +3879,17 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
   - `uv run python scripts/check_generated_docs.py`
   - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-wrapper no-content selected-result export smoke:
+    - `slack-mirror-user search context-pack --managed-export --no-text` created `selected-context-smoke-1776800253`
+    - result: `kind=selected-results`, `item_count=1`, `resolved_count=1`, `unresolved_count=0`, files `index.html` and `selected-results.json`
+  - installed MCP no-content selected-result export smoke:
+    - MCP `search.context_export` created `selected-context-mcp-smoke-1776800284`
+    - result: `kind=selected-results`, `item_count=1`, `resolved_count=1`, `unresolved_count=0`
   - `uv run slack-mirror user-env update --extra local-semantic`
     - result: combined managed validation passed
 
@@ -3996,3 +4007,106 @@ This file is the dated turn log for planning and execution continuity.
   - installed-wrapper non-content smoke:
     - searched for one `has:attachment` action target, then ran `slack-mirror-user search context-pack --no-text`
     - result: `resolved_count=1`, `unresolved_count=0`, `text_present=false`
+
+## Turn 230 | 2026-04-21
+
+- Returned to the open `P10` semantic retrieval/actionability plan.
+- Opened and closed the next bounded selected-result export artifact slice:
+  - `0091-2026-04-21-selected-result-export-artifacts.md`
+- Direction:
+  - persist selected search `action_target` values as managed export bundles before building richer browser/report rendering
+  - keep context expansion owned by the existing context-pack service logic
+  - keep runtime, tenant onboarding, ranking defaults, and cross-repo package extraction unchanged
+- Implemented:
+  - added shared `create_selected_result_export` service logic
+  - selected-result bundles now contain `selected-results.json`, a minimal `index.html` landing page, and `manifest.json`
+  - export metadata and manifests now report selected-result title, item count, resolved count, and unresolved count without channel/day assumptions
+  - exposed selected-result export creation through `POST /v1/exports` with `kind=selected-results`
+  - added CLI export creation through `slack-mirror search context-pack --managed-export`
+  - added MCP `search.context_export`
+  - updated README, API/MCP contract docs, roadmap, generated CLI docs, and generated man docs
+- Validation so far:
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_api_server.ApiServerTests.test_export_crud_endpoints tests.test_mcp_server.McpServerTests.test_search_tools tests.test_mcp_server.McpServerTests.test_search_corpus_schema_exposes_retrieval_profile -v`
+  - `uv run python -m unittest tests.test_cli.CliTests.test_parse_search_context_pack -v`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `python -m py_compile slack_mirror/exports.py slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-wrapper no-content selected-result export smoke:
+    - `slack-mirror-user search context-pack --managed-export --no-text` created `selected-context-smoke-1776800253`
+    - result: `kind=selected-results`, `item_count=1`, `resolved_count=1`, `unresolved_count=0`, files `index.html` and `selected-results.json`
+  - installed MCP no-content selected-result export smoke:
+    - MCP `search.context_export` created `selected-context-mcp-smoke-1776800284`
+    - result: `kind=selected-results`, `item_count=1`, `resolved_count=1`, `unresolved_count=0`
+
+## Turn 231 | 2026-04-21
+
+- Continued the open `P10` semantic retrieval/actionability plan.
+- Opened and closed the next bounded selected-result report viewer slice:
+  - `0092-2026-04-21-selected-result-report-viewer.md`
+- Direction:
+  - make managed selected-result bundles useful as human-readable reports before adding browser-side result selection controls
+  - keep `selected-results.json` as the canonical neutral artifact
+  - keep DOCX/PDF rendering, ranking behavior, and MCP protocol semantics unchanged
+- Implemented:
+  - replaced the placeholder selected-result export landing page with a report renderer over the existing context-pack payload
+  - the report now shows selected item state, target metadata, message context timelines, derived-text chunk context, and linked Slack messages when present
+  - no-text exports render structure and explicitly mark text as omitted
+  - updated README, API/MCP contract docs, roadmap, and the `0092` plan
+- Validation so far:
+  - `python -m py_compile slack_mirror/service/app.py`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_selected_result_report_renders_derived_text_and_omitted_text -v`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
+  - `python -m py_compile slack_mirror/exports.py slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-wrapper no-content selected-result viewer smoke:
+    - `slack-mirror-user search context-pack --managed-export --no-text` created `selected-context-viewer-smoke-1776801923`
+    - result: `kind=selected-results`, `item_count=1`, `resolved_count=1`, `unresolved_count=0`
+    - verified generated `index.html` links `selected-results.json`, shows a report section, and marks omitted text
+
+## Turn 232 | 2026-04-21
+
+- Continued the open `P10` semantic retrieval/actionability plan.
+- Opened and closed the next bounded browser selected-result report creation slice:
+  - `0093-2026-04-21-browser-selected-result-report-creation.md`
+- Direction:
+  - let authenticated browser users select corpus-search hits directly instead of copying `action_target` JSON by hand
+  - keep selection state browser-local for now
+  - create reports through the existing protected `POST /v1/exports` selected-results contract
+  - keep DOCX/PDF rendering, ranking behavior, and the future shared frontend stack out of this slice
+- Implemented:
+  - added compact result-card selection controls for rows that include `action_target`
+  - added a selected-result tray to `/search` with selected count, clear action, title field, before/after context controls, and text-inclusion toggle
+  - wired browser report creation to `POST /v1/exports` with `kind=selected-results`
+  - successful browser-created reports now link directly to `/exports/{export_id}`
+  - updated README, API/MCP contract docs, roadmap, and the `0093` plan
+- Validation so far:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login tests.test_api_server.ApiServerTests.test_export_crud_endpoints -v`
+  - generated search-page JavaScript parsed successfully with Node via `new Function(...)`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
+    - result: 150 tests passed
+  - `python -m py_compile slack_mirror/service/api.py slack_mirror/service/app.py slack_mirror/exports.py slack_mirror/service/mcp.py slack_mirror/cli/main.py`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-wrapper search UI smoke:
+    - rendered `/search` HTML through the installed venv
+    - verified `selected-results-tray` and `kind:'selected-results'` markers
+    - generated JavaScript parsed successfully with Node
