@@ -24,6 +24,10 @@ function statusBadgeClass(tone: "success" | "warning" | "danger" | "neutral" | "
   return `status-badge status-badge--${tone}`;
 }
 
+function statusLabel(value: string | undefined): string {
+  return String(value || "unknown").replaceAll("_", " ");
+}
+
 function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
   const db = tenant.db_stats ?? {};
   const syncHealth = tenant.sync_health ?? {};
@@ -44,7 +48,7 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
         </div>
         <div className="tenant-row__badges">
           <span className={statusBadgeClass(tenantRuntimeTone(tenant))}>
-            {tenant.enabled ? tenant.validation_status ?? "enabled" : "disabled"}
+            {tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
           </span>
           <span className={statusBadgeClass(tenant.credential_ready ? "success" : "warning")}>
             {tenant.credential_ready ? "credentials ready" : "credentials needed"}
@@ -109,7 +113,7 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
             {semanticProfiles.length ? (
               semanticProfiles.map((profile) => (
                 <span className={statusBadgeClass(toneFromApi(profile.tone))} key={profile.name ?? profile.state}>
-                  {profile.name ?? "profile"}: {profile.state ?? "unknown"}
+                  {profile.name ?? "profile"}: {statusLabel(profile.state)}
                 </span>
               ))
             ) : (
@@ -139,7 +143,7 @@ function StatusPanel({
     <section className="status-panel">
       <div className="status-panel__head">
         <strong>{title}</strong>
-        <span className={statusBadgeClass(tone)}>{label ?? "unknown"}</span>
+        <span className={statusBadgeClass(tone)}>{statusLabel(label)}</span>
       </div>
       <p>{summary ?? "No status summary available."}</p>
       {detail ? <small>{detail}</small> : null}

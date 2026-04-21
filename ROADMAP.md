@@ -211,6 +211,7 @@ Actionable plans:
 - `docs/dev/plans/0097-2026-04-21-frontend-app-shell-scaffold.md`
 - `docs/dev/plans/0098-2026-04-21-operator-frontend-preview-route.md`
 - `docs/dev/plans/0099-2026-04-21-react-tenant-status-adapter.md`
+- `docs/dev/plans/0100-2026-04-21-react-tenant-workbench-browser-qa.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -285,6 +286,9 @@ Cross-repo convergence refinement:
     action, and semantic readiness
   - tenant mutations still route to `/settings/tenants` until React parity is
     intentionally reached
+- browser QA against the worktree-served `/operator` preview completed under
+  `0100`, fixing the stale shell title and long status-chip wrapping found in
+  the first screenshot
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

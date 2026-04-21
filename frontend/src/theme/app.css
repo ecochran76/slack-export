@@ -254,7 +254,9 @@ h2 {
 
 .status-panel__head {
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .empty-state {
@@ -292,7 +294,8 @@ h2 {
   border-radius: 999px;
   color: var(--op-color-info);
   padding: var(--op-space-2) var(--op-space-3);
-  white-space: nowrap;
+  text-align: center;
+  white-space: normal;
 }
 
 .status-badge--success {

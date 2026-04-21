@@ -7,6 +7,7 @@ export function App() {
       account={{ label: "Operator", detail: "local session" }}
       activeSection="Tenants"
       sections={["Tenants", "Search", "Reports", "Logs"]}
+      title="Tenant Status Workbench"
     >
       <TenantWorkbench />
     </OperatorShell>

@@ -6,11 +6,20 @@ export interface OperatorShellProps {
     detail?: string;
   };
   activeSection: string;
+  eyebrow?: string;
   sections: string[];
+  title: string;
   children: ReactNode;
 }
 
-export function OperatorShell({ account, activeSection, sections, children }: OperatorShellProps) {
+export function OperatorShell({
+  account,
+  activeSection,
+  children,
+  eyebrow = "User-scoped runtime",
+  sections,
+  title
+}: OperatorShellProps) {
   return (
     <div className="operator-shell">
       <aside className="operator-shell__rail" aria-label="Primary navigation">
@@ -37,8 +46,8 @@ export function OperatorShell({ account, activeSection, sections, children }: Op
       <main className="operator-shell__main">
         <header className="operator-shell__topbar">
           <div>
-            <p className="eyebrow">User-scoped runtime</p>
-            <h1>Selected Result Workbench</h1>
+            <p className="eyebrow">{eyebrow}</p>
+            <h1>{title}</h1>
           </div>
           <div className="account-chip" aria-label="Signed-in account">
             <span className="account-chip__avatar">{account.label.slice(0, 1).toUpperCase()}</span>

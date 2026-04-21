@@ -4332,3 +4332,29 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python scripts/check_generated_docs.py`
   - `git diff --check`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export-operator-frontend --json`
+
+## Turn 239 | 2026-04-21
+
+- Used `agent-browser` against the worktree-served preview route at `http://slack.localhost:8765/operator`.
+- Opened and closed the bounded `P09` browser-QA polish slice:
+  - `0100-2026-04-21-react-tenant-workbench-browser-qa.md`
+- Browser findings:
+  - `/operator` fetched `/v1/tenants` successfully and rendered `default`, `soylei`, and `pcg`
+  - the global shell heading still said `Selected Result Workbench`
+  - long status labels could collide in status panels
+- Implemented:
+  - added configurable `OperatorShell` title and eyebrow props
+  - changed the `/operator` shell title to `Tenant Status Workbench`
+  - formatted underscore-separated status labels for display
+  - allowed status chips to wrap cleanly in status panels
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `agent-browser` desktop QA:
+    - opened `http://slack.localhost:8765/operator`
+    - verified `/v1/tenants` returned `200`
+    - captured `/tmp/slack-operator-qa/tenant-workbench-after-polish.png`
+  - `agent-browser` mobile QA:
+    - `set viewport 390 844`
+    - captured `/tmp/slack-operator-qa/tenant-workbench-mobile.png`
+    - evaluated title `Tenant Status Workbench`, tenants `default`, `soylei`, `pcg`, and `overflow=false`
