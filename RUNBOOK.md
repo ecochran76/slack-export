@@ -4261,3 +4261,26 @@ This file is the dated turn log for planning and execution continuity.
   - `tsc --noEmit --strict --module esnext --target es2022 frontend/src/contracts/index.ts frontend/src/contracts/selectedResults.ts`
   - `git diff --check`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export-operator-frontend --json`
+
+## Turn 236 | 2026-04-21
+
+- Committed the completed frontend selected-result contract slice:
+  - `ccb20a3 feat(frontend): model selected-result contracts`
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` frontend architecture slice:
+  - `0097-2026-04-21-frontend-app-shell-scaffold.md`
+- Direction:
+  - introduce the smallest Vite/React/TypeScript package that can host future operator-console surfaces
+  - keep the first UI static and contract-driven
+  - establish theme tokens and shell primitives before binding live Slack Mirror APIs
+  - do not replace Python-rendered routes or wire built assets into the service yet
+- Implemented:
+  - added `frontend/package.json`, `frontend/tsconfig.json`, `frontend/vite.config.ts`, and `frontend/index.html`
+  - added React app entrypoint and shell wiring
+  - added `OperatorShell`, `MetricStrip`, theme token CSS, app CSS, and a selected-result placeholder workbench
+  - updated frontend docs, roadmap wiring, and gitignore entries for frontend outputs
+- Validation:
+  - `npm install` from `frontend/`
+    - result: 24 packages installed, 0 vulnerabilities
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+    - result: Vite `8.0.9` production build completed

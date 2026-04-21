@@ -208,6 +208,7 @@ Actionable plans:
 - `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
 - `docs/dev/plans/0051-2026-04-18-operator-frontend-reuse-architecture.md`
 - `docs/dev/plans/0096-2026-04-21-frontend-selected-result-contract-model.md`
+- `docs/dev/plans/0097-2026-04-21-frontend-app-shell-scaffold.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -266,7 +267,13 @@ Cross-repo convergence refinement:
     selected target, candidate, context, artifact, and report-view action types
   - `docs/dev/FRONTEND_CONTRACTS.md` records Slack-to-neutral mapping and the
     shared-vs-repo-local adapter boundary
-  - full Vite/React app scaffolding remains a later child slice
+- the first Vite/React/TypeScript app shell scaffold is complete under `0097`:
+  - `frontend/package.json` owns frontend `dev`, `typecheck`, `build`, and
+    `preview` commands
+  - `frontend/src/components/OperatorShell.tsx` and theme token files establish
+    the initial shell/navigation/account-chip and theme boundary
+  - the first screen is static and contract-driven; live API adapters and Python
+    service asset wiring remain later child slices
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

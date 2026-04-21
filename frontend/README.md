@@ -1,8 +1,8 @@
-# Operator Frontend Contracts
+# Operator Frontend
 
-This directory is the first repo-local boundary for the future operator console.
-It is intentionally contract-first: no Vite app, React runtime, or package
-build pipeline is introduced yet.
+This directory is the repo-local boundary for the future operator console.
+It now contains a minimal Vite, React, and TypeScript app shell plus reusable
+UI-facing contracts.
 
 The current purpose is to model the selected-result workflow that is now stable
 enough to inform shared UI primitives:
@@ -26,8 +26,20 @@ sibling repo proves the same model.
 Repo-local Slack API clients and route implementations remain outside this
 directory.
 
+## Commands
+
+```bash
+npm install
+npm run typecheck
+npm run build
+npm run dev
+```
+
 ## Current Files
 
 - `src/contracts/selectedResults.ts`: selected candidate, context, artifact, and
   report-view contracts.
 - `src/contracts/index.ts`: export surface for future frontend code.
+- `src/components/OperatorShell.tsx`: first shell and navigation primitive.
+- `src/components/MetricStrip.tsx`: semantic metric-strip primitive.
+- `src/theme/`: CSS variable tokens and app-shell styling.

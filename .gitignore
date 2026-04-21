@@ -111,3 +111,8 @@ exports/
 data/
 config.yaml
 config.local.yaml
+
+# Frontend tooling
+node_modules/
+frontend/dist/
+frontend/node_modules/
