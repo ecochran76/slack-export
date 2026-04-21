@@ -246,6 +246,20 @@ Planned slice order inside `P09`:
 5. report/artifact workflow migration
 6. logs/runtime observability refinement
 
+Cross-repo convergence refinement:
+- the shared operator-console direction should now explicitly align with a
+  broader communications-corpus convergence path across `slack-export`,
+  `../imcli`, and `../ragmail`
+- the first shared UI extraction should wait until selected-result
+  export/report contracts are stable enough that search results, context
+  windows, export bundles, and report artifacts can be represented without
+  Slack-only naming
+- `slack-export` should continue to prove the frontend patterns locally, but
+  avoid hardcoding future shared components around Slack-specific nouns such as
+  workspace, channel, or thread timestamp when neutral source, conversation,
+  thread, message, participant, attachment, and action-target terminology would
+  fit
+
 ## P10 | Semantic Retrieval And Relevance Hardening
 
 Status: OPEN
@@ -280,6 +294,8 @@ Actionable plans:
 - `docs/dev/plans/0079-2026-04-20-http-backed-bge-profile-rehearsal.md`
 - `docs/dev/plans/0080-2026-04-20-live-relevance-benchmark-lock.md`
 - `docs/dev/plans/0081-2026-04-21-noncontent-relevance-benchmark-pack.md`
+- `docs/dev/plans/0082-2026-04-21-benchmark-target-bge-backfill.md`
+- `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -397,7 +413,16 @@ Current state:
   - a nine-query no-body live fixture now exists at `docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl`
   - managed validation resolved `19/19` labels, with `baseline` coverage `19/19` and BGE profile coverage `0/19`
   - profile benchmark evidence remains rollout-limited: `baseline` and `local-bge-http` tied at hit@10 `0.333333`, nDCG@k `0.0789`, while `local-bge-http-rerank` was worse at hit@10 `0.222222`, nDCG@k `0.061032`
-- the next active semantic-search slice should add targeted BGE coverage for benchmark labels before interpreting BGE model quality or reranker quality
+- the benchmark-target BGE backfill slice is now complete under `0082`:
+  - `mirror benchmark-embeddings-backfill` embeds only targets referenced by benchmark labels for a selected retrieval profile
+  - managed target backfill covered `3` unique message targets and moved BGE profile coverage from `0/19` to `19/19` on the non-content fixture
+  - post-coverage profile evidence still showed `baseline` and `local-bge-http` tied at hit@10 `0.333333`, nDCG@k `0.0789`; `local-bge-http-rerank` remained worse at hit@10 `0.222222`, nDCG@k `0.061032`
+  - the release `baseline` remains unchanged
+- the next active semantic-search slice should add profile-aware query diagnostics over the benchmark fixture before any broader rollout or reranker tuning
+- `0083` adds a cross-corpus convergence planning layer on top of the shipped
+  `action_target` contract: Slack Mirror should evolve selected search results
+  toward provider-neutral export/report action targets that can later align
+  with `../imcli` chat exports and `../ragmail` thread/report artifacts
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -408,7 +433,11 @@ Remaining project phases:
 3. query pipeline hardening:
    - stabilize grouped result projection now that weighted/RRF fusion and explain metadata are available
 4. actionability and frontend integration:
-   - build higher-level export/report/action workflows on top of the shipped `action_target` selection metadata
+   - build higher-level selected-result export/report/action workflows on top
+     of the shipped `action_target` selection metadata
+   - keep the first implementation Slack-owned, but shape the JSON/report
+     artifact so it can become a proving input for a future shared
+     communications export contract
 5. scale and inference-boundary review:
    - baseline exact search is now interactive for the measured `default` query after `0077`
    - `0078` has landed the long-lived loopback inference-service boundary needed to remove BGE cold-load cost from CLI/API/MCP client processes
@@ -416,11 +445,115 @@ Remaining project phases:
    - completed under `0069`
 
 Recommended remaining child plans:
-- next semantic child plan should focus on targeted BGE coverage for labeled benchmark targets; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
+- next semantic child plan should focus on profile-aware ranking diagnostics for the covered benchmark fixture; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
+- the next export/report actionability child plan should add selected-result
+  export inputs and neutral report JSON mapping on top of the existing
+  managed channel/day export baseline, without moving Slack runtime or
+  tenant-onboarding behavior into a shared package
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above
 - a local-first retrieval profile that improves message, attachment, and OCR search quality without forcing a vector-DB migration
+
+## P12 | Communications Corpus Convergence
+
+Status: OPEN
+
+Purpose:
+- guide Slack Mirror toward convergence with `../imcli` and `../ragmail` through
+  shared search/export/report contracts instead of a premature mega-merge
+- preserve Slack-specific runtime ownership while making the export/report layer
+  portable enough to seed future shared libraries
+
+Actionable plans:
+- `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
+
+Current state:
+- Slack Mirror already has the strongest export/report baseline among the
+  sibling communication projects:
+  - deterministic managed export IDs
+  - managed export bundles and manifests
+  - stable `/exports/<export-id>` URLs
+  - attachment download and preview URLs
+  - channel/day JSON as a canonical artifact
+  - HTML chat-style rendering
+  - DOCX/PDF renderers layered on JSON
+  - API export lifecycle routes
+  - browser search and export-management surfaces
+  - `action_target` metadata on corpus search results
+- `../imcli` is planning selected-result chat exports for Google Messages and
+  WhatsApp with configurable before/after context windows
+- `../ragmail` has analogous mail search, thread rendering, attachment
+  extraction, case bundles, and report manifests, but must preserve mailbox,
+  folder, MIME, archive/live-source, and email-thread semantics
+- the maintainable direction is independent provider services plus shared
+  contracts and extracted libraries after at least two repos prove compatible
+  artifacts
+
+Shared-library gate:
+- do not extract shared libraries yet as speculative architecture
+- begin shared library development only after at least two repos can emit or
+  losslessly map to compatible provider-neutral artifacts for the same workflow
+- the first likely gate is selected-result export/reporting across
+  `slack-export` and `../imcli`
+- use `../ragmail` as the third proving implementation before broader
+  frontend or control-plane commitments
+
+Recommended shared-library home:
+- not inside `slack-export`
+- not inside `../imcli`
+- not inside `../ragmail`
+- create a separate sibling repo when the first extraction gate is met:
+  - preferred: `../comm-corpus`
+  - acceptable alternative: `../communications-core`
+
+Initial shared-library candidates:
+1. `comm-export-contracts`
+   - action targets, source refs, conversation/thread/message refs, context
+     windows, report payloads, artifacts, manifests, and attachment links
+2. `comm-bundle-store`
+   - deterministic export IDs, safe bundle paths, manifest listing, rename,
+     delete, URL building, and preview URL metadata
+3. `comm-report-renderer`
+   - provider-neutral report JSON to HTML rendering, with later DOCX/PDF
+     adapters only after the JSON contract proves stable
+4. `comm-context-window`
+   - storage-agnostic context expansion policy over backend-provided message
+     neighbors
+5. `comm-search-contracts`
+   - request/result/action-target/readiness shapes, not a shared search engine
+6. `comm-workbench-ui`
+   - React/Vite operator/search/export components after CLI/API/MCP contracts
+     stabilize
+
+Slack Mirror development recommendations:
+- keep Slack runtime and onboarding independent:
+  - Socket Mode
+  - Slack app manifest generation
+  - tenant credential installation
+  - file/canvas repair
+  - Slack outbound/listener semantics
+- add selected-result export inputs on top of the current channel/day export
+  baseline
+- emit or map to provider-neutral report JSON while preserving Slack-native
+  fields under explicit source/native metadata
+- document neutral mappings:
+  - workspace -> source
+  - channel/DM/MPIM -> conversation
+  - thread timestamp -> thread
+  - Slack message timestamp -> message
+  - Slack user -> participant
+  - Slack file/canvas/email preview -> attachment or derived source
+- keep the existing managed bundle behavior stable while adding the neutral
+  artifact layer
+
+Anti-goals:
+- no direct merge of `slack-export`, `../imcli`, and `../ragmail` now
+- no shared DB schema as the first step
+- no shared sync/runtime/auth package as the first step
+- no frontend-first shared package before CLI/API/MCP export contracts stabilize
+- no `imcli`-owned or Slack-owned shared package that makes the other projects
+  second-class consumers
 
 ## P11 | Stable MCP-Capable User-Scoped Release
 

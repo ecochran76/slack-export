@@ -220,7 +220,7 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 
 ```
 usage: slack-mirror mirror [-h]
-                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,rollout-plan,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,benchmark-embeddings-backfill,rollout-plan,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 ```
 
@@ -230,6 +230,7 @@ usage: slack-mirror mirror [-h]
 **Subcommands**
 
 - `backfill`
+- `benchmark-embeddings-backfill`
 - `daemon`
 - `derived-text-embeddings-backfill`
 - `embeddings-backfill`
@@ -282,6 +283,28 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 slack-mirror --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 10
 slack-mirror --config config.yaml mirror backfill --workspace default --include-files --file-types all --cache-root ./cache
 ```
+
+
+### `slack-mirror mirror benchmark-embeddings-backfill`
+**Usage**
+
+```
+usage: slack-mirror mirror benchmark-embeddings-backfill [-h] --workspace
+                                                         WORKSPACE --dataset
+                                                         DATASET
+                                                         --retrieval-profile
+                                                         RETRIEVAL_PROFILE
+                                                         [--model MODEL]
+                                                         [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--dataset` — JSONL benchmark dataset path
+- `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
+- `--model` — optional embedding model id override
+- `--json` — json output
 
 
 ### `slack-mirror mirror daemon`

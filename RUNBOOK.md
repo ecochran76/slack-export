@@ -3577,3 +3577,106 @@ This file is the dated turn log for planning and execution continuity.
   - `slack-mirror-user search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+
+## Turn 220 | 2026-04-21
+
+- Opened the next bounded `P10` benchmark-target BGE backfill slice:
+  - `0082-2026-04-21-benchmark-target-bge-backfill.md`
+- Direction:
+  - add a narrow write path that embeds only targets referenced by benchmark labels
+  - route model/provider selection through retrieval profiles
+  - reuse sync-layer embedding storage rather than creating a parallel writer
+  - keep BGE rollout bounded to benchmark targets and keep release `baseline` unchanged
+- Implemented and closed `0082`:
+  - added `mirror benchmark-embeddings-backfill`
+  - added target-only message embedding and derived-text chunk embedding helpers
+  - updated README, config docs, benchmark docs, and generated CLI/man docs
+- Managed repo-env backfill evidence on `default` with `local-bge-http`:
+  - labels: `19`
+  - unique message targets: `3`
+  - derived-text targets: `0`
+  - message scanned: `3`
+  - message embedded: `3`
+  - skipped: `0`
+  - missing: `0`
+- Post-backfill validation:
+  - `baseline`: `19/19` labels covered
+  - `local-bge-http`: `19/19` labels covered
+  - `local-bge-http-rerank`: `19/19` labels covered
+- Post-coverage profile benchmark:
+  - `baseline`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `331.515 ms`
+  - `local-bge-http`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `245.402 ms`
+  - `local-bge-http-rerank`: hit@3 `0.0`, hit@10 `0.222222`, nDCG@k `0.061032`, MRR@k `0.055556`, p95 `2128.806 ms`
+- Installed-wrapper idempotence evidence:
+  - labels: `19`
+  - unique message targets: `3`
+  - message embedded: `0`
+  - skipped: `3`
+  - missing: `0`
+- Installed-wrapper profile benchmark:
+  - `baseline`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `608.239 ms`
+  - `local-bge-http`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `255.915 ms`
+  - `local-bge-http-rerank`: hit@3 `0.0`, hit@10 `0.222222`, nDCG@k `0.061032`, MRR@k `0.055556`, p95 `2071.465 ms`
+- Interpretation:
+  - BGE coverage is no longer missing for this fixture
+  - BGE still ties baseline on relevance and should not be promoted
+  - learned reranking remains worse and slower on this fixture
+  - release `baseline` remains unchanged
+- Validation:
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_embeddings tests.test_derived_text -v`
+  - `uv run python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+  - `slack-mirror-user mirror benchmark-embeddings-backfill --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --retrieval-profile local-bge-http --json`
+  - `slack-mirror-user search benchmark-validate --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json`
+  - `slack-mirror-user search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+
+## Turn 221 | 2026-04-21
+
+- Memorialized the cross-repo convergence discussion for Slack Mirror,
+  `../imcli`, and `../ragmail`.
+- Opened the bounded planning slice:
+  - `0083-2026-04-21-cross-corpus-export-convergence.md`
+- Added new roadmap lane:
+  - `P12 | Communications Corpus Convergence`
+- Recommendation recorded:
+  - keep the three projects independent for now
+  - converge through provider-neutral search/export/report contracts
+  - extract shared libraries only after at least two repos prove compatible
+    artifacts for the same workflow
+  - avoid a direct mega-merge until contracts and boundaries are stable
+- Shared-library home decision recorded:
+  - not inside `slack-export`
+  - not inside `../imcli`
+  - not inside `../ragmail`
+  - preferred future sibling repo: `../comm-corpus`
+  - acceptable alternative: `../communications-core`
+- First likely extraction gate:
+  - selected-result export/reporting across `slack-export` and `../imcli`
+  - `../ragmail` should be the third proving implementation before deeper
+    frontend or common-control-plane commitments
+- Initial shared-library candidates:
+  - `comm-export-contracts`
+  - `comm-bundle-store`
+  - later `comm-report-renderer`
+  - later `comm-context-window`
+  - later `comm-search-contracts`
+  - later `comm-workbench-ui`
+- Slack Mirror development recommendation:
+  - keep Slack runtime, Socket Mode, tenant onboarding, credential workflows,
+    file/canvas repair, and outbound/listener semantics service-owned
+  - add selected-result export inputs on top of existing channel/day exports
+  - emit or map to provider-neutral report JSON
+  - document Slack-native mappings to neutral source, conversation, thread,
+    message, participant, attachment, and derived-source fields
+  - preserve the existing managed export bundle contract while adding the
+    neutral artifact layer
+- Ragmail unlock goals recorded:
+  - stable mail action targets
+  - neutral report JSON mapping
+  - compatible artifact manifests and attachment links
+  - preservation of mailbox, folder, MIME, archive/live-source, and email-thread
+    semantics

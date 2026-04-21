@@ -1362,3 +1362,78 @@ def backfill_derived_text_chunk_embeddings(
         "documents": len(documents),
         "chunks": scanned,
     }
+
+
+def backfill_derived_text_chunk_embeddings_for_targets(
+    conn,
+    *,
+    workspace_id: int,
+    derived_text_ids: list[int],
+    model_id: str,
+    provider: EmbeddingProvider,
+) -> dict[str, int]:
+    if provider is None:
+        raise ValueError("provider is required for derived-text chunk embedding backfill")
+
+    ids = sorted({int(value) for value in derived_text_ids if int(value) > 0})
+    if not ids:
+        return {"scanned": 0, "embedded": 0, "skipped": 0, "documents": 0, "chunks": 0, "missing": 0}
+
+    placeholders = ",".join("?" for _ in ids)
+    rows = conn.execute(
+        f"""
+        SELECT
+          dt.id AS derived_text_id,
+          dc.id AS derived_text_chunk_id,
+          dc.chunk_index,
+          dc.text,
+          dc.content_hash,
+          dte.content_hash AS embedded_content_hash
+        FROM derived_text dt
+        JOIN derived_text_chunks dc
+          ON dc.derived_text_id = dt.id
+        LEFT JOIN derived_text_chunk_embeddings dte
+          ON dte.derived_text_chunk_id = dc.id
+         AND dte.model_id = ?
+        WHERE dt.workspace_id = ?
+          AND dt.id IN ({placeholders})
+        ORDER BY dt.id ASC, dc.chunk_index ASC
+        """,
+        (model_id, workspace_id, *ids),
+    ).fetchall()
+
+    documents = {int(row["derived_text_id"]) for row in rows}
+    missing = len(set(ids) - documents)
+    skipped = 0
+    chunks_to_embed: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        if str(item.get("embedded_content_hash") or "") == str(item.get("content_hash") or ""):
+            skipped += 1
+            continue
+        chunks_to_embed.append(item)
+
+    embedded = 0
+    batch_size = 32
+    for idx in range(0, len(chunks_to_embed), batch_size):
+        batch = chunks_to_embed[idx : idx + batch_size]
+        vectors = provider.embed_texts([str(item.get("text") or "") for item in batch], model_id=model_id)
+        for item, vector in zip(batch, vectors):
+            upsert_derived_text_chunk_embedding(
+                conn,
+                derived_text_chunk_id=int(item["derived_text_chunk_id"]),
+                workspace_id=workspace_id,
+                model_id=model_id,
+                embedding=vector,
+                content_hash=str(item["content_hash"] or ""),
+            )
+            embedded += 1
+
+    return {
+        "scanned": len(rows),
+        "embedded": embedded,
+        "skipped": skipped,
+        "documents": len(documents),
+        "chunks": len(rows),
+        "missing": missing,
+    }

@@ -46,3 +46,15 @@ slack-mirror search profile-benchmark \
 ```
 
 If validation reports incomplete coverage for a profile model, treat relevance results as rollout-limited rather than model-quality evidence.
+
+To cover only benchmark-labeled targets for a profile, use:
+
+```bash
+slack-mirror mirror benchmark-embeddings-backfill \
+  --workspace default \
+  --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl \
+  --retrieval-profile local-bge-http \
+  --json
+```
+
+This command is intentionally narrower than a tenant rollout. It resolves labels from the dataset, deduplicates the targets, and embeds only those message or derived-text targets for the selected retrieval profile.

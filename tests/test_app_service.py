@@ -9,6 +9,7 @@ from slack_mirror.core.db import (
     enqueue_derived_text_job,
     get_derived_text,
     get_derived_text_chunks,
+    get_message_embedding,
     get_workspace_by_name,
     mark_derived_text_job_status,
     upsert_channel,
@@ -679,6 +680,47 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(baseline["coverage"]["coverage_ratio"], 1.0)
         self.assertEqual(bge["coverage"]["covered"], 0)
         self.assertEqual(bge["coverage"]["coverage_ratio"], 0.0)
+
+    def test_backfill_benchmark_dataset_embeddings_only_targets_labels(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+        upsert_message(self.conn, workspace_id, "C1", {"ts": "1.0", "text": "alpha benchmark target", "user": "U1"})
+        upsert_message(self.conn, workspace_id, "C1", {"ts": "2.0", "text": "not in benchmark", "user": "U1"})
+        dataset = self.root / "bench-targets.jsonl"
+        dataset.write_text(
+            '{"id":"q1","query":"alpha","intent":"message_exact","relevant":{"general:1.0":2}}\n',
+            encoding="utf-8",
+        )
+
+        result = self.service.backfill_benchmark_dataset_embeddings(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            retrieval_profile_name="baseline",
+        )
+
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["message_targets"], 1)
+        self.assertEqual(result["messages"]["embedded"], 1)
+        self.assertIsNotNone(
+            get_message_embedding(
+                self.conn,
+                workspace_id=workspace_id,
+                channel_id="C1",
+                ts="1.0",
+                model_id="local-hash-128",
+            )
+        )
+        self.assertIsNone(
+            get_message_embedding(
+                self.conn,
+                workspace_id=workspace_id,
+                channel_id="C1",
+                ts="2.0",
+                model_id="local-hash-128",
+            )
+        )
 
     def test_search_health_rejects_hybrid_for_derived_text_target(self):
         with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):

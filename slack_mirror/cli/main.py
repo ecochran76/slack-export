@@ -2070,6 +2070,36 @@ def cmd_derived_text_embeddings_backfill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_benchmark_embeddings_backfill(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    payload = service.backfill_benchmark_dataset_embeddings(
+        conn,
+        workspace=args.workspace,
+        dataset_path=args.dataset,
+        retrieval_profile_name=args.retrieval_profile,
+        model_id=args.model,
+    )
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["status"] != "fail" else 1
+    messages = payload["messages"]
+    chunks = payload["derived_text_chunks"]
+    print(
+        f"Benchmark embeddings backfill workspace={payload['workspace']} profile={payload['retrieval_profile']['name']} "
+        f"model={payload['model']} provider={payload['provider']} status={payload['status']} "
+        f"message_targets={payload['message_targets']} message_embedded={messages['embedded']} message_skipped={messages['skipped']} "
+        f"derived_text_targets={payload['derived_text_targets']} chunk_embedded={chunks['embedded']} chunk_skipped={chunks['skipped']}"
+    )
+    if payload["unresolved_labels"]:
+        print(f"Unresolved labels: {len(payload['unresolved_labels'])}")
+    if payload["ambiguous_labels"]:
+        print(f"Ambiguous labels: {len(payload['ambiguous_labels'])}")
+    return 0 if payload["status"] != "fail" else 1
+
+
 def cmd_channels_sync_from_tool(args: argparse.Namespace) -> int:
     adapter = SlackChannelsAdapter()
     mappings = adapter.list_mappings()
@@ -2266,7 +2296,7 @@ _slack_mirror_complete() {
   local release_sub="check"
   local user_env_sub="install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user"
   local tenants_sub="status onboard credentials activate live backfill retire"
-  local mirror_sub="init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs rollout-plan oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
+  local mirror_sub="init backfill reconcile-files embeddings-backfill derived-text-embeddings-backfill benchmark-embeddings-backfill process-embedding-jobs process-derived-text-jobs rollout-plan oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon"
   local ws_sub="list sync-config verify"
   local channels_sub="sync-from-tool"
   local docs_sub="generate"
@@ -2436,7 +2466,7 @@ _slack_mirror() {
   mcp_sub=(serve)
   release_sub=(check)
   user_env_sub=(install update rollback uninstall status validate-live check-live recover-live snapshot-report provision-frontend-user)
-  mirror_sub=(init backfill reconcile-files embeddings-backfill process-embedding-jobs process-derived-text-jobs rollout-plan oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
+  mirror_sub=(init backfill reconcile-files embeddings-backfill derived-text-embeddings-backfill benchmark-embeddings-backfill process-embedding-jobs process-derived-text-jobs rollout-plan oauth-callback serve-webhooks serve-socket-mode process-events sync status daemon)
   ws_sub=(list sync-config verify)
   tenants_sub=(status onboard credentials activate live backfill retire)
 
@@ -3113,6 +3143,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_derived_emb_backfill.add_argument("--json", action="store_true", help="json output")
     p_derived_emb_backfill.set_defaults(func=cmd_derived_text_embeddings_backfill)
+
+    p_benchmark_emb_backfill = mirror_sub.add_parser(
+        "benchmark-embeddings-backfill",
+        help="backfill embeddings only for targets referenced by a benchmark dataset",
+    )
+    p_benchmark_emb_backfill.add_argument("--workspace", required=True, help="workspace name")
+    p_benchmark_emb_backfill.add_argument("--dataset", required=True, help="JSONL benchmark dataset path")
+    p_benchmark_emb_backfill.add_argument("--retrieval-profile", required=True, help="named retrieval profile from config search.retrieval_profiles")
+    p_benchmark_emb_backfill.add_argument("--model", default=None, help="optional embedding model id override")
+    p_benchmark_emb_backfill.add_argument("--json", action="store_true", help="json output")
+    p_benchmark_emb_backfill.set_defaults(func=cmd_benchmark_embeddings_backfill)
 
     p_rollout_plan = mirror_sub.add_parser("rollout-plan", help="plan semantic embedding rollout for a retrieval profile")
     p_rollout_plan.add_argument("--workspace", required=True, help="workspace name")

@@ -116,6 +116,65 @@ def backfill_message_embeddings(
     return {"scanned": len(rows), "embedded": embedded, "skipped": skipped, "channels": len(seen_channels)}
 
 
+def backfill_message_embeddings_for_targets(
+    conn,
+    *,
+    workspace_id: int,
+    targets: list[dict[str, str]],
+    model_id: str = "local-hash-128",
+    provider: EmbeddingProvider | None = None,
+) -> dict[str, int]:
+    embedded = 0
+    skipped = 0
+    missing = 0
+    seen: set[tuple[str, str]] = set()
+    seen_channels: set[str] = set()
+
+    for target in targets:
+        channel_id = str(target.get("channel_id") or "").strip()
+        ts = str(target.get("ts") or "").strip()
+        if not channel_id or not ts:
+            missing += 1
+            continue
+        key = (channel_id, ts)
+        if key in seen:
+            continue
+        seen.add(key)
+        seen_channels.add(channel_id)
+        row = conn.execute(
+            """
+            SELECT COALESCE(text, '') AS text, deleted
+            FROM messages
+            WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+            """,
+            (workspace_id, channel_id, ts),
+        ).fetchone()
+        if not row or int(row["deleted"]):
+            missing += 1
+            continue
+        status = _embed_and_store(
+            conn,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            ts=ts,
+            text=row["text"],
+            model_id=model_id,
+            provider=provider,
+        )
+        if status == "embedded":
+            embedded += 1
+        else:
+            skipped += 1
+
+    return {
+        "scanned": len(seen),
+        "embedded": embedded,
+        "skipped": skipped,
+        "missing": missing,
+        "channels": len(seen_channels),
+    }
+
+
 def process_embedding_jobs(
     conn,
     *,

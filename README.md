@@ -109,6 +109,7 @@ slack-mirror search corpus --workspace default --query "incident review" --retri
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search benchmark-validate --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http --json
 slack-mirror search profile-benchmark --workspace default --dataset ./docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http --json
+slack-mirror mirror benchmark-embeddings-backfill --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --retrieval-profile local-bge-http --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
@@ -162,6 +163,7 @@ The current repo has:
 - API and MCP corpus search accept the same named retrieval-profile selector, so agent clients can use `baseline` or an explicitly rolled-out profile instead of guessing provider/model settings
 - tenant semantic-readiness diagnostics across CLI, API, MCP, and the authenticated tenant settings page
 - a read-only semantic rollout planner at `slack-mirror mirror rollout-plan`, which reports tenant coverage for the profile model and emits bounded probe/backfill/health commands
+- a benchmark-target embedding backfill at `slack-mirror mirror benchmark-embeddings-backfill`, which covers only labels referenced by a benchmark dataset
 - a read-only scale review at `slack-mirror search scale-review`, which reports corpus size, embedding coverage, timed retrieval-profile latency, and the current SQLite/index plus inference-boundary recommendation
 - a read-only benchmark validator at `slack-mirror search benchmark-validate`, which checks dataset label resolvability and per-profile model coverage before interpreting relevance evidence
 - an aggregate-safe profile benchmark at `slack-mirror search profile-benchmark`, which compares named profiles against a JSONL benchmark dataset without emitting per-query detail unless `--include-details` is set
@@ -193,12 +195,13 @@ uv run slack-mirror search profiles
 uv run slack-mirror search semantic-readiness --workspace default --json
 uv run slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 uv run slack-mirror search benchmark-validate --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
+uv run slack-mirror mirror benchmark-embeddings-backfill --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --retrieval-profile local-bge-http --json
 uv run slack-mirror search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 uv run slack-mirror search provider-probe --retrieval-profile local-bge --json
 uv run slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 ```
 
-`search semantic-readiness` is read-only and shows which profiles are ready, partial, unavailable, or still need rollout. `search scale-review` is also read-only; its default `baseline` profile path is safe for release checks and should be run before changing index or inference architecture. `search benchmark-validate` verifies benchmark labels and profile-model coverage before interpreting relevance results. `search profile-benchmark` reuses the `search health` benchmark evaluator across multiple profiles and defaults to aggregate-only output. The rollout plan is read-only; it reports message and derived-text chunk coverage for the selected profile model and prints the exact bounded commands to run next.
+`search semantic-readiness` is read-only and shows which profiles are ready, partial, unavailable, or still need rollout. `search scale-review` is also read-only; its default `baseline` profile path is safe for release checks and should be run before changing index or inference architecture. `search benchmark-validate` verifies benchmark labels and profile-model coverage before interpreting relevance results. `mirror benchmark-embeddings-backfill` is the narrow write path for covering only benchmark-labeled targets under a retrieval profile. `search profile-benchmark` reuses the `search health` benchmark evaluator across multiple profiles and defaults to aggregate-only output. The rollout plan is read-only; it reports message and derived-text chunk coverage for the selected profile model and prints the exact bounded commands to run next.
 
 For query-pipeline diagnostics, use `--explain` and optionally compare fusion strategies without changing tenant defaults:
 

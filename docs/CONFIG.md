@@ -296,6 +296,7 @@ slack-mirror search corpus --workspace default --query "incident review" --retri
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search benchmark-validate --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
+slack-mirror mirror benchmark-embeddings-backfill --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --retrieval-profile local-bge-http --json
 slack-mirror search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 slack-mirror search provider-probe --retrieval-profile local-bge --json
 slack-mirror search provider-probe --retrieval-profile local-bge-http --smoke --json
@@ -307,6 +308,8 @@ slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-b
 `search scale-review` is read-only and defaults to the release-safe `baseline` profile. Use it before changing index or inference architecture; it reports corpus counts, embedding coverage, repeated query latency by retrieval profile, and a machine-readable decision recommending whether to stay SQLite/exact, evaluate a SQLite-native vector extension, or evaluate a local ANN service.
 
 `search benchmark-validate` is read-only and checks benchmark dataset labels against the configured workspace DB. It reports unresolved labels, ambiguous labels, and per-profile configured-model coverage so partial rollout does not get confused with model-quality evidence.
+
+`mirror benchmark-embeddings-backfill` is a bounded write command for covering only the targets referenced by benchmark labels under a selected retrieval profile. Use it when benchmark validation shows label coverage is missing and broad tenant rollout is not justified.
 
 `search profile-benchmark` is read-only and compares multiple retrieval profiles against the same JSONL benchmark dataset. Its default output is aggregate-only; use `--include-details` only when per-query rows are safe to inspect locally.
 

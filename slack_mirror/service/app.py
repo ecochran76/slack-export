@@ -1686,6 +1686,81 @@ class SlackMirrorAppService:
             "query_reports": query_reports,
         }
 
+    def backfill_benchmark_dataset_embeddings(
+        self,
+        conn,
+        *,
+        workspace: str,
+        dataset_path: str,
+        retrieval_profile_name: str,
+        model_id: str | None = None,
+    ) -> dict[str, Any]:
+        from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings_for_targets
+        from slack_mirror.sync.embeddings import backfill_message_embeddings_for_targets
+
+        workspace_id = self.workspace_id(conn, workspace)
+        rows = dataset_rows(dataset_path)
+        profile = self.retrieval_profile(retrieval_profile_name)
+        profile_config = self.config_for_retrieval_profile(profile)
+        active_model_id = model_id or profile.model
+        embedding_provider = build_embedding_provider(profile_config)
+
+        message_targets: list[dict[str, str]] = []
+        derived_text_ids: list[int] = []
+        unresolved_labels: list[dict[str, Any]] = []
+        ambiguous_labels: list[dict[str, Any]] = []
+        label_count = 0
+
+        for index, row in enumerate(rows, start=1):
+            for label in dict(row.get("relevant") or {}).keys():
+                label_count += 1
+                matches = self._resolve_benchmark_label(conn, workspace_id=workspace_id, label=str(label))
+                if not matches:
+                    unresolved_labels.append({"query_index": index, "label": label})
+                    continue
+                if len(matches) > 1:
+                    ambiguous_labels.append({"query_index": index, "label": label, "matches": len(matches)})
+                for match in matches:
+                    if match["kind"] == "message":
+                        message_targets.append({"channel_id": str(match["channel_id"]), "ts": str(match["ts"])})
+                    elif match["kind"] == "derived_text":
+                        derived_text_ids.append(int(match["derived_text_id"]))
+
+        message_result = backfill_message_embeddings_for_targets(
+            conn,
+            workspace_id=workspace_id,
+            targets=message_targets,
+            model_id=active_model_id,
+            provider=embedding_provider,
+        )
+        derived_result = backfill_derived_text_chunk_embeddings_for_targets(
+            conn,
+            workspace_id=workspace_id,
+            derived_text_ids=derived_text_ids,
+            model_id=active_model_id,
+            provider=embedding_provider,
+        )
+        status = "pass" if not unresolved_labels else "fail"
+        if status == "pass" and ambiguous_labels:
+            status = "pass_with_warnings"
+        return {
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "dataset_path": dataset_path,
+            "retrieval_profile": profile.to_dict(),
+            "model": active_model_id,
+            "provider": getattr(embedding_provider, "name", embedding_provider.__class__.__name__),
+            "status": status,
+            "queries": len(rows),
+            "labels": label_count,
+            "message_targets": len({(target["channel_id"], target["ts"]) for target in message_targets}),
+            "derived_text_targets": len(set(derived_text_ids)),
+            "unresolved_labels": unresolved_labels,
+            "ambiguous_labels": ambiguous_labels,
+            "messages": message_result,
+            "derived_text_chunks": derived_result,
+        }
+
     def _resolve_benchmark_label(self, conn, *, workspace_id: int, label: str) -> list[dict[str, Any]]:
         parts = label.split(":")
         if len(parts) == 2:

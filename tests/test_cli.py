@@ -205,6 +205,28 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_benchmark_embeddings_backfill(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "mirror",
+                "benchmark-embeddings-backfill",
+                "--workspace",
+                "default",
+                "--dataset",
+                "docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl",
+                "--retrieval-profile",
+                "local-bge-http",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "mirror")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.dataset, "docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl")
+        self.assertEqual(args.retrieval_profile, "local-bge-http")
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_mirror_rollout_plan(self):
         parser = build_parser()
         args = parser.parse_args(

@@ -172,13 +172,15 @@ usage: slack-mirror messages list [-h] --workspace WORKSPACE [--after AFTER]
 **Usage**
 
 usage: slack-mirror mirror [-h]
-                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,rollout-plan,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
+                           {init,backfill,reconcile-files,embeddings-backfill,process-embedding-jobs,process-derived-text-jobs,derived-text-embeddings-backfill,benchmark-embeddings-backfill,rollout-plan,oauth-callback,serve-webhooks,serve-socket-mode,process-events,sync,status,daemon}
                            ...
 
 **Arguments**
 **Subcommands**
 .IP \[bu] 2
 `backfill`
+.IP \[bu] 2
+`benchmark-embeddings-backfill`
 .IP \[bu] 2
 `daemon`
 .IP \[bu] 2
@@ -251,6 +253,28 @@ usage: slack-mirror mirror backfill [-h] --workspace WORKSPACE
 slack-mirror --config config.yaml mirror backfill --workspace default --include-messages --channel-limit 10
 slack-mirror --config config.yaml mirror backfill --workspace default --include-files --file-types all --cache-root ./cache
 
+.SH SLACK-MIRROR MIRROR BENCHMARK-EMBEDDINGS-BACKFILL
+**Usage**
+
+usage: slack-mirror mirror benchmark-embeddings-backfill [-h] --workspace
+                                                         WORKSPACE --dataset
+                                                         DATASET
+                                                         --retrieval-profile
+                                                         RETRIEVAL_PROFILE
+                                                         [--model MODEL]
+                                                         [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--dataset` — JSONL benchmark dataset path
+.IP \[bu] 2
+`--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
+.IP \[bu] 2
+`--model` — optional embedding model id override
+.IP \[bu] 2
+`--json` — json output
 .SH SLACK-MIRROR MIRROR DAEMON
 **Usage**
 
