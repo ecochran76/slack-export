@@ -295,6 +295,7 @@ slack-mirror search semantic-readiness --workspace default --json
 slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
+slack-mirror search benchmark-validate --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 slack-mirror search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 slack-mirror search provider-probe --retrieval-profile local-bge --json
 slack-mirror search provider-probe --retrieval-profile local-bge-http --smoke --json
@@ -304,6 +305,8 @@ slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-b
 `search semantic-readiness` is read-only and returns profile states for one workspace or all enabled workspaces. `mirror rollout-plan` is read-only. It reports current message and derived-text chunk embedding coverage for the profile model and emits bounded commands for provider probing, message embedding backfill, derived-text chunk embedding backfill, optional reranker probing, and search-health verification.
 
 `search scale-review` is read-only and defaults to the release-safe `baseline` profile. Use it before changing index or inference architecture; it reports corpus counts, embedding coverage, repeated query latency by retrieval profile, and a machine-readable decision recommending whether to stay SQLite/exact, evaluate a SQLite-native vector extension, or evaluate a local ANN service.
+
+`search benchmark-validate` is read-only and checks benchmark dataset labels against the configured workspace DB. It reports unresolved labels, ambiguous labels, and per-profile configured-model coverage so partial rollout does not get confused with model-quality evidence.
 
 `search profile-benchmark` is read-only and compares multiple retrieval profiles against the same JSONL benchmark dataset. Its default output is aggregate-only; use `--include-details` only when per-query rows are safe to inspect locally.
 

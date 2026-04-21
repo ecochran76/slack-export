@@ -1551,6 +1551,43 @@ def cmd_search_profile_benchmark(args: argparse.Namespace) -> int:
     return 0 if status != "fail" else 1
 
 
+def cmd_search_benchmark_validate(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    profile_names = [value.strip() for value in str(args.profiles or "").split(",") if value.strip()]
+    payload = service.benchmark_dataset_report(
+        conn,
+        workspace=args.workspace,
+        dataset_path=args.dataset,
+        profile_names=profile_names or None,
+    )
+    if not bool(args.include_details):
+        payload = dict(payload)
+        payload.pop("query_reports", None)
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"Search benchmark validate workspace={payload['workspace']} dataset={payload['dataset_path']} "
+            f"status={payload['status']} queries={payload['queries']} labels={payload['labels']} "
+            f"resolved={payload['resolved_labels']}"
+        )
+        for profile in payload["profiles"]:
+            coverage = profile["coverage"]
+            print(
+                f"{profile['name']}: model={profile['model']} labels={coverage['covered']}/{coverage['labels']} "
+                f"messages={coverage['message_covered']}/{coverage['messages']} "
+                f"derived={coverage['derived_text_covered']}/{coverage['derived_text']}"
+            )
+        if payload["unresolved_labels"]:
+            print(f"Unresolved labels: {len(payload['unresolved_labels'])}")
+        if payload["ambiguous_labels"]:
+            print(f"Ambiguous labels: {len(payload['ambiguous_labels'])}")
+    return 0 if payload["status"] != "fail" else 1
+
+
 def cmd_search_profiles(args: argparse.Namespace) -> int:
     from slack_mirror.service.app import get_app_service
 
@@ -2292,7 +2329,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark benchmark-validate profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2484,7 +2521,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark benchmark-validate profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3374,6 +3411,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search_profile_benchmark.add_argument("--json", action="store_true", help="json output")
     p_search_profile_benchmark.set_defaults(func=cmd_search_profile_benchmark)
+
+    p_search_benchmark_validate = search_sub.add_parser(
+        "benchmark-validate",
+        help="validate benchmark labels and profile-model coverage without running searches",
+    )
+    p_search_benchmark_validate.add_argument("--workspace", required=True, help="workspace name")
+    p_search_benchmark_validate.add_argument("--dataset", required=True, help="JSONL benchmark dataset path")
+    p_search_benchmark_validate.add_argument(
+        "--profiles",
+        default="baseline",
+        help="comma-separated retrieval profile names for model coverage checks (default: baseline)",
+    )
+    p_search_benchmark_validate.add_argument(
+        "--include-details",
+        action="store_true",
+        help="include per-query label resolution details; default output is aggregate-only",
+    )
+    p_search_benchmark_validate.add_argument("--json", action="store_true", help="json output")
+    p_search_benchmark_validate.set_defaults(func=cmd_search_benchmark_validate)
 
     p_search_profiles = search_sub.add_parser("profiles", help="list semantic retrieval profiles")
     p_search_profiles.add_argument("--json", action="store_true", help="json output")

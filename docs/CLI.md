@@ -656,7 +656,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 ```
 
@@ -665,6 +665,7 @@ usage: slack-mirror search [-h]
 
 **Subcommands**
 
+- `benchmark-validate`
 - `corpus`
 - `derived-text`
 - `health`
@@ -680,6 +681,25 @@ usage: slack-mirror search [-h]
 - `scale-review`
 - `semantic`
 - `semantic-readiness`
+
+### `slack-mirror search benchmark-validate`
+**Usage**
+
+```
+usage: slack-mirror search benchmark-validate [-h] --workspace WORKSPACE
+                                              --dataset DATASET
+                                              [--profiles PROFILES]
+                                              [--include-details] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--dataset` — JSONL benchmark dataset path
+- `--profiles` — comma-separated retrieval profile names for model coverage checks (default: baseline); default: `baseline`
+- `--include-details` — include per-query label resolution details; default output is aggregate-only
+- `--json` — json output
+
 
 ### `slack-mirror search corpus`
 **Usage**

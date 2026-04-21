@@ -634,11 +634,13 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 
 **Arguments**
 **Subcommands**
+.IP \[bu] 2
+`benchmark-validate`
 .IP \[bu] 2
 `corpus`
 .IP \[bu] 2
@@ -669,6 +671,25 @@ usage: slack-mirror search [-h]
 `semantic`
 .IP \[bu] 2
 `semantic-readiness`
+.SH SLACK-MIRROR SEARCH BENCHMARK-VALIDATE
+**Usage**
+
+usage: slack-mirror search benchmark-validate [-h] --workspace WORKSPACE
+                                              --dataset DATASET
+                                              [--profiles PROFILES]
+                                              [--include-details] [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--dataset` — JSONL benchmark dataset path
+.IP \[bu] 2
+`--profiles` — comma-separated retrieval profile names for model coverage checks (default: baseline); default: `baseline`
+.IP \[bu] 2
+`--include-details` — include per-query label resolution details; default output is aggregate-only
+.IP \[bu] 2
+`--json` — json output
 .SH SLACK-MIRROR SEARCH CORPUS
 **Usage**
 

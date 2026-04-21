@@ -4,7 +4,21 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from slack_mirror.core.db import connect, enqueue_derived_text_job, get_workspace_by_name, mark_derived_text_job_status, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
+from slack_mirror.core.db import (
+    connect,
+    enqueue_derived_text_job,
+    get_derived_text,
+    get_derived_text_chunks,
+    get_workspace_by_name,
+    mark_derived_text_job_status,
+    upsert_channel,
+    upsert_derived_text,
+    upsert_derived_text_chunk_embedding,
+    upsert_message,
+    upsert_message_embedding,
+    upsert_user,
+    upsert_workspace,
+)
 from slack_mirror.service.app import SlackMirrorAppService
 from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 from slack_mirror.sync.embeddings import process_embedding_jobs
@@ -595,6 +609,76 @@ class AppServiceTests(unittest.TestCase):
         self.assertIn("p95", review["runs"][0]["latency_ms"])
         self.assertEqual(review["decision"]["index_backend"], "sqlite_exact")
         self.assertEqual(review["decision"]["inference_boundary"], "in_process_for_baseline")
+
+    def test_benchmark_dataset_report_resolves_labels_and_model_coverage(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+        upsert_message(self.conn, workspace_id, "C1", {"ts": "1.0", "text": "alpha benchmark target", "user": "U1"})
+        upsert_message_embedding(
+            self.conn,
+            workspace_id=workspace_id,
+            channel_id="C1",
+            ts="1.0",
+            model_id="local-hash-128",
+            embedding=[0.1, 0.2],
+            content_hash="h1",
+        )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F1",
+            derivation_kind="attachment_text",
+            extractor="utf8_text",
+            text="derived benchmark target",
+        )
+        derived = get_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F1",
+            derivation_kind="attachment_text",
+            extractor="utf8_text",
+        )
+        chunks = get_derived_text_chunks(self.conn, derived_text_id=int(derived["id"]))
+        upsert_derived_text_chunk_embedding(
+            self.conn,
+            derived_text_chunk_id=int(chunks[0]["id"]),
+            workspace_id=workspace_id,
+            model_id="local-hash-128",
+            embedding=[0.3, 0.4],
+            content_hash="h2",
+        )
+        dataset = self.root / "bench.jsonl"
+        dataset.write_text(
+            "\n".join(
+                [
+                    '{"id":"q1","query":"alpha","intent":"message_exact","relevant":{"general:1.0":2}}',
+                    '{"id":"q2","query":"derived","intent":"derived_exact","relevant":{"file:F1:attachment_text:utf8_text":2}}',
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.service.benchmark_dataset_report(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            profile_names=["baseline", "local-bge-http"],
+        )
+
+        self.assertEqual(result["status"], "pass_with_warnings")
+        self.assertEqual(result["queries"], 2)
+        self.assertEqual(result["labels"], 2)
+        self.assertEqual(result["resolved_labels"], 2)
+        self.assertEqual(result["unresolved_labels"], [])
+        baseline = result["profiles"][0]
+        bge = result["profiles"][1]
+        self.assertEqual(baseline["coverage"]["covered"], 2)
+        self.assertEqual(baseline["coverage"]["coverage_ratio"], 1.0)
+        self.assertEqual(bge["coverage"]["covered"], 0)
+        self.assertEqual(bge["coverage"]["coverage_ratio"], 0.0)
 
     def test_search_health_rejects_hybrid_for_derived_text_target(self):
         with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):

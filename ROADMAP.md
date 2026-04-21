@@ -279,6 +279,7 @@ Actionable plans:
 - `docs/dev/plans/0078-2026-04-20-local-inference-service-boundary.md`
 - `docs/dev/plans/0079-2026-04-20-http-backed-bge-profile-rehearsal.md`
 - `docs/dev/plans/0080-2026-04-20-live-relevance-benchmark-lock.md`
+- `docs/dev/plans/0081-2026-04-21-noncontent-relevance-benchmark-pack.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -391,7 +392,12 @@ Current state:
   - managed `default` fixture evidence showed `baseline` and `local-bge-http` tying on low relevance: hit@3 `0.0`, hit@10 `0.666667`, nDCG@k `0.197161`, MRR@k `0.116667`
   - `local-bge-http-rerank` was worse on the same fixture: hit@10 `0.333333`, nDCG@k `0.143559`, MRR@k `0.083333`
   - the existing real-query fixture remains a regression smoke check, not a promotion gate, because relevance remains low and BGE coverage is still partial
-- the next active semantic-search slice should build a stronger non-content benchmark pack before any broader BGE rollout or reranker promotion
+- the non-content relevance benchmark-pack slice is now complete under `0081`:
+  - `search benchmark-validate` reports dataset label resolvability and configured-model coverage by retrieval profile
+  - a nine-query no-body live fixture now exists at `docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl`
+  - managed validation resolved `19/19` labels, with `baseline` coverage `19/19` and BGE profile coverage `0/19`
+  - profile benchmark evidence remains rollout-limited: `baseline` and `local-bge-http` tied at hit@10 `0.333333`, nDCG@k `0.0789`, while `local-bge-http-rerank` was worse at hit@10 `0.222222`, nDCG@k `0.061032`
+- the next active semantic-search slice should add targeted BGE coverage for benchmark labels before interpreting BGE model quality or reranker quality
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -410,7 +416,7 @@ Remaining project phases:
    - completed under `0069`
 
 Recommended remaining child plans:
-- next semantic child plan should focus on live relevance rehearsal and benchmark lock using the new local inference boundary; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
+- next semantic child plan should focus on targeted BGE coverage for labeled benchmark targets; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above

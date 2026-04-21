@@ -3535,3 +3535,45 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
   - live repo-env benchmark command against the managed config passed with warnings under zero collection thresholds
+
+## Turn 219 | 2026-04-21
+
+- Opened the next bounded `P10` non-content relevance benchmark-pack slice:
+  - `0081-2026-04-21-noncontent-relevance-benchmark-pack.md`
+- Direction:
+  - add read-only benchmark dataset validation/reporting
+  - report unresolved labels and configured-model coverage for benchmark targets
+  - add a broader live relevance fixture without message bodies or snippets
+  - keep `baseline` unchanged and avoid broader BGE rollout in this slice
+- Implemented and closed `0081`:
+  - added `search benchmark-validate`
+  - added non-content benchmark fixture authoring rules under `docs/dev/benchmarks/README.md`
+  - added `docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl`
+  - updated README, config docs, and generated CLI/man docs
+- Managed validation evidence on `default`:
+  - `9` queries
+  - `19` labels
+  - `19/19` labels resolved
+  - unresolved labels: `0`
+  - ambiguous labels: `0`
+  - `baseline` model coverage: `19/19`
+  - `local-bge-http` and `local-bge-http-rerank` model coverage: `0/19`
+- Profile benchmark evidence on the same fixture:
+  - `baseline`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `332.812 ms`
+  - `local-bge-http`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `261.028 ms`
+  - `local-bge-http-rerank`: hit@3 `0.0`, hit@10 `0.222222`, nDCG@k `0.061032`, MRR@k `0.055556`, p95 `2026.19 ms`
+- Interpretation:
+  - the fixture is useful for regression tracking and label validation
+  - it is not a BGE promotion gate until the labeled targets have BGE coverage
+  - reranking remains experimental
+  - release `baseline` remains unchanged
+- Validation:
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_search -v`
+  - `uv run python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+  - `slack-mirror-user search benchmark-validate --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json`
+  - `slack-mirror-user search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning

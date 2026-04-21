@@ -1,0 +1,9 @@
+{"id":"live-q001","intent":"exact_keyword","query":"nylon research","relevant":{"general:1645631573.091969":2,"reu2022:1652305847.089769":2,"website:1658780875.573539":1}}
+{"id":"live-q002","intent":"exact_keyword","query":"Nylon-5,9","relevant":{"reu2022:1652305847.089769":2}}
+{"id":"live-q003","intent":"exact_keyword","query":"polyamide monomers","relevant":{"reu2022:1652305847.089769":2,"website:1658780875.573539":1}}
+{"id":"live-q004","intent":"paraphrase","query":"nylon polymer synthesis","relevant":{"reu2022:1652305847.089769":2,"website:1658780875.573539":1}}
+{"id":"live-q005","intent":"source_lookup","query":"research website nylon","relevant":{"website:1658780875.573539":2,"general:1645631573.091969":1}}
+{"id":"live-q006","intent":"source_lookup","query":"REU nylon project","relevant":{"reu2022:1652305847.089769":2,"general:1645631573.091969":1}}
+{"id":"live-q007","intent":"paraphrase","query":"monomer materials discussion","relevant":{"reu2022:1652305847.089769":2,"website:1658780875.573539":1}}
+{"id":"live-q008","intent":"paraphrase","query":"nylon formulation notes","relevant":{"general:1645631573.091969":2,"reu2022:1652305847.089769":1}}
+{"id":"live-q009","intent":"source_lookup","query":"polyamide research source","relevant":{"reu2022:1652305847.089769":2,"website:1658780875.573539":1,"general:1645631573.091969":1}}

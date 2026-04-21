@@ -1568,6 +1568,233 @@ class SlackMirrorAppService:
             "decision": _search_scale_decision(corpus, runs),
         }
 
+    def benchmark_dataset_report(
+        self,
+        conn,
+        *,
+        workspace: str,
+        dataset_path: str,
+        profile_names: list[str] | None = None,
+    ) -> dict[str, Any]:
+        workspace_id = self.workspace_id(conn, workspace)
+        rows = dataset_rows(dataset_path)
+        profiles = [self.retrieval_profile(name) for name in (profile_names or ["baseline"])]
+        model_ids: list[str] = []
+        for profile in profiles:
+            if profile.model not in model_ids:
+                model_ids.append(profile.model)
+
+        query_reports: list[dict[str, Any]] = []
+        unresolved_labels: list[dict[str, Any]] = []
+        ambiguous_labels: list[dict[str, Any]] = []
+        resolved_label_count = 0
+        label_count = 0
+        coverage_by_model = {
+            model_id: {
+                "labels": 0,
+                "covered": 0,
+                "messages": 0,
+                "message_covered": 0,
+                "derived_text": 0,
+                "derived_text_covered": 0,
+            }
+            for model_id in model_ids
+        }
+
+        for index, row in enumerate(rows, start=1):
+            relevant = dict(row.get("relevant") or {})
+            row_labels = []
+            for label, weight in relevant.items():
+                label_count += 1
+                matches = self._resolve_benchmark_label(conn, workspace_id=workspace_id, label=str(label))
+                if not matches:
+                    unresolved_labels.append({"query_index": index, "label": label})
+                    row_labels.append({"label": label, "resolved": False, "ambiguous": False, "weight": weight})
+                    continue
+                if len(matches) > 1:
+                    ambiguous_labels.append({"query_index": index, "label": label, "matches": len(matches)})
+                match = matches[0]
+                resolved_label_count += 1
+                label_report = {
+                    "label": label,
+                    "resolved": True,
+                    "ambiguous": len(matches) > 1,
+                    "kind": match["kind"],
+                    "weight": weight,
+                    "coverage": {},
+                }
+                for model_id in model_ids:
+                    covered = self._benchmark_label_model_covered(
+                        conn,
+                        workspace_id=workspace_id,
+                        match=match,
+                        model_id=model_id,
+                    )
+                    coverage = coverage_by_model[model_id]
+                    coverage["labels"] += 1
+                    coverage["covered"] += 1 if covered else 0
+                    if match["kind"] == "message":
+                        coverage["messages"] += 1
+                        coverage["message_covered"] += 1 if covered else 0
+                    elif match["kind"] == "derived_text":
+                        coverage["derived_text"] += 1
+                        coverage["derived_text_covered"] += 1 if covered else 0
+                    label_report["coverage"][model_id] = covered
+                row_labels.append(label_report)
+            query_reports.append(
+                {
+                    "index": index,
+                    "id": row.get("id"),
+                    "intent": row.get("intent"),
+                    "query": row.get("query"),
+                    "labels": row_labels,
+                }
+            )
+
+        profile_reports = []
+        for profile in profiles:
+            coverage = dict(coverage_by_model.get(profile.model) or {})
+            labels = int(coverage.get("labels", 0) or 0)
+            covered = int(coverage.get("covered", 0) or 0)
+            coverage["coverage_ratio"] = round(covered / labels, 6) if labels else 0.0
+            profile_reports.append(
+                {
+                    "name": profile.name,
+                    "model": profile.model,
+                    "mode": profile.mode,
+                    "rerank": profile.rerank,
+                    "coverage": coverage,
+                }
+            )
+
+        status = "pass"
+        if unresolved_labels:
+            status = "fail"
+        elif ambiguous_labels or any(profile["coverage"]["coverage_ratio"] < 1.0 for profile in profile_reports):
+            status = "pass_with_warnings"
+
+        return {
+            "workspace": workspace,
+            "dataset_path": dataset_path,
+            "status": status,
+            "queries": len(rows),
+            "labels": label_count,
+            "resolved_labels": resolved_label_count,
+            "unresolved_labels": unresolved_labels,
+            "ambiguous_labels": ambiguous_labels,
+            "profiles": profile_reports,
+            "query_reports": query_reports,
+        }
+
+    def _resolve_benchmark_label(self, conn, *, workspace_id: int, label: str) -> list[dict[str, Any]]:
+        parts = label.split(":")
+        if len(parts) == 2:
+            channel_key, ts = parts
+            rows = conn.execute(
+                """
+                SELECT m.channel_id, c.name AS channel_name, m.ts
+                FROM messages m
+                LEFT JOIN channels c
+                  ON c.workspace_id = m.workspace_id
+                 AND c.channel_id = m.channel_id
+                WHERE m.workspace_id = ?
+                  AND m.ts = ?
+                  AND (m.channel_id = ? OR c.name = ?)
+                """,
+                (workspace_id, ts, channel_key, channel_key),
+            ).fetchall()
+            return [
+                {"kind": "message", "channel_id": row["channel_id"], "channel_name": row["channel_name"], "ts": row["ts"]}
+                for row in rows
+            ]
+        if len(parts) == 4:
+            source_kind, source_id, derivation_kind, extractor = parts
+            rows = conn.execute(
+                """
+                SELECT id, source_kind, source_id, derivation_kind, extractor
+                FROM derived_text
+                WHERE workspace_id = ?
+                  AND source_kind = ?
+                  AND source_id = ?
+                  AND derivation_kind = ?
+                  AND extractor = ?
+                """,
+                (workspace_id, source_kind, source_id, derivation_kind, extractor),
+            ).fetchall()
+            return [
+                {
+                    "kind": "derived_text",
+                    "derived_text_id": row["id"],
+                    "source_kind": row["source_kind"],
+                    "source_id": row["source_id"],
+                    "derivation_kind": row["derivation_kind"],
+                    "extractor": row["extractor"],
+                }
+                for row in rows
+            ]
+
+        rows = conn.execute(
+            """
+            SELECT dt.id, dt.source_kind, dt.source_id, dt.derivation_kind, dt.extractor
+            FROM derived_text dt
+            LEFT JOIN files f
+              ON dt.source_kind = 'file'
+             AND f.workspace_id = dt.workspace_id
+             AND f.file_id = dt.source_id
+            LEFT JOIN canvases c
+              ON dt.source_kind = 'canvas'
+             AND c.workspace_id = dt.workspace_id
+             AND c.canvas_id = dt.source_id
+            WHERE dt.workspace_id = ?
+              AND COALESCE(f.title, f.name, c.title, dt.source_id) = ?
+            """,
+            (workspace_id, label),
+        ).fetchall()
+        return [
+            {
+                "kind": "derived_text",
+                "derived_text_id": row["id"],
+                "source_kind": row["source_kind"],
+                "source_id": row["source_id"],
+                "derivation_kind": row["derivation_kind"],
+                "extractor": row["extractor"],
+            }
+            for row in rows
+        ]
+
+    def _benchmark_label_model_covered(self, conn, *, workspace_id: int, match: dict[str, Any], model_id: str) -> bool:
+        if match["kind"] == "message":
+            row = conn.execute(
+                """
+                SELECT 1
+                FROM message_embeddings
+                WHERE workspace_id = ?
+                  AND channel_id = ?
+                  AND ts = ?
+                  AND model_id = ?
+                LIMIT 1
+                """,
+                (workspace_id, match["channel_id"], match["ts"], model_id),
+            ).fetchone()
+            return row is not None
+        if match["kind"] == "derived_text":
+            row = conn.execute(
+                """
+                SELECT 1
+                FROM derived_text_chunks dc
+                JOIN derived_text_chunk_embeddings dte
+                  ON dte.derived_text_chunk_id = dc.id
+                 AND dte.workspace_id = dc.workspace_id
+                WHERE dc.workspace_id = ?
+                  AND dc.derived_text_id = ?
+                  AND dte.model_id = ?
+                LIMIT 1
+                """,
+                (workspace_id, match["derived_text_id"], model_id),
+            ).fetchone()
+            return row is not None
+        return False
+
     def _search_scale_corpus_stats(self, conn, *, workspace_id: int) -> dict[str, Any]:
         message_count = int(
             conn.execute(
