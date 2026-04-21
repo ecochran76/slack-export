@@ -4110,3 +4110,37 @@ This file is the dated turn log for planning and execution continuity.
     - rendered `/search` HTML through the installed venv
     - verified `selected-results-tray` and `kind:'selected-results'` markers
     - generated JavaScript parsed successfully with Node
+
+## Turn 233 | 2026-04-21
+
+- Pushed the selected-result actionability checkpoint to `origin/master`:
+  - `4bcca0e feat(search): create reports from selected results`
+- Opened the next bounded `P10` actionability slice:
+  - `0094-2026-04-21-browser-selected-result-bulk-affordances.md`
+- Direction:
+  - add bulk selection affordances to the temporary Python-rendered `/search` page
+  - keep selection state browser-local
+  - do not add persistent server-side saved selections, DOCX/PDF rendering, or shared frontend package work in this slice
+- Implemented:
+  - added `Select visible` and `Deselect visible` controls to the selected-result tray
+  - bulk selection uses each visible result's `action_target` and refreshes selected count plus card checked state
+  - deselect visible removes only currently visible results, preserving hidden/off-page selections
+  - updated README, API/MCP contract docs, roadmap, and the `0094` plan
+- Validation so far:
+  - `python -m py_compile slack_mirror/service/api.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - generated search-page JavaScript parsed successfully with Node via `new Function(...)`
+  - `uv run python -m unittest tests.test_api_server -v`
+    - result: 23 tests passed
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-browser bulk-selection smoke:
+    - loaded `/search?query=has%3Aattachment&workspace=default&limit=10`
+    - verified `Select visible` enabled after results rendered
+    - selecting visible marked 10 results and enabled report creation
+    - deselecting visible cleared those 10 results and disabled report creation

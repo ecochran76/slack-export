@@ -623,7 +623,7 @@ Selected search candidates can also be persisted as a managed neutral export art
 - CLI: `slack-mirror search context-pack --targets-json ... --managed-export`
 - API: `POST /v1/exports` with `kind=selected-results`
 - MCP: `search.context_export`
-- Browser: select candidates on the authenticated `/search` page, then create a selected-result report from the in-page tray
+- Browser: select individual candidates or all visible selectable candidates on the authenticated `/search` page, then create a selected-result report from the in-page tray
 
 The selected-result export request uses the same target and context-window fields as the context-pack request, plus optional `audience`, `export_id`, and `title`. The created bundle preserves the context pack in `selected-results.json` and renders a first-pass HTML report at `/exports/{export_id}`. DOCX/PDF rendering remains a later layer on top of this neutral artifact.
 

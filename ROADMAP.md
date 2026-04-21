@@ -305,6 +305,7 @@ Actionable plans:
 - `docs/dev/plans/0091-2026-04-21-selected-result-export-artifacts.md`
 - `docs/dev/plans/0092-2026-04-21-selected-result-report-viewer.md`
 - `docs/dev/plans/0093-2026-04-21-browser-selected-result-report-creation.md`
+- `docs/dev/plans/0094-2026-04-21-browser-selected-result-bulk-affordances.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -472,6 +473,9 @@ Current state:
   - authenticated `/search` result cards can select and unselect hits with stable `action_target` metadata
   - the in-page selection tray shows selected count, clears selections, controls context-window/text settings, and posts `kind=selected-results` to the protected export API
   - successful browser-created reports link directly to the managed `/exports/{export_id}` report
+- the browser selected-result bulk-affordances slice is now complete under `0094`:
+  - authenticated `/search` can select all visible selectable results and deselect only visible selected results
+  - the workflow remains browser-local and avoids cross-page saved selection state until the future shared frontend stack exists
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align
@@ -488,8 +492,9 @@ Remaining project phases:
 4. actionability and frontend integration:
    - browser-side selected-result report creation is now shipped on top of the
      `selected-results.json` artifact and HTML report viewer
-   - next actionability work should focus on bulk result manipulation and
-     export/report polish without bloating the temporary Python-rendered UI
+   - visible-result bulk selection is now shipped; next actionability work
+     should focus on report polish without bloating the temporary
+     Python-rendered UI
    - keep the first implementation Slack-owned, but shape the JSON/report
      artifact so it can become a proving input for a future shared
      communications export contract
@@ -501,7 +506,7 @@ Remaining project phases:
 
 Recommended remaining child plans:
 - next semantic child plan should focus on profile-aware ranking diagnostics for the covered benchmark fixture; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
-- the next export/report actionability child plan should add bulk selected-result manipulation affordances or report polish on top of the managed selected-result export/report contract, without moving Slack runtime or tenant-onboarding behavior into a shared package
+- the next export/report actionability child plan should focus on selected-result report polish on top of the managed selected-result export/report contract, without moving Slack runtime or tenant-onboarding behavior into a shared package
 
 Planned outputs:
 - bounded child plans under `docs/dev/plans/`, following the remaining project phases above
