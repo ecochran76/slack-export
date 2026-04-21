@@ -658,7 +658,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,benchmark-query-variants,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,context-pack,health,profile-benchmark,benchmark-validate,benchmark-diagnose,benchmark-query-variants,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 
 **Arguments**
@@ -669,6 +669,8 @@ usage: slack-mirror search [-h]
 `benchmark-query-variants`
 .IP \[bu] 2
 `benchmark-validate`
+.IP \[bu] 2
+`context-pack`
 .IP \[bu] 2
 `corpus`
 .IP \[bu] 2
@@ -776,6 +778,28 @@ usage: slack-mirror search benchmark-validate [-h] --workspace WORKSPACE
 `--profiles` — comma-separated retrieval profile names for model coverage checks (default: baseline); default: `baseline`
 .IP \[bu] 2
 `--include-details` — include per-query label resolution details; default output is aggregate-only
+.IP \[bu] 2
+`--json` — json output
+.SH SLACK-MIRROR SEARCH CONTEXT-PACK
+**Usage**
+
+usage: slack-mirror search context-pack [-h] --targets-json TARGETS_JSON
+                                        [--before BEFORE] [--after AFTER]
+                                        [--no-text]
+                                        [--max-text-chars MAX_TEXT_CHARS]
+                                        [--json]
+
+**Options**
+.IP \[bu] 2
+`--targets-json` — JSON array of action_target objects, an object with a targets array, or @path to either
+.IP \[bu] 2
+`--before` — message/chunk context items before each selected target; default: `2`
+.IP \[bu] 2
+`--after` — message/chunk context items after each selected target; default: `2`
+.IP \[bu] 2
+`--no-text` — omit message and chunk text from the context pack
+.IP \[bu] 2
+`--max-text-chars` — maximum text characters per context item; default: `4000`
 .IP \[bu] 2
 `--json` — json output
 .SH SLACK-MIRROR SEARCH CORPUS

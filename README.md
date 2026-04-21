@@ -106,6 +106,7 @@ slack-mirror search corpus --all-workspaces --query "incident review" --mode hyb
 slack-mirror search profiles
 slack-mirror search semantic-readiness --workspace default --json
 slack-mirror search corpus --workspace default --query "incident review" --retrieval-profile baseline
+slack-mirror search context-pack --targets-json '[{"kind":"message","workspace":"default","channel_id":"C123","ts":"1712870400.000100"}]' --before 2 --after 2 --json
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search benchmark-validate --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http --json
 slack-mirror search profile-benchmark --workspace default --dataset ./docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http --json
@@ -158,6 +159,7 @@ The current repo has:
   - `rrf` enables opt-in reciprocal-rank fusion for deterministic lexical/semantic candidate blending
 - corpus results now include machine-readable `_explain` metadata with source, fusion method, lane ranks, score breakdown, weights, and rerank provider when applicable
 - corpus results now include stable `action_target` metadata for message and derived-text hits so agents and future browser workflows can select candidates for export/report/action handoff without re-parsing display fields
+- selected corpus `action_target` values can now be expanded into bounded context packs through CLI/API/MCP, including before/hit/after message context, derived-text chunk context, and linked Slack messages for file-backed derived text
 - named retrieval profiles for operator rollout control:
   - `baseline` for the shipped local-hash release-safe path
   - `local-bge` for bounded `BAAI/bge-m3` semantic rollout

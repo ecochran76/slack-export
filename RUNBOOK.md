@@ -3964,3 +3964,35 @@ This file is the dated turn log for planning and execution continuity.
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `uv run slack-mirror user-env update --extra local-semantic`
     - result: combined managed validation passed
+
+## Turn 229 | 2026-04-21
+
+- Returned to the open `P10` semantic retrieval/actionability plan.
+- Opened and closed the next bounded selected-result handoff slice:
+  - `0090-2026-04-21-selected-result-context-packs.md`
+- Direction:
+  - use shipped corpus `action_target` metadata as the stable selected-result input
+  - return a neutral context-pack JSON artifact before building selected-result export/report rendering
+  - keep runtime, tenant onboarding, and ranking defaults unchanged
+- Implemented:
+  - added shared service logic for selected message and derived-text context packs
+  - message targets now expand to bounded before/hit/after context within the same workspace and channel
+  - derived-text targets now expand to bounded chunk context and linked Slack messages for file-backed derived text
+  - exposed the contract through `slack-mirror search context-pack`, `POST /v1/search/context-pack`, and MCP `search.context_pack`
+  - updated README, API/MCP contract docs, roadmap, generated CLI docs, and generated man docs
+- Validation so far:
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_build_search_context_pack_resolves_message_and_derived_targets tests.test_cli.CliTests.test_parse_search_context_pack tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_mcp_server.McpServerTests.test_search_tools -v`
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-wrapper non-content smoke:
+    - searched for one `has:attachment` action target, then ran `slack-mirror-user search context-pack --no-text`
+    - result: `resolved_count=1`, `unresolved_count=0`, `text_present=false`

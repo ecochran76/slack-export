@@ -250,6 +250,136 @@ class LandingPageResult:
     exports: list[dict[str, Any]] = field(default_factory=list)
 
 
+def _truncate_text(value: Any, max_chars: int) -> str:
+    text = str(value or "")
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    return text[: max(0, max_chars - 1)] + "…"
+
+
+def _safe_int_or_none(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _decode_stable_part(value: str) -> str:
+    return str(value or "").replace("%7C", "|")
+
+
+def _normalize_action_target(target: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(target or {})
+    kind = str(payload.get("kind") or "").strip()
+    target_id = str(payload.get("id") or "").strip()
+    if target_id and (not kind or kind not in {"message", "derived_text"}):
+        parts = [_decode_stable_part(part) for part in target_id.split("|")]
+        kind = parts[0] if parts else kind
+        payload["kind"] = kind
+    if target_id and kind == "message":
+        parts = [_decode_stable_part(part) for part in target_id.split("|")]
+        if len(parts) >= 4:
+            payload.setdefault("workspace", parts[1])
+            payload.setdefault("channel_id", parts[2])
+            payload.setdefault("ts", parts[3])
+    if target_id and kind == "derived_text":
+        parts = [_decode_stable_part(part) for part in target_id.split("|")]
+        if len(parts) >= 6:
+            payload.setdefault("workspace", parts[1])
+            payload.setdefault("source_kind", parts[2])
+            payload.setdefault("source_id", parts[3])
+            payload.setdefault("derivation_kind", parts[4])
+            payload.setdefault("extractor", parts[5])
+        if len(parts) >= 7 and parts[6].startswith("chunk:"):
+            payload.setdefault("chunk_index", parts[6].removeprefix("chunk:"))
+    return payload
+
+
+def _project_context_message(
+    row: Any,
+    *,
+    workspace: str,
+    relation: str,
+    selected: bool,
+    include_text: bool,
+    max_text_chars: int,
+) -> dict[str, Any]:
+    payload = dict(row)
+    result = {
+        "kind": "message",
+        "workspace": workspace,
+        "channel_id": payload.get("channel_id"),
+        "channel_name": payload.get("channel_name"),
+        "ts": payload.get("ts"),
+        "thread_ts": payload.get("thread_ts"),
+        "user_id": payload.get("user_id"),
+        "user_label": payload.get("user_label"),
+        "subtype": payload.get("subtype"),
+        "edited_ts": payload.get("edited_ts"),
+        "deleted": payload.get("deleted"),
+        "relation": relation,
+        "selected": bool(selected),
+    }
+    if include_text:
+        result["text"] = _truncate_text(payload.get("text"), max_text_chars)
+    return result
+
+
+def _project_context_chunk(
+    row: dict[str, Any],
+    *,
+    selected: bool,
+    include_text: bool,
+    max_text_chars: int,
+) -> dict[str, Any]:
+    payload = dict(row)
+    result = {
+        "kind": "derived_text_chunk",
+        "chunk_index": payload.get("chunk_index"),
+        "start_offset": payload.get("start_offset"),
+        "end_offset": payload.get("end_offset"),
+        "selected": bool(selected),
+    }
+    if include_text:
+        result["text"] = _truncate_text(payload.get("text"), max_text_chars)
+    return result
+
+
+def _select_context_chunks(
+    chunks: list[dict[str, Any]],
+    *,
+    selected_chunk: int | None,
+    before: int,
+    after: int,
+    include_text: bool,
+    max_text_chars: int,
+) -> list[dict[str, Any]]:
+    if not chunks:
+        return []
+    ordered = sorted(chunks, key=lambda row: int(row.get("chunk_index") or 0))
+    indexes = [int(row.get("chunk_index") or 0) for row in ordered]
+    if selected_chunk is None or selected_chunk not in indexes:
+        window = ordered[: max(1, before + after + 1)]
+        return [
+            _project_context_chunk(row, selected=index == 0, include_text=include_text, max_text_chars=max_text_chars)
+            for index, row in enumerate(window)
+        ]
+    selected_position = indexes.index(selected_chunk)
+    start = max(0, selected_position - before)
+    end = min(len(ordered), selected_position + after + 1)
+    return [
+        _project_context_chunk(
+            row,
+            selected=int(row.get("chunk_index") or 0) == selected_chunk,
+            include_text=include_text,
+            max_text_chars=max_text_chars,
+        )
+        for row in ordered[start:end]
+    ]
+
+
 class SlackMirrorAppService:
     def __init__(self, config_path: str | None = None):
         self.config = load_config(config_path)
@@ -535,6 +665,301 @@ class SlackMirrorAppService:
 
     def delete_export(self, *, export_id: str) -> bool:
         return delete_export_bundle(resolve_export_root(self.config), export_id)
+
+    def build_search_context_pack(
+        self,
+        conn,
+        *,
+        targets: list[dict[str, Any]],
+        before: int = 2,
+        after: int = 2,
+        include_text: bool = True,
+        max_text_chars: int = 4000,
+    ) -> dict[str, Any]:
+        before_count = max(0, min(int(before), 50))
+        after_count = max(0, min(int(after), 50))
+        text_limit = max(0, int(max_text_chars))
+        items: list[dict[str, Any]] = []
+        unresolved: list[dict[str, Any]] = []
+        for index, target in enumerate(targets, start=1):
+            normalized = _normalize_action_target(target)
+            kind = normalized.get("kind")
+            if kind == "message":
+                item = self._message_context_pack_item(
+                    conn,
+                    target=normalized,
+                    before=before_count,
+                    after=after_count,
+                    include_text=include_text,
+                    max_text_chars=text_limit,
+                )
+            elif kind == "derived_text":
+                item = self._derived_text_context_pack_item(
+                    conn,
+                    target=normalized,
+                    before=before_count,
+                    after=after_count,
+                    include_text=include_text,
+                    max_text_chars=text_limit,
+                )
+            else:
+                item = {
+                    "index": index,
+                    "kind": kind or "unknown",
+                    "target": normalized,
+                    "resolved": False,
+                    "reason": "unsupported_target_kind",
+                }
+            item["index"] = index
+            items.append(item)
+            if not item.get("resolved"):
+                unresolved.append(
+                    {
+                        "index": index,
+                        "kind": item.get("kind"),
+                        "target": normalized,
+                        "reason": item.get("reason", "not_found"),
+                    }
+                )
+        return {
+            "schema_version": 1,
+            "kind": "search_context_pack",
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "context_policy": {
+                "before": before_count,
+                "after": after_count,
+                "include_text": bool(include_text),
+                "max_text_chars": text_limit,
+            },
+            "item_count": len(items),
+            "resolved_count": len([item for item in items if item.get("resolved")]),
+            "unresolved_count": len(unresolved),
+            "items": items,
+            "unresolved": unresolved,
+        }
+
+    def _message_context_pack_item(
+        self,
+        conn,
+        *,
+        target: dict[str, Any],
+        before: int,
+        after: int,
+        include_text: bool,
+        max_text_chars: int,
+    ) -> dict[str, Any]:
+        workspace = str(target.get("workspace") or "").strip()
+        channel_id = str(target.get("channel_id") or "").strip()
+        ts = str(target.get("ts") or "").strip()
+        if not workspace or not channel_id or not ts:
+            return {"kind": "message", "target": target, "resolved": False, "reason": "missing_message_identity"}
+        workspace_id = self.workspace_id(conn, workspace)
+        hit = self._message_context_row(conn, workspace=workspace, workspace_id=workspace_id, channel_id=channel_id, ts=ts)
+        if hit is None:
+            return {"kind": "message", "target": target, "resolved": False, "reason": "message_not_found"}
+        before_rows = conn.execute(
+            """
+            SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.edited_ts, m.deleted
+            FROM messages m
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            WHERE m.workspace_id = ? AND m.channel_id = ? AND CAST(m.ts AS REAL) < CAST(? AS REAL)
+            ORDER BY CAST(m.ts AS REAL) DESC
+            LIMIT ?
+            """,
+            (workspace_id, channel_id, ts, before),
+        ).fetchall()
+        after_rows = conn.execute(
+            """
+            SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.edited_ts, m.deleted
+            FROM messages m
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            WHERE m.workspace_id = ? AND m.channel_id = ? AND CAST(m.ts AS REAL) > CAST(? AS REAL)
+            ORDER BY CAST(m.ts AS REAL) ASC
+            LIMIT ?
+            """,
+            (workspace_id, channel_id, ts, after),
+        ).fetchall()
+        context = [
+            *[
+                _project_context_message(row, workspace=workspace, relation="before", selected=False, include_text=include_text, max_text_chars=max_text_chars)
+                for row in reversed(before_rows)
+            ],
+            _project_context_message(hit, workspace=workspace, relation="hit", selected=True, include_text=include_text, max_text_chars=max_text_chars),
+            *[
+                _project_context_message(row, workspace=workspace, relation="after", selected=False, include_text=include_text, max_text_chars=max_text_chars)
+                for row in after_rows
+            ],
+        ]
+        return {
+            "kind": "message",
+            "target": target,
+            "resolved": True,
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "conversation": {
+                "kind": "slack_channel",
+                "channel_id": channel_id,
+                "channel_name": hit.get("channel_name"),
+            },
+            "hit": _project_context_message(
+                hit,
+                workspace=workspace,
+                relation="hit",
+                selected=True,
+                include_text=include_text,
+                max_text_chars=max_text_chars,
+            ),
+            "context": context,
+        }
+
+    def _message_context_row(
+        self,
+        conn,
+        *,
+        workspace: str,
+        workspace_id: int,
+        channel_id: str,
+        ts: str,
+    ) -> dict[str, Any] | None:
+        row = conn.execute(
+            """
+            SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.edited_ts, m.deleted
+            FROM messages m
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            WHERE m.workspace_id = ? AND m.channel_id = ? AND m.ts = ?
+            LIMIT 1
+            """,
+            (workspace_id, channel_id, ts),
+        ).fetchone()
+        if row is None:
+            return None
+        payload = dict(row)
+        payload["workspace"] = workspace
+        return payload
+
+    def _derived_text_context_pack_item(
+        self,
+        conn,
+        *,
+        target: dict[str, Any],
+        before: int,
+        after: int,
+        include_text: bool,
+        max_text_chars: int,
+    ) -> dict[str, Any]:
+        workspace = str(target.get("workspace") or "").strip()
+        source_kind = str(target.get("source_kind") or "").strip()
+        source_id = str(target.get("source_id") or "").strip()
+        derivation_kind = str(target.get("derivation_kind") or "").strip()
+        extractor = str(target.get("extractor") or "").strip() or None
+        if not workspace or not source_kind or not source_id or not derivation_kind:
+            return {"kind": "derived_text", "target": target, "resolved": False, "reason": "missing_derived_text_identity"}
+        workspace_id = self.workspace_id(conn, workspace)
+        record = get_derived_text(
+            conn,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+            derivation_kind=derivation_kind,
+            extractor=extractor,
+        )
+        if not record:
+            return {"kind": "derived_text", "target": target, "resolved": False, "reason": "derived_text_not_found"}
+        chunks = get_derived_text_chunks(conn, derived_text_id=int(record["id"]))
+        selected_chunk = _safe_int_or_none(target.get("chunk_index"))
+        context_chunks = _select_context_chunks(
+            chunks,
+            selected_chunk=selected_chunk,
+            before=before,
+            after=after,
+            include_text=include_text,
+            max_text_chars=max_text_chars,
+        )
+        linked_messages = self._linked_messages_for_derived_text_source(
+            conn,
+            workspace=workspace,
+            workspace_id=workspace_id,
+            source_kind=source_kind,
+            source_id=source_id,
+            limit=max(1, before + after + 1),
+            include_text=include_text,
+            max_text_chars=max_text_chars,
+        )
+        return {
+            "kind": "derived_text",
+            "target": target,
+            "resolved": True,
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "source": {
+                "kind": source_kind,
+                "id": source_id,
+                "label": target.get("source_label") or source_id,
+            },
+            "derived_text": {
+                "id": record.get("id"),
+                "derivation_kind": record.get("derivation_kind"),
+                "extractor": record.get("extractor"),
+                "media_type": record.get("media_type"),
+                "language_code": record.get("language_code"),
+                "confidence": record.get("confidence"),
+            },
+            "context_chunks": context_chunks,
+            "linked_messages": linked_messages,
+        }
+
+    def _linked_messages_for_derived_text_source(
+        self,
+        conn,
+        *,
+        workspace: str,
+        workspace_id: int,
+        source_kind: str,
+        source_id: str,
+        limit: int,
+        include_text: bool,
+        max_text_chars: int,
+    ) -> list[dict[str, Any]]:
+        if source_kind != "file":
+            return []
+        rows = conn.execute(
+            """
+            SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.edited_ts, m.deleted
+            FROM message_files mf
+            JOIN messages m
+              ON m.workspace_id = mf.workspace_id
+             AND m.channel_id = mf.channel_id
+             AND m.ts = mf.ts
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            WHERE mf.workspace_id = ? AND mf.file_id = ?
+            ORDER BY CAST(m.ts AS REAL) ASC
+            LIMIT ?
+            """,
+            (workspace_id, source_id, limit),
+        ).fetchall()
+        return [
+            _project_context_message(
+                row,
+                workspace=workspace,
+                relation="linked",
+                selected=False,
+                include_text=include_text,
+                max_text_chars=max_text_chars,
+            )
+            for row in rows
+        ]
 
     def frontend_auth_config(self) -> FrontendAuthConfig:
         return frontend_auth_config(self.config.data)

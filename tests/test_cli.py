@@ -806,6 +806,33 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.mode, "hybrid")
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_context_pack(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "context-pack",
+                "--targets-json",
+                '[{"kind":"message","workspace":"default","channel_id":"C1","ts":"10.0"}]',
+                "--before",
+                "3",
+                "--after",
+                "4",
+                "--no-text",
+                "--max-text-chars",
+                "250",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.targets_json, '[{"kind":"message","workspace":"default","channel_id":"C1","ts":"10.0"}]')
+        self.assertEqual(args.before, 3)
+        self.assertEqual(args.after, 4)
+        self.assertTrue(args.no_text)
+        self.assertEqual(args.max_text_chars, 250)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_health(self):
         parser = build_parser()
         args = parser.parse_args(

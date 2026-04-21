@@ -172,6 +172,73 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(rows[0]["latest_message_day"], "2024-04-11")
         self.assertEqual(rows[1]["channel_class"], "im")
 
+    def test_build_search_context_pack_resolves_message_and_derived_targets(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        for ts, text in [
+            ("10.0", "before message"),
+            ("11.0", "selected message"),
+            ("12.0", "after message"),
+        ]:
+            upsert_message(
+                self.conn,
+                workspace_id,
+                "C123",
+                {
+                    "ts": ts,
+                    "user": "U1",
+                    "text": text,
+                    "channel": "C123",
+                    "files": [{"id": "F1", "name": "incident.pdf", "mimetype": "application/pdf"}],
+                },
+            )
+        upsert_derived_text(
+            self.conn,
+            workspace_id=workspace_id,
+            source_kind="file",
+            source_id="F1",
+            derivation_kind="attachment_text",
+            extractor="pdftotext",
+            text="\n\n".join(["chunk zero " * 120, "chunk one selected " * 120, "chunk two " * 120]),
+            media_type="application/pdf",
+        )
+
+        payload = self.service.build_search_context_pack(
+            self.conn,
+            targets=[
+                {
+                    "kind": "message",
+                    "workspace": "default",
+                    "channel_id": "C123",
+                    "ts": "11.0",
+                    "selection_label": "default:C123:11.0",
+                },
+                {
+                    "kind": "derived_text",
+                    "workspace": "default",
+                    "source_kind": "file",
+                    "source_id": "F1",
+                    "derivation_kind": "attachment_text",
+                    "extractor": "pdftotext",
+                    "chunk_index": 1,
+                },
+            ],
+            before=1,
+            after=1,
+        )
+
+        self.assertEqual(payload["kind"], "search_context_pack")
+        self.assertEqual(payload["resolved_count"], 2)
+        message_item = payload["items"][0]
+        self.assertTrue(message_item["resolved"])
+        self.assertEqual([row["relation"] for row in message_item["context"]], ["before", "hit", "after"])
+        self.assertEqual(message_item["context"][1]["text"], "selected message")
+        derived_item = payload["items"][1]
+        self.assertTrue(derived_item["resolved"])
+        self.assertEqual([chunk["chunk_index"] for chunk in derived_item["context_chunks"]], [0, 1, 2])
+        self.assertEqual(len(derived_item["linked_messages"]), 3)
+
     def test_list_runtime_reports_includes_base_url_choices(self):
         payload = self.service.list_runtime_reports()
         self.assertEqual(

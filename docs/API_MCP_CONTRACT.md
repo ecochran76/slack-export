@@ -77,7 +77,7 @@ The managed runtime status probes are safe for agent-client environments that do
 Supported release-baseline MCP tool groups:
 
 - runtime and install health: `health`, `runtime.status`, `runtime.live_validation`, `runtime.report.latest`, `workspaces.list`, `workspace.status`
-- search and retrieval diagnostics: `search.corpus`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
+- search and retrieval diagnostics: `search.corpus`, `search.context_pack`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
 - outbound actions: `messages.send`, `threads.reply`
 - listener workflow: `listeners.register`, `listeners.list`, `listeners.status`, `listeners.unregister`, `deliveries.list`, `deliveries.ack`
 
@@ -573,6 +573,22 @@ Important result fields:
 - `_explain`
 
 `action_target` is the stable selection contract for downstream workflows. It is additive to the display-oriented row fields and should be preferred by API, MCP, browser, and agent clients that need to stage search hits for later export, reporting, or actions.
+
+Selected search candidates can be expanded before export/report rendering with:
+
+- CLI: `slack-mirror search context-pack --targets-json ...`
+- API: `POST /v1/search/context-pack`
+- MCP: `search.context_pack`
+
+The context-pack request accepts:
+
+- `targets`: array of `action_target` objects
+- `before`: bounded message/chunk context count before each selected target
+- `after`: bounded message/chunk context count after each selected target
+- `include_text`: whether to include message and chunk text
+- `max_text_chars`: per-context-item text cap
+
+The context-pack response is intentionally a handoff artifact, not a rendered export. Message targets resolve to before/hit/after message context in the same workspace and channel. Derived-text targets resolve to bounded chunk context and, for file-backed derived text, linked Slack messages through the persisted message-file edge table.
 
 Message action targets include:
 

@@ -679,7 +679,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,benchmark-query-variants,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,context-pack,health,profile-benchmark,benchmark-validate,benchmark-diagnose,benchmark-query-variants,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 ```
 
@@ -691,6 +691,7 @@ usage: slack-mirror search [-h]
 - `benchmark-diagnose`
 - `benchmark-query-variants`
 - `benchmark-validate`
+- `context-pack`
 - `corpus`
 - `derived-text`
 - `health`
@@ -776,6 +777,27 @@ usage: slack-mirror search benchmark-validate [-h] --workspace WORKSPACE
 - `--dataset` — JSONL benchmark dataset path
 - `--profiles` — comma-separated retrieval profile names for model coverage checks (default: baseline); default: `baseline`
 - `--include-details` — include per-query label resolution details; default output is aggregate-only
+- `--json` — json output
+
+
+### `slack-mirror search context-pack`
+**Usage**
+
+```
+usage: slack-mirror search context-pack [-h] --targets-json TARGETS_JSON
+                                        [--before BEFORE] [--after AFTER]
+                                        [--no-text]
+                                        [--max-text-chars MAX_TEXT_CHARS]
+                                        [--json]
+```
+
+**Options**
+
+- `--targets-json` — JSON array of action_target objects, an object with a targets array, or @path to either
+- `--before` — message/chunk context items before each selected target; default: `2`
+- `--after` — message/chunk context items after each selected target; default: `2`
+- `--no-text` — omit message and chunk text from the context pack
+- `--max-text-chars` — maximum text characters per context item; default: `4000`
 - `--json` — json output
 
 

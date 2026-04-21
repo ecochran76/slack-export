@@ -301,6 +301,7 @@ Actionable plans:
 - `docs/dev/plans/0087-2026-04-21-portable-query-date-operators.md`
 - `docs/dev/plans/0088-2026-04-21-litscout-informed-attachment-query-operators.md`
 - `docs/dev/plans/0089-2026-04-21-message-file-linkage-for-attachment-filters.md`
+- `docs/dev/plans/0090-2026-04-21-selected-result-context-packs.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -452,6 +453,10 @@ Current state:
   - persist `message.files[]` as first-class message/file edges
   - let message search apply `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:` against linked file metadata
   - allow mixed message-lane plus attachment/file-lane corpus filters to return message rows when the link table satisfies both sides
+- the selected-result context-pack slice is now complete under `0090`:
+  - selected message `action_target` values can be expanded into bounded before/hit/after message context
+  - selected derived-text `action_target` values can be expanded into bounded chunk context and linked Slack messages when backed by attached files
+  - CLI, API, and MCP now expose the same context-pack contract as the next handoff layer before selected-result export/report rendering
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align

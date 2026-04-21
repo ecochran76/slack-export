@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 import sqlite3
+from typing import Any
 from urllib.parse import urlparse
 
 from slack_mirror import __version__
@@ -1364,6 +1365,45 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_targets_json(value: str) -> list[dict[str, Any]]:
+    raw = str(value or "").strip()
+    if raw.startswith("@"):
+        raw = Path(raw[1:]).read_text(encoding="utf-8")
+    payload = json.loads(raw)
+    if isinstance(payload, dict) and isinstance(payload.get("targets"), list):
+        payload = payload["targets"]
+    if not isinstance(payload, list):
+        raise ValueError("targets JSON must be an array or an object with a targets array")
+    return [dict(item) for item in payload]
+
+
+def cmd_search_context_pack(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    payload = service.build_search_context_pack(
+        conn,
+        targets=_load_targets_json(args.targets_json),
+        before=args.before,
+        after=args.after,
+        include_text=not args.no_text,
+        max_text_chars=args.max_text_chars,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            "Search context pack "
+            f"items={payload['item_count']} resolved={payload['resolved_count']} unresolved={payload['unresolved_count']} "
+            f"before={payload['context_policy']['before']} after={payload['context_policy']['after']}"
+        )
+        for item in payload["items"]:
+            marker = "ok" if item.get("resolved") else "missing"
+            print(f"[{marker}] #{item.get('index')} {item.get('kind')} {item.get('target', {}).get('selection_label') or item.get('target', {}).get('id') or ''}")
+    return 0
+
+
 def cmd_search_health(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.search.profiles import config_with_retrieval_profile
@@ -2460,7 +2500,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose benchmark-query-variants profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus context-pack health profile-benchmark benchmark-validate benchmark-diagnose benchmark-query-variants profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2652,7 +2692,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose benchmark-query-variants profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus context-pack health profile-benchmark benchmark-validate benchmark-diagnose benchmark-query-variants profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3514,6 +3554,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_corpus.add_argument("--explain", action="store_true", help="include score breakdown")
     p_search_corpus.add_argument("--json", action="store_true", help="json output")
     p_search_corpus.set_defaults(func=cmd_search_corpus)
+
+    p_search_context = search_sub.add_parser("context-pack", help="build a context pack for selected search action targets")
+    p_search_context.add_argument(
+        "--targets-json",
+        required=True,
+        help="JSON array of action_target objects, an object with a targets array, or @path to either",
+    )
+    p_search_context.add_argument("--before", type=int, default=2, help="message/chunk context items before each selected target")
+    p_search_context.add_argument("--after", type=int, default=2, help="message/chunk context items after each selected target")
+    p_search_context.add_argument("--no-text", action="store_true", help="omit message and chunk text from the context pack")
+    p_search_context.add_argument("--max-text-chars", type=int, default=4000, help="maximum text characters per context item")
+    p_search_context.add_argument("--json", action="store_true", help="json output")
+    p_search_context.set_defaults(func=cmd_search_context_pack)
 
     p_search_health = search_sub.add_parser("health", help="show search readiness and optional benchmark health")
     p_search_health.add_argument("--workspace", required=True, help="workspace name")

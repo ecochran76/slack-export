@@ -621,6 +621,18 @@ class McpServerTests(unittest.TestCase):
             return_value=[{"name": "baseline", "model": "local-hash-128"}],
         ) as mock_profiles, patch.object(
             self.server.service,
+            "build_search_context_pack",
+            return_value={
+                "schema_version": 1,
+                "kind": "search_context_pack",
+                "item_count": 1,
+                "resolved_count": 1,
+                "unresolved_count": 0,
+                "items": [{"kind": "message", "resolved": True}],
+                "unresolved": [],
+            },
+        ) as mock_context_pack, patch.object(
+            self.server.service,
             "semantic_readiness",
             return_value={
                 "scope": "workspace",
@@ -688,6 +700,21 @@ class McpServerTests(unittest.TestCase):
                     },
                 }
             )
+            context_pack = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 67,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.context_pack",
+                        "arguments": {
+                            "targets": [{"kind": "message", "workspace": "default", "channel_id": "C1", "ts": "10.0"}],
+                            "before": 1,
+                            "after": 1,
+                        },
+                    },
+                }
+            )
 
         self.assertIn('"result_kind": "message"', corpus["result"]["content"][0]["text"])
         self.assertIn('"action_target"', corpus["result"]["content"][0]["text"])
@@ -695,6 +722,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"status": "ready"', readiness["result"]["content"][0]["text"])
         self.assertIn('"name": "baseline"', profiles["result"]["content"][0]["text"])
         self.assertIn('"status": "ready"', semantic_readiness["result"]["content"][0]["text"])
+        self.assertIn('"kind": "search_context_pack"', context_pack["result"]["content"][0]["text"])
         self.assertEqual(mock_corpus.call_count, 2)
         first_call = mock_corpus.call_args_list[0].kwargs
         self.assertTrue(first_call["rerank"])
@@ -703,6 +731,7 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(first_call["retrieval_profile_name"], "baseline")
         mock_readiness.assert_called_once_with(unittest.mock.ANY, workspace="default")
         mock_profiles.assert_called_once()
+        mock_context_pack.assert_called_once()
         mock_semantic_readiness.assert_called_once()
 
     def test_search_corpus_schema_exposes_retrieval_profile(self):

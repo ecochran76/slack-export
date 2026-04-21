@@ -161,6 +161,21 @@ class SlackMirrorMcpServer:
                 {"type": "object", "properties": {}, "additionalProperties": False},
             ),
             _tool(
+                "search.context_pack",
+                "Build a bounded context pack for selected search action targets",
+                {
+                    "type": "object",
+                    "properties": {
+                        "targets": {"type": "array", "items": {"type": "object"}},
+                        "before": {"type": "integer", "default": 2},
+                        "after": {"type": "integer", "default": 2},
+                        "include_text": {"type": "boolean", "default": True},
+                        "max_text_chars": {"type": "integer", "default": 4000},
+                    },
+                    "required": ["targets"],
+                },
+            ),
+            _tool(
                 "search.semantic_readiness",
                 "Show retrieval-profile semantic readiness for one workspace or all enabled workspaces",
                 {
@@ -377,6 +392,19 @@ class SlackMirrorMcpServer:
             )
         if name == "search.profiles":
             return self._mcp_result({"profiles": self.service.retrieval_profiles()})
+        if name == "search.context_pack":
+            return self._mcp_result(
+                {
+                    "context_pack": self.service.build_search_context_pack(
+                        conn,
+                        targets=list(args.get("targets") or []),
+                        before=int(args.get("before", 2)),
+                        after=int(args.get("after", 2)),
+                        include_text=bool(args.get("include_text", True)),
+                        max_text_chars=int(args.get("max_text_chars", 4000)),
+                    )
+                }
+            )
         if name == "search.semantic_readiness":
             raw_profiles = args.get("profiles")
             profile_names = [str(item) for item in raw_profiles] if isinstance(raw_profiles, list) else None

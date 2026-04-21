@@ -1763,6 +1763,15 @@ class ApiServerTests(unittest.TestCase):
                 "text": "incident review appendix",
                 "chunks": [{"chunk_index": 0, "text": "incident review appendix"}],
             }
+            service.build_search_context_pack.return_value = {
+                "schema_version": 1,
+                "kind": "search_context_pack",
+                "item_count": 1,
+                "resolved_count": 1,
+                "unresolved_count": 0,
+                "items": [{"kind": "message", "resolved": True}],
+                "unresolved": [],
+            }
 
             server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -1857,6 +1866,23 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(semantic.status_code, 200)
             self.assertEqual(semantic.json()["readiness"]["workspaces"][0]["status"], "ready")
             service.semantic_readiness.assert_called_once()
+
+            context_pack = requests.post(
+                f"{base_url}/v1/search/context-pack",
+                json={
+                    "targets": [{"kind": "message", "workspace": "default", "channel_id": "C123", "ts": "1712870400.000100"}],
+                    "before": 1,
+                    "after": 1,
+                },
+                timeout=5,
+            )
+            self.assertEqual(context_pack.status_code, 200)
+            self.assertTrue(context_pack.json()["ok"])
+            self.assertEqual(context_pack.json()["context_pack"]["kind"], "search_context_pack")
+            service.build_search_context_pack.assert_called_once()
+            context_call = service.build_search_context_pack.call_args.kwargs
+            self.assertEqual(context_call["before"], 1)
+            self.assertEqual(context_call["after"], 1)
 
     def test_message_send_uses_structured_error_envelope(self):
         resp = requests.post(

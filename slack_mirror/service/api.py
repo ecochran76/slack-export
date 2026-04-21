@@ -2645,6 +2645,23 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 201, {"ok": True, "report": {**payload, **runtime_report_links(str(payload.get('name') or ''))}})
                 return
 
+            if path == "/v1/search/context-pack":
+                conn = service.connect()
+                try:
+                    payload = service.build_search_context_pack(
+                        conn,
+                        targets=list(body.get("targets") or []),
+                        before=int(body.get("before", 2)),
+                        after=int(body.get("after", 2)),
+                        include_text=bool(body.get("include_text", True)),
+                        max_text_chars=int(body.get("max_text_chars", 4000)),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="search.context_pack")
+                    return
+                _json_response(self, 200, {"ok": True, "context_pack": payload})
+                return
+
             m = re.fullmatch(r"/v1/runtime/reports/([^/]+)/rename", path)
             if m:
                 try:
