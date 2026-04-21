@@ -156,6 +156,7 @@ The current repo has:
   - `baseline` for the shipped local-hash release-safe path
   - `local-bge` for bounded `BAAI/bge-m3` semantic rollout
   - `local-bge-rerank` for experimental learned local reranking on top of BGE retrieval
+  - `local-bge-http` and `local-bge-http-rerank` for the same BGE paths through the loopback inference service
 - API and MCP corpus search accept the same named retrieval-profile selector, so agent clients can use `baseline` or an explicitly rolled-out profile instead of guessing provider/model settings
 - tenant semantic-readiness diagnostics across CLI, API, MCP, and the authenticated tenant settings page
 - a read-only semantic rollout planner at `slack-mirror mirror rollout-plan`, which reports tenant coverage for the profile model and emits bounded probe/backfill/health commands
@@ -178,6 +179,7 @@ For the managed user-scoped runtime, keep the default install lightweight and op
 slack-mirror-user user-env update --extra local-semantic
 slack-mirror-user search provider-probe --retrieval-profile local-bge --smoke --json
 slack-mirror-user search inference-probe --smoke --model local-hash-128 --json
+slack-mirror-user search provider-probe --retrieval-profile local-bge-http --smoke --json
 ```
 
 Before changing a tenant, inspect the retrieval profile and rollout plan:

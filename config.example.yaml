@@ -103,6 +103,40 @@ search:
         device: ${SLACK_MIRROR_RERANK_DEVICE:-cuda}
         batch_size: ${SLACK_MIRROR_RERANK_BATCH_SIZE:-16}
       experimental: true
+    local-bge-http:
+      description: "Local BGE retrieval through the loopback inference service."
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: http
+        url: ${SLACK_MIRROR_INFERENCE_URL:-http://127.0.0.1:8791/}
+        timeout_s: ${SLACK_MIRROR_INFERENCE_TIMEOUT_S:-120}
+      weights:
+        lexical: 0.45
+        semantic: 0.55
+        semantic_scale: 10.0
+      rerank: false
+      experimental: true
+    local-bge-http-rerank:
+      description: "Local BGE retrieval plus experimental reranking through the loopback inference service."
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: http
+        url: ${SLACK_MIRROR_INFERENCE_URL:-http://127.0.0.1:8791/}
+        timeout_s: ${SLACK_MIRROR_INFERENCE_TIMEOUT_S:-120}
+      weights:
+        lexical: 0.45
+        semantic: 0.55
+        semantic_scale: 10.0
+      rerank: true
+      rerank_top_n: 50
+      rerank_provider:
+        type: http
+        url: ${SLACK_MIRROR_INFERENCE_URL:-http://127.0.0.1:8791/}
+        model: BAAI/bge-reranker-v2-m3
+        timeout_s: ${SLACK_MIRROR_INFERENCE_TIMEOUT_S:-120}
+      experimental: true
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}

@@ -3467,3 +3467,36 @@ This file is the dated turn log for planning and execution continuity.
   - `systemctl --user start slack-mirror-inference.service && slack-mirror-user search inference-probe --smoke --model local-hash-128 --json`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+
+## Turn 217 | 2026-04-20
+
+- Opened the next bounded `P10` HTTP-backed BGE profile rehearsal slice:
+  - `0079-2026-04-20-http-backed-bge-profile-rehearsal.md`
+- Direction:
+  - preserve `baseline`
+  - preserve existing in-process `local-bge`
+  - add explicit HTTP-backed BGE profile variants for the local inference service path
+  - prove managed BGE-through-HTTP smoke before broader relevance or rollout work
+- Implemented and closed `0079`:
+  - added explicit `local-bge-http` and `local-bge-http-rerank` profiles
+  - added inference-service dynamic routing for `BAAI/bge-m3` requests when the global baseline provider remains local-hash
+  - added HTTP reranker model forwarding so the loopback service can keep the CrossEncoder warm
+  - updated `config.example.yaml`, README, and config docs
+- Managed smoke evidence:
+  - refreshed managed install with `uv run slack-mirror user-env update --extra local-semantic`
+  - restarted `slack-mirror-inference.service`
+  - `local-bge-http` provider smoke passed with `1024` dimensions
+  - cold BGE HTTP embed smoke: `14167.488 ms`
+  - warm BGE HTTP embed smoke: `119.363 ms`
+  - `local-bge-http-rerank` reranker smoke passed
+  - cold HTTP reranker smoke: `6800.081 ms`
+  - warm HTTP reranker smoke: `133.59 ms`
+  - managed `baseline,local-bge-http` scale review on `default` query `incident review`: baseline p95 `878.193 ms`, `local-bge-http` p95 `505.873 ms`
+  - enabled the user service with `systemctl --user enable --now slack-mirror-inference.service`
+- Validation:
+  - `uv run python -m unittest tests.test_inference_service tests.test_search tests.test_cli tests.test_user_env -v`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+  - `uv run python scripts/check_generated_docs.py`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning

@@ -9,10 +9,13 @@ from urllib import request as urllib_request
 from slack_mirror.core.config import load_config
 from slack_mirror.search.embeddings import (
     LocalHashEmbeddingProvider,
+    SentenceTransformersEmbeddingProvider,
     build_embedding_provider,
+    resolve_embedding_model,
 )
 from slack_mirror.search.rerankers import (
     HeuristicRerankerProvider,
+    SentenceTransformersCrossEncoderRerankerProvider,
     build_reranker_provider,
 )
 
@@ -62,6 +65,8 @@ class InferenceService:
         self.config = config or {}
         self.embedding_provider = build_inference_embedding_provider(self.config)
         self.reranker_provider = build_inference_reranker_provider(self.config)
+        self._sentence_embedding_provider: SentenceTransformersEmbeddingProvider | None = None
+        self._cross_encoder_providers: dict[str, SentenceTransformersCrossEncoderRerankerProvider] = {}
 
     def health(self) -> dict[str, Any]:
         return {
@@ -78,16 +83,38 @@ class InferenceService:
             if not isinstance(texts, list):
                 raise ValueError("embed_texts requires a texts array")
             model_id = str(payload.get("model_id") or "local-hash-128")
-            vectors = self.embedding_provider.embed_texts([str(text or "") for text in texts], model_id=model_id)
+            vectors = self._embed_texts([str(text or "") for text in texts], model_id=model_id)
             return {"ok": True, "embeddings": vectors}
         if action == "rerank_score":
             documents = payload.get("documents")
             if not isinstance(documents, list):
                 raise ValueError("rerank_score requires a documents array")
             query = str(payload.get("query") or "")
-            scores = self.reranker_provider.score(query=query, documents=[str(document or "") for document in documents])
+            model_id = payload.get("model_id") or payload.get("model")
+            scores = self._rerank_score(
+                query=query,
+                documents=[str(document or "") for document in documents],
+                model_id=None if model_id is None else str(model_id),
+            )
             return {"ok": True, "scores": [float(score) for score in scores]}
         raise ValueError(f"unsupported inference action: {action}")
+
+    def _embed_texts(self, texts: list[str], *, model_id: str) -> list[list[float]]:
+        spec = resolve_embedding_model(model_id)
+        if spec.provider_id == "sentence_transformers" and isinstance(self.embedding_provider, LocalHashEmbeddingProvider):
+            if self._sentence_embedding_provider is None:
+                self._sentence_embedding_provider = SentenceTransformersEmbeddingProvider()
+            return self._sentence_embedding_provider.embed_texts(texts, model_id=model_id)
+        return self.embedding_provider.embed_texts(texts, model_id=model_id)
+
+    def _rerank_score(self, *, query: str, documents: list[str], model_id: str | None = None) -> list[float]:
+        if model_id:
+            provider = self._cross_encoder_providers.get(model_id)
+            if provider is None:
+                provider = SentenceTransformersCrossEncoderRerankerProvider(model_id=model_id)
+                self._cross_encoder_providers[model_id] = provider
+            return provider.score(query=query, documents=documents)
+        return self.reranker_provider.score(query=query, documents=documents)
 
 
 def make_inference_handler(service: InferenceService):

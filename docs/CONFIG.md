@@ -89,6 +89,26 @@ search:
         model: BAAI/bge-reranker-v2-m3
         device: cuda
       experimental: true
+    local-bge-http:
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: http
+        url: http://127.0.0.1:8791/
+      rerank: false
+      experimental: true
+    local-bge-http-rerank:
+      mode: hybrid
+      model: BAAI/bge-m3
+      semantic_provider:
+        type: http
+        url: http://127.0.0.1:8791/
+      rerank: true
+      rerank_provider:
+        type: http
+        url: http://127.0.0.1:8791/
+        model: BAAI/bge-reranker-v2-m3
+      experimental: true
   derived_text:
     provider:
       type: ${SLACK_MIRROR_DERIVED_TEXT_PROVIDER:-local_host_tools}
@@ -262,6 +282,10 @@ The repo ships builtin profiles even if config does not define them:
   - `BAAI/bge-m3`, `sentence_transformers`, hybrid mode, no reranking
 - `local-bge-rerank`
   - `BAAI/bge-m3`, `sentence_transformers`, hybrid mode, experimental CrossEncoder reranking
+- `local-bge-http`
+  - `BAAI/bge-m3`, HTTP embedding provider against the local loopback inference service, hybrid mode, no reranking
+- `local-bge-http-rerank`
+  - `BAAI/bge-m3`, HTTP embedding provider plus HTTP reranker provider against the local loopback inference service, experimental CrossEncoder reranking
 
 Use these commands to inspect and plan rollout:
 
@@ -272,6 +296,7 @@ slack-mirror search corpus --workspace default --query "incident review" --retri
 slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search provider-probe --retrieval-profile local-bge --json
+slack-mirror search provider-probe --retrieval-profile local-bge-http --smoke --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
 ```
 

@@ -31,6 +31,16 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(local_bge.model, "BAAI/bge-m3")
         self.assertEqual(local_bge.semantic_provider["type"], "sentence_transformers")
 
+        local_bge_http = resolve_retrieval_profile({}, "local-bge-http")
+        self.assertEqual(local_bge_http.model, "BAAI/bge-m3")
+        self.assertEqual(local_bge_http.semantic_provider["type"], "http")
+        self.assertEqual(local_bge_http.semantic_provider["url"], "http://127.0.0.1:8791/")
+
+        local_bge_http_rerank = resolve_retrieval_profile({}, "local-bge-http-rerank")
+        self.assertTrue(local_bge_http_rerank.rerank)
+        self.assertEqual(local_bge_http_rerank.rerank_provider["type"], "http")
+        self.assertEqual(local_bge_http_rerank.rerank_provider["model"], "BAAI/bge-reranker-v2-m3")
+
         configured = resolve_retrieval_profile(
             {
                 "search": {

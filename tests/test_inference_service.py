@@ -3,6 +3,7 @@ from __future__ import annotations
 from http.server import ThreadingHTTPServer
 import threading
 import unittest
+from unittest.mock import patch
 
 from slack_mirror.search.embeddings import build_embedding_provider
 from slack_mirror.search.rerankers import build_reranker_provider
@@ -59,6 +60,27 @@ class InferenceServiceTests(unittest.TestCase):
         self.assertEqual(probe["health"]["service"], "slack-mirror-inference")
         self.assertEqual(probe["runtime"]["embedding_smoke"]["dimensions"], 128)
         self.assertEqual(probe["runtime"]["rerank_smoke"]["documents"], 2)
+
+    def test_bge_model_request_falls_back_to_sentence_transformers_provider(self):
+        class FakeSentenceProvider:
+            name = "fake_sentence_transformers"
+
+            def embed_texts(self, texts, *, model_id):
+                self.model_id = model_id
+                return [[float(index), 1.0] for index, _ in enumerate(texts)]
+
+        with patch("slack_mirror.service.inference.SentenceTransformersEmbeddingProvider", FakeSentenceProvider):
+            service = InferenceService({"search": {"semantic": {"provider": {"type": "local_hash"}}}})
+            response = service.handle(
+                {
+                    "action": "embed_texts",
+                    "model_id": "BAAI/bge-m3",
+                    "texts": ["gateway outage", "catering invoice"],
+                }
+            )
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["embeddings"], [[0.0, 1.0], [1.0, 1.0]])
 
     def test_inference_server_rejects_non_loopback_bind(self):
         with self.assertRaisesRegex(ValueError, "loopback only"):

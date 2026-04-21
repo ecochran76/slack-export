@@ -42,6 +42,32 @@ BUILTIN_RETRIEVAL_PROFILES: dict[str, dict[str, Any]] = {
         },
         "experimental": True,
     },
+    "local-bge-http": {
+        "description": "Local BGE retrieval through the loopback inference service.",
+        "mode": "hybrid",
+        "model": "BAAI/bge-m3",
+        "semantic_provider": {"type": "http", "url": "http://127.0.0.1:8791/"},
+        "weights": {"lexical": 0.45, "semantic": 0.55, "semantic_scale": 10.0},
+        "rerank": False,
+        "rerank_top_n": 50,
+        "rerank_provider": {"type": "heuristic"},
+        "experimental": True,
+    },
+    "local-bge-http-rerank": {
+        "description": "Local BGE retrieval plus experimental reranking through the loopback inference service.",
+        "mode": "hybrid",
+        "model": "BAAI/bge-m3",
+        "semantic_provider": {"type": "http", "url": "http://127.0.0.1:8791/"},
+        "weights": {"lexical": 0.45, "semantic": 0.55, "semantic_scale": 10.0},
+        "rerank": True,
+        "rerank_top_n": 50,
+        "rerank_provider": {
+            "type": "http",
+            "url": "http://127.0.0.1:8791/",
+            "model": "BAAI/bge-reranker-v2-m3",
+        },
+        "experimental": True,
+    },
 }
 
 

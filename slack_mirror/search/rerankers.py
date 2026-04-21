@@ -111,6 +111,7 @@ class HttpRerankerProvider:
         headers: dict[str, str] | None = None,
         bearer_token_env: str | None = None,
         timeout_s: float = 120.0,
+        model_id: str | None = None,
     ):
         normalized_url = str(url or "").strip()
         if not normalized_url:
@@ -122,6 +123,7 @@ class HttpRerankerProvider:
         self.headers = {str(k): str(v) for k, v in (headers or {}).items()}
         self.bearer_token_env = None if bearer_token_env is None else (str(bearer_token_env).strip() or None)
         self.timeout_s = float(timeout_s)
+        self.model_id = None if model_id is None else (str(model_id).strip() or None)
         self.name = f"http:{parsed.netloc}"
 
     def score(self, *, query: str, documents: list[str]) -> list[float]:
@@ -130,6 +132,8 @@ class HttpRerankerProvider:
             "query": str(query or ""),
             "documents": [str(document or "") for document in documents],
         }
+        if self.model_id:
+            payload["model_id"] = self.model_id
         headers = {"Content-Type": "application/json", "Accept": "application/json", **self.headers}
         if self.bearer_token_env:
             token = os.environ.get(self.bearer_token_env, "").strip()
@@ -191,6 +195,7 @@ def build_reranker_provider(config: dict[str, Any] | None = None) -> RerankerPro
             headers=headers,
             bearer_token_env=provider_cfg.get("bearer_token_env"),
             timeout_s=float(provider_cfg.get("timeout_s") or 120.0),
+            model_id=provider_cfg.get("model") or provider_cfg.get("model_id"),
         )
     raise ValueError(f"Unsupported reranker provider type: {provider_type}")
 

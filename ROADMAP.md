@@ -277,6 +277,7 @@ Actionable plans:
 - `docs/dev/plans/0076-2026-04-20-managed-local-bge-rollout-rehearsal.md`
 - `docs/dev/plans/0077-2026-04-20-semantic-query-performance-cap.md`
 - `docs/dev/plans/0078-2026-04-20-local-inference-service-boundary.md`
+- `docs/dev/plans/0079-2026-04-20-http-backed-bge-profile-rehearsal.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -379,6 +380,11 @@ Current state:
   - `search inference-probe` verifies health plus optional embedding/rerank smoke checks
   - HTTP-backed embedding and reranker providers can target the same warm local service
   - managed `user-env` writes and reports a `slack-mirror-inference` wrapper and `slack-mirror-inference.service` unit without making `baseline` dependent on active ML services
+- the HTTP-backed BGE profile rehearsal slice is now complete under `0079`:
+  - explicit `local-bge-http` and `local-bge-http-rerank` profiles now target the loopback inference service
+  - warm managed BGE embedding smoke improved from `14167.488 ms` cold to `119.363 ms` warm
+  - warm managed CrossEncoder reranker smoke improved from `6800.081 ms` cold to `133.59 ms` warm
+  - managed `default` scale review measured `local-bge-http` p95 `505.873 ms` versus `baseline` p95 `878.193 ms` for the bounded query, with BGE still only partially rolled out
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
