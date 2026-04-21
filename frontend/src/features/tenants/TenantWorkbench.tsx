@@ -1,0 +1,233 @@
+import { useEffect, useState } from "react";
+import { MetricStrip } from "../../components/MetricStrip";
+import { fetchJson } from "../../lib/api";
+import type { TenantStatus, TenantsResponse } from "./tenantTypes";
+import { toneFromApi } from "./tenantTypes";
+
+type LoadState =
+  | { status: "loading"; tenants: TenantStatus[]; error?: undefined }
+  | { status: "ready"; tenants: TenantStatus[]; error?: undefined }
+  | { status: "error"; tenants: TenantStatus[]; error: string };
+
+function numberLabel(value: number | undefined): string {
+  return new Intl.NumberFormat().format(Number(value ?? 0));
+}
+
+function tenantRuntimeTone(tenant: TenantStatus): "success" | "warning" | "danger" | "neutral" {
+  if (!tenant.enabled) return "warning";
+  if (tenant.validation_status === "healthy") return "success";
+  if (tenant.validation_status === "error") return "danger";
+  return "warning";
+}
+
+function statusBadgeClass(tone: "success" | "warning" | "danger" | "neutral" | "info") {
+  return `status-badge status-badge--${tone}`;
+}
+
+function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
+  const db = tenant.db_stats ?? {};
+  const syncHealth = tenant.sync_health ?? {};
+  const backfill = tenant.backfill_status ?? {};
+  const health = tenant.health ?? {};
+  const liveUnits = tenant.live_units ?? {};
+  const semanticProfiles = tenant.semantic_readiness?.profiles ?? [];
+  const pendingJobs = Number(db.embedding_pending ?? 0) + Number(db.derived_pending ?? 0);
+  const errorJobs = Number(db.embedding_errors ?? 0) + Number(db.derived_errors ?? 0);
+
+  return (
+    <article className="tenant-row">
+      <div className="tenant-row__identity">
+        <div>
+          <p className="eyebrow">Tenant</p>
+          <h3>{tenant.name}</h3>
+          <p>{tenant.domain || "No Slack domain recorded"}</p>
+        </div>
+        <div className="tenant-row__badges">
+          <span className={statusBadgeClass(tenantRuntimeTone(tenant))}>
+            {tenant.enabled ? tenant.validation_status ?? "enabled" : "disabled"}
+          </span>
+          <span className={statusBadgeClass(tenant.credential_ready ? "success" : "warning")}>
+            {tenant.credential_ready ? "credentials ready" : "credentials needed"}
+          </span>
+          <span className={statusBadgeClass(tenant.db_synced ? "success" : "warning")}>
+            {tenant.db_synced ? "db synced" : "sync config"}
+          </span>
+        </div>
+      </div>
+
+      <MetricStrip
+        metrics={[
+          { label: "Channels", value: numberLabel(db.channels), tone: "neutral" },
+          { label: "Messages", value: numberLabel(db.messages), tone: "info" },
+          { label: "Files", value: numberLabel(db.files), tone: "neutral" },
+          { label: "Pending Jobs", value: numberLabel(pendingJobs), tone: pendingJobs ? "warning" : "success" }
+        ]}
+      />
+
+      <div className="tenant-row__grid">
+        <StatusPanel
+          detail={backfill.detail}
+          label={backfill.label}
+          summary={backfill.summary}
+          title="Backfill"
+          tone={toneFromApi(backfill.tone)}
+        />
+        <StatusPanel
+          detail={syncHealth.detail}
+          label={syncHealth.label}
+          summary={syncHealth.summary}
+          title="Live Sync"
+          tone={toneFromApi(syncHealth.tone)}
+        />
+        <StatusPanel
+          detail={health.detail}
+          label={tenant.next_action}
+          summary={health.summary}
+          title="Health"
+          tone={toneFromApi(health.tone)}
+        />
+      </div>
+
+      <div className="tenant-row__details">
+        <div>
+          <strong>Live units</strong>
+          <p>
+            webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
+          </p>
+        </div>
+        <div>
+          <strong>Text and embeddings</strong>
+          <p>
+            attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
+            {numberLabel(errorJobs)}
+          </p>
+        </div>
+        <div>
+          <strong>Semantic readiness</strong>
+          <p>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary available."}</p>
+          <div className="chip-row">
+            {semanticProfiles.length ? (
+              semanticProfiles.map((profile) => (
+                <span className={statusBadgeClass(toneFromApi(profile.tone))} key={profile.name ?? profile.state}>
+                  {profile.name ?? "profile"}: {profile.state ?? "unknown"}
+                </span>
+              ))
+            ) : (
+              <span className={statusBadgeClass("neutral")}>no profiles</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function StatusPanel({
+  detail,
+  label,
+  summary,
+  title,
+  tone
+}: {
+  detail?: string;
+  label?: string;
+  summary?: string;
+  title: string;
+  tone: "neutral" | "success" | "warning" | "danger" | "info";
+}) {
+  return (
+    <section className="status-panel">
+      <div className="status-panel__head">
+        <strong>{title}</strong>
+        <span className={statusBadgeClass(tone)}>{label ?? "unknown"}</span>
+      </div>
+      <p>{summary ?? "No status summary available."}</p>
+      {detail ? <small>{detail}</small> : null}
+    </section>
+  );
+}
+
+export function TenantWorkbench() {
+  const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTenants() {
+      try {
+        const payload = await fetchJson<TenantsResponse>("/v1/tenants");
+        if (!cancelled) {
+          setState({ status: "ready", tenants: payload.tenants ?? [] });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setState({
+            error: error instanceof Error ? error.message : "Tenant status failed to load.",
+            status: "error",
+            tenants: []
+          });
+        }
+      }
+    }
+
+    void loadTenants();
+    const interval = window.setInterval(() => {
+      void loadTenants();
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const enabledCount = state.tenants.filter((tenant) => tenant.enabled).length;
+  const readyCount = state.tenants.filter((tenant) => tenant.credential_ready && tenant.db_synced).length;
+  const pendingJobs = state.tenants.reduce((total, tenant) => {
+    const db = tenant.db_stats ?? {};
+    return total + Number(db.embedding_pending ?? 0) + Number(db.derived_pending ?? 0);
+  }, 0);
+
+  return (
+    <section className="workbench" aria-labelledby="tenant-workbench-heading">
+      <div className="workbench__intro">
+        <div>
+          <p className="eyebrow">Read-only adapter</p>
+          <h2 id="tenant-workbench-heading">Tenant Status Workbench</h2>
+          <p>
+            This React preview reads the existing tenant-status API and keeps setup, activation,
+            live-sync controls, and backfill actions on the production tenant settings page.
+          </p>
+        </div>
+        <a className="button button--primary" href="/settings/tenants">
+          Manage tenants
+        </a>
+      </div>
+
+      <MetricStrip
+        metrics={[
+          { label: "Tenants", value: numberLabel(state.tenants.length), tone: "neutral" },
+          { label: "Enabled", value: numberLabel(enabledCount), tone: enabledCount ? "success" : "warning" },
+          { label: "Ready", value: numberLabel(readyCount), tone: readyCount ? "success" : "warning" },
+          { label: "Pending Jobs", value: numberLabel(pendingJobs), tone: pendingJobs ? "warning" : "success" }
+        ]}
+      />
+
+      {state.status === "loading" ? <div className="empty-state">Loading tenant status...</div> : null}
+      {state.status === "error" ? (
+        <div className="empty-state empty-state--danger" role="alert">
+          {state.error}
+        </div>
+      ) : null}
+      {state.status === "ready" && state.tenants.length === 0 ? (
+        <div className="empty-state">No tenants are configured yet.</div>
+      ) : null}
+
+      <div className="tenant-list">
+        {state.tenants.map((tenant) => (
+          <TenantStatusRow key={tenant.name} tenant={tenant} />
+        ))}
+      </div>
+    </section>
+  );
+}

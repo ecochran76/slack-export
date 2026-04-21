@@ -4310,3 +4310,25 @@ This file is the dated turn log for planning and execution continuity.
     - result: protected `/operator`, `/operator/assets/...`, and unsafe asset path behavior passed
   - `uv run python -m unittest tests.test_api_server -v`
     - result: 23 tests passed
+
+## Turn 238 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` React tenant-status adapter slice:
+  - `0099-2026-04-21-react-tenant-status-adapter.md`
+- Direction:
+  - make `/operator` consume the existing `/v1/tenants` API as its first live read-only adapter
+  - show dense tenant status, DB stats, backfill state, live state, health, next action, and semantic readiness
+  - keep all tenant mutations on the existing `/settings/tenants` page until React parity is intentionally reached
+- Implemented:
+  - added a same-origin frontend JSON API helper
+  - added Slack-local tenant API types and `TenantWorkbench`
+  - changed the default React app screen from the static selected-result placeholder to the read-only tenant workbench
+  - tightened root Python `lib/` ignore rules so `frontend/src/lib/` can be tracked
+  - updated frontend styles, docs, roadmap wiring, and the new `0099` plan
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export-operator-frontend --json`

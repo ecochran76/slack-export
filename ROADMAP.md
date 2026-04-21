@@ -210,6 +210,7 @@ Actionable plans:
 - `docs/dev/plans/0096-2026-04-21-frontend-selected-result-contract-model.md`
 - `docs/dev/plans/0097-2026-04-21-frontend-app-shell-scaffold.md`
 - `docs/dev/plans/0098-2026-04-21-operator-frontend-preview-route.md`
+- `docs/dev/plans/0099-2026-04-21-react-tenant-status-adapter.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -278,6 +279,12 @@ Cross-repo convergence refinement:
 - the Python service now serves the built React preview under `/operator`,
   completed under `0098`, while keeping existing Python-rendered pages as the
   production operator surfaces until parity is reached
+- the React preview now has its first live read-only adapter under `0099`:
+  - `/operator` fetches `/v1/tenants` with same-origin credentials
+  - tenant rows render DB stats, backfill status, live status, health, next
+    action, and semantic readiness
+  - tenant mutations still route to `/settings/tenants` until React parity is
+    intentionally reached
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

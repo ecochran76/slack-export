@@ -46,4 +46,6 @@ route through `slack-mirror api serve`.
 - `src/contracts/index.ts`: export surface for future frontend code.
 - `src/components/OperatorShell.tsx`: first shell and navigation primitive.
 - `src/components/MetricStrip.tsx`: semantic metric-strip primitive.
+- `src/features/tenants/TenantWorkbench.tsx`: read-only tenant status adapter
+  over `/v1/tenants`.
 - `src/theme/`: CSS variable tokens and app-shell styling.
