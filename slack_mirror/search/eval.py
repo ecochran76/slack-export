@@ -11,6 +11,7 @@ from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.embeddings import EmbeddingProvider
 from slack_mirror.search.keyword import search_messages
+from slack_mirror.search.rerankers import RerankerProvider
 
 
 def dcg(rels: list[int]) -> float:
@@ -154,6 +155,9 @@ def evaluate_corpus_search(
     limit: int = 10,
     model_id: str = "local-hash-128",
     embedding_provider: EmbeddingProvider | None = None,
+    rerank: bool = False,
+    rerank_top_n: int = 50,
+    reranker_provider: RerankerProvider | None = None,
 ) -> dict[str, Any]:
     ndcgs: list[float] = []
     mrrs: list[float] = []
@@ -175,6 +179,9 @@ def evaluate_corpus_search(
             mode=mode,
             model_id=model_id,
             message_embedding_provider=embedding_provider,
+            rerank=rerank,
+            rerank_top_n=rerank_top_n,
+            reranker_provider=reranker_provider,
         )
         lat_ms = (time.perf_counter() - t0) * 1000.0
 

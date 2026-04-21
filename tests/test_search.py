@@ -8,6 +8,7 @@ from unittest.mock import patch
 from slack_mirror.core.db import apply_migrations, connect, upsert_channel, upsert_derived_text, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.search.corpus import search_corpus
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
+from slack_mirror.search.eval import evaluate_corpus_search
 from slack_mirror.search.keyword import reindex_messages_fts, search_messages
 from slack_mirror.search.profiles import config_with_retrieval_profile, list_retrieval_profiles, resolve_retrieval_profile
 from slack_mirror.search.rerankers import (
@@ -348,6 +349,39 @@ class SearchTests(unittest.TestCase):
 
             self.assertEqual(rows[0]["text"], "deploy second candidate")
             self.assertEqual(rows[0]["_rerank_provider"], "fake_reranker")
+
+    def test_evaluate_corpus_search_honors_rerank_provider(self):
+        class FakeReranker:
+            name = "fake_reranker"
+
+            def score(self, *, query, documents):
+                return [10.0 if "second" in doc else 0.0 for doc in documents]
+
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "deploy first candidate", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "2.0", "text": "deploy second candidate", "user": "U1"})
+
+            report = evaluate_corpus_search(
+                conn,
+                workspace_id=ws_id,
+                dataset=[{"query": "deploy", "relevant": {"C1:2.0": 1}}],
+                mode="lexical",
+                limit=2,
+                rerank=True,
+                rerank_top_n=2,
+                reranker_provider=FakeReranker(),
+            )
+
+            self.assertEqual(report["query_reports"][0]["top_results"][0], "C1:2.0")
+            self.assertEqual(report["mrr_at_k"], 1.0)
 
     def test_search_derived_text_rows(self):
         with tempfile.TemporaryDirectory() as td:

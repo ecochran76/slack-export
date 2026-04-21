@@ -278,6 +278,7 @@ Actionable plans:
 - `docs/dev/plans/0077-2026-04-20-semantic-query-performance-cap.md`
 - `docs/dev/plans/0078-2026-04-20-local-inference-service-boundary.md`
 - `docs/dev/plans/0079-2026-04-20-http-backed-bge-profile-rehearsal.md`
+- `docs/dev/plans/0080-2026-04-20-live-relevance-benchmark-lock.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -385,6 +386,12 @@ Current state:
   - warm managed BGE embedding smoke improved from `14167.488 ms` cold to `119.363 ms` warm
   - warm managed CrossEncoder reranker smoke improved from `6800.081 ms` cold to `133.59 ms` warm
   - managed `default` scale review measured `local-bge-http` p95 `505.873 ms` versus `baseline` p95 `878.193 ms` for the bounded query, with BGE still only partially rolled out
+- the live relevance benchmark-lock slice is now complete under `0080`:
+  - `search profile-benchmark` compares named retrieval profiles against a JSONL benchmark with aggregate-only output by default
+  - managed `default` fixture evidence showed `baseline` and `local-bge-http` tying on low relevance: hit@3 `0.0`, hit@10 `0.666667`, nDCG@k `0.197161`, MRR@k `0.116667`
+  - `local-bge-http-rerank` was worse on the same fixture: hit@10 `0.333333`, nDCG@k `0.143559`, MRR@k `0.083333`
+  - the existing real-query fixture remains a regression smoke check, not a promotion gate, because relevance remains low and BGE coverage is still partial
+- the next active semantic-search slice should build a stronger non-content benchmark pack before any broader BGE rollout or reranker promotion
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

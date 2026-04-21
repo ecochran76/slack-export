@@ -656,7 +656,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 ```
 
@@ -671,6 +671,7 @@ usage: slack-mirror search [-h]
 - `inference-probe`
 - `inference-serve`
 - `keyword`
+- `profile-benchmark`
 - `profiles`
 - `provider-probe`
 - `query-dir`
@@ -864,6 +865,40 @@ slack-mirror --config config.yaml search keyword --workspace default --query dep
 slack-mirror --config config.yaml search keyword --workspace default --query "release incident" --mode hybrid
 slack-mirror --config config.yaml search semantic --workspace default --query "refund issue last sprint"
 ```
+
+
+### `slack-mirror search profile-benchmark`
+**Usage**
+
+```
+usage: slack-mirror search profile-benchmark [-h] --workspace WORKSPACE
+                                             --dataset DATASET
+                                             [--profiles PROFILES]
+                                             [--target {corpus,derived_text}]
+                                             [--mode {lexical,semantic,hybrid}]
+                                             [--limit LIMIT] [--model MODEL]
+                                             [--min-hit-at-3 MIN_HIT_AT_3]
+                                             [--min-hit-at-10 MIN_HIT_AT_10]
+                                             [--min-ndcg-at-k MIN_NDCG_AT_K]
+                                             [--max-latency-p95-ms MAX_LATENCY_P95_MS]
+                                             [--include-details] [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--dataset` — JSONL benchmark dataset path
+- `--profiles` — comma-separated retrieval profile names to benchmark (default: baseline); default: `baseline`
+- `--target` — benchmark target; default: `corpus`
+- `--mode` — benchmark retrieval mode
+- `--limit` — benchmark result window; default: `10`
+- `--model` — embedding model id override for all profiles
+- `--min-hit-at-3` — minimum acceptable hit@3; default: `0.5`
+- `--min-hit-at-10` — minimum acceptable hit@10; default: `0.8`
+- `--min-ndcg-at-k` — minimum acceptable ndcg@k; default: `0.6`
+- `--max-latency-p95-ms` — maximum acceptable benchmark latency p95; default: `800.0`
+- `--include-details` — include per-query benchmark details; default output is aggregate-only
+- `--json` — json output
 
 
 ### `slack-mirror search profiles`

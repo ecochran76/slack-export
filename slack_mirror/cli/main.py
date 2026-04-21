@@ -1367,6 +1367,7 @@ def cmd_search_corpus(args: argparse.Namespace) -> int:
 def cmd_search_health(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.search.profiles import config_with_retrieval_profile
+    from slack_mirror.search.rerankers import build_reranker_provider
     from slack_mirror.service.app import get_app_service
 
     service = get_app_service(args.config)
@@ -1376,6 +1377,7 @@ def cmd_search_health(args: argparse.Namespace) -> int:
     model = args.model or (profile.model if profile else "local-hash-128")
     mode = args.mode or (profile.mode if profile else "hybrid")
     embedding_provider = build_embedding_provider(provider_config)
+    reranker_provider = build_reranker_provider(provider_config) if profile and profile.rerank else None
     payload = service.search_health(
         conn,
         workspace=args.workspace,
@@ -1389,6 +1391,9 @@ def cmd_search_health(args: argparse.Namespace) -> int:
         min_ndcg_at_k=args.min_ndcg_at_k,
         max_latency_p95_ms=args.max_latency_p95_ms,
         message_embedding_provider=embedding_provider,
+        rerank=bool(profile.rerank) if profile else False,
+        rerank_top_n=int(profile.rerank_top_n) if profile else 50,
+        reranker_provider=reranker_provider,
     )
     if profile:
         payload["retrieval_profile"] = profile.to_dict()
@@ -1443,6 +1448,107 @@ def cmd_search_health(args: argparse.Namespace) -> int:
         if payload["warning_codes"]:
             print("Warnings: " + ", ".join(payload["warning_codes"]))
     return 0 if payload["status"] != "fail" else 1
+
+
+def _search_benchmark_summary(payload: dict, *, include_details: bool) -> dict:
+    benchmark = dict(payload.get("benchmark") or {})
+    query_reports = list(benchmark.pop("query_reports", []) or [])
+    degraded_queries = list(payload.get("degraded_queries") or [])
+    metrics = {
+        "queries": benchmark.get("queries", 0),
+        "hit_at_3": benchmark.get("hit_at_3"),
+        "hit_at_10": benchmark.get("hit_at_10"),
+        "ndcg_at_k": benchmark.get("ndcg_at_k"),
+        "mrr_at_k": benchmark.get("mrr_at_k"),
+        "latency_ms_p50": benchmark.get("latency_ms_p50"),
+        "latency_ms_p95": benchmark.get("latency_ms_p95"),
+    }
+    summary = {
+        "profile": payload.get("retrieval_profile", {}).get("name") or "config",
+        "status": payload.get("status"),
+        "warning_codes": list(payload.get("warning_codes") or []),
+        "failure_codes": list(payload.get("failure_codes") or []),
+        "metrics": metrics,
+        "degraded_query_count": len(degraded_queries),
+        "retrieval_profile": payload.get("retrieval_profile"),
+    }
+    if include_details:
+        summary["degraded_queries"] = degraded_queries
+        summary["query_reports"] = query_reports
+    return summary
+
+
+def cmd_search_profile_benchmark(args: argparse.Namespace) -> int:
+    from slack_mirror.search.embeddings import build_embedding_provider
+    from slack_mirror.search.profiles import config_with_retrieval_profile
+    from slack_mirror.search.rerankers import build_reranker_provider
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    profile_names = [value.strip() for value in str(args.profiles or "").split(",") if value.strip()]
+    runs = []
+
+    for profile_name in profile_names:
+        profile = service.retrieval_profile(profile_name)
+        provider_config = config_with_retrieval_profile(service.config.data, profile)
+        embedding_provider = build_embedding_provider(provider_config)
+        reranker_provider = build_reranker_provider(provider_config) if profile.rerank else None
+        payload = service.search_health(
+            conn,
+            workspace=args.workspace,
+            dataset_path=args.dataset,
+            benchmark_target=args.target,
+            mode=args.mode or profile.mode,
+            limit=args.limit,
+            model_id=args.model or profile.model,
+            min_hit_at_3=args.min_hit_at_3,
+            min_hit_at_10=args.min_hit_at_10,
+            min_ndcg_at_k=args.min_ndcg_at_k,
+            max_latency_p95_ms=args.max_latency_p95_ms,
+            message_embedding_provider=embedding_provider,
+            rerank=bool(profile.rerank),
+            rerank_top_n=int(profile.rerank_top_n),
+            reranker_provider=reranker_provider,
+        )
+        payload["retrieval_profile"] = profile.to_dict()
+        runs.append(_search_benchmark_summary(payload, include_details=bool(args.include_details)))
+
+    status = "pass"
+    if any(run["failure_codes"] for run in runs):
+        status = "fail"
+    elif any(run["warning_codes"] for run in runs):
+        status = "pass_with_warnings"
+
+    payload = {
+        "workspace": args.workspace,
+        "dataset_path": args.dataset,
+        "target": args.target,
+        "limit": args.limit,
+        "profiles": profile_names,
+        "status": status,
+        "runs": runs,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"Search profile benchmark workspace={payload['workspace']} target={payload['target']} "
+            f"profiles={','.join(profile_names)} status={payload['status']}"
+        )
+        for run in runs:
+            metrics = run["metrics"]
+            print(
+                f"{run['profile']}: status={run['status']} queries={metrics['queries']} "
+                f"hit@3={metrics['hit_at_3']} hit@10={metrics['hit_at_10']} "
+                f"ndcg@k={metrics['ndcg_at_k']} mrr@k={metrics['mrr_at_k']} "
+                f"p95_ms={metrics['latency_ms_p95']} degraded={run['degraded_query_count']}"
+            )
+            if run["failure_codes"]:
+                print(f"  failures={','.join(run['failure_codes'])}")
+            if run["warning_codes"]:
+                print(f"  warnings={','.join(run['warning_codes'])}")
+    return 0 if status != "fail" else 1
 
 
 def cmd_search_profiles(args: argparse.Namespace) -> int:
@@ -2186,7 +2292,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2378,7 +2484,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3236,6 +3342,38 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health.add_argument("--max-latency-p95-ms", type=float, default=800.0, help="maximum acceptable benchmark latency p95")
     p_search_health.add_argument("--json", action="store_true", help="json output")
     p_search_health.set_defaults(func=cmd_search_health)
+
+    p_search_profile_benchmark = search_sub.add_parser(
+        "profile-benchmark",
+        help="compare retrieval profiles against a benchmark dataset with aggregate-safe output",
+    )
+    p_search_profile_benchmark.add_argument("--workspace", required=True, help="workspace name")
+    p_search_profile_benchmark.add_argument("--dataset", required=True, help="JSONL benchmark dataset path")
+    p_search_profile_benchmark.add_argument(
+        "--profiles",
+        default="baseline",
+        help="comma-separated retrieval profile names to benchmark (default: baseline)",
+    )
+    p_search_profile_benchmark.add_argument(
+        "--target",
+        choices=["corpus", "derived_text"],
+        default="corpus",
+        help="benchmark target",
+    )
+    p_search_profile_benchmark.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="benchmark retrieval mode")
+    p_search_profile_benchmark.add_argument("--limit", type=int, default=10, help="benchmark result window")
+    p_search_profile_benchmark.add_argument("--model", default=None, help="embedding model id override for all profiles")
+    p_search_profile_benchmark.add_argument("--min-hit-at-3", type=float, default=0.5, help="minimum acceptable hit@3")
+    p_search_profile_benchmark.add_argument("--min-hit-at-10", type=float, default=0.8, help="minimum acceptable hit@10")
+    p_search_profile_benchmark.add_argument("--min-ndcg-at-k", type=float, default=0.6, help="minimum acceptable ndcg@k")
+    p_search_profile_benchmark.add_argument("--max-latency-p95-ms", type=float, default=800.0, help="maximum acceptable benchmark latency p95")
+    p_search_profile_benchmark.add_argument(
+        "--include-details",
+        action="store_true",
+        help="include per-query benchmark details; default output is aggregate-only",
+    )
+    p_search_profile_benchmark.add_argument("--json", action="store_true", help="json output")
+    p_search_profile_benchmark.set_defaults(func=cmd_search_profile_benchmark)
 
     p_search_profiles = search_sub.add_parser("profiles", help="list semantic retrieval profiles")
     p_search_profiles.add_argument("--json", action="store_true", help="json output")

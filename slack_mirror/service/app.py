@@ -1666,6 +1666,9 @@ class SlackMirrorAppService:
         max_attachment_pending: int = 25,
         max_ocr_pending: int = 25,
         message_embedding_provider=None,
+        rerank: bool = False,
+        rerank_top_n: int = 50,
+        reranker_provider=None,
     ) -> dict[str, Any]:
         if benchmark_target == "derived_text" and mode not in {"lexical", "semantic"}:
             raise ValueError("derived_text benchmark target only supports lexical or semantic mode")
@@ -1748,6 +1751,9 @@ class SlackMirrorAppService:
                     limit=limit,
                     model_id=model_id,
                     embedding_provider=embedding_provider,
+                    rerank=rerank,
+                    rerank_top_n=rerank_top_n,
+                    reranker_provider=reranker_provider,
                 )
             benchmark["dataset_path"] = dataset_path
             report["benchmark"] = benchmark

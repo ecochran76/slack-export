@@ -3500,3 +3500,38 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python scripts/check_generated_docs.py`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+
+## Turn 218 | 2026-04-20
+
+- Opened the next bounded `P10` live relevance benchmark-lock slice:
+  - `0080-2026-04-20-live-relevance-benchmark-lock.md`
+- Direction:
+  - compare `baseline`, `local-bge-http`, and `local-bge-http-rerank` on bounded real-query benchmark checks
+  - record only aggregate metrics and stable IDs, not private message bodies
+  - treat partial BGE rollout as a major interpretation caveat
+  - do not broaden rollout or change the release default in this slice
+- Implemented and closed `0080`:
+  - added `search profile-benchmark`
+  - command compares multiple named retrieval profiles through the existing `search health` benchmark evaluator
+  - default output is aggregate-only; per-query details require `--include-details`
+  - updated README and config docs with the new operator workflow
+- Managed benchmark evidence on `default` with `docs/dev/benchmarks/slack_smoke.jsonl`:
+  - `baseline`: hit@3 `0.0`, hit@10 `0.666667`, nDCG@k `0.197161`, MRR@k `0.116667`, p95 `234.801 ms`, degraded query count `3`
+  - `local-bge-http`: hit@3 `0.0`, hit@10 `0.666667`, nDCG@k `0.197161`, MRR@k `0.116667`, p95 `276.353 ms`, degraded query count `3`
+  - `local-bge-http-rerank`: hit@3 `0.0`, hit@10 `0.333333`, nDCG@k `0.143559`, MRR@k `0.083333`, p95 `906.816 ms`, degraded query count `3`
+- Interpretation:
+  - current fixture is useful for regression smoke
+  - current fixture is not a promotion gate because relevance remains low and BGE coverage remains partial
+  - learned reranking did not improve this fixture and should remain experimental
+  - release `baseline` remains unchanged
+- Validation so far:
+  - `uv run python -m unittest tests.test_cli tests.test_search -v`
+  - `uv run python -m unittest tests.test_cli tests.test_search tests.test_app_service -v`
+  - `uv run python scripts/check_generated_docs.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+  - `slack-mirror-user search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - live repo-env benchmark command against the managed config passed with warnings under zero collection thresholds
