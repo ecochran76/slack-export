@@ -209,6 +209,7 @@ Actionable plans:
 - `docs/dev/plans/0051-2026-04-18-operator-frontend-reuse-architecture.md`
 - `docs/dev/plans/0096-2026-04-21-frontend-selected-result-contract-model.md`
 - `docs/dev/plans/0097-2026-04-21-frontend-app-shell-scaffold.md`
+- `docs/dev/plans/0098-2026-04-21-operator-frontend-preview-route.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -274,6 +275,9 @@ Cross-repo convergence refinement:
     the initial shell/navigation/account-chip and theme boundary
   - the first screen is static and contract-driven; live API adapters and Python
     service asset wiring remain later child slices
+- the Python service now serves the built React preview under `/operator`,
+  completed under `0098`, while keeping existing Python-rendered pages as the
+  production operator surfaces until parity is reached
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

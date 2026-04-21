@@ -4284,3 +4284,29 @@ This file is the dated turn log for planning and execution continuity.
   - `npm run typecheck` from `frontend/`
   - `npm run build` from `frontend/`
     - result: Vite `8.0.9` production build completed
+
+## Turn 237 | 2026-04-21
+
+- Committed the completed frontend app-shell scaffold slice:
+  - `7ddf2cb feat(frontend): scaffold operator app shell`
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` preview-route slice:
+  - `0098-2026-04-21-operator-frontend-preview-route.md`
+- Direction:
+  - serve the built React app from the existing Python API service under an authenticated preview route
+  - keep `/settings/tenants`, `/search`, `/exports`, `/logs`, and runtime report pages unchanged
+  - avoid Vite dev-server requirements in the managed runtime path
+- Implemented:
+  - configured Vite asset URLs for `/operator/`
+  - added `/operator` and `/operator/assets/...` handling to `slack_mirror/service/api.py`
+  - protected the preview app and assets with the existing frontend-auth guard
+  - added a narrow `SLACK_MIRROR_OPERATOR_FRONTEND_DIST` override for tests and alternate local build roots
+  - updated README, API/MCP contract docs, roadmap, and the new `0098` plan
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+    - result: Vite `8.0.9` production build completed with `/operator/` asset base
+  - `python -m py_compile slack_mirror/service/api.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+    - result: protected `/operator`, `/operator/assets/...`, and unsafe asset path behavior passed
+  - `uv run python -m unittest tests.test_api_server -v`
+    - result: 23 tests passed

@@ -118,6 +118,8 @@ API only:
 - `GET /`
 - `GET /settings`
 - `GET /search`
+- `GET /operator`
+- `GET /operator/assets/{path}`
 
 Current semantics:
 
@@ -132,6 +134,8 @@ Current semantics:
 - protected routes currently include:
   - `/`
   - `/exports/*`
+  - `/operator`
+  - `/operator/assets/*`
   - `/v1/exports*`
   - `/search`
   - `/runtime/reports*`

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -46,6 +47,16 @@ def _file_response(handler: BaseHTTPRequestHandler, path: Path) -> None:
     handler.send_header("content-length", str(len(data)))
     handler.end_headers()
     handler.wfile.write(data)
+
+
+def _safe_child_path(root: Path, relpath: str) -> Path | None:
+    decoded = unquote(relpath).lstrip("/")
+    candidate = (root / decoded).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return candidate
 
 
 def _html_response(handler: BaseHTTPRequestHandler, status: int, body: str) -> None:
@@ -439,6 +450,7 @@ def _authenticated_topbar_html(*, auth_session: FrontendAuthSession, current_pat
         ("/logs", "Logs", False),
         ("/runtime/reports", "Runtime reports", False),
         ("/exports", "Exports", False),
+        ("/operator", "Operator preview", False),
         ("/settings/tenants", "Tenants", False),
         ("/settings", "Settings", False),
         ("/logout", "Logout", True),
@@ -1729,6 +1741,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
     export_root = resolve_export_root(config)
     export_base_urls = resolve_export_base_urls(config)
     runtime_report_dir = runtime_report_dir_for_config(config_path)
+    operator_frontend_root = Path(
+        os.environ.get(
+            "SLACK_MIRROR_OPERATOR_FRONTEND_DIST",
+            str(Path(__file__).resolve().parents[2] / "frontend" / "dist" / "app"),
+        )
+    ).resolve()
 
     def runtime_report_links(name: str) -> dict[str, str]:
         safe_name = _safe_runtime_report_name(name)
@@ -1764,12 +1782,13 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 return False
             if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
                 return False
-            if path in {"/", "/settings", "/settings/tenants", "/search", "/logs"}:
+            if path in {"/", "/settings", "/settings/tenants", "/search", "/logs", "/operator"}:
                 return True
             if path.startswith("/v1/workspaces/") and path.endswith("/webhook"):
                 return False
             protected_prefixes = (
                 "/exports",
+                "/operator/assets",
                 "/v1/exports",
                 "/v1/logs",
                 "/v1/workspaces",
@@ -1981,6 +2000,27 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="tenants.status")
                     return
                 _html_response(self, 200, _tenant_settings_html(auth_session=auth_session, tenants=tenants))
+                return
+
+            if path == "/operator":
+                index_path = operator_frontend_root / "index.html"
+                if not index_path.exists():
+                    _error_response(
+                        self,
+                        503,
+                        "OPERATOR_FRONTEND_NOT_BUILT",
+                        "Operator frontend is not built; run npm run build from frontend/",
+                    )
+                    return
+                _file_response(self, index_path)
+                return
+
+            if path.startswith("/operator/assets/"):
+                asset_path = _safe_child_path(operator_frontend_root / "assets", path.removeprefix("/operator/assets/"))
+                if asset_path is None or not asset_path.is_file():
+                    _error_response(self, 404, "NOT_FOUND", "Operator frontend asset not found")
+                    return
+                _file_response(self, asset_path)
                 return
 
             if path == "/v1/tenants":

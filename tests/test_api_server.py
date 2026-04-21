@@ -824,6 +824,16 @@ class ApiServerTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        operator_dist = self.root / "operator-dist"
+        operator_assets = operator_dist / "assets"
+        operator_assets.mkdir(parents=True, exist_ok=True)
+        (operator_dist / "index.html").write_text(
+            "<!doctype html><html><head><title>Operator Preview</title>"
+            "<script type='module' src='/operator/assets/app.js'></script></head>"
+            "<body><div id='root'>Selected Result Workbench</div></body></html>",
+            encoding="utf-8",
+        )
+        (operator_assets / "app.js").write_text("console.log('operator preview');\n", encoding="utf-8")
 
         self.config_path.write_text(
             self.config_path.read_text(encoding="utf-8")
@@ -844,7 +854,8 @@ class ApiServerTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        with patch.dict(os.environ, {"SLACK_MIRROR_OPERATOR_FRONTEND_DIST": str(operator_dist)}):
+            server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         self.addCleanup(server.shutdown)
@@ -878,6 +889,17 @@ class ApiServerTests(unittest.TestCase):
         logs_redirect = requests.get(f"{base_url}/logs", timeout=5, allow_redirects=False)
         self.assertEqual(logs_redirect.status_code, 303)
         self.assertEqual(logs_redirect.headers["location"], "/login?next=%2Flogs&reason=auth_required")
+
+        operator_redirect = requests.get(f"{base_url}/operator", timeout=5, allow_redirects=False)
+        self.assertEqual(operator_redirect.status_code, 303)
+        self.assertEqual(operator_redirect.headers["location"], "/login?next=%2Foperator&reason=auth_required")
+
+        operator_asset_redirect = requests.get(f"{base_url}/operator/assets/app.js", timeout=5, allow_redirects=False)
+        self.assertEqual(operator_asset_redirect.status_code, 303)
+        self.assertEqual(
+            operator_asset_redirect.headers["location"],
+            "/login?next=%2Foperator%2Fassets%2Fapp.js&reason=auth_required",
+        )
 
         export_redirect = requests.get(
             f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
@@ -939,6 +961,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("/runtime/reports/latest", landing.text)
         self.assertIn("/settings", landing.text)
         self.assertIn("/search", landing.text)
+        self.assertIn("/operator", landing.text)
         self.assertIn("/exports/channel-day-default-general-2026-04-12-abc123", landing.text)
         self.assertIn("/v1/exports", landing.text)
 
@@ -1009,6 +1032,20 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("Tenant and service logs", logs_page.text)
         self.assertIn("class='nav-link active' href=\"/logs\"", logs_page.text)
         self.assertIn("/v1/logs", logs_page.text)
+
+        operator_page = session.get(f"{base_url}/operator", timeout=5)
+        self.assertEqual(operator_page.status_code, 200)
+        self.assertIn("Selected Result Workbench", operator_page.text)
+        self.assertIn("/operator/assets/app.js", operator_page.text)
+
+        operator_asset = session.get(f"{base_url}/operator/assets/app.js", timeout=5)
+        self.assertEqual(operator_asset.status_code, 200)
+        self.assertEqual(operator_asset.headers["content-type"], "text/javascript")
+        self.assertIn("operator preview", operator_asset.text)
+
+        unsafe_operator_asset = session.get(f"{base_url}/operator/assets/%2e%2e/index.html", timeout=5)
+        self.assertEqual(unsafe_operator_asset.status_code, 404)
+        self.assertEqual(unsafe_operator_asset.json()["error"]["code"], "NOT_FOUND")
 
         allowed = session.get(f"{base_url}/runtime/reports/latest", timeout=5)
         self.assertEqual(allowed.status_code, 200)

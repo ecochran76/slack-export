@@ -35,6 +35,10 @@ npm run build
 npm run dev
 ```
 
+The built app is served by the Python API service at `/operator`. Vite emits
+asset URLs under `/operator/`, so run `npm run build` before using the preview
+route through `slack-mirror api serve`.
+
 ## Current Files
 
 - `src/contracts/selectedResults.ts`: selected candidate, context, artifact, and

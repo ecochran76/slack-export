@@ -56,6 +56,7 @@ The same config-backed onboarding and local credential-install flow is available
 Tenant tiles on that page also expose guarded activation, bounded backfill, live-sync start/restart/stop, and guarded tenant retirement controls.
 Bounded initial sync now persists durable reconcile-state evidence, so a successful browser-triggered backfill clears the misleading `needs_initial_sync` state on the tenant tile.
 For operator visibility, the authenticated browser also exposes a bounded logs surface at `http://slack.localhost/logs` for tenant live units plus the shared API and runtime-report services.
+The React-based operator-console preview is served by the same authenticated Python service at `http://slack.localhost/operator` after running `npm run build` from `frontend/`. Existing Python-rendered pages remain the production operator surfaces until the React workbench reaches parity.
 
 ## Current Live Topology
 
