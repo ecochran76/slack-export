@@ -3721,3 +3721,39 @@ This file is the dated turn log for planning and execution continuity.
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+
+## Turn 223 | 2026-04-21
+
+- Opened the next bounded `P10` benchmark-fusion experiment slice:
+  - `0085-2026-04-21-benchmark-fusion-experiment.md`
+- Direction:
+  - wire explicit `weighted` versus `rrf` fusion through corpus benchmark evaluation
+  - add fusion selection to `search health`, `search profile-benchmark`, and `search benchmark-diagnose`
+  - preserve `weighted` as the default
+  - compare both methods on the existing non-content fixture before any ranking or rollout change
+
+## Turn | 2026-04-21 Converged query semantics alignment
+
+- Refined `P12 | Communications Corpus Convergence` so Slack Mirror treats
+  portable query semantics as part of convergence, not just report/export
+  rendering.
+- Updated `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
+  to record the shared query/action-target expectation from `../imcli`:
+  - boolean terms, phrases, grouping, and negation
+  - temporal operators such as `before:`, `after:`, `since:`, `until:`, and
+    `on:`
+  - actor operators such as `from:`, `to:`, `participant:`, `account:`, and
+    `me:`
+  - source/conversation operators such as `source:`, `platform:`, `tenant:`,
+    `workspace:`, `channel:`, and `thread:`
+  - attachment/file operators such as `has:attachment`, `attachment-type:`,
+    `filename:`, `mime:`, and `extension:`
+  - provider-native extension namespaces such as `slack.*`, `mail.*`,
+    `whatsapp.*`, and `google_messages.*`
+- Moved `comm-search-contracts` conceptually ahead of export/report extraction
+  while keeping parser extraction gated on at least two repos proving compatible
+  local grammar behavior.
+- Preserved the no-shared-engine boundary: Slack Mirror keeps its own search
+  backend and maps shared query/action-target contracts at the service edge.
+- Validation was not run; this was a planning/docs-only refinement and
+  validation was not requested.

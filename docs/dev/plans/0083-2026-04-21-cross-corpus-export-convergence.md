@@ -22,6 +22,9 @@ communication projects:
 - browser search and export-management surfaces
 - corpus search result `action_target` metadata for message and derived-text
   hits
+- no explicit shared query grammar contract yet for portable filters such as
+  boolean expressions, time filters, actor filters, channel/thread filters, or
+  attachment filters
 
 Adjacent projects are converging on the same product class:
 
@@ -42,6 +45,7 @@ extracting small libraries only after multiple repos prove the same shape.
 Slack Mirror, `imcli`, and Ragmail are at risk of independently rebuilding the
 same upper-layer features:
 
+- query parsing and portable operator semantics
 - selected search result handoff
 - before/after context expansion
 - export bundle manifests
@@ -68,6 +72,10 @@ without merging runtimes prematurely.
 The near-term goal is to make Slack Mirror's selected-result export/report layer
 compatible with the provider-neutral contract that `../imcli` is starting to
 plan.
+
+That includes the search side of the contract: Slack Mirror should be able to
+accept, emit, or losslessly map enough shared query/action-target semantics that
+portable filters select comparable Slack records.
 
 The medium-term goal is to unlock a separate shared-library repo when at least
 two projects can consume the same contracts.
@@ -98,6 +106,10 @@ The first expected gate is selected-result export/reporting across:
 - `slack-export`
 - `../imcli`
 
+This gate should include compatible search action targets and enough shared
+query semantics that common portable operators select comparable records before
+report/export rendering begins.
+
 `../ragmail` should be the third proving implementation before deeper frontend
 or common-control-plane commitments.
 
@@ -111,6 +123,7 @@ Do not extract shared libraries for:
 - provider-specific auth/session/keyring behavior
 - canonical database migrations
 - one universal search engine
+- forcing every provider to support every portable operator immediately
 
 ## Shared Library Home
 
@@ -202,10 +215,25 @@ Owns storage-agnostic context policy:
 
 Each backend provides its own neighbor/context provider.
 
-### 5. `comm-search-contracts`
+### Query contract note: `comm-search-contracts`
 
-Owns shapes, not engines:
+Owns query and result contracts, not engines:
 
+- query grammar and AST types
+- boolean terms, phrases, grouping, and negation
+- temporal operators such as `before:`, `after:`, `since:`, `until:`, and
+  `on:`
+- actor operators such as `from:`, `to:`, `participant:`, `account:`, and
+  `me:`
+- source/conversation operators such as `source:`, `platform:`, `tenant:`,
+  `workspace:`, `channel:`, and `thread:`
+- attachment/file operators such as `has:attachment`, `attachment-type:`,
+  `filename:`, `mime:`, and `extension:`
+- result-shaping options such as `sort:`, `limit:`, `context-before:`, and
+  `context-after:`
+- provider-native extension namespaces such as `slack.*`, `mail.*`,
+  `whatsapp.*`, and `google_messages.*`
+- operator capability metadata
 - search request fields
 - search result fields
 - score and explain metadata
@@ -213,6 +241,9 @@ Owns shapes, not engines:
 - readiness
 - action targets
 - derived-text result shape
+
+Delay extracting a shared parser until Slack Mirror and at least one sibling
+repo prove compatible local grammar behavior.
 
 ### 6. `comm-workbench-ui`
 
@@ -315,6 +346,8 @@ Do not move these into shared libraries:
 
 Ragmail should unlock participation by:
 
+- aligning mail search operators with the shared portable grammar where email
+  semantics permit it
 - exposing mail search hits as stable action targets
 - mapping rendered thread output to neutral report JSON
 - preserving email-specific semantics:

@@ -296,6 +296,7 @@ Actionable plans:
 - `docs/dev/plans/0081-2026-04-21-noncontent-relevance-benchmark-pack.md`
 - `docs/dev/plans/0082-2026-04-21-benchmark-target-bge-backfill.md`
 - `docs/dev/plans/0084-2026-04-21-profile-aware-benchmark-diagnostics.md`
+- `docs/dev/plans/0085-2026-04-21-benchmark-fusion-experiment.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -423,6 +424,10 @@ Current state:
   - `search benchmark-diagnose` reports expected target ranks, top result labels, rank movement, source counts, and compact explain metadata without emitting Slack message bodies by default
   - installed-wrapper evidence showed `baseline` and `local-bge-http` both hitting `4/19` target labels in the top 10 with identical ranks, while `local-bge-http-rerank` demoted two visible hits
   - the next active semantic-search step should be diagnostics-first query formulation or fusion experiments over the same fixture before any broader rollout
+- the active benchmark-fusion experiment slice is now open under `0085`:
+  - thread explicit `weighted` versus `rrf` fusion through corpus benchmark evaluation
+  - preserve `weighted` as the release default
+  - record live non-content fixture evidence before any tuning or rollout change
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align
@@ -468,6 +473,8 @@ Purpose:
   shared search/export/report contracts instead of a premature mega-merge
 - preserve Slack-specific runtime ownership while making the export/report layer
   portable enough to seed future shared libraries
+- align portable query semantics and selected-result action targets before
+  treating report/export convergence as complete
 
 Actionable plans:
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
@@ -486,7 +493,8 @@ Current state:
   - browser search and export-management surfaces
   - `action_target` metadata on corpus search results
 - `../imcli` is planning selected-result chat exports for Google Messages and
-  WhatsApp with configurable before/after context windows
+  WhatsApp with configurable before/after context windows and a parseable
+  portable query/action-target contract
 - `../ragmail` has analogous mail search, thread rendering, attachment
   extraction, case bundles, and report manifests, but must preserve mailbox,
   folder, MIME, archive/live-source, and email-thread semantics
@@ -499,7 +507,8 @@ Shared-library gate:
 - begin shared library development only after at least two repos can emit or
   losslessly map to compatible provider-neutral artifacts for the same workflow
 - the first likely gate is selected-result export/reporting across
-  `slack-export` and `../imcli`
+  `slack-export` and `../imcli`, including enough shared query semantics that
+  portable filters select comparable records and emit compatible action targets
 - use `../ragmail` as the third proving implementation before broader
   frontend or control-plane commitments
 
@@ -512,20 +521,22 @@ Recommended shared-library home:
   - acceptable alternative: `../communications-core`
 
 Initial shared-library candidates:
-1. `comm-export-contracts`
+1. `comm-search-contracts`
+   - query grammar and AST types, operator capability metadata,
+     provider-native extension namespace rules, result fields, readiness, and
+     action targets; not a shared search engine
+2. `comm-export-contracts`
    - action targets, source refs, conversation/thread/message refs, context
      windows, report payloads, artifacts, manifests, and attachment links
-2. `comm-bundle-store`
+3. `comm-bundle-store`
    - deterministic export IDs, safe bundle paths, manifest listing, rename,
      delete, URL building, and preview URL metadata
-3. `comm-report-renderer`
+4. `comm-report-renderer`
    - provider-neutral report JSON to HTML rendering, with later DOCX/PDF
      adapters only after the JSON contract proves stable
-4. `comm-context-window`
+5. `comm-context-window`
    - storage-agnostic context expansion policy over backend-provided message
      neighbors
-5. `comm-search-contracts`
-   - request/result/action-target/readiness shapes, not a shared search engine
 6. `comm-workbench-ui`
    - React/Vite operator/search/export components after CLI/API/MCP contracts
      stabilize
@@ -539,6 +550,14 @@ Slack Mirror development recommendations:
   - Slack outbound/listener semantics
 - add selected-result export inputs on top of the current channel/day export
   baseline
+- adapt or document Slack search operators against the shared portable grammar
+  where Slack semantics permit it:
+  - boolean terms, phrases, grouping, and negation
+  - temporal filters
+  - actor filters
+  - workspace/channel/thread filters
+  - attachment/file filters
+  - `slack.*` native extension fields
 - emit or map to provider-neutral report JSON while preserving Slack-native
   fields under explicit source/native metadata
 - document neutral mappings:
