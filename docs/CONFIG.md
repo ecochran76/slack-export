@@ -531,7 +531,8 @@ Message and corpus search query text supports explicit operators on the message 
 - `on:YYYY-MM-DD` expands to a UTC day range.
 - Temporal operators accept numeric Slack timestamps, ISO dates, and ISO datetimes; date/datetime values are interpreted in UTC when no timezone is supplied.
 - `has:link`, `is:thread`, `is:reply`, `is:edited`, quoted phrases, and negated `-term` filters are also supported.
-- Derived-text query text supports `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:` for file/canvas rows.
-- In corpus search, message-lane operators suppress unfiltered derived-text hits, and attachment/file-lane operators suppress unfiltered message hits. Mixed message-lane plus attachment-lane filters currently return no cross-lane inferred join results unless a future slice adds explicit message-to-file linkage.
+- Attachment query text supports `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:`.
+- Message search applies attachment operators through persisted message-file links; derived-text search applies them to extracted file/canvas text rows.
+- In corpus search, message-lane operators suppress unfiltered derived-text hits unless linked file metadata can satisfy the attachment constraints.
 
 > Note: This is scaffold-level documentation during Phase A. Behavior and command names may evolve.

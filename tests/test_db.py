@@ -76,6 +76,26 @@ class DbTests(unittest.TestCase):
             self.assertEqual(embedded["mimetype"], "text/html")
             self.assertIsNone(embedded["local_path"])
             self.assertIn("Email preview body", embedded["raw_json"])
+            linked = conn.execute(
+                """
+                SELECT file_id
+                FROM message_files
+                WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+                """,
+                (ws_id, "C123", "300.00"),
+            ).fetchall()
+            self.assertEqual([row["file_id"] for row in linked], ["FEMBED1"])
+
+            upsert_message(conn, ws_id, "C123", {"ts": "300.00", "text": "email attachment removed", "user": "U1"})
+            linked = conn.execute(
+                """
+                SELECT file_id
+                FROM message_files
+                WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+                """,
+                (ws_id, "C123", "300.00"),
+            ).fetchall()
+            self.assertEqual(linked, [])
 
             roots = list_recent_thread_roots(conn, ws_id, "C123", min_ts="150")
             self.assertEqual(roots, ["200.00"])

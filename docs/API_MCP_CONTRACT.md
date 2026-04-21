@@ -524,9 +524,10 @@ Important request fields:
   - message-lane operators include `from:`, `participant:`, `user:`, `in:`, `channel:`, `source:`, `after:`, `since:`, `before:`, `until:`, `on:`, `has:link`, and `is:thread`/`is:reply`/`is:edited`
   - temporal operators accept numeric Slack timestamps plus UTC ISO dates/datetimes; `on:YYYY-MM-DD` expands to that UTC day
   - attachment/file-lane operators include `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:`
+  - message search applies attachment operators through persisted message-file links
+  - derived-text search applies attachment operators to extracted file/canvas text rows
   - when message-lane operators are present, corpus search suppresses unfiltered derived-text hits rather than returning attachment/OCR rows outside those message constraints
-  - when attachment/file-lane operators are present, corpus search suppresses unfiltered message hits rather than returning message rows that do not satisfy the file constraints
-  - mixed message-lane plus attachment/file-lane constraints currently require explicit future message-to-file linkage; the current corpus search does not infer those joins
+  - mixed message-lane plus attachment/file-lane constraints can return message rows when linked file metadata satisfies the attachment constraints
 - `workspace`
   - required for workspace-scoped search unless `all_workspaces=true`
 - `all_workspaces`

@@ -7,6 +7,7 @@ from datetime import date, datetime, time, timezone, timedelta
 from typing import Any
 
 from slack_mirror.search.embeddings import EmbeddingProvider, cosine_similarity, embed_text
+from slack_mirror.search.query_syntax import ATTACHMENT_TYPE_MIME_PREFIXES, parse_derived_text_query
 from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 from slack_mirror.search.sqlite_adapter import SQLiteCorpusAdapter
 
@@ -83,6 +84,77 @@ def _append_on_clause(clauses: list[str], params: list[Any], value: str, *, nega
     clause = "(CAST(m.ts AS REAL) >= ? AND CAST(m.ts AS REAL) < ?)"
     clauses.append(f"NOT {clause}" if negated else clause)
     params.extend([lower, upper])
+
+
+def _append_file_metadata_clause(clauses: list[str], params: list[Any], raw_query: str) -> None:
+    parsed = parse_derived_text_query(raw_query)
+    if not parsed.has_structured_filters:
+        return
+
+    file_clauses: list[str] = []
+    if parsed.has_attachment:
+        file_clauses.append("1 = 1")
+
+    for term in parsed.filename_terms:
+        file_clauses.append(
+            """LOWER(
+              COALESCE(f.name, '') || ' ' ||
+              COALESCE(f.title, '') || ' ' ||
+              COALESCE(f.local_path, '') ||
+              COALESCE(f.file_id, '')
+            ) LIKE ?"""
+        )
+        params.append(f"%{term.lower()}%")
+
+    for term in parsed.mime_terms:
+        media_expr = "LOWER(COALESCE(f.mimetype, ''))"
+        if term.endswith("/*"):
+            file_clauses.append(f"{media_expr} LIKE ?")
+            params.append(f"{term[:-1]}%")
+        elif "*" in term:
+            file_clauses.append(f"{media_expr} LIKE ?")
+            params.append(term.replace("*", "%"))
+        else:
+            file_clauses.append(f"{media_expr} = ?")
+            params.append(term)
+
+    for ext in parsed.extensions:
+        file_clauses.append(
+            """(
+              LOWER(COALESCE(f.name, '')) LIKE ?
+              OR LOWER(COALESCE(f.title, '')) LIKE ?
+              OR LOWER(COALESCE(f.local_path, '')) LIKE ?
+            )"""
+        )
+        suffix = f"%.{ext.lower()}"
+        params.extend([suffix, suffix, suffix])
+
+    for attachment_type in parsed.attachment_types:
+        prefixes = ATTACHMENT_TYPE_MIME_PREFIXES.get(attachment_type)
+        if not prefixes:
+            file_clauses.append("LOWER(COALESCE(f.mimetype, '')) LIKE ?")
+            params.append(f"%{attachment_type.lower()}%")
+            continue
+        parts = []
+        for prefix in prefixes:
+            parts.append("LOWER(COALESCE(f.mimetype, '')) LIKE ?")
+            params.append(f"{prefix.lower()}%")
+        file_clauses.append("(" + " OR ".join(parts) + ")")
+
+    clauses.append(
+        """EXISTS (
+            SELECT 1
+            FROM message_files mf
+            JOIN files f
+              ON f.workspace_id = mf.workspace_id
+             AND f.file_id = mf.file_id
+            WHERE mf.workspace_id = m.workspace_id
+              AND mf.channel_id = m.channel_id
+              AND mf.ts = m.ts
+              AND """
+        + " AND ".join(file_clauses)
+        + "\n        )"
+    )
 
 
 def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[list[str], str, list[Any]]:
@@ -200,6 +272,27 @@ def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[
             if value == "link":
                 clause = "(COALESCE(m.text,'') LIKE '%http://%' OR COALESCE(m.text,'') LIKE '%https://%')"
                 clauses.append(f"NOT {clause}" if negated else clause)
+            elif value in {"attachment", "attachments", "file", "files"}:
+                if negated:
+                    clauses.append(
+                        """NOT EXISTS (
+                            SELECT 1
+                            FROM message_files mf
+                            WHERE mf.workspace_id = m.workspace_id
+                              AND mf.channel_id = m.channel_id
+                              AND mf.ts = m.ts
+                        )"""
+                    )
+            continue
+
+        if (
+            token.startswith("filename:")
+            or token.startswith("file:")
+            or token.startswith("mime:")
+            or token.startswith("extension:")
+            or token.startswith("ext:")
+            or token.startswith("attachment-type:")
+        ):
             continue
 
         if token.startswith("is:"):
@@ -222,6 +315,7 @@ def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[
             clauses.append(f"NOT ({clause})" if negated else clause)
             params.append(f"%{token}%")
 
+    _append_file_metadata_clause(clauses, params, raw_query)
     where_sql = " AND ".join(clauses)
     return positive_terms, where_sql, params
 

@@ -3403,7 +3403,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_kw.add_argument(
         "--query",
         required=True,
-        help="query text (supports from:/participant:/user:, channel:/source:/in:, before:/after:/since:/until:/on:, is:, has:link, quoted phrases, and -term)",
+        help="query text (supports from:/participant:/user:, channel:/source:/in:, before:/after:/since:/until:/on:, is:, has:link, has:attachment, filename:, mime:, extension:/ext:, attachment-type:, quoted phrases, and -term)",
     )
     p_search_kw.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_kw.add_argument(
@@ -3436,7 +3436,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_sem.add_argument(
         "--query",
         required=True,
-        help="semantic query text (supports from:/participant:/user:, channel:/source:/in:, before:/after:/since:/until:/on:, is:, has:link, quoted phrases, and -term)",
+        help="semantic query text (supports from:/participant:/user:, channel:/source:/in:, before:/after:/since:/until:/on:, is:, has:link, has:attachment, filename:, mime:, extension:/ext:, attachment-type:, quoted phrases, and -term)",
     )
     p_search_sem.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_sem.add_argument("--model", default=None, help="embedding model id (default from config: search.semantic.model)")

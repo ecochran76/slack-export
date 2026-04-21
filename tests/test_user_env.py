@@ -348,6 +348,80 @@ class UserEnvTests(unittest.TestCase):
         pip_install_calls = [call["args"] for call in calls if call["args"][:3] == [str(self.paths.venv_dir / "bin" / "pip"), "install", "--upgrade"]]
         self.assertTrue(any(arg.endswith("[local-semantic]") for call in pip_install_calls for arg in call))
 
+    def test_update_pauses_active_runtime_units_around_migrations(self):
+        self.paths.app_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.state_dir.mkdir(parents=True, exist_ok=True)
+        db_path = self.paths.state_dir / "slack_mirror.db"
+        self.paths.config_dir.mkdir(parents=True, exist_ok=True)
+        self.paths.config_path.write_text(
+            "version: 1\n"
+            "storage:\n"
+            f"  db_path: {db_path}\n"
+            "workspaces:\n"
+            "  - name: default\n"
+            "    token: xoxb-read\n"
+            "    outbound_token: xoxb-write\n",
+            encoding="utf-8",
+        )
+        self.paths.api_service_path.parent.mkdir(parents=True, exist_ok=True)
+        (self.paths.api_service_path.parent / "slack-mirror-daemon-default.service").write_text("[Service]\n", encoding="utf-8")
+        calls, base_runner = self._runner()
+        active_units = {
+            "slack-mirror-api.service",
+            "slack-mirror-daemon-default.service",
+            "slack-mirror-runtime-report.timer",
+        }
+
+        def runner(args, check=False, text=False, env=None, capture_output=False):
+            if args[:3] == ["systemctl", "--user", "is-active"]:
+                calls.append({"args": list(args), "env": env, "capture_output": capture_output})
+                stdout = "active\n" if args[-1] in active_units else "inactive\n"
+                return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+            return base_runner(args, check=check, text=text, env=env, capture_output=capture_output)
+
+        rc = user_env.update_user_env(
+            paths=self.paths,
+            runner=runner,
+            python_executable="python3",
+            mcp_probe=lambda _: (True, None),
+            out=lambda _: None,
+        )
+
+        self.assertEqual(rc, 0)
+        stop_calls = [call["args"] for call in calls if call["args"][:3] == ["systemctl", "--user", "stop"]]
+        start_calls = [call["args"] for call in calls if call["args"][:3] == ["systemctl", "--user", "start"]]
+        self.assertEqual(
+            stop_calls,
+            [
+                [
+                    "systemctl",
+                    "--user",
+                    "stop",
+                    "slack-mirror-api.service",
+                    "slack-mirror-daemon-default.service",
+                    "slack-mirror-runtime-report.timer",
+                ]
+            ],
+        )
+        self.assertEqual(
+            start_calls,
+            [
+                [
+                    "systemctl",
+                    "--user",
+                    "start",
+                    "slack-mirror-api.service",
+                    "slack-mirror-daemon-default.service",
+                    "slack-mirror-runtime-report.timer",
+                ]
+            ],
+        )
+        stop_index = next(i for i, call in enumerate(calls) if call["args"][:3] == ["systemctl", "--user", "stop"])
+        init_index = next(i for i, call in enumerate(calls) if call["args"][-2:] == ["mirror", "init"])
+        start_index = next(i for i, call in enumerate(calls) if call["args"][:3] == ["systemctl", "--user", "start"])
+        self.assertLess(stop_index, init_index)
+        self.assertLess(init_index, start_index)
+
     def test_update_runs_silent_baseline_then_live_smoke_output(self):
         self.paths.app_dir.mkdir(parents=True, exist_ok=True)
         self.paths.state_dir.mkdir(parents=True, exist_ok=True)

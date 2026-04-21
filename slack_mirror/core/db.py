@@ -1045,10 +1045,30 @@ def upsert_message(conn: sqlite3.Connection, workspace_id: int, channel_id: str,
             ),
         )
 
+    linked_file_ids: list[str] = []
     for file_obj in message.get("files", []) or []:
         if not isinstance(file_obj, dict) or not file_obj.get("id"):
             continue
+        linked_file_ids.append(str(file_obj.get("id")))
         upsert_file(conn, workspace_id, file_obj, local_path=None)
+
+    with conn:
+        conn.execute(
+            """
+            DELETE FROM message_files
+            WHERE workspace_id = ? AND channel_id = ? AND ts = ?
+            """,
+            (workspace_id, channel_id, ts),
+        )
+        if not deleted:
+            for file_id in dict.fromkeys(linked_file_ids):
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO message_files(workspace_id, channel_id, ts, file_id)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (workspace_id, channel_id, ts, file_id),
+                )
 
     if unchanged:
         return

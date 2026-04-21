@@ -6,7 +6,7 @@ from typing import Any
 from slack_mirror.search.embeddings import EmbeddingProvider
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import search_messages
-from slack_mirror.search.query_syntax import has_derived_text_lane_operator, has_message_lane_operator
+from slack_mirror.search.query_syntax import has_message_context_operator
 from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 
 FUSION_WEIGHTED = "weighted"
@@ -176,10 +176,8 @@ def _search_corpus_rows(
     requested_limit = max(1, int(limit or 20))
     requested_offset = max(0, int(offset or 0))
     lexical_limit = max((requested_limit + requested_offset) * 2, 20)
-    has_message_filters = has_message_lane_operator(q)
-    has_derived_filters = has_derived_text_lane_operator(q)
-    include_messages = not has_derived_filters
-    include_derived_text = not has_message_filters
+    include_messages = True
+    include_derived_text = not has_message_context_operator(q)
 
     if mode == "lexical":
         msg_rows = (

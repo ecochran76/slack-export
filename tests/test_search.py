@@ -692,7 +692,7 @@ class SearchTests(unittest.TestCase):
             rows = search_derived_text(conn, workspace_id=ws_id, query="incident attachment-type:text", limit=10)
             self.assertEqual([row["source_id"] for row in rows], ["F2"])
 
-    def test_corpus_has_attachment_uses_derived_text_lane(self):
+    def test_corpus_attachment_filters_use_message_file_links_and_derived_text(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"
             conn = connect(str(db))
@@ -702,14 +702,25 @@ class SearchTests(unittest.TestCase):
             ws_id = upsert_workspace(conn, name="default")
             upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
             upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
-            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "incident message body", "user": "U1"})
-            conn.execute(
-                """
-                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
-                VALUES (?, 'F1', 'incident.pdf', 'Incident PDF', 'application/pdf', '/tmp/incident.pdf', '{}')
-                """,
-                (ws_id,),
+            upsert_message(
+                conn,
+                ws_id,
+                "C1",
+                {
+                    "ts": "10.0",
+                    "text": "incident message body",
+                    "user": "U1",
+                    "files": [
+                        {
+                            "id": "F1",
+                            "name": "incident.pdf",
+                            "title": "Incident PDF",
+                            "mimetype": "application/pdf",
+                        }
+                    ],
+                },
             )
+            conn.execute("UPDATE files SET local_path = ? WHERE workspace_id = ? AND file_id = 'F1'", ("/tmp/incident.pdf", ws_id))
             upsert_derived_text(
                 conn,
                 workspace_id=ws_id,
@@ -723,11 +734,14 @@ class SearchTests(unittest.TestCase):
             )
 
             rows = search_corpus(conn, workspace_id=ws_id, query="incident has:attachment", limit=10, mode="lexical")
-            self.assertEqual([row["result_kind"] for row in rows], ["derived_text"])
-            self.assertEqual(rows[0]["source_id"], "F1")
+            self.assertEqual({row["result_kind"] for row in rows}, {"message", "derived_text"})
 
             mixed = search_corpus(conn, workspace_id=ws_id, query="incident has:attachment on:1970-01-01", limit=10, mode="lexical")
-            self.assertEqual(mixed, [])
+            self.assertEqual([row["result_kind"] for row in mixed], ["message"])
+            self.assertEqual(mixed[0]["ts"], "10.0")
+
+            pdf_messages = search_messages(conn, workspace_id=ws_id, query="incident extension:pdf mime:application/pdf", limit=10)
+            self.assertEqual([row["ts"] for row in pdf_messages], ["10.0"])
 
     def test_derived_text_semantic_strips_file_operators_from_embedding_query(self):
         class CaptureProvider:

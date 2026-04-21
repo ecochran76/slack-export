@@ -154,6 +154,21 @@ def has_message_lane_operator(query: str) -> bool:
         lowered = token.lower()
         if lowered.startswith("has:"):
             value = lowered.split(":", 1)[1].strip()
+            if value in {"link", "attachment", "attachments", "file", "files"}:
+                return True
+            continue
+        if any(lowered.startswith(prefix) for prefix in MESSAGE_LANE_OPERATOR_PREFIXES):
+            return True
+    return False
+
+
+def has_message_context_operator(query: str) -> bool:
+    """Return true for message-only constraints that derived text cannot satisfy."""
+    for raw_token in split_query_tokens(query):
+        _, token = _strip_negation(raw_token)
+        lowered = token.lower()
+        if lowered.startswith("has:"):
+            value = lowered.split(":", 1)[1].strip()
             if value == "link":
                 return True
             continue

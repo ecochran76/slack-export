@@ -3881,9 +3881,6 @@ This file is the dated turn log for planning and execution continuity.
   - `git diff --check`
   - `uv run slack-mirror user-env update --extra local-semantic`
     - result: combined managed validation passed
-  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
-  - `uv run slack-mirror release check --require-managed-runtime --json`
-    - result: pass with expected `DEV_VERSION` warning
 
 ## Turn 227 | 2026-04-21
 
@@ -3927,5 +3924,43 @@ This file is the dated turn log for planning and execution continuity.
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+
+## Turn 228 | 2026-04-21
+
+- Checkpointed the completed attachment-query operator slice:
+  - commit `42c938d feat(search): add attachment query operators`
+- Returned to the open `P10` semantic retrieval architecture plan.
+- Opened the next bounded query-pipeline hardening slice:
+  - `0089-2026-04-21-message-file-linkage-for-attachment-filters.md`
+- Direction:
+  - add a durable `message_files` table populated from Slack `message.files[]`
+  - make message search apply attachment/file metadata filters through linked file rows
+  - allow mixed message-lane plus attachment/file-lane corpus queries such as `on:YYYY-MM-DD has:attachment extension:pdf` to return message rows when both constraints are satisfied
+  - preserve the derived-text file filtering behavior shipped in `0088`
+- Implemented and closed `0089`:
+  - added `message_files` schema and indexes
+  - added a stored-payload backfill from `messages.raw_json` to existing `message_files` rows
+  - optimized the backfill through a temp extraction table after installed-update rehearsal showed the first join shape could run pathologically slowly on the live DB
+  - updated `upsert_message` to refresh message-file links from Slack `message.files[]`
+  - message search now applies `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:` through linked file metadata
+  - corpus search can return message rows for mixed message-lane plus attachment/file-lane filters when linked file metadata satisfies both sides
+  - derived-text attachment filtering from `0088` remains intact
+  - hardened `user-env update` to pause active managed systemd units around schema migrations and restore the previously active units afterward
+- Installed-wrapper smoke:
+  - installed migrations include `0012_message_files.sql` and `0013_message_files_backfill.sql`
+  - installed `message_files` row count: `17224`
+  - installed `search keyword --workspace default --query 'has:attachment' --limit 1 --json` returned one structured result without exposing content
+  - managed runtime update completed with MCP concurrent probe pass and live validation pass
+- Validation:
+  - `uv run python -m unittest tests.test_db tests.test_search -v`
+  - `uv run python -m unittest tests.test_user_env.UserEnvTests.test_update_pauses_active_runtime_units_around_migrations tests.test_user_env.UserEnvTests.test_update_runs_without_recreating_state tests.test_user_env.UserEnvTests.test_update_installs_requested_extras -v`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_db tests.test_search tests.test_user_env tests.test_api_server tests.test_mcp_server -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `uv run slack-mirror user-env update --extra local-semantic`
     - result: combined managed validation passed

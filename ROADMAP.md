@@ -300,6 +300,7 @@ Actionable plans:
 - `docs/dev/plans/0086-2026-04-21-benchmark-query-variants.md`
 - `docs/dev/plans/0087-2026-04-21-portable-query-date-operators.md`
 - `docs/dev/plans/0088-2026-04-21-litscout-informed-attachment-query-operators.md`
+- `docs/dev/plans/0089-2026-04-21-message-file-linkage-for-attachment-filters.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -447,6 +448,10 @@ Current state:
   - Slack Mirror now has a small lane-aware query helper for derived-text operators such as `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:`
   - corpus routing now distinguishes message-lane operators from file/attachment-lane operators so `has:attachment` searches derived text instead of suppressing it
   - mixed message-lane plus attachment-lane filters intentionally return no inferred cross-lane join rows until a future schema slice adds explicit message-to-file linkage
+- the explicit message-to-file linkage slice is now complete under `0089`:
+  - persist `message.files[]` as first-class message/file edges
+  - let message search apply `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:` against linked file metadata
+  - allow mixed message-lane plus attachment/file-lane corpus filters to return message rows when the link table satisfies both sides
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align

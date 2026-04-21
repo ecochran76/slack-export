@@ -704,6 +704,36 @@ def _systemctl_state(runner: RunFn, unit_name: str) -> str:
     return "unknown"
 
 
+def _managed_runtime_unit_names(paths: UserEnvPaths) -> list[str]:
+    unit_dir = paths.home_dir / ".config" / "systemd" / "user"
+    names = {
+        "slack-mirror-api.service",
+        "slack-mirror-inference.service",
+        "slack-mirror-runtime-report.service",
+        "slack-mirror-runtime-report.timer",
+    }
+    if unit_dir.exists():
+        names.update(path.name for path in unit_dir.glob("slack-mirror-*.service"))
+        names.update(path.name for path in unit_dir.glob("slack-mirror-*.timer"))
+    return sorted(names)
+
+
+def _pause_managed_runtime_for_migrations(paths: UserEnvPaths, *, runner: RunFn, out: PrintFn) -> list[str]:
+    active_units = [unit for unit in _managed_runtime_unit_names(paths) if _systemctl_state(runner, unit) == "active"]
+    if not active_units:
+        return []
+    _log(out, "pausing managed runtime units for schema migrations")
+    runner(["systemctl", "--user", "stop", *active_units], check=False, text=True)
+    return active_units
+
+
+def _restore_managed_runtime_units(units: Sequence[str], *, runner: RunFn, out: PrintFn) -> None:
+    if not units:
+        return
+    _log(out, "restoring managed runtime units after schema migrations")
+    runner(["systemctl", "--user", "start", *dict.fromkeys(units)], check=False, text=True)
+
+
 def _db_status_counts(db_path: Path, workspace: str, table: str) -> dict[str, int]:
     conn = sqlite3.connect(db_path, timeout=10)
     try:
@@ -1896,8 +1926,12 @@ def update_user_env(
     _write_api_service(target)
     _write_inference_service(target)
     _write_snapshot_report_units(target)
-    _run_migrations(target, runner=runner, out=out)
     runner(["systemctl", "--user", "daemon-reload"], check=False, text=True)
+    paused_units = _pause_managed_runtime_for_migrations(target, runner=runner, out=out)
+    try:
+        _run_migrations(target, runner=runner, out=out)
+    finally:
+        _restore_managed_runtime_units(paused_units, runner=runner, out=out)
     runner(["systemctl", "--user", "restart", "slack-mirror-api.service"], check=False, text=True)
     runner(["systemctl", "--user", "enable", "--now", "slack-mirror-runtime-report.timer"], check=False, text=True)
     _log(out, "running managed-runtime validation")
