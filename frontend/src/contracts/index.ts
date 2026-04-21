@@ -1,0 +1,23 @@
+export type {
+  AttachmentRef,
+  ContextPolicy,
+  ConversationRef,
+  DerivedTextContextItem,
+  ManagedArtifactRef,
+  MessageContextItem,
+  NativeMetadata,
+  ParticipantRef,
+  ReportViewAction,
+  SearchResultCandidate,
+  SearchScoreExplain,
+  SelectedResultReportArtifact,
+  SelectedResultReportItem,
+  SelectedResultTarget,
+  SelectionResolutionStatus,
+  SelectionState,
+  SourcePlatform,
+  SourceRef,
+  TextPresence,
+  ThreadRef,
+} from "./selectedResults";
+

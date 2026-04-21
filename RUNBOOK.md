@@ -4241,3 +4241,23 @@ This file is the dated turn log for planning and execution continuity.
   - leave a policy-compliant cross-repo note in `../ragmail` summarizing the
     Slack-side fixes and the timestamp/plan-numbering expectations for future
     convergence work
+
+## Turn 238 | 2026-04-21
+
+- Shifted back to the dedicated `feat/p09-operator-frontend` worktree after the selected-result export/report contract stabilized.
+- Opened and closed the next bounded `P09` frontend architecture slice:
+  - `0096-2026-04-21-frontend-selected-result-contract-model.md`
+- Direction:
+  - model selected-result search/report data as reusable UI contracts before scaffolding the full Vite/React app
+  - keep names provider-neutral so the same model can later map to `../imcli` and `../ragmail`
+  - do not change API, MCP, CLI, or `selected-results.json` schemas in this slice
+- Implemented:
+  - added `frontend/README.md`
+  - added `frontend/src/contracts/selectedResults.ts`
+  - added `frontend/src/contracts/index.ts`
+  - added `docs/dev/FRONTEND_CONTRACTS.md` with Slack-to-neutral mapping and adapter-boundary notes
+  - wired `0096` into `ROADMAP.md`
+- Validation:
+  - `tsc --noEmit --strict --module esnext --target es2022 frontend/src/contracts/index.ts frontend/src/contracts/selectedResults.ts`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export-operator-frontend --json`

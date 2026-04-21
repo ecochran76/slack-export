@@ -207,6 +207,7 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0050-2026-04-15-tenant-onboarding-wizard-and-settings.md`
 - `docs/dev/plans/0051-2026-04-18-operator-frontend-reuse-architecture.md`
+- `docs/dev/plans/0096-2026-04-21-frontend-selected-result-contract-model.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -259,6 +260,13 @@ Cross-repo convergence refinement:
   workspace, channel, or thread timestamp when neutral source, conversation,
   thread, message, participant, attachment, and action-target terminology would
   fit
+- the selected-result workflow is now stable enough to seed the first frontend
+  contract model, completed under `0096`:
+  - `frontend/src/contracts/selectedResults.ts` defines provider-neutral
+    selected target, candidate, context, artifact, and report-view action types
+  - `docs/dev/FRONTEND_CONTRACTS.md` records Slack-to-neutral mapping and the
+    shared-vs-repo-local adapter boundary
+  - full Vite/React app scaffolding remains a later child slice
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 
