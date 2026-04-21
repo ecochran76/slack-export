@@ -1588,6 +1588,47 @@ def cmd_search_benchmark_validate(args: argparse.Namespace) -> int:
     return 0 if payload["status"] != "fail" else 1
 
 
+def cmd_search_benchmark_diagnose(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    profile_names = [value.strip() for value in str(args.profiles or "").split(",") if value.strip()]
+    payload = service.benchmark_profile_diagnostics(
+        conn,
+        workspace=args.workspace,
+        dataset_path=args.dataset,
+        profile_names=profile_names or None,
+        limit=int(args.limit),
+        include_text=bool(args.include_text),
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"Search benchmark diagnose workspace={payload['workspace']} dataset={payload['dataset_path']} "
+            f"status={payload['status']} queries={payload['queries']} limit={payload['limit']}"
+        )
+        for query_report in payload["query_reports"]:
+            print(f"Query {query_report['index']} {query_report.get('id') or ''}: {query_report.get('intent') or ''}")
+            for profile_run in query_report["profiles"]:
+                movements = {}
+                for target in profile_run["expected_targets"]:
+                    movement = str(target.get("movement_vs_baseline"))
+                    movements[movement] = movements.get(movement, 0) + 1
+                movement_text = ",".join(f"{key}={value}" for key, value in sorted(movements.items()))
+                print(
+                    f"  {profile_run['profile']}: latency_ms={profile_run['latency_ms']} "
+                    f"sources={profile_run['source_counts']} movements={movement_text}"
+                )
+                for target in profile_run["expected_targets"]:
+                    print(
+                        f"    target={target['label']} rank={target['rank']} "
+                        f"baseline_rank={target['baseline_rank']} movement={target['movement_vs_baseline']}"
+                    )
+    return 0 if payload["status"] != "fail" else 1
+
+
 def cmd_search_profiles(args: argparse.Namespace) -> int:
     from slack_mirror.service.app import get_app_service
 
@@ -2359,7 +2400,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark benchmark-validate profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2551,7 +2592,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark benchmark-validate profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3471,6 +3512,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search_benchmark_validate.add_argument("--json", action="store_true", help="json output")
     p_search_benchmark_validate.set_defaults(func=cmd_search_benchmark_validate)
+
+    p_search_benchmark_diagnose = search_sub.add_parser(
+        "benchmark-diagnose",
+        help="diagnose per-query benchmark target ranks across retrieval profiles without content by default",
+    )
+    p_search_benchmark_diagnose.add_argument("--workspace", required=True, help="workspace name")
+    p_search_benchmark_diagnose.add_argument("--dataset", required=True, help="JSONL benchmark dataset path")
+    p_search_benchmark_diagnose.add_argument(
+        "--profiles",
+        default="baseline",
+        help="comma-separated retrieval profile names to diagnose (default: baseline)",
+    )
+    p_search_benchmark_diagnose.add_argument("--limit", type=int, default=10, help="diagnostic result window")
+    p_search_benchmark_diagnose.add_argument(
+        "--include-text",
+        action="store_true",
+        help="include message text/snippets for local debugging; default output is non-content",
+    )
+    p_search_benchmark_diagnose.add_argument("--json", action="store_true", help="json output")
+    p_search_benchmark_diagnose.set_defaults(func=cmd_search_benchmark_diagnose)
 
     p_search_profiles = search_sub.add_parser("profiles", help="list semantic retrieval profiles")
     p_search_profiles.add_argument("--json", action="store_true", help="json output")

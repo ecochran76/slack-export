@@ -298,6 +298,7 @@ slack-mirror search scale-review --workspace default --profiles baseline --query
 slack-mirror search benchmark-validate --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 slack-mirror mirror benchmark-embeddings-backfill --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --retrieval-profile local-bge-http --json
 slack-mirror search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
+slack-mirror search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 slack-mirror search provider-probe --retrieval-profile local-bge --json
 slack-mirror search provider-probe --retrieval-profile local-bge-http --smoke --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
@@ -312,6 +313,8 @@ slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-b
 `mirror benchmark-embeddings-backfill` is a bounded write command for covering only the targets referenced by benchmark labels under a selected retrieval profile. Use it when benchmark validation shows label coverage is missing and broad tenant rollout is not justified.
 
 `search profile-benchmark` is read-only and compares multiple retrieval profiles against the same JSONL benchmark dataset. Its default output is aggregate-only; use `--include-details` only when per-query rows are safe to inspect locally.
+
+`search benchmark-diagnose` is read-only and compares per-query target ranks across retrieval profiles. Default output is non-content: stable labels, ranks, profile movement, source counts, and compact explain metadata. Use `--include-text` only for local debugging when message bodies or snippets are safe to inspect.
 
 The same readiness payload is exposed to API and MCP clients:
 

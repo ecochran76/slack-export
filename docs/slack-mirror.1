@@ -658,11 +658,13 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 
 **Arguments**
 **Subcommands**
+.IP \[bu] 2
+`benchmark-diagnose`
 .IP \[bu] 2
 `benchmark-validate`
 .IP \[bu] 2
@@ -695,6 +697,28 @@ usage: slack-mirror search [-h]
 `semantic`
 .IP \[bu] 2
 `semantic-readiness`
+.SH SLACK-MIRROR SEARCH BENCHMARK-DIAGNOSE
+**Usage**
+
+usage: slack-mirror search benchmark-diagnose [-h] --workspace WORKSPACE
+                                              --dataset DATASET
+                                              [--profiles PROFILES]
+                                              [--limit LIMIT] [--include-text]
+                                              [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--dataset` — JSONL benchmark dataset path
+.IP \[bu] 2
+`--profiles` — comma-separated retrieval profile names to diagnose (default: baseline); default: `baseline`
+.IP \[bu] 2
+`--limit` — diagnostic result window; default: `10`
+.IP \[bu] 2
+`--include-text` — include message text/snippets for local debugging; default output is non-content
+.IP \[bu] 2
+`--json` — json output
 .SH SLACK-MIRROR SEARCH BENCHMARK-VALIDATE
 **Usage**
 

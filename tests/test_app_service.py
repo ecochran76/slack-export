@@ -722,6 +722,40 @@ class AppServiceTests(unittest.TestCase):
             )
         )
 
+    def test_benchmark_profile_diagnostics_reports_rank_movement_without_text(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+        upsert_message(self.conn, workspace_id, "C1", {"ts": "1.0", "text": "alpha benchmark target", "user": "U1"})
+        upsert_message(self.conn, workspace_id, "C1", {"ts": "2.0", "text": "other message", "user": "U1"})
+        process_embedding_jobs(self.conn, workspace_id=workspace_id, model_id="local-hash-128", limit=10)
+        dataset = self.root / "bench-diagnose.jsonl"
+        dataset.write_text(
+            '{"id":"q1","query":"alpha","intent":"message_exact","relevant":{"general:1.0":2}}\n',
+            encoding="utf-8",
+        )
+
+        result = self.service.benchmark_profile_diagnostics(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            profile_names=["baseline"],
+            limit=5,
+        )
+
+        self.assertEqual(result["status"], "pass")
+        self.assertFalse(result["include_text"])
+        query = result["query_reports"][0]
+        run = query["profiles"][0]
+        target = run["expected_targets"][0]
+        self.assertEqual(run["profile"], "baseline")
+        self.assertEqual(target["rank"], 1)
+        self.assertEqual(target["movement_vs_baseline"], "unchanged")
+        self.assertEqual(target["matched_result"]["labels"], ["C1:1.0", "general:1.0"])
+        self.assertIn("explain", target["matched_result"])
+        self.assertNotIn("text", target["matched_result"])
+        self.assertNotIn("snippet_text", target["matched_result"])
+
     def test_search_health_rejects_hybrid_for_derived_text_target(self):
         with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):
             self.service.search_health(

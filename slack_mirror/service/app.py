@@ -88,6 +88,43 @@ class HealthSummary:
     unhealthy_rows: int
 
 
+def _rank_movement(baseline_rank: int | None, rank: int | None) -> str:
+    if baseline_rank is None and rank is None:
+        return "missing_both"
+    if baseline_rank is None:
+        return "new_hit"
+    if rank is None:
+        return "lost_hit"
+    if rank < baseline_rank:
+        return "improved"
+    if rank > baseline_rank:
+        return "worse"
+    return "unchanged"
+
+
+def _compact_explain(explain: dict[str, Any]) -> dict[str, Any]:
+    scores = dict(explain.get("scores") or {})
+    ranks = dict(explain.get("ranks") or {})
+    weights = dict(explain.get("weights") or {})
+    return {
+        "mode": explain.get("mode"),
+        "source": explain.get("source"),
+        "fusion_method": explain.get("fusion_method"),
+        "scores": {
+            key: scores.get(key)
+            for key in ("lexical", "semantic", "hybrid", "rerank")
+            if scores.get(key) is not None
+        },
+        "ranks": {key: ranks.get(key) for key in ("lexical", "semantic") if ranks.get(key) is not None},
+        "weights": {
+            key: weights.get(key)
+            for key in ("lexical", "semantic", "semantic_scale")
+            if weights.get(key) is not None
+        },
+        "rerank_provider": explain.get("rerank_provider"),
+    }
+
+
 @dataclass(frozen=True)
 class LiveValidationResult:
     ok: bool
@@ -1686,6 +1723,164 @@ class SlackMirrorAppService:
             "query_reports": query_reports,
         }
 
+    def benchmark_profile_diagnostics(
+        self,
+        conn,
+        *,
+        workspace: str,
+        dataset_path: str,
+        profile_names: list[str] | None = None,
+        limit: int = 10,
+        include_text: bool = False,
+    ) -> dict[str, Any]:
+        workspace_id = self.workspace_id(conn, workspace)
+        rows = dataset_rows(dataset_path)
+        profiles = [self.retrieval_profile(name) for name in (profile_names or ["baseline"])]
+        profile_payloads = [profile.to_dict() for profile in profiles]
+        profile_contexts = []
+        for profile in profiles:
+            profile_config = self.config_for_retrieval_profile(profile)
+            profile_contexts.append(
+                {
+                    "profile": profile,
+                    "embedding_provider": build_embedding_provider(profile_config),
+                    "reranker_provider": build_reranker_provider(profile_config) if profile.rerank else None,
+                }
+            )
+
+        query_reports: list[dict[str, Any]] = []
+        unresolved_labels: list[dict[str, Any]] = []
+        ambiguous_labels: list[dict[str, Any]] = []
+
+        for index, row in enumerate(rows, start=1):
+            relevant = dict(row.get("relevant") or {})
+            expected_targets: list[dict[str, Any]] = []
+            for label, weight in relevant.items():
+                matches = self._resolve_benchmark_label(conn, workspace_id=workspace_id, label=str(label))
+                if not matches:
+                    unresolved_labels.append({"query_index": index, "label": label})
+                if len(matches) > 1:
+                    ambiguous_labels.append({"query_index": index, "label": label, "matches": len(matches)})
+                expected_targets.append(
+                    {
+                        "label": str(label),
+                        "weight": weight,
+                        "resolved": bool(matches),
+                        "ambiguous": len(matches) > 1,
+                        "matches": [self._benchmark_match_identity(match) for match in matches],
+                    }
+                )
+
+            profile_runs: list[dict[str, Any]] = []
+            baseline_ranks: dict[str, int | None] = {}
+            for profile_index, profile_context in enumerate(profile_contexts):
+                profile = profile_context["profile"]
+                started = time.perf_counter()
+                result_rows = self.corpus_search(
+                    conn,
+                    workspace=workspace,
+                    query=str(row.get("query") or ""),
+                    limit=int(limit),
+                    mode=profile.mode,
+                    model_id=profile.model,
+                    lexical_weight=profile.lexical_weight,
+                    semantic_weight=profile.semantic_weight,
+                    semantic_scale=profile.semantic_scale,
+                    message_embedding_provider=profile_context["embedding_provider"],
+                    rerank=bool(profile.rerank),
+                    rerank_top_n=int(profile.rerank_top_n),
+                    reranker_provider=profile_context["reranker_provider"],
+                )
+                latency_ms = round((time.perf_counter() - started) * 1000.0, 3)
+                top_results = [
+                    self._benchmark_result_diagnostic(result, rank=rank, include_text=include_text)
+                    for rank, result in enumerate(result_rows, start=1)
+                ]
+                source_counts: dict[str, int] = {}
+                for result in top_results:
+                    source = str(result.get("explain", {}).get("source") or result.get("kind") or "unknown")
+                    source_counts[source] = source_counts.get(source, 0) + 1
+
+                target_reports: list[dict[str, Any]] = []
+                for target in expected_targets:
+                    labels = {
+                        value
+                        for match in target["matches"]
+                        for value in list(match.get("labels") or [])
+                        if value
+                    }
+                    rank = None
+                    matched_result = None
+                    for result in top_results:
+                        if labels.intersection(set(result.get("labels") or [])):
+                            rank = int(result["rank"])
+                            matched_result = result
+                            break
+                    if profile_index == 0:
+                        baseline_ranks[target["label"]] = rank
+                    baseline_rank = baseline_ranks.get(target["label"])
+                    target_reports.append(
+                        {
+                            "label": target["label"],
+                            "weight": target["weight"],
+                            "resolved": target["resolved"],
+                            "ambiguous": target["ambiguous"],
+                            "rank": rank,
+                            "hit_at_3": rank is not None and rank <= 3,
+                            "hit_at_10": rank is not None and rank <= 10,
+                            "baseline_rank": baseline_rank,
+                            "rank_delta_vs_baseline": None
+                            if baseline_rank is None or rank is None
+                            else int(rank) - int(baseline_rank),
+                            "movement_vs_baseline": _rank_movement(baseline_rank, rank),
+                            "matched_result": matched_result,
+                        }
+                    )
+
+                profile_runs.append(
+                    {
+                        "profile": profile.name,
+                        "mode": profile.mode,
+                        "model": profile.model,
+                        "rerank": bool(profile.rerank),
+                        "latency_ms": latency_ms,
+                        "source_counts": source_counts,
+                        "expected_targets": target_reports,
+                        "top_results": top_results,
+                    }
+                )
+
+            query_reports.append(
+                {
+                    "index": index,
+                    "id": row.get("id"),
+                    "intent": row.get("intent"),
+                    "query": row.get("query"),
+                    "expected_targets": expected_targets,
+                    "profiles": profile_runs,
+                }
+            )
+
+        status = "pass"
+        if unresolved_labels:
+            status = "fail"
+        elif ambiguous_labels:
+            status = "pass_with_warnings"
+
+        return {
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "dataset_path": dataset_path,
+            "status": status,
+            "queries": len(rows),
+            "limit": int(limit),
+            "profiles": profile_payloads,
+            "include_text": bool(include_text),
+            "unresolved_labels": unresolved_labels,
+            "ambiguous_labels": ambiguous_labels,
+            "query_reports": query_reports,
+        }
+
     def backfill_benchmark_dataset_embeddings(
         self,
         conn,
@@ -1836,6 +2031,76 @@ class SlackMirrorAppService:
             }
             for row in rows
         ]
+
+    def _benchmark_match_identity(self, match: dict[str, Any]) -> dict[str, Any]:
+        if match["kind"] == "message":
+            labels = [f"{match.get('channel_id')}:{match.get('ts')}"]
+            if match.get("channel_name"):
+                labels.append(f"{match.get('channel_name')}:{match.get('ts')}")
+            return {
+                "kind": "message",
+                "channel_id": match.get("channel_id"),
+                "channel_name": match.get("channel_name"),
+                "ts": match.get("ts"),
+                "labels": labels,
+            }
+        if match["kind"] == "derived_text":
+            labels = [
+                f"{match.get('source_kind')}:{match.get('source_id')}:"
+                f"{match.get('derivation_kind')}:{match.get('extractor')}"
+            ]
+            return {
+                "kind": "derived_text",
+                "derived_text_id": match.get("derived_text_id"),
+                "source_kind": match.get("source_kind"),
+                "source_id": match.get("source_id"),
+                "derivation_kind": match.get("derivation_kind"),
+                "extractor": match.get("extractor"),
+                "labels": labels,
+            }
+        return {"kind": match.get("kind"), "labels": []}
+
+    def _benchmark_result_diagnostic(self, result: dict[str, Any], *, rank: int, include_text: bool = False) -> dict[str, Any]:
+        labels: list[str] = []
+        payload: dict[str, Any] = {
+            "rank": int(rank),
+            "kind": result.get("result_kind"),
+            "labels": labels,
+            "source_label": result.get("source_label"),
+            "action_target": result.get("action_target"),
+            "explain": _compact_explain(result.get("_explain") or {}),
+        }
+        if result.get("result_kind") == "message":
+            labels.append(f"{result.get('channel_id')}:{result.get('ts')}")
+            if result.get("channel_name"):
+                labels.append(f"{result.get('channel_name')}:{result.get('ts')}")
+            payload.update(
+                {
+                    "channel_id": result.get("channel_id"),
+                    "channel_name": result.get("channel_name"),
+                    "ts": result.get("ts"),
+                    "thread_ts": result.get("thread_ts"),
+                    "user_id": result.get("user_id"),
+                }
+            )
+        elif result.get("result_kind") == "derived_text":
+            labels.append(
+                f"{result.get('source_kind')}:{result.get('source_id')}:{result.get('derivation_kind')}:{result.get('extractor')}"
+            )
+            payload.update(
+                {
+                    "derived_text_id": result.get("id"),
+                    "source_kind": result.get("source_kind"),
+                    "source_id": result.get("source_id"),
+                    "derivation_kind": result.get("derivation_kind"),
+                    "extractor": result.get("extractor"),
+                    "chunk_index": result.get("chunk_index"),
+                }
+            )
+        if include_text:
+            payload["text"] = result.get("text")
+            payload["snippet_text"] = result.get("snippet_text")
+        return payload
 
     def _benchmark_label_model_covered(self, conn, *, workspace_id: int, match: dict[str, Any], model_id: str) -> bool:
         if match["kind"] == "message":

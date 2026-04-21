@@ -679,7 +679,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 ```
 
@@ -688,6 +688,7 @@ usage: slack-mirror search [-h]
 
 **Subcommands**
 
+- `benchmark-diagnose`
 - `benchmark-validate`
 - `corpus`
 - `derived-text`
@@ -704,6 +705,27 @@ usage: slack-mirror search [-h]
 - `scale-review`
 - `semantic`
 - `semantic-readiness`
+
+### `slack-mirror search benchmark-diagnose`
+**Usage**
+
+```
+usage: slack-mirror search benchmark-diagnose [-h] --workspace WORKSPACE
+                                              --dataset DATASET
+                                              [--profiles PROFILES]
+                                              [--limit LIMIT] [--include-text]
+                                              [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--dataset` — JSONL benchmark dataset path
+- `--profiles` — comma-separated retrieval profile names to diagnose (default: baseline); default: `baseline`
+- `--limit` — diagnostic result window; default: `10`
+- `--include-text` — include message text/snippets for local debugging; default output is non-content
+- `--json` — json output
+
 
 ### `slack-mirror search benchmark-validate`
 **Usage**

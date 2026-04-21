@@ -973,6 +973,33 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_search_benchmark_diagnose(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "benchmark-diagnose",
+                "--workspace",
+                "default",
+                "--dataset",
+                "docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl",
+                "--profiles",
+                "baseline,local-bge-http",
+                "--limit",
+                "5",
+                "--include-text",
+                "--json",
+            ]
+        )
+        self.assertEqual(args.command, "search")
+        self.assertEqual(args.workspace, "default")
+        self.assertEqual(args.dataset, "docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl")
+        self.assertEqual(args.profiles, "baseline,local-bge-http")
+        self.assertEqual(args.limit, 5)
+        self.assertTrue(args.include_text)
+        self.assertTrue(args.json)
+        self.assertTrue(hasattr(args, "func"))
+
     def test_parse_search_provider_probe(self):
         parser = build_parser()
         args = parser.parse_args(["search", "provider-probe", "--retrieval-profile", "local-bge", "--model", "BAAI/bge-m3", "--smoke", "--json"])

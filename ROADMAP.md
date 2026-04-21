@@ -295,6 +295,7 @@ Actionable plans:
 - `docs/dev/plans/0080-2026-04-20-live-relevance-benchmark-lock.md`
 - `docs/dev/plans/0081-2026-04-21-noncontent-relevance-benchmark-pack.md`
 - `docs/dev/plans/0082-2026-04-21-benchmark-target-bge-backfill.md`
+- `docs/dev/plans/0084-2026-04-21-profile-aware-benchmark-diagnostics.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -418,7 +419,10 @@ Current state:
   - managed target backfill covered `3` unique message targets and moved BGE profile coverage from `0/19` to `19/19` on the non-content fixture
   - post-coverage profile evidence still showed `baseline` and `local-bge-http` tied at hit@10 `0.333333`, nDCG@k `0.0789`; `local-bge-http-rerank` remained worse at hit@10 `0.222222`, nDCG@k `0.061032`
   - the release `baseline` remains unchanged
-- the next active semantic-search slice should add profile-aware query diagnostics over the benchmark fixture before any broader rollout or reranker tuning
+- the profile-aware benchmark diagnostic slice is now complete under `0084`:
+  - `search benchmark-diagnose` reports expected target ranks, top result labels, rank movement, source counts, and compact explain metadata without emitting Slack message bodies by default
+  - installed-wrapper evidence showed `baseline` and `local-bge-http` both hitting `4/19` target labels in the top 10 with identical ranks, while `local-bge-http-rerank` demoted two visible hits
+  - the next active semantic-search step should be diagnostics-first query formulation or fusion experiments over the same fixture before any broader rollout
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align

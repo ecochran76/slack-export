@@ -3680,3 +3680,44 @@ This file is the dated turn log for planning and execution continuity.
   - compatible artifact manifests and attachment links
   - preservation of mailbox, folder, MIME, archive/live-source, and email-thread
     semantics
+
+## Turn 222 | 2026-04-21
+
+- Opened the next bounded `P10` profile-aware benchmark diagnostics slice:
+  - `0084-2026-04-21-profile-aware-benchmark-diagnostics.md`
+- Direction:
+  - add a read-only benchmark diagnostic command over named retrieval profiles
+  - resolve expected labels through the existing benchmark label resolver
+  - report target ranks, top non-content labels, rank movement, and compact lane contribution metadata
+  - omit Slack message bodies and snippets by default
+  - keep ranking behavior, profile defaults, and rollout scope unchanged
+- Implemented and closed `0084`:
+  - added `search benchmark-diagnose`
+  - added service diagnostics that compare per-query target ranks across profiles
+  - added non-content top-result labels, source counts, compact `_explain` metadata, and movement versus the first profile
+  - added explicit `--include-text` for local-only debugging when content inspection is safe
+  - updated README, config docs, benchmark docs, and generated CLI/man docs
+- Installed-wrapper diagnostic evidence on `default` with `docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl`:
+  - `baseline`: target-label hits `4/19`, ranks `[5, 8, 2, 2]`, movements `unchanged=4`, `missing_both=15`, sources `lexical=24`, `semantic=66`
+  - `local-bge-http`: target-label hits `4/19`, ranks `[5, 8, 2, 2]`, movements `unchanged=4`, `missing_both=15`, sources `lexical=23`, `semantic=66`, `hybrid=1`
+  - `local-bge-http-rerank`: target-label hits `4/19`, ranks `[6, 8, 3, 2]`, movements `worse=2`, `unchanged=2`, `missing_both=15`, sources `lexical=23`, `semantic=66`, `hybrid=1`
+  - output had `include_text=false` and no `text` or `snippet_text` keys
+- Interpretation:
+  - target embedding coverage is no longer the blocker
+  - BGE does not move expected targets versus baseline on this fixture
+  - learned reranking demotes two of the four visible hits and remains experimental
+  - most labeled targets are absent from the top 10 for every current profile
+- Validation:
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_search -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --limit 10 --json`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed with a transient `EMBEDDING_PENDING` warning for `soylei` (`2` pending jobs)
+  - `slack-mirror-user search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --limit 10 --json`
+  - installed diagnostic non-content check: no `text` or `snippet_text` keys
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
