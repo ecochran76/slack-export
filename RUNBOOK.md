@@ -4358,3 +4358,29 @@ This file is the dated turn log for planning and execution continuity.
     - `set viewport 390 844`
     - captured `/tmp/slack-operator-qa/tenant-workbench-mobile.png`
     - evaluated title `Tenant Status Workbench`, tenants `default`, `soylei`, `pcg`, and `overflow=false`
+
+## Turn 240 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` React tenant-density slice:
+  - `0101-2026-04-21-react-tenant-detail-expansion.md`
+- Direction:
+  - reduce tenant-row vertical bulk without hiding critical operational status
+  - keep identity, DB stats, backfill, live-sync, and health visible by default
+  - move lower-frequency live-unit, text/embedding, and semantic-readiness diagnostics behind an accessible per-tenant disclosure
+  - keep React tenant mutations deferred to a later parity slice
+- Implemented:
+  - added native `<details>` disclosures to each tenant row
+  - added collapsed diagnostic summaries for live units, attachment/OCR text, and semantic-profile readiness
+  - added responsive disclosure styling so the toggle stays aligned on desktop and mobile
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `agent-browser` desktop/mobile QA against `http://slack.localhost:8765/operator`:
+    - rendered tenants `default`, `soylei`, and `pcg`
+    - confirmed 3 tenant disclosures, 0 initially open, and no horizontal overflow
+    - opened the first disclosure and confirmed live-unit and semantic-readiness details appeared
+    - captured `/tmp/slack-operator-qa/tenant-workbench-detail-desktop-final.png`
+    - captured `/tmp/slack-operator-qa/tenant-workbench-detail-mobile-final.png`

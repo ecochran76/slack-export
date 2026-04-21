@@ -37,6 +37,8 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
   const semanticProfiles = tenant.semantic_readiness?.profiles ?? [];
   const pendingJobs = Number(db.embedding_pending ?? 0) + Number(db.derived_pending ?? 0);
   const errorJobs = Number(db.embedding_errors ?? 0) + Number(db.derived_errors ?? 0);
+  const readyProfiles = semanticProfiles.filter((profile) => profile.state === "ready").length;
+  const semanticSummary = semanticProfiles.length ? `${readyProfiles}/${semanticProfiles.length} profiles ready` : "no profiles";
 
   return (
     <article className="tenant-row">
@@ -92,36 +94,45 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
         />
       </div>
 
-      <div className="tenant-row__details">
-        <div>
-          <strong>Live units</strong>
-          <p>
-            webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
-          </p>
-        </div>
-        <div>
-          <strong>Text and embeddings</strong>
-          <p>
-            attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
-            {numberLabel(errorJobs)}
-          </p>
-        </div>
-        <div>
-          <strong>Semantic readiness</strong>
-          <p>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary available."}</p>
-          <div className="chip-row">
-            {semanticProfiles.length ? (
-              semanticProfiles.map((profile) => (
-                <span className={statusBadgeClass(toneFromApi(profile.tone))} key={profile.name ?? profile.state}>
-                  {profile.name ?? "profile"}: {statusLabel(profile.state)}
-                </span>
-              ))
-            ) : (
-              <span className={statusBadgeClass("neutral")}>no profiles</span>
-            )}
+      <details className="tenant-row__details-disclosure">
+        <summary>
+          <span className="tenant-row__summary-title">Details and readiness</span>
+          <span className="tenant-row__summary-meta">
+            live {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"} · text{" "}
+            {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} · {semanticSummary}
+          </span>
+        </summary>
+        <div className="tenant-row__details">
+          <div>
+            <strong>Live units</strong>
+            <p>
+              webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
+            </p>
+          </div>
+          <div>
+            <strong>Text and embeddings</strong>
+            <p>
+              attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
+              {numberLabel(errorJobs)}
+            </p>
+          </div>
+          <div>
+            <strong>Semantic readiness</strong>
+            <p>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary available."}</p>
+            <div className="chip-row">
+              {semanticProfiles.length ? (
+                semanticProfiles.map((profile) => (
+                  <span className={statusBadgeClass(toneFromApi(profile.tone))} key={profile.name ?? profile.state}>
+                    {profile.name ?? "profile"}: {statusLabel(profile.state)}
+                  </span>
+                ))
+              ) : (
+                <span className={statusBadgeClass("neutral")}>no profiles</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </details>
     </article>
   );
 }
