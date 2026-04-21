@@ -412,7 +412,7 @@ Selected-result export bundles contain:
 - `index.html`: a human-readable selected-result report rendered from that neutral JSON artifact
 - `manifest.json`: the same schema-versioned export manifest used by other managed bundles
 
-The HTML report shows selected items, target identity, resolved/unresolved status, message context, derived-text chunk context, and linked Slack messages when present. If `include_text=false`, the report still renders the selected structure and explicitly marks text as omitted instead of looking empty.
+The HTML report shows selected items, target identity, resolved/unresolved status, message context, derived-text chunk context, and linked Slack messages when present. It also includes a sticky summary/action header, item anchors, target JSON copy affordances, collapsible context sections, and print-friendly styling for browser save-to-PDF. If `include_text=false`, the report still renders the selected structure and explicitly marks text as omitted instead of looking empty.
 
 Update semantics for `POST /v1/exports/{export_id}/rename`:
 

@@ -768,16 +768,26 @@ class SlackMirrorAppService:
             "<style>:root{--ink:#152033;--muted:#66717f;--line:#ded4c4;--paper:#fffdf8;--field:#fbf6ec;--accent:#8a3b12;--good:#236245;--bad:#9d2c2c}"
             "body{font-family:ui-sans-serif,system-ui,sans-serif;margin:0;background:radial-gradient(circle at top left,#efe3cf,#f8f3ea 38%,#eef1ec);color:var(--ink)}"
             "main{max-width:1120px;margin:0 auto;padding:44px 24px 72px}.hero{padding:30px;background:rgba(255,253,248,.92);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 70px rgba(21,32,51,.14)}"
+            ".report-toolbar{position:sticky;top:0;z-index:10;margin:-44px auto 22px;padding:12px 24px;background:rgba(248,243,234,.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(222,212,196,.8)}"
+            ".toolbar-inner{max-width:1120px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}.toolbar-title{font-size:13px;font-weight:800;color:#4e5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.toolbar-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}"
             "h1{margin:0 0 10px;font-size:clamp(30px,5vw,56px);line-height:.98;letter-spacing:-.04em}.meta{color:var(--muted);margin:0 0 22px;line-height:1.6}.policy{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}"
             ".chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:#fffaf0;color:#5c5147;padding:6px 10px;font-size:12px;font-weight:700}.chip.good{color:var(--good)}.chip.bad{color:var(--bad)}"
             ".stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:24px 0}.stat{padding:16px;border:1px solid #e6ddcf;border-radius:18px;background:var(--field)}"
             ".num{font-size:34px;font-weight:800}.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6d6257}.items{display:grid;gap:18px;margin-top:22px}"
             ".item{background:rgba(255,253,248,.94);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 12px 36px rgba(21,32,51,.08)}.item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}"
             ".item h2{margin:0;font-size:22px;letter-spacing:-.02em}.target{color:var(--muted);font-size:13px;line-height:1.5}.section-title{margin:18px 0 8px;color:#4c5664;text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:800}"
+            ".item-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.copy-btn{border:1px solid #d7c8b6;border-radius:999px;background:#fffaf0;color:#593b25;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}.copy-btn:focus{outline:2px solid #b87b45;outline-offset:2px}.copy-btn.copied{background:#e8f2ed;color:var(--good)}"
+            ".status-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.fold{border:1px solid #e6ddcf;border-radius:18px;background:rgba(251,246,236,.65);padding:0;margin-top:14px}.fold>summary{cursor:pointer;padding:12px 14px;font-weight:900;color:#4c5664;text-transform:uppercase;letter-spacing:.07em;font-size:12px}.fold-body{padding:0 14px 14px}"
             ".timeline{display:grid;gap:10px}.message,.chunk{border:1px solid #e9dfd0;border-radius:16px;background:#fffaf3;padding:12px}.message.hit,.chunk.hit{border-color:#b87b45;background:#fff2df}.message.linked{border-style:dashed}.row{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-bottom:8px}"
             ".text{white-space:pre-wrap;margin:0;color:#1c2838;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.omitted{margin:0;color:var(--muted);font-style:italic}.empty{padding:20px;border:1px dashed var(--line);border-radius:18px;background:#fffaf3;color:var(--muted)}"
-            "a{color:var(--accent);font-weight:800}@media(max-width:720px){main{padding:0}.hero,.item{border-radius:0;border-left:0;border-right:0}.stats{grid-template-columns:1fr}.item-head{display:block}}</style></head>"
-            f"<body><main><section class=\"hero\"><h1>{title}</h1><p class=\"meta\">Export <code>{export_id}</code><br>Generated {generated_at}</p>"
+            "a{color:var(--accent);font-weight:800}@media(max-width:720px){main{padding:0}.report-toolbar{margin:0;padding:10px 14px}.toolbar-inner{align-items:flex-start;flex-direction:column}.hero,.item{border-radius:0;border-left:0;border-right:0}.stats{grid-template-columns:1fr}.item-head{display:block}.item-actions{justify-content:flex-start;margin-top:10px}}"
+            "@media print{body{background:#fff}.report-toolbar,.copy-btn{display:none}.hero,.item,.message,.chunk,.stat{box-shadow:none;break-inside:avoid}.fold{border:0;background:#fff}.fold>summary{list-style:none;padding-left:0}.fold-body{padding:0}.items{gap:12px}main{padding:0}}"
+            "</style></head>"
+            "<body><div class=\"report-toolbar\"><div class=\"toolbar-inner\">"
+            f"<div class=\"toolbar-title\">{title} · {item_count} selected · {resolved_count} resolved · {unresolved_count} unresolved</div>"
+            "<div class=\"toolbar-actions\"><button class=\"copy-btn\" type=\"button\" onclick=\"window.print()\">Print / Save PDF</button>"
+            "<button class=\"copy-btn\" type=\"button\" data-copy-fragment=\"\">Copy report link</button></div></div></div>"
+            f"<main><section class=\"hero\"><h1>{title}</h1><p class=\"meta\">Export <code>{export_id}</code><br>Generated {generated_at}</p>"
             "<div class=\"stats\">"
             f"<div class=\"stat\"><div class=\"num\">{item_count}</div><div class=\"label\">Selected</div></div>"
             f"<div class=\"stat\"><div class=\"num\">{resolved_count}</div><div class=\"label\">Resolved</div></div>"
@@ -785,7 +795,9 @@ class SlackMirrorAppService:
             "</div>"
             f"<div class=\"policy\">{''.join(f'<span class=\"chip\">{bit}</span>' for bit in policy_bits)}</div>"
             "<p class=\"meta\">This report is rendered from the neutral <a href=\"selected-results.json\">selected-results.json</a> artifact.</p></section>"
-            f"<section class=\"items\">{item_cards}</section></main></body></html>"
+            f"<section class=\"items\">{item_cards}</section></main>"
+            "<script>document.addEventListener('click',async(event)=>{const button=event.target.closest('[data-copy-text],[data-copy-fragment]');if(!button)return;const text=button.dataset.copyText!==undefined?button.dataset.copyText:window.location.href.split('#')[0]+(button.dataset.copyFragment||'');try{await navigator.clipboard.writeText(text);button.classList.add('copied');const old=button.textContent;button.textContent='Copied';window.setTimeout(()=>{button.textContent=old;button.classList.remove('copied');},1200);}catch(error){button.textContent='Copy failed';}});</script>"
+            "</body></html>"
         )
 
     @staticmethod
@@ -799,6 +811,9 @@ class SlackMirrorAppService:
         resolved = bool(item.get("resolved"))
         status_class = "good" if resolved else "bad"
         status_label = "resolved" if resolved else html_escape(str(item.get("reason") or "unresolved"))
+        anchor = f"selected-result-{index}"
+        target_json = json.dumps(target, sort_keys=True, separators=(",", ":"))
+        target_json_attr = html_escape(target_json, quote=True)
         if kind == "message":
             body = SlackMirrorAppService._selected_result_message_item_html(item)
         elif kind == "derived_text":
@@ -806,10 +821,15 @@ class SlackMirrorAppService:
         else:
             body = f"<p class=\"omitted\">Unsupported selected-result kind: {kind}</p>"
         return (
-            "<article class=\"item\">"
+            f"<article class=\"item\" id=\"{anchor}\">"
             "<div class=\"item-head\">"
-            f"<div><h2>#{index} {kind}</h2><div class=\"target\">{target_label}</div></div>"
-            f"<span class=\"chip {status_class}\">{status_label}</span>"
+            f"<div><h2>#{index} {kind}</h2><div class=\"target\">{target_label}</div>"
+            f"<div class=\"status-row\"><span class=\"chip {status_class}\">{status_label}</span><span class=\"chip\">type: {kind}</span></div></div>"
+            "<div class=\"item-actions\">"
+            f"<a class=\"chip\" href=\"#{anchor}\">permalink</a>"
+            f"<button class=\"copy-btn\" type=\"button\" data-copy-fragment=\"#{anchor}\">Copy link</button>"
+            f"<button class=\"copy-btn\" type=\"button\" data-copy-text=\"{target_json_attr}\">Copy target JSON</button>"
+            "</div>"
             "</div>"
             f"{body}</article>"
         )
@@ -824,7 +844,10 @@ class SlackMirrorAppService:
         cards = "\n".join(SlackMirrorAppService._selected_result_message_card_html(row) for row in context)
         if not cards:
             cards = "<p class=\"omitted\">No message context was stored.</p>"
-        return f"<div class=\"section-title\">Message context: {heading}</div><div class=\"timeline\">{cards}</div>"
+        return (
+            f"<details class=\"fold\" open><summary>Message context: {heading}</summary>"
+            f"<div class=\"fold-body\"><div class=\"timeline\">{cards}</div></div></details>"
+        )
 
     @staticmethod
     def _selected_result_derived_item_html(item: dict[str, Any]) -> str:
@@ -850,14 +873,14 @@ class SlackMirrorAppService:
             chunk_cards = "<p class=\"omitted\">No derived-text chunks were stored.</p>"
         linked_cards = "\n".join(SlackMirrorAppService._selected_result_message_card_html(row) for row in linked_messages)
         linked_section = (
-            f"<div class=\"section-title\">Linked Slack messages</div><div class=\"timeline\">{linked_cards}</div>"
+            f"<details class=\"fold\"><summary>Linked Slack messages</summary><div class=\"fold-body\"><div class=\"timeline\">{linked_cards}</div></div></details>"
             if linked_cards
             else "<p class=\"omitted\">No linked Slack messages were stored for this source.</p>"
         )
         return (
             f"<div class=\"section-title\">Derived text: {source_label}</div>"
             f"<div class=\"target\">{' / '.join(derived_bits)}</div>"
-            f"<div class=\"section-title\">Chunk context</div><div class=\"timeline\">{chunk_cards}</div>"
+            f"<details class=\"fold\" open><summary>Chunk context</summary><div class=\"fold-body\"><div class=\"timeline\">{chunk_cards}</div></div></details>"
             f"{linked_section}"
         )
 

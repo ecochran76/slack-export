@@ -204,6 +204,12 @@ class AppServiceTests(unittest.TestCase):
         self.assertIn("Message context: general", index_html)
         self.assertIn("selected message", index_html)
         self.assertIn("selected-results.json", index_html)
+        self.assertIn("report-toolbar", index_html)
+        self.assertIn("Print / Save PDF", index_html)
+        self.assertIn("id=\"selected-result-1\"", index_html)
+        self.assertIn("Copy target JSON", index_html)
+        self.assertIn("Copy link", index_html)
+        self.assertIn("<details class=\"fold\" open><summary>Message context: general</summary>", index_html)
         self.assertEqual(saved_manifest["export_id"], "selected-default-smoke")
         self.assertIn("selected-results.json", {item["relpath"] for item in manifest["files"]})
 
@@ -255,6 +261,10 @@ class AppServiceTests(unittest.TestCase):
         self.assertIn("chunk 2", html)
         self.assertIn("Linked Slack messages", html)
         self.assertIn("Text omitted in this export.", html)
+        self.assertIn("<details class=\"fold\" open><summary>Chunk context</summary>", html)
+        self.assertIn("<details class=\"fold\"><summary>Linked Slack messages</summary>", html)
+        self.assertIn("Copy target JSON", html)
+        self.assertIn("type: derived_text", html)
 
     def test_list_workspace_channels_returns_valid_choices(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

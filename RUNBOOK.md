@@ -4063,6 +4063,22 @@ This file is the dated turn log for planning and execution continuity.
 - Validation so far:
   - `python -m py_compile slack_mirror/service/app.py`
   - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_selected_result_report_renders_derived_text_and_omitted_text -v`
+  - `uv run python -m unittest tests.test_app_service tests.test_api_server -v`
+    - result: 63 tests passed
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/exports.py slack_mirror/service/mcp.py slack_mirror/cli/main.py`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - installed-wrapper selected-result report smoke:
+    - created `selected-report-polish-smoke-1776806033`
+    - verified generated `index.html` includes toolbar, print/save-PDF button, copy actions, collapsible sections, and omitted-text state
+  - installed-browser report smoke:
+    - opened `/exports/selected-report-polish-smoke-1776806033`
+    - verified the rendered report exposes `Print / Save PDF`, `Copy report link`, item permalink, `Copy link`, and `Copy target JSON`
   - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_api_server tests.test_mcp_server -v`
   - `python -m py_compile slack_mirror/exports.py slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py`
   - `uv run python scripts/check_generated_docs.py`
@@ -4144,3 +4160,22 @@ This file is the dated turn log for planning and execution continuity.
     - verified `Select visible` enabled after results rendered
     - selecting visible marked 10 results and enabled report creation
     - deselecting visible cleared those 10 results and disabled report creation
+
+## Turn 234 | 2026-04-21
+
+- Returned to the open `P10` semantic retrieval/actionability plan.
+- Opened and closed the next bounded selected-result report polish slice:
+  - `0095-2026-04-21-selected-result-report-polish.md`
+- Direction:
+  - improve generated selected-result reports as durable artifacts before moving report presentation into the future shared frontend stack
+  - keep `selected-results.json`, API, MCP, CLI, and browser report-creation contracts unchanged
+  - focus on scanability, copy affordances, collapsible context, and print/save-to-PDF friendliness
+- Implemented:
+  - added a sticky report toolbar with summary counts, print/save-to-PDF action, and report-link copy action
+  - added per-item anchors, permalink links, target JSON copy buttons, and status/type chips
+  - wrapped message context, chunk context, and linked Slack messages in collapsible sections
+  - added print CSS that hides copy controls and keeps cards readable for browser save-to-PDF
+  - updated README, API/MCP contract docs, roadmap, and the `0095` plan
+- Validation so far:
+  - `python -m py_compile slack_mirror/service/app.py`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_selected_result_report_renders_derived_text_and_omitted_text -v`
