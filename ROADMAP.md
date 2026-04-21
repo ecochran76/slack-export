@@ -299,6 +299,7 @@ Actionable plans:
 - `docs/dev/plans/0085-2026-04-21-benchmark-fusion-experiment.md`
 - `docs/dev/plans/0086-2026-04-21-benchmark-query-variants.md`
 - `docs/dev/plans/0087-2026-04-21-portable-query-date-operators.md`
+- `docs/dev/plans/0088-2026-04-21-litscout-informed-attachment-query-operators.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -441,6 +442,11 @@ Current state:
   - `participant:` and `user:` now act as Slack sender aliases
   - corpus search suppresses derived-text hits when message-lane operators are present, preventing attachment/OCR rows from bypassing timestamp, sender, or channel constraints
   - shared-parser extraction remains deferred until another communications repo proves compatible behavior
+- the LitScout-informed attachment/file query-operator slice is now complete under `0088`:
+  - `../litscout` proves the useful pattern is prefix extraction into structured filters plus prefix-pruned service-ready text, not a large copied parser
+  - Slack Mirror now has a small lane-aware query helper for derived-text operators such as `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:`
+  - corpus routing now distinguishes message-lane operators from file/attachment-lane operators so `has:attachment` searches derived text instead of suppressing it
+  - mixed message-lane plus attachment-lane filters intentionally return no inferred cross-lane join rows until a future schema slice adds explicit message-to-file linkage
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align
@@ -553,6 +559,20 @@ Initial shared-library candidates:
 6. `comm-workbench-ui`
    - React/Vite operator/search/export components after CLI/API/MCP contracts
      stabilize
+
+Deferred post-convergence TODO:
+- graph visualization should wait until the `slack-export`, `../imcli`, and
+  `../ragmail` convergence work has completed enough to prove shared search,
+  action-target, context-window, export, and report contracts
+- if still useful after that point, add a graph inspector as a diagnostic layer
+  over the shared communications-corpus model, not as a Slack-only primary UI
+- likely useful graph modes:
+  - selected search hit -> neighboring messages -> participants -> attachments
+    -> export/report candidates
+  - source/tenant -> conversation/thread -> message -> attachment/derived text
+  - semantic readiness -> profile/model coverage -> benchmark failures
+- default to a precise 2D relationship inspector first; keep 3D rendering as an
+  optional exploratory mode only after the graph data contract is stable
 
 Slack Mirror development recommendations:
 - keep Slack runtime and onboarding independent:

@@ -218,9 +218,10 @@ uv run slack-mirror search corpus --workspace default --query "incident review" 
 uv run slack-mirror search corpus --workspace default --query "incident review" --mode hybrid --fusion rrf --explain
 uv run slack-mirror search corpus --workspace default --query "nylon since:2022-01-01 until:2023-01-01" --mode hybrid --explain
 uv run slack-mirror search corpus --workspace default --query "deploy on:2026-04-21 participant:@alice" --mode lexical --explain
+uv run slack-mirror search corpus --workspace default --query "incident has:attachment filename:report extension:pdf" --mode hybrid --explain
 ```
 
-`weighted` remains the default. `rrf` is an opt-in reciprocal-rank fusion strategy for comparing lexical and semantic candidate blending. Temporal operators accept numeric Slack timestamps and UTC ISO dates/datetimes; `on:YYYY-MM-DD` expands to that UTC day, while `since:` and `until:` are portable aliases for lower and upper bounds. `participant:` and `user:` are sender aliases for Slack message search. In corpus search, message-lane operators constrain the message lane and suppress unfiltered derived-text hits so attachment/OCR rows do not leak past message-only filters.
+`weighted` remains the default. `rrf` is an opt-in reciprocal-rank fusion strategy for comparing lexical and semantic candidate blending. Temporal operators accept numeric Slack timestamps and UTC ISO dates/datetimes; `on:YYYY-MM-DD` expands to that UTC day, while `since:` and `until:` are portable aliases for lower and upper bounds. `participant:` and `user:` are sender aliases for Slack message search. Derived-text operators include `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:`. In corpus search, message-lane operators constrain the message lane and suppress unfiltered derived-text hits, while attachment/file-lane operators constrain derived-text hits and suppress unfiltered message hits.
 
 Release policy for the first stable MCP-capable user-scoped install:
 

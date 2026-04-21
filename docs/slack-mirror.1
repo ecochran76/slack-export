@@ -802,7 +802,7 @@ usage: slack-mirror search corpus [-h]
 .IP \[bu] 2
 `--all-workspaces` — search across all enabled workspaces
 .IP \[bu] 2
-`--query` — query text
+`--query` — query text (supports message operators plus has:attachment, filename:, mime:, extension:/ext:, and attachment-type:)
 .IP \[bu] 2
 `--limit` — maximum result rows; default: `20`
 .IP \[bu] 2
@@ -847,7 +847,7 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 .IP \[bu] 2
 `--workspace` — workspace name
 .IP \[bu] 2
-`--query` — query text
+`--query` — query text (supports has:attachment, filename:, mime:, extension:/ext:, attachment-type:, quoted phrases, and -term)
 .IP \[bu] 2
 `--limit` — maximum result rows; default: `20`
 .IP \[bu] 2

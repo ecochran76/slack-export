@@ -1,33 +1,17 @@
 from __future__ import annotations
 
 import sqlite3
-import shlex
 from typing import Any
 
 from slack_mirror.search.embeddings import EmbeddingProvider
 from slack_mirror.search.derived_text import search_derived_text, search_derived_text_semantic
 from slack_mirror.search.keyword import search_messages
+from slack_mirror.search.query_syntax import has_derived_text_lane_operator, has_message_lane_operator
 from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 
 FUSION_WEIGHTED = "weighted"
 FUSION_RRF = "rrf"
 DEFAULT_RRF_K = 60.0
-
-MESSAGE_LANE_OPERATOR_PREFIXES = (
-    "from:",
-    "participant:",
-    "user:",
-    "in:",
-    "channel:",
-    "source:",
-    "before:",
-    "after:",
-    "since:",
-    "until:",
-    "on:",
-    "has:",
-    "is:",
-)
 
 
 def _message_key(row: dict[str, Any]) -> tuple[str, str]:
@@ -63,19 +47,6 @@ def _normalize_fusion_method(value: str | None) -> str:
     if method in {"rrf", "reciprocal-rank", "reciprocal-rank-fusion"}:
         return FUSION_RRF
     raise ValueError(f"Unsupported corpus fusion method: {value}")
-
-
-def _has_message_lane_operator(query: str) -> bool:
-    try:
-        tokens = shlex.split(query or "")
-    except ValueError:
-        tokens = (query or "").split()
-    for token in tokens:
-        stripped = token[1:] if token.startswith("-") else token
-        lowered = stripped.lower()
-        if any(lowered.startswith(prefix) for prefix in MESSAGE_LANE_OPERATOR_PREFIXES):
-            return True
-    return False
 
 
 def _rank_by_key(rows: list[dict[str, Any]], key_fn) -> dict[tuple[str, str], int]:
@@ -205,10 +176,20 @@ def _search_corpus_rows(
     requested_limit = max(1, int(limit or 20))
     requested_offset = max(0, int(offset or 0))
     lexical_limit = max((requested_limit + requested_offset) * 2, 20)
-    include_derived_text = not _has_message_lane_operator(q)
+    has_message_filters = has_message_lane_operator(q)
+    has_derived_filters = has_derived_text_lane_operator(q)
+    include_messages = not has_derived_filters
+    include_derived_text = not has_message_filters
 
     if mode == "lexical":
-        msg_rows = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
+        msg_rows = (
+            [
+                _normalize_message_row(r)
+                for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")
+            ]
+            if include_messages
+            else []
+        )
         derived_rows = (
             [
                 _normalize_derived_row(r)
@@ -239,18 +220,22 @@ def _search_corpus_rows(
         return merged
 
     if mode == "semantic":
-        msg_rows = [
-            _normalize_message_row(r)
-            for r in search_messages(
-                conn,
-                workspace_id=workspace_id,
-                query=q,
-                limit=lexical_limit,
-                mode="semantic",
-                model_id=model_id,
-                provider=message_embedding_provider,
-            )
-        ]
+        msg_rows = (
+            [
+                _normalize_message_row(r)
+                for r in search_messages(
+                    conn,
+                    workspace_id=workspace_id,
+                    query=q,
+                    limit=lexical_limit,
+                    mode="semantic",
+                    model_id=model_id,
+                    provider=message_embedding_provider,
+                )
+            ]
+            if include_messages
+            else []
+        )
         derived_rows = (
             [
                 _normalize_derived_row(r)
@@ -282,19 +267,30 @@ def _search_corpus_rows(
                 _attach_explain(row, mode="semantic")
         return merged
 
-    msg_lexical = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
-    msg_semantic = [
-        _normalize_message_row(r)
-        for r in search_messages(
-            conn,
-            workspace_id=workspace_id,
-            query=q,
-            limit=lexical_limit,
-            mode="semantic",
-            model_id=model_id,
-            provider=message_embedding_provider,
-        )
-    ]
+    msg_lexical = (
+        [
+            _normalize_message_row(r)
+            for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")
+        ]
+        if include_messages
+        else []
+    )
+    msg_semantic = (
+        [
+            _normalize_message_row(r)
+            for r in search_messages(
+                conn,
+                workspace_id=workspace_id,
+                query=q,
+                limit=lexical_limit,
+                mode="semantic",
+                model_id=model_id,
+                provider=message_embedding_provider,
+            )
+        ]
+        if include_messages
+        else []
+    )
     derived_lexical = (
         [
             _normalize_derived_row(r)

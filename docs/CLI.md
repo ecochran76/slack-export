@@ -803,7 +803,7 @@ usage: slack-mirror search corpus [-h]
 
 - `--workspace` — workspace name
 - `--all-workspaces` — search across all enabled workspaces
-- `--query` — query text
+- `--query` — query text (supports message operators plus has:attachment, filename:, mime:, extension:/ext:, and attachment-type:)
 - `--limit` — maximum result rows; default: `20`
 - `--retrieval-profile` — named retrieval profile from config search.retrieval_profiles
 - `--mode` — corpus retrieval mode
@@ -836,7 +836,7 @@ usage: slack-mirror search derived-text [-h] --workspace WORKSPACE --query
 **Options**
 
 - `--workspace` — workspace name
-- `--query` — query text
+- `--query` — query text (supports has:attachment, filename:, mime:, extension:/ext:, attachment-type:, quoted phrases, and -term)
 - `--limit` — maximum result rows; default: `20`
 - `--mode` — derived-text retrieval mode; default: `lexical`
 - `--model` — embedding model id when --mode semantic; default: `local-hash-128`

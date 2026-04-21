@@ -3884,3 +3884,48 @@ This file is the dated turn log for planning and execution continuity.
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+
+## Turn 227 | 2026-04-21
+
+- Opened the next bounded `P10` query-operator slice:
+  - `0088-2026-04-21-litscout-informed-attachment-query-operators.md`
+- Studied `../litscout` before implementation, focusing on:
+  - `litscout/search/query_normalizer.py`
+  - `tests/test_query_normalizer.py`
+  - `tests/test_query_normalizer_ast.py`
+  - `tests/test_query_normalizer_stress.py`
+  - `tests/test_query_stress_properties.py`
+  - `docs/dev/query-language-plan.md`
+- Findings:
+  - LitScout's strongest reusable pattern is structured prefix extraction plus prefix-pruned free text.
+  - LitScout also keeps provider/service-specific mapping outside the generic tokenizer, which fits Slack Mirror's shared CLI/API/MCP service boundary.
+  - Copying LitScout's large research/patent/grant prefix table would be wrong for Slack Mirror; a smaller Slack-owned lane-aware parser is the right next slice.
+- Direction:
+  - distinguish message-lane operators from derived-text/file-lane operators
+  - make `has:attachment` target derived file/canvas text instead of being caught by the message-lane `has:` prefix
+  - add structured filters for `filename:`, `mime:`, `extension:`/`ext:`, and broad `attachment-type:` aliases
+  - keep shared parser extraction deferred until another communications repo proves compatible behavior
+- Implemented and closed `0088`:
+  - added `slack_mirror.search.query_syntax` as a small Slack-owned prefix-filter layer
+  - derived-text lexical and semantic search now applies `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:`
+  - recognized attachment/file operators are stripped from FTS terms and semantic embedding query text
+  - corpus search now suppresses message rows for attachment/file-lane filters and suppresses derived rows for message-lane filters
+  - mixed message-lane plus attachment-lane filters intentionally return no inferred cross-lane rows until a future explicit message-to-file linkage exists
+  - updated README, config docs, API/MCP contract docs, generated CLI docs, and generated man docs
+- Installed-wrapper non-content smoke after `user-env update --extra local-semantic`:
+  - `has:attachment extension:pdf` returned `1` corpus result, kind `derived_text`, source kind `file`
+  - `has:attachment extension:pdf on:2026-04-21` returned `0` results, confirming mixed message/file lanes do not leak cross-lane rows
+  - derived-text `has:attachment extension:pdf` returned `1` file result with media type `application/pdf`
+- Validation:
+  - `uv run python -m unittest tests.test_search -v`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_search tests.test_api_server tests.test_mcp_server -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `python -m py_compile slack_mirror/search/query_syntax.py slack_mirror/search/derived_text.py slack_mirror/search/corpus.py`
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed

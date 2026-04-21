@@ -641,6 +641,144 @@ class SearchTests(unittest.TestCase):
             self.assertEqual([row["result_kind"] for row in filtered], ["message"])
             self.assertEqual(filtered[0]["ts"], "10.0")
 
+    def test_derived_text_file_operators_filter_metadata(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F1', 'incident-report.pdf', 'Incident Report', 'application/pdf', '/tmp/incident-report.pdf', '{}')
+                """,
+                (ws_id,),
+            )
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F2', 'incident-notes.txt', 'Incident Notes', 'text/plain', '/tmp/incident-notes.txt', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="pdf_text",
+                text="incident appendix target",
+                media_type="application/pdf",
+                local_path="/tmp/incident-report.pdf",
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F2",
+                derivation_kind="attachment_text",
+                extractor="utf8_text",
+                text="incident appendix target",
+                media_type="text/plain",
+                local_path="/tmp/incident-notes.txt",
+            )
+
+            rows = search_derived_text(conn, workspace_id=ws_id, query="incident filename:report extension:pdf mime:application/pdf", limit=10)
+            self.assertEqual([row["source_id"] for row in rows], ["F1"])
+
+            rows = search_derived_text(conn, workspace_id=ws_id, query="incident attachment-type:text", limit=10)
+            self.assertEqual([row["source_id"] for row in rows], ["F2"])
+
+    def test_corpus_has_attachment_uses_derived_text_lane(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "incident message body", "user": "U1"})
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F1', 'incident.pdf', 'Incident PDF', 'application/pdf', '/tmp/incident.pdf', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="pdf_text",
+                text="incident attachment body",
+                media_type="application/pdf",
+                local_path="/tmp/incident.pdf",
+            )
+
+            rows = search_corpus(conn, workspace_id=ws_id, query="incident has:attachment", limit=10, mode="lexical")
+            self.assertEqual([row["result_kind"] for row in rows], ["derived_text"])
+            self.assertEqual(rows[0]["source_id"], "F1")
+
+            mixed = search_corpus(conn, workspace_id=ws_id, query="incident has:attachment on:1970-01-01", limit=10, mode="lexical")
+            self.assertEqual(mixed, [])
+
+    def test_derived_text_semantic_strips_file_operators_from_embedding_query(self):
+        class CaptureProvider:
+            name = "capture"
+
+            def __init__(self):
+                self.calls = []
+
+            def embed_texts(self, texts, *, model_id):
+                self.calls.append(list(texts))
+                return [[1.0, 0.0] if "gateway" in str(text).lower() else [0.0, 1.0] for text in texts]
+
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            conn.execute(
+                """
+                INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
+                VALUES (?, 'F1', 'gateway.pdf', 'Gateway Report', 'application/pdf', '/tmp/gateway.pdf', '{}')
+                """,
+                (ws_id,),
+            )
+            upsert_derived_text(
+                conn,
+                workspace_id=ws_id,
+                source_kind="file",
+                source_id="F1",
+                derivation_kind="attachment_text",
+                extractor="pdf_text",
+                text="gateway outage recovery",
+                media_type="application/pdf",
+                local_path="/tmp/gateway.pdf",
+            )
+
+            provider = CaptureProvider()
+            rows = search_derived_text_semantic(
+                conn,
+                workspace_id=ws_id,
+                query="gateway filename:gateway.pdf mime:application/pdf",
+                limit=5,
+                model_id="fake-model",
+                provider=provider,
+            )
+
+            self.assertEqual(rows[0]["source_id"], "F1")
+            self.assertEqual(provider.calls[0], ["gateway"])
+
     def test_search_corpus_supports_rrf_fusion_explain_metadata(self):
         class FakeProvider:
             name = "fake_provider"

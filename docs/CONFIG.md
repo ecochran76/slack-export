@@ -504,6 +504,7 @@ python -m slack_mirror.cli.main search keyword --workspace default --query deplo
 python -m slack_mirror.cli.main search keyword --workspace default --query "deploy from:<@U123> channel:<#C123> has:link -draft after:1700000000"
 python -m slack_mirror.cli.main search keyword --workspace default --query "deploy participant:@alice on:2026-04-21"
 python -m slack_mirror.cli.main search corpus --workspace default --query "nylon since:2022-01-01 until:2023-01-01" --mode hybrid
+python -m slack_mirror.cli.main search corpus --workspace default --query "incident has:attachment filename:report extension:pdf" --mode hybrid
 python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md
 python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1
 python scripts/check_generated_docs.py
@@ -530,6 +531,7 @@ Message and corpus search query text supports explicit operators on the message 
 - `on:YYYY-MM-DD` expands to a UTC day range.
 - Temporal operators accept numeric Slack timestamps, ISO dates, and ISO datetimes; date/datetime values are interpreted in UTC when no timezone is supplied.
 - `has:link`, `is:thread`, `is:reply`, `is:edited`, quoted phrases, and negated `-term` filters are also supported.
-- In corpus search, these message-lane operators suppress unfiltered derived-text hits so attachment/OCR rows do not bypass message timestamp, sender, or channel constraints.
+- Derived-text query text supports `has:attachment`, `filename:`, `mime:`, `extension:`/`ext:`, and `attachment-type:` for file/canvas rows.
+- In corpus search, message-lane operators suppress unfiltered derived-text hits, and attachment/file-lane operators suppress unfiltered message hits. Mixed message-lane plus attachment-lane filters currently return no cross-lane inferred join results unless a future slice adds explicit message-to-file linkage.
 
 > Note: This is scaffold-level documentation during Phase A. Behavior and command names may evolve.

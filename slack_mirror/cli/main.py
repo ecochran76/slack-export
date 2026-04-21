@@ -3451,7 +3451,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_search_derived = search_sub.add_parser("derived-text", help="search extracted attachment, canvas, and OCR text")
     p_search_derived.add_argument("--workspace", required=True, help="workspace name")
-    p_search_derived.add_argument("--query", required=True, help="query text")
+    p_search_derived.add_argument(
+        "--query",
+        required=True,
+        help="query text (supports has:attachment, filename:, mime:, extension:/ext:, attachment-type:, quoted phrases, and -term)",
+    )
     p_search_derived.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_derived.add_argument("--mode", choices=["lexical", "semantic"], default="lexical", help="derived-text retrieval mode")
     p_search_derived.add_argument("--model", default="local-hash-128", help="embedding model id when --mode semantic")
@@ -3474,7 +3478,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_scope = p_search_corpus.add_mutually_exclusive_group(required=True)
     p_search_scope.add_argument("--workspace", help="workspace name")
     p_search_scope.add_argument("--all-workspaces", action="store_true", help="search across all enabled workspaces")
-    p_search_corpus.add_argument("--query", required=True, help="query text")
+    p_search_corpus.add_argument(
+        "--query",
+        required=True,
+        help="query text (supports message operators plus has:attachment, filename:, mime:, extension:/ext:, and attachment-type:)",
+    )
     p_search_corpus.add_argument("--limit", type=int, default=20, help="maximum result rows")
     p_search_corpus.add_argument("--retrieval-profile", default=None, help="named retrieval profile from config search.retrieval_profiles")
     p_search_corpus.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="corpus retrieval mode")

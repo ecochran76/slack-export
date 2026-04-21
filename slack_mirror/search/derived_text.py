@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from array import array
-import shlex
 import sqlite3
 from typing import Any
 
 from slack_mirror.search.embeddings import EmbeddingProvider, cosine_similarity, embed_text
+from slack_mirror.search.query_syntax import ATTACHMENT_TYPE_MIME_PREFIXES, DerivedTextQuery, parse_derived_text_query
 
 
 def _fts_escape(term: str) -> str:
@@ -58,7 +58,7 @@ def _doc_clauses(
     workspace_id: int,
     derivation_kind: str | None,
     source_kind: str | None,
-    negative_terms: list[str],
+    parsed_query: DerivedTextQuery,
 ) -> tuple[list[str], list[Any]]:
     clauses = ["dt.workspace_id = ?"]
     params: list[Any] = [workspace_id]
@@ -68,9 +68,56 @@ def _doc_clauses(
     if source_kind:
         clauses.append("dt.source_kind = ?")
         params.append(source_kind)
-    for term in negative_terms:
+    elif parsed_query.has_attachment:
+        clauses.append("dt.source_kind = 'file'")
+    for term in parsed_query.negative_terms:
         clauses.append("COALESCE(dt.text, '') NOT LIKE ?")
         params.append(f"%{term}%")
+    for term in parsed_query.filename_terms:
+        clauses.append(
+            """LOWER(
+              COALESCE(f.name, '') || ' ' ||
+              COALESCE(f.title, '') || ' ' ||
+              COALESCE(c.title, '') || ' ' ||
+              COALESCE(f.local_path, '') || ' ' ||
+              COALESCE(dt.local_path, '') || ' ' ||
+              COALESCE(dt.source_id, '')
+            ) LIKE ?"""
+        )
+        params.append(f"%{term.lower()}%")
+    for term in parsed_query.mime_terms:
+        media_expr = "LOWER(COALESCE(f.mimetype, dt.media_type, ''))"
+        if term.endswith("/*"):
+            clauses.append(f"{media_expr} LIKE ?")
+            params.append(f"{term[:-1]}%")
+        elif "*" in term:
+            clauses.append(f"{media_expr} LIKE ?")
+            params.append(term.replace("*", "%"))
+        else:
+            clauses.append(f"{media_expr} = ?")
+            params.append(term)
+    for ext in parsed_query.extensions:
+        clauses.append(
+            """(
+              LOWER(COALESCE(f.name, '')) LIKE ?
+              OR LOWER(COALESCE(f.title, '')) LIKE ?
+              OR LOWER(COALESCE(f.local_path, '')) LIKE ?
+              OR LOWER(COALESCE(dt.local_path, '')) LIKE ?
+            )"""
+        )
+        suffix = f"%.{ext.lower()}"
+        params.extend([suffix, suffix, suffix, suffix])
+    for attachment_type in parsed_query.attachment_types:
+        prefixes = ATTACHMENT_TYPE_MIME_PREFIXES.get(attachment_type)
+        if not prefixes:
+            clauses.append("LOWER(COALESCE(f.mimetype, dt.media_type, '')) LIKE ?")
+            params.append(f"%{attachment_type.lower()}%")
+            continue
+        parts = []
+        for prefix in prefixes:
+            parts.append("LOWER(COALESCE(f.mimetype, dt.media_type, '')) LIKE ?")
+            params.append(f"{prefix.lower()}%")
+        clauses.append("(" + " OR ".join(parts) + ")")
     return clauses, params
 
 
@@ -82,14 +129,14 @@ def _fetch_chunk_candidates(
     positive_terms: list[str],
     derivation_kind: str | None,
     source_kind: str | None,
-    negative_terms: list[str],
+    parsed_query: DerivedTextQuery,
     limit: int,
 ) -> list[sqlite3.Row]:
     clauses, params = _doc_clauses(
         workspace_id=workspace_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
     )
     sql = _base_doc_sql(include_chunk=True, include_full_text=False) + """
         JOIN derived_text_chunks dc
@@ -105,8 +152,10 @@ def _fetch_chunk_candidates(
         clauses.append("derived_text_chunks_fts MATCH ?")
         params.append(match)
     else:
-        clauses.append("COALESCE(dc.text, '') LIKE ?")
-        params.append(f"%{query.strip()}%")
+        text_query = parsed_query.semantic_text
+        if text_query:
+            clauses.append("COALESCE(dc.text, '') LIKE ?")
+            params.append(f"%{text_query}%")
 
     sql += f"""
         WHERE {" AND ".join(clauses)}
@@ -125,14 +174,14 @@ def _fetch_doc_fallback_candidates(
     positive_terms: list[str],
     derivation_kind: str | None,
     source_kind: str | None,
-    negative_terms: list[str],
+    parsed_query: DerivedTextQuery,
     limit: int,
 ) -> list[sqlite3.Row]:
     clauses, params = _doc_clauses(
         workspace_id=workspace_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
     )
     sql = _base_doc_sql()
     if positive_terms:
@@ -158,8 +207,10 @@ def _fetch_doc_fallback_candidates(
         params.extend([match, max(limit * 4, 50)])
     else:
         clauses.append("NOT EXISTS (SELECT 1 FROM derived_text_chunks dc WHERE dc.derived_text_id = dt.id)")
-        clauses.append("COALESCE(dt.text, '') LIKE ?")
-        params.append(f"%{query.strip()}%")
+        text_query = parsed_query.semantic_text
+        if text_query:
+            clauses.append("COALESCE(dt.text, '') LIKE ?")
+            params.append(f"%{text_query}%")
         sql += f"""
         WHERE {" AND ".join(clauses)}
         ORDER BY dt.updated_at DESC, dt.id DESC
@@ -176,14 +227,14 @@ def _fetch_chunk_semantic_candidates(
     model_id: str,
     derivation_kind: str | None,
     source_kind: str | None,
-    negative_terms: list[str],
+    parsed_query: DerivedTextQuery,
     limit: int,
 ) -> list[sqlite3.Row]:
     clauses, params = _doc_clauses(
         workspace_id=workspace_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
     )
     sql = _base_doc_sql(include_chunk=True, include_chunk_embedding=True, include_full_text=False) + """
         JOIN derived_text_chunks dc
@@ -206,14 +257,14 @@ def _fetch_doc_semantic_fallback_candidates(
     workspace_id: int,
     derivation_kind: str | None,
     source_kind: str | None,
-    negative_terms: list[str],
+    parsed_query: DerivedTextQuery,
     limit: int,
 ) -> list[sqlite3.Row]:
     clauses, params = _doc_clauses(
         workspace_id=workspace_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
     )
     clauses.append("NOT EXISTS (SELECT 1 FROM derived_text_chunks dc WHERE dc.derived_text_id = dt.id)")
     sql = _base_doc_sql() + f"""
@@ -268,9 +319,8 @@ def search_derived_text(
     q = (query or "").strip()
     if not q:
         return []
-    tokens = shlex.split(q)
-    positive_terms = [token for token in tokens if token and not token.startswith("-") and ":" not in token]
-    negative_terms = [token[1:] for token in tokens if token.startswith("-") and len(token) > 1]
+    parsed_query = parse_derived_text_query(q)
+    positive_terms = parsed_query.positive_terms
 
     chunk_rows = _fetch_chunk_candidates(
         conn,
@@ -279,7 +329,7 @@ def search_derived_text(
         positive_terms=positive_terms,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
         limit=limit,
     )
     results = _aggregate_chunk_rows(chunk_rows, positive_terms=positive_terms)
@@ -292,7 +342,7 @@ def search_derived_text(
         positive_terms=positive_terms,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
         limit=limit,
     )
     for row in fallback_rows:
@@ -329,10 +379,9 @@ def search_derived_text_semantic(
     q = (query or "").strip()
     if not q:
         return []
-    tokens = shlex.split(q)
-    positive_terms = [token for token in tokens if token and not token.startswith("-") and ":" not in token]
-    negative_terms = [token[1:] for token in tokens if token.startswith("-") and len(token) > 1]
-    qvec = embed_text(" ".join(positive_terms) if positive_terms else q, model_id=model_id, provider=provider)
+    parsed_query = parse_derived_text_query(q)
+    positive_terms = parsed_query.positive_terms
+    qvec = embed_text(parsed_query.semantic_text, model_id=model_id, provider=provider)
 
     chunk_rows = _fetch_chunk_semantic_candidates(
         conn,
@@ -340,7 +389,7 @@ def search_derived_text_semantic(
         model_id=model_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
         limit=limit,
     )
     scored: dict[int, dict[str, Any]] = {}
@@ -366,7 +415,7 @@ def search_derived_text_semantic(
         workspace_id=workspace_id,
         derivation_kind=derivation_kind,
         source_kind=source_kind,
-        negative_terms=negative_terms,
+        parsed_query=parsed_query,
         limit=limit,
     )
     for row in fallback_rows:
