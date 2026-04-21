@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import shlex
 from array import array
+from datetime import date, datetime, time, timezone, timedelta
 from typing import Any
 
 from slack_mirror.search.embeddings import EmbeddingProvider, cosine_similarity, embed_text
@@ -38,6 +39,52 @@ def _glob_to_like(value: str) -> str:
     return (value or "").replace("*", "%")
 
 
+def _parse_temporal_value(value: str) -> tuple[float, str]:
+    raw = (value or "").strip()
+    if not raw:
+        raise ValueError("empty temporal filter value")
+    try:
+        return float(raw), "numeric"
+    except ValueError:
+        pass
+
+    if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        parsed_date = date.fromisoformat(raw)
+        return datetime.combine(parsed_date, time.min, tzinfo=timezone.utc).timestamp(), "date"
+
+    normalized = raw[:-1] + "+00:00" if raw.endswith("Z") else raw
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    else:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.timestamp(), "datetime"
+
+
+def _append_lower_bound_clause(clauses: list[str], params: list[Any], value: str, *, negated: bool) -> None:
+    ts, _ = _parse_temporal_value(value)
+    clause = "CAST(m.ts AS REAL) >= ?"
+    clauses.append(f"NOT ({clause})" if negated else clause)
+    params.append(ts)
+
+
+def _append_upper_bound_clause(clauses: list[str], params: list[Any], value: str, *, negated: bool) -> None:
+    ts, kind = _parse_temporal_value(value)
+    clause = "CAST(m.ts AS REAL) <= ?" if kind == "numeric" else "CAST(m.ts AS REAL) < ?"
+    clauses.append(f"NOT ({clause})" if negated else clause)
+    params.append(ts)
+
+
+def _append_on_clause(clauses: list[str], params: list[Any], value: str, *, negated: bool) -> None:
+    start_ts, _ = _parse_temporal_value(value)
+    start = datetime.fromtimestamp(start_ts, tz=timezone.utc).date()
+    lower = datetime.combine(start, time.min, tzinfo=timezone.utc).timestamp()
+    upper = datetime.combine(start + timedelta(days=1), time.min, tzinfo=timezone.utc).timestamp()
+    clause = "(CAST(m.ts AS REAL) >= ? AND CAST(m.ts AS REAL) < ?)"
+    clauses.append(f"NOT {clause}" if negated else clause)
+    params.extend([lower, upper])
+
+
 def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[list[str], str, list[Any]]:
     tokens = shlex.split(raw_query)
     clauses: list[str] = ["m.workspace_id = ?", "m.deleted = 0"]
@@ -51,7 +98,7 @@ def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[
         if not token:
             continue
 
-        if token.startswith("from:"):
+        if token.startswith("from:") or token.startswith("participant:") or token.startswith("user:"):
             value = _normalize_user_ref(token.split(":", 1)[1])
             clause = """(
                 m.user_id = ?
@@ -136,18 +183,16 @@ def _parse_query(raw_query: str, *, include_term_clauses: bool = True) -> tuple[
             params.extend([value, value, value])
             continue
 
-        if token.startswith("before:"):
-            value = token.split(":", 1)[1]
-            clause = "CAST(m.ts AS REAL) <= CAST(? AS REAL)"
-            clauses.append(f"NOT ({clause})" if negated else clause)
-            params.append(value)
+        if token.startswith("before:") or token.startswith("until:"):
+            _append_upper_bound_clause(clauses, params, token.split(":", 1)[1], negated=negated)
             continue
 
-        if token.startswith("after:"):
-            value = token.split(":", 1)[1]
-            clause = "CAST(m.ts AS REAL) >= CAST(? AS REAL)"
-            clauses.append(f"NOT ({clause})" if negated else clause)
-            params.append(value)
+        if token.startswith("after:") or token.startswith("since:"):
+            _append_lower_bound_clause(clauses, params, token.split(":", 1)[1], negated=negated)
+            continue
+
+        if token.startswith("on:"):
+            _append_on_clause(clauses, params, token.split(":", 1)[1], negated=negated)
             continue
 
         if token.startswith("has:"):

@@ -937,7 +937,7 @@ usage: slack-mirror search keyword [-h] --workspace WORKSPACE
 
 - `--workspace` — workspace name
 - `--profile` — named query profile from config search.query_profiles
-- `--query` — query text (supports from:, channel:/source:, in:, before:, after:, is:, has:link, quoted phrases, and -term)
+- `--query` — query text (supports from:/participant:/user:, channel:/source:/in:, before:/after:/since:/until:/on:, is:, has:link, quoted phrases, and -term)
 - `--limit` — maximum result rows; default: `20`
 - `--mode` — search retrieval mode (default from config: search.semantic.mode_default)
 - `--model` — embedding model id (default from config: search.semantic.model)
@@ -1118,7 +1118,7 @@ usage: slack-mirror search semantic [-h] --workspace WORKSPACE
 
 - `--workspace` — workspace name
 - `--profile` — named query profile from config search.query_profiles
-- `--query` — semantic query text (supports from:, channel:/source:, in:, before:, after:, is:, has:link, quoted phrases, and -term)
+- `--query` — semantic query text (supports from:/participant:/user:, channel:/source:/in:, before:/after:/since:/until:/on:, is:, has:link, quoted phrases, and -term)
 - `--limit` — maximum result rows; default: `20`
 - `--model` — embedding model id (default from config: search.semantic.model)
 - `--group-by-thread` — return best result per thread root

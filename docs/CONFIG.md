@@ -502,6 +502,8 @@ python -m slack_mirror.cli.main channels sync-from-tool
 python -m slack_mirror.cli.main search reindex-keyword --workspace default
 python -m slack_mirror.cli.main search keyword --workspace default --query deploy --limit 20
 python -m slack_mirror.cli.main search keyword --workspace default --query "deploy from:<@U123> channel:<#C123> has:link -draft after:1700000000"
+python -m slack_mirror.cli.main search keyword --workspace default --query "deploy participant:@alice on:2026-04-21"
+python -m slack_mirror.cli.main search corpus --workspace default --query "nylon since:2022-01-01 until:2023-01-01" --mode hybrid
 python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md
 python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1
 python scripts/check_generated_docs.py
@@ -518,5 +520,16 @@ python -m slack_mirror.cli.main --config config.yaml mirror process-events --wor
 python -m slack_mirror.cli.main completion print bash > /tmp/slack-mirror.bash
 python -m slack_mirror.cli.main completion print zsh > /tmp/_slack-mirror
 ```
+
+Message and corpus search query text supports explicit operators on the message lane:
+
+- `from:`, `participant:`, and `user:` filter by Slack sender id, mention, username, display name, or real name.
+- `in:`, `channel:`, and `source:` filter by channel id or name, with `*` as a simple wildcard.
+- `after:` and `since:` apply lower timestamp bounds.
+- `before:` and `until:` apply upper timestamp bounds.
+- `on:YYYY-MM-DD` expands to a UTC day range.
+- Temporal operators accept numeric Slack timestamps, ISO dates, and ISO datetimes; date/datetime values are interpreted in UTC when no timezone is supplied.
+- `has:link`, `is:thread`, `is:reply`, `is:edited`, quoted phrases, and negated `-term` filters are also supported.
+- In corpus search, these message-lane operators suppress unfiltered derived-text hits so attachment/OCR rows do not bypass message timestamp, sender, or channel constraints.
 
 > Note: This is scaffold-level documentation during Phase A. Behavior and command names may evolve.

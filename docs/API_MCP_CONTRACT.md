@@ -521,6 +521,9 @@ Both expose the same shared corpus-search result model over:
 Important request fields:
 
 - `query`
+  - message-lane operators include `from:`, `participant:`, `user:`, `in:`, `channel:`, `source:`, `after:`, `since:`, `before:`, `until:`, `on:`, `has:link`, and `is:thread`/`is:reply`/`is:edited`
+  - temporal operators accept numeric Slack timestamps plus UTC ISO dates/datetimes; `on:YYYY-MM-DD` expands to that UTC day
+  - when message-lane operators are present, corpus search suppresses unfiltered derived-text hits rather than returning attachment/OCR rows outside those message constraints
 - `workspace`
   - required for workspace-scoped search unless `all_workspaces=true`
 - `all_workspaces`

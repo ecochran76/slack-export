@@ -298,6 +298,7 @@ Actionable plans:
 - `docs/dev/plans/0084-2026-04-21-profile-aware-benchmark-diagnostics.md`
 - `docs/dev/plans/0085-2026-04-21-benchmark-fusion-experiment.md`
 - `docs/dev/plans/0086-2026-04-21-benchmark-query-variants.md`
+- `docs/dev/plans/0087-2026-04-21-portable-query-date-operators.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -434,6 +435,12 @@ Current state:
   - `search benchmark-query-variants` compares deterministic query rewrites and future authored dataset variants against benchmark fixtures
   - installed evidence showed lowercase ties original, `alnum` slightly lowers rank quality, and `dehyphen` is worse on the current non-content fixture
   - no query-normalization promotion is justified; the next relevance step should target candidate generation or query grammar/operator semantics
+- the portable query date-operator slice is now complete under `0087`:
+  - message search accepts numeric Slack timestamps plus UTC ISO dates/datetimes for explicit temporal filters
+  - `since:`, `until:`, and `on:` now provide portable temporal grammar
+  - `participant:` and `user:` now act as Slack sender aliases
+  - corpus search suppresses derived-text hits when message-lane operators are present, preventing attachment/OCR rows from bypassing timestamp, sender, or channel constraints
+  - shared-parser extraction remains deferred until another communications repo proves compatible behavior
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align

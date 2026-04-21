@@ -262,6 +262,14 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["user_id"], "U1")
 
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy participant:@alice", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["user_id"], "U1")
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy user:bobby", limit=10)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["user_id"], "U2")
+
             rows = search_messages(conn, workspace_id=ws_id, query="deploy channel:C1", limit=10)
             self.assertEqual(len(rows), 2)
 
@@ -317,6 +325,35 @@ class SearchTests(unittest.TestCase):
             )
             self.assertGreaterEqual(len(hyb_rows), 1)
             self.assertIn("_hybrid_score", hyb_rows[0])
+
+    def test_keyword_search_temporal_operators_accept_iso_dates_and_timestamps(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1712534400.000000", "text": "deploy sunday", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1712620800.000000", "text": "deploy monday", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1712707200.000000", "text": "deploy tuesday", "user": "U1"})
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy since:2024-04-09", limit=10)
+            self.assertEqual([row["text"] for row in rows], ["deploy tuesday", "deploy monday"])
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy until:2024-04-09", limit=10)
+            self.assertEqual([row["text"] for row in rows], ["deploy sunday"])
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy on:2024-04-09", limit=10)
+            self.assertEqual([row["text"] for row in rows], ["deploy monday"])
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy after:1712620800 before:1712707200", limit=10)
+            self.assertEqual([row["text"] for row in rows], ["deploy tuesday", "deploy monday"])
+
+            rows = search_messages(conn, workspace_id=ws_id, query="deploy before:2024-04-10T00:00:00Z", limit=10)
+            self.assertEqual([row["text"] for row in rows], ["deploy monday", "deploy sunday"])
 
     def test_search_messages_rerank_uses_provider(self):
         class FakeReranker:
@@ -599,6 +636,10 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(derived_target["source_id"], "F1")
             self.assertEqual(derived_target["derivation_kind"], "ocr_text")
             self.assertTrue(derived_target["id"].startswith("derived_text|"))
+
+            filtered = search_corpus(conn, workspace_id=ws_id, query="incident review on:1970-01-01", limit=10, mode="lexical")
+            self.assertEqual([row["result_kind"] for row in filtered], ["message"])
+            self.assertEqual(filtered[0]["ts"], "10.0")
 
     def test_search_corpus_supports_rrf_fusion_explain_metadata(self):
         class FakeProvider:

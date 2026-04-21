@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import shlex
 from typing import Any
 
 from slack_mirror.search.embeddings import EmbeddingProvider
@@ -11,6 +12,22 @@ from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
 FUSION_WEIGHTED = "weighted"
 FUSION_RRF = "rrf"
 DEFAULT_RRF_K = 60.0
+
+MESSAGE_LANE_OPERATOR_PREFIXES = (
+    "from:",
+    "participant:",
+    "user:",
+    "in:",
+    "channel:",
+    "source:",
+    "before:",
+    "after:",
+    "since:",
+    "until:",
+    "on:",
+    "has:",
+    "is:",
+)
 
 
 def _message_key(row: dict[str, Any]) -> tuple[str, str]:
@@ -46,6 +63,19 @@ def _normalize_fusion_method(value: str | None) -> str:
     if method in {"rrf", "reciprocal-rank", "reciprocal-rank-fusion"}:
         return FUSION_RRF
     raise ValueError(f"Unsupported corpus fusion method: {value}")
+
+
+def _has_message_lane_operator(query: str) -> bool:
+    try:
+        tokens = shlex.split(query or "")
+    except ValueError:
+        tokens = (query or "").split()
+    for token in tokens:
+        stripped = token[1:] if token.startswith("-") else token
+        lowered = stripped.lower()
+        if any(lowered.startswith(prefix) for prefix in MESSAGE_LANE_OPERATOR_PREFIXES):
+            return True
+    return False
 
 
 def _rank_by_key(rows: list[dict[str, Any]], key_fn) -> dict[tuple[str, str], int]:
@@ -175,10 +205,25 @@ def _search_corpus_rows(
     requested_limit = max(1, int(limit or 20))
     requested_offset = max(0, int(offset or 0))
     lexical_limit = max((requested_limit + requested_offset) * 2, 20)
+    include_derived_text = not _has_message_lane_operator(q)
 
     if mode == "lexical":
         msg_rows = [_normalize_message_row(r) for r in search_messages(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, use_fts=use_fts, mode="lexical")]
-        derived_rows = [_normalize_derived_row(r) for r in search_derived_text(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
+        derived_rows = (
+            [
+                _normalize_derived_row(r)
+                for r in search_derived_text(
+                    conn,
+                    workspace_id=workspace_id,
+                    query=q,
+                    limit=lexical_limit,
+                    derivation_kind=derived_kind,
+                    source_kind=derived_source_kind,
+                )
+            ]
+            if include_derived_text
+            else []
+        )
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
         for row in merged:
@@ -206,19 +251,23 @@ def _search_corpus_rows(
                 provider=message_embedding_provider,
             )
         ]
-        derived_rows = [
-            _normalize_derived_row(r)
-            for r in search_derived_text_semantic(
-                conn,
-                workspace_id=workspace_id,
-                query=q,
-                limit=lexical_limit,
-                derivation_kind=derived_kind,
-                source_kind=derived_source_kind,
-                model_id=model_id,
-                provider=message_embedding_provider,
-            )
-        ]
+        derived_rows = (
+            [
+                _normalize_derived_row(r)
+                for r in search_derived_text_semantic(
+                    conn,
+                    workspace_id=workspace_id,
+                    query=q,
+                    limit=lexical_limit,
+                    derivation_kind=derived_kind,
+                    source_kind=derived_source_kind,
+                    model_id=model_id,
+                    provider=message_embedding_provider,
+                )
+            ]
+            if include_derived_text
+            else []
+        )
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
         for row in merged:
@@ -246,20 +295,38 @@ def _search_corpus_rows(
             provider=message_embedding_provider,
         )
     ]
-    derived_lexical = [_normalize_derived_row(r) for r in search_derived_text(conn, workspace_id=workspace_id, query=q, limit=lexical_limit, derivation_kind=derived_kind, source_kind=derived_source_kind)]
-    derived_semantic = [
-        _normalize_derived_row(r)
-        for r in search_derived_text_semantic(
-            conn,
-            workspace_id=workspace_id,
-            query=q,
-            limit=lexical_limit,
-            derivation_kind=derived_kind,
-            source_kind=derived_source_kind,
-            model_id=model_id,
-            provider=message_embedding_provider,
-        )
-    ]
+    derived_lexical = (
+        [
+            _normalize_derived_row(r)
+            for r in search_derived_text(
+                conn,
+                workspace_id=workspace_id,
+                query=q,
+                limit=lexical_limit,
+                derivation_kind=derived_kind,
+                source_kind=derived_source_kind,
+            )
+        ]
+        if include_derived_text
+        else []
+    )
+    derived_semantic = (
+        [
+            _normalize_derived_row(r)
+            for r in search_derived_text_semantic(
+                conn,
+                workspace_id=workspace_id,
+                query=q,
+                limit=lexical_limit,
+                derivation_kind=derived_kind,
+                source_kind=derived_source_kind,
+                model_id=model_id,
+                provider=message_embedding_provider,
+            )
+        ]
+        if include_derived_text
+        else []
+    )
     lexical_ranks = _rank_by_key(msg_lexical, _message_key)
     lexical_ranks.update(_rank_by_key(derived_lexical, _derived_key))
     semantic_ranks = _rank_by_key(msg_semantic, _message_key)

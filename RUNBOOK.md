@@ -3845,3 +3845,42 @@ This file is the dated turn log for planning and execution continuity.
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `uv run slack-mirror release check --require-managed-runtime --json`
     - result: pass with expected `DEV_VERSION` warning
+
+## Turn 226 | 2026-04-21
+
+- Opened the next bounded `P10` portable query grammar slice:
+  - `0087-2026-04-21-portable-query-date-operators.md`
+- Direction:
+  - add explicit date/operator semantics rather than hidden query rewriting
+  - support ISO date and datetime values for temporal filters
+  - add `since:`, `until:`, and `on:` alongside the existing `after:` and `before:` filters
+  - preserve numeric Slack timestamp compatibility
+  - add safe actor aliases `participant:` and `user:` as Slack sender filters
+  - defer shared parser extraction until `../imcli` or `../ragmail` proves compatible grammar behavior
+- Implemented and closed `0087`:
+  - added ISO date/datetime parsing for message temporal filters
+  - added `since:`, `until:`, and `on:` operators
+  - added `participant:` and `user:` sender aliases
+  - preserved numeric Slack timestamp compatibility for `before:` and `after:`
+  - changed corpus search so message-lane operators suppress unfiltered derived-text hits instead of returning attachment/OCR rows outside message constraints
+  - updated README, config docs, API/MCP contract docs, and generated CLI/man docs
+- Repo live smoke on `default`:
+  - `nylon on:2022-05-11` returned one message hit in `reu2022` at `1652305847.089769` and no derived-text hits
+  - `nylon since:2022-01-01 until:2023-01-01` returned message-only rows
+  - `nylon on:2022-05-11 participant:UEGM25PMG` returned the expected `reu2022` message at `1652305847.089769`
+- Installed-wrapper live smoke on `default` after `user-env update --extra local-semantic`:
+  - `nylon on:2022-05-11` returned one message hit in `reu2022` at `1652305847.089769` and no derived-text hits
+  - `nylon since:2022-01-01 until:2023-01-01` returned message-only rows
+  - `nylon on:2022-05-11 participant:UEGM25PMG` returned the expected `reu2022` message at `1652305847.089769`
+- Validation so far:
+  - `uv run python -m unittest tests.test_search -v`
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_search tests.test_api_server tests.test_mcp_server -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+    - result: combined managed validation passed
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
