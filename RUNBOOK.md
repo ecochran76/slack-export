@@ -3731,8 +3731,48 @@ This file is the dated turn log for planning and execution continuity.
   - add fusion selection to `search health`, `search profile-benchmark`, and `search benchmark-diagnose`
   - preserve `weighted` as the default
   - compare both methods on the existing non-content fixture before any ranking or rollout change
+- Implemented and closed `0085`:
+  - added `--fusion weighted|rrf` to corpus benchmark paths for `search health`, `search profile-benchmark`, and `search benchmark-diagnose`
+  - threaded fusion into the shared corpus benchmark evaluator
+  - fixed profile benchmark fidelity so corpus benchmarks now apply retrieval-profile lexical weight, semantic weight, and semantic scale
+  - updated README, config docs, benchmark docs, and generated CLI/man docs
+- Installed-wrapper weighted evidence on `default`:
+  - `baseline`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `416.753 ms`
+  - `local-bge-http`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `254.325 ms`
+  - `local-bge-http-rerank`: hit@10 `0.222222`, nDCG@k `0.052758`, MRR@k `0.046296`, p95 `2049.439 ms`
+- Installed-wrapper RRF evidence on `default`:
+  - `baseline`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `503.048 ms`
+  - `local-bge-http`: hit@10 `0.0`, nDCG@k `0.0`, MRR@k `0.0`, p95 `254.324 ms`
+  - `local-bge-http-rerank`: hit@10 `0.222222`, nDCG@k `0.048231`, MRR@k `0.041667`, p95 `2038.287 ms`
+- Diagnostic evidence:
+  - weighted: `baseline` and `local-bge-http` both `4/19` target-label hits; `local-bge-http-rerank` `4/19` with two worse movements
+  - RRF: `local-bge-http` `0/19` target-label hits; `local-bge-http-rerank` `4/19` with three worse movements
+- Interpretation:
+  - RRF is worse on the current fixture and should not be promoted
+  - BGE still ties baseline on relevance under weighted fusion while remaining faster
+  - learned reranking remains worse and slower
+  - the next relevance problem is likely query formulation or candidate generation, not fusion policy
+- Validation:
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_search -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion weighted --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion rrf --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion weighted --limit 10 --json`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion rrf --limit 10 --json`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+  - `slack-mirror-user search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion weighted --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `slack-mirror-user search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion rrf --mode hybrid --limit 10 --min-hit-at-3 0 --min-hit-at-10 0 --min-ndcg-at-k 0 --max-latency-p95-ms 100000 --json`
+  - `slack-mirror-user search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion weighted --limit 10 --json`
+  - `slack-mirror-user search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion rrf --limit 10 --json`
+  - installed diagnostic non-content check for both fusion modes: no `text` or `snippet_text` keys
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning
 
-## Turn | 2026-04-21 Converged query semantics alignment
+## Turn 224 | 2026-04-21
 
 - Refined `P12 | Communications Corpus Convergence` so Slack Mirror treats
   portable query semantics as part of convergence, not just report/export

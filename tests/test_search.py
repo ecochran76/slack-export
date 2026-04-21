@@ -383,6 +383,35 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(report["query_reports"][0]["top_results"][0], "C1:2.0")
             self.assertEqual(report["mrr_at_k"], 1.0)
 
+    def test_evaluate_corpus_search_threads_fusion_method(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "incident review target", "user": "U1"})
+            process_embedding_jobs(conn, workspace_id=ws_id, model_id="local-hash-128", limit=10)
+
+            report = evaluate_corpus_search(
+                conn,
+                workspace_id=ws_id,
+                dataset=[{"query": "incident review", "relevant": {"C1:1.0": 1}}],
+                mode="hybrid",
+                fusion_method="rrf",
+                lexical_weight=0.25,
+                semantic_weight=0.75,
+                semantic_scale=2.0,
+                limit=2,
+            )
+
+            self.assertEqual(report["fusion_method"], "rrf")
+            self.assertEqual(report["weights"], {"lexical": 0.25, "semantic": 0.75, "semantic_scale": 2.0})
+            self.assertEqual(report["query_reports"][0]["top_results"][0], "C1:1.0")
+
     def test_search_derived_text_rows(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

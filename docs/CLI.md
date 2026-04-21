@@ -713,8 +713,9 @@ usage: slack-mirror search [-h]
 usage: slack-mirror search benchmark-diagnose [-h] --workspace WORKSPACE
                                               --dataset DATASET
                                               [--profiles PROFILES]
-                                              [--limit LIMIT] [--include-text]
-                                              [--json]
+                                              [--limit LIMIT]
+                                              [--fusion {weighted,rrf}]
+                                              [--include-text] [--json]
 ```
 
 **Options**
@@ -723,6 +724,7 @@ usage: slack-mirror search benchmark-diagnose [-h] --workspace WORKSPACE
 - `--dataset` — JSONL benchmark dataset path
 - `--profiles` — comma-separated retrieval profile names to diagnose (default: baseline); default: `baseline`
 - `--limit` — diagnostic result window; default: `10`
+- `--fusion` — hybrid fusion method for corpus diagnostic results; default: `weighted`
 - `--include-text` — include message text/snippets for local debugging; default output is non-content
 - `--json` — json output
 
@@ -822,6 +824,7 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
                                   [--retrieval-profile RETRIEVAL_PROFILE]
                                   [--mode {lexical,semantic,hybrid}]
                                   [--limit LIMIT] [--model MODEL]
+                                  [--fusion {weighted,rrf}]
                                   [--min-hit-at-3 MIN_HIT_AT_3]
                                   [--min-hit-at-10 MIN_HIT_AT_10]
                                   [--min-ndcg-at-k MIN_NDCG_AT_K]
@@ -838,6 +841,7 @@ usage: slack-mirror search health [-h] --workspace WORKSPACE
 - `--mode` — benchmark retrieval mode
 - `--limit` — benchmark result window; default: `10`
 - `--model` — embedding model id for benchmark mode
+- `--fusion` — hybrid fusion method for corpus benchmark results; default: `weighted`
 - `--min-hit-at-3` — minimum acceptable hit@3 when dataset is provided; default: `0.5`
 - `--min-hit-at-10` — minimum acceptable hit@10 when dataset is provided; default: `0.8`
 - `--min-ndcg-at-k` — minimum acceptable ndcg@k when dataset is provided; default: `0.6`
@@ -942,6 +946,7 @@ usage: slack-mirror search profile-benchmark [-h] --workspace WORKSPACE
                                              [--target {corpus,derived_text}]
                                              [--mode {lexical,semantic,hybrid}]
                                              [--limit LIMIT] [--model MODEL]
+                                             [--fusion {weighted,rrf}]
                                              [--min-hit-at-3 MIN_HIT_AT_3]
                                              [--min-hit-at-10 MIN_HIT_AT_10]
                                              [--min-ndcg-at-k MIN_NDCG_AT_K]
@@ -958,6 +963,7 @@ usage: slack-mirror search profile-benchmark [-h] --workspace WORKSPACE
 - `--mode` — benchmark retrieval mode
 - `--limit` — benchmark result window; default: `10`
 - `--model` — embedding model id override for all profiles
+- `--fusion` — hybrid fusion method for corpus benchmark results; default: `weighted`
 - `--min-hit-at-3` — minimum acceptable hit@3; default: `0.5`
 - `--min-hit-at-10` — minimum acceptable hit@10; default: `0.8`
 - `--min-ndcg-at-k` — minimum acceptable ndcg@k; default: `0.6`

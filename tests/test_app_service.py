@@ -741,10 +741,12 @@ class AppServiceTests(unittest.TestCase):
             dataset_path=str(dataset),
             profile_names=["baseline"],
             limit=5,
+            fusion_method="rrf",
         )
 
         self.assertEqual(result["status"], "pass")
         self.assertFalse(result["include_text"])
+        self.assertEqual(result["fusion_method"], "rrf")
         query = result["query_reports"][0]
         run = query["profiles"][0]
         target = run["expected_targets"][0]

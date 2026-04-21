@@ -424,10 +424,11 @@ Current state:
   - `search benchmark-diagnose` reports expected target ranks, top result labels, rank movement, source counts, and compact explain metadata without emitting Slack message bodies by default
   - installed-wrapper evidence showed `baseline` and `local-bge-http` both hitting `4/19` target labels in the top 10 with identical ranks, while `local-bge-http-rerank` demoted two visible hits
   - the next active semantic-search step should be diagnostics-first query formulation or fusion experiments over the same fixture before any broader rollout
-- the active benchmark-fusion experiment slice is now open under `0085`:
-  - thread explicit `weighted` versus `rrf` fusion through corpus benchmark evaluation
-  - preserve `weighted` as the release default
-  - record live non-content fixture evidence before any tuning or rollout change
+- the benchmark-fusion experiment slice is now complete under `0085`:
+  - `search health`, `search profile-benchmark`, and `search benchmark-diagnose` now accept explicit corpus `--fusion weighted|rrf`
+  - corpus profile benchmarks now honor retrieval-profile weights as well as model/provider/rerank settings
+  - installed evidence showed RRF does not help this fixture: `local-bge-http` drops from hit@10 `0.333333` under weighted fusion to `0.0` under RRF
+  - `weighted` remains the release default and the next active semantic-search step should focus on query formulation or candidate-generation experiments
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align

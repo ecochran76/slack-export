@@ -45,6 +45,18 @@ slack-mirror search profile-benchmark \
   --json
 ```
 
+For corpus benchmarks, compare reciprocal-rank fusion without changing tenant
+defaults:
+
+```bash
+slack-mirror search profile-benchmark \
+  --workspace default \
+  --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl \
+  --profiles baseline,local-bge-http,local-bge-http-rerank \
+  --fusion rrf \
+  --json
+```
+
 If aggregate relevance is weak, inspect profile-specific rank movement without
 dumping message bodies:
 
@@ -53,13 +65,15 @@ slack-mirror search benchmark-diagnose \
   --workspace default \
   --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl \
   --profiles baseline,local-bge-http,local-bge-http-rerank \
+  --fusion weighted \
   --json
 ```
 
 Default diagnostic output is non-content. It reports stable target labels,
 observed ranks, movement versus the first profile, top result labels, and
-compact explain metadata. Use `--include-text` only for local debugging when
-message bodies or snippets are safe to inspect.
+compact explain metadata. Use `--fusion rrf` to inspect reciprocal-rank fusion.
+Use `--include-text` only for local debugging when message bodies or snippets
+are safe to inspect.
 
 If validation reports incomplete coverage for a profile model, treat relevance results as rollout-limited rather than model-quality evidence.
 

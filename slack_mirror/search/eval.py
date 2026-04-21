@@ -154,6 +154,10 @@ def evaluate_corpus_search(
     mode: str,
     limit: int = 10,
     model_id: str = "local-hash-128",
+    fusion_method: str = "weighted",
+    lexical_weight: float = 0.6,
+    semantic_weight: float = 0.4,
+    semantic_scale: float = 10.0,
     embedding_provider: EmbeddingProvider | None = None,
     rerank: bool = False,
     rerank_top_n: int = 50,
@@ -178,6 +182,10 @@ def evaluate_corpus_search(
             limit=limit,
             mode=mode,
             model_id=model_id,
+            fusion_method=fusion_method,
+            lexical_weight=lexical_weight,
+            semantic_weight=semantic_weight,
+            semantic_scale=semantic_scale,
             message_embedding_provider=embedding_provider,
             rerank=rerank,
             rerank_top_n=rerank_top_n,
@@ -226,6 +234,14 @@ def evaluate_corpus_search(
         hit10=hit10,
         lats=lats,
         query_reports=query_reports,
+        extra={
+            "fusion_method": fusion_method,
+            "weights": {
+                "lexical": float(lexical_weight),
+                "semantic": float(semantic_weight),
+                "semantic_scale": float(semantic_scale),
+            },
+        },
     )
 
 

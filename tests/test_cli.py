@@ -824,6 +824,8 @@ class CliTests(unittest.TestCase):
                 "semantic",
                 "--limit",
                 "12",
+                "--fusion",
+                "rrf",
                 "--min-hit-at-3",
                 "0.6",
                 "--min-hit-at-10",
@@ -842,6 +844,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.retrieval_profile, "local-bge")
         self.assertEqual(args.mode, "semantic")
         self.assertEqual(args.limit, 12)
+        self.assertEqual(args.fusion, "rrf")
         self.assertEqual(args.min_hit_at_3, 0.6)
         self.assertEqual(args.min_hit_at_10, 0.85)
         self.assertEqual(args.min_ndcg_at_k, 0.7)
@@ -931,6 +934,8 @@ class CliTests(unittest.TestCase):
                 "hybrid",
                 "--limit",
                 "5",
+                "--fusion",
+                "rrf",
                 "--min-hit-at-3",
                 "0",
                 "--include-details",
@@ -944,6 +949,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.target, "corpus")
         self.assertEqual(args.mode, "hybrid")
         self.assertEqual(args.limit, 5)
+        self.assertEqual(args.fusion, "rrf")
         self.assertEqual(args.min_hit_at_3, 0.0)
         self.assertTrue(args.include_details)
         self.assertTrue(args.json)
@@ -987,6 +993,8 @@ class CliTests(unittest.TestCase):
                 "baseline,local-bge-http",
                 "--limit",
                 "5",
+                "--fusion",
+                "rrf",
                 "--include-text",
                 "--json",
             ]
@@ -996,6 +1004,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.dataset, "docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl")
         self.assertEqual(args.profiles, "baseline,local-bge-http")
         self.assertEqual(args.limit, 5)
+        self.assertEqual(args.fusion, "rrf")
         self.assertTrue(args.include_text)
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))

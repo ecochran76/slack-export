@@ -1386,6 +1386,10 @@ def cmd_search_health(args: argparse.Namespace) -> int:
         mode=mode,
         limit=args.limit,
         model_id=model,
+        fusion_method=args.fusion,
+        lexical_weight=profile.lexical_weight if profile else 0.6,
+        semantic_weight=profile.semantic_weight if profile else 0.4,
+        semantic_scale=profile.semantic_scale if profile else 10.0,
         min_hit_at_3=args.min_hit_at_3,
         min_hit_at_10=args.min_hit_at_10,
         min_ndcg_at_k=args.min_ndcg_at_k,
@@ -1436,6 +1440,7 @@ def cmd_search_health(args: argparse.Namespace) -> int:
                 "Benchmark:"
                 f" target={payload.get('benchmark_target', 'corpus')}"
                 f" mode={bench['mode']}"
+                f" fusion={bench.get('fusion_method') or payload.get('fusion_method') or 'n/a'}"
                 f" queries={bench['queries']}"
                 f" hit@3={bench['hit_at_3']}"
                 f" hit@10={bench['hit_at_10']}"
@@ -1469,6 +1474,8 @@ def _search_benchmark_summary(payload: dict, *, include_details: bool) -> dict:
         "warning_codes": list(payload.get("warning_codes") or []),
         "failure_codes": list(payload.get("failure_codes") or []),
         "metrics": metrics,
+        "fusion_method": benchmark.get("fusion_method") or payload.get("fusion_method"),
+        "weights": benchmark.get("weights"),
         "degraded_query_count": len(degraded_queries),
         "retrieval_profile": payload.get("retrieval_profile"),
     }
@@ -1502,6 +1509,10 @@ def cmd_search_profile_benchmark(args: argparse.Namespace) -> int:
             mode=args.mode or profile.mode,
             limit=args.limit,
             model_id=args.model or profile.model,
+            fusion_method=args.fusion,
+            lexical_weight=profile.lexical_weight,
+            semantic_weight=profile.semantic_weight,
+            semantic_scale=profile.semantic_scale,
             min_hit_at_3=args.min_hit_at_3,
             min_hit_at_10=args.min_hit_at_10,
             min_ndcg_at_k=args.min_ndcg_at_k,
@@ -1525,6 +1536,7 @@ def cmd_search_profile_benchmark(args: argparse.Namespace) -> int:
         "dataset_path": args.dataset,
         "target": args.target,
         "limit": args.limit,
+        "fusion_method": args.fusion if args.target == "corpus" else None,
         "profiles": profile_names,
         "status": status,
         "runs": runs,
@@ -1542,7 +1554,8 @@ def cmd_search_profile_benchmark(args: argparse.Namespace) -> int:
                 f"{run['profile']}: status={run['status']} queries={metrics['queries']} "
                 f"hit@3={metrics['hit_at_3']} hit@10={metrics['hit_at_10']} "
                 f"ndcg@k={metrics['ndcg_at_k']} mrr@k={metrics['mrr_at_k']} "
-                f"p95_ms={metrics['latency_ms_p95']} degraded={run['degraded_query_count']}"
+                f"p95_ms={metrics['latency_ms_p95']} fusion={run.get('fusion_method')} "
+                f"degraded={run['degraded_query_count']}"
             )
             if run["failure_codes"]:
                 print(f"  failures={','.join(run['failure_codes'])}")
@@ -1600,6 +1613,7 @@ def cmd_search_benchmark_diagnose(args: argparse.Namespace) -> int:
         dataset_path=args.dataset,
         profile_names=profile_names or None,
         limit=int(args.limit),
+        fusion_method=str(args.fusion),
         include_text=bool(args.include_text),
     )
     if args.json:
@@ -1607,7 +1621,8 @@ def cmd_search_benchmark_diagnose(args: argparse.Namespace) -> int:
     else:
         print(
             f"Search benchmark diagnose workspace={payload['workspace']} dataset={payload['dataset_path']} "
-            f"status={payload['status']} queries={payload['queries']} limit={payload['limit']}"
+            f"status={payload['status']} queries={payload['queries']} limit={payload['limit']} "
+            f"fusion={payload['fusion_method']}"
         )
         for query_report in payload["query_reports"]:
             print(f"Query {query_report['index']} {query_report.get('id') or ''}: {query_report.get('intent') or ''}")
@@ -3455,6 +3470,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_health.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="benchmark retrieval mode")
     p_search_health.add_argument("--limit", type=int, default=10, help="benchmark result window")
     p_search_health.add_argument("--model", default=None, help="embedding model id for benchmark mode")
+    p_search_health.add_argument(
+        "--fusion",
+        choices=["weighted", "rrf"],
+        default="weighted",
+        help="hybrid fusion method for corpus benchmark results",
+    )
     p_search_health.add_argument("--min-hit-at-3", type=float, default=0.5, help="minimum acceptable hit@3 when dataset is provided")
     p_search_health.add_argument("--min-hit-at-10", type=float, default=0.8, help="minimum acceptable hit@10 when dataset is provided")
     p_search_health.add_argument("--min-ndcg-at-k", type=float, default=0.6, help="minimum acceptable ndcg@k when dataset is provided")
@@ -3482,6 +3503,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_search_profile_benchmark.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="benchmark retrieval mode")
     p_search_profile_benchmark.add_argument("--limit", type=int, default=10, help="benchmark result window")
     p_search_profile_benchmark.add_argument("--model", default=None, help="embedding model id override for all profiles")
+    p_search_profile_benchmark.add_argument(
+        "--fusion",
+        choices=["weighted", "rrf"],
+        default="weighted",
+        help="hybrid fusion method for corpus benchmark results",
+    )
     p_search_profile_benchmark.add_argument("--min-hit-at-3", type=float, default=0.5, help="minimum acceptable hit@3")
     p_search_profile_benchmark.add_argument("--min-hit-at-10", type=float, default=0.8, help="minimum acceptable hit@10")
     p_search_profile_benchmark.add_argument("--min-ndcg-at-k", type=float, default=0.6, help="minimum acceptable ndcg@k")
@@ -3525,6 +3552,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated retrieval profile names to diagnose (default: baseline)",
     )
     p_search_benchmark_diagnose.add_argument("--limit", type=int, default=10, help="diagnostic result window")
+    p_search_benchmark_diagnose.add_argument(
+        "--fusion",
+        choices=["weighted", "rrf"],
+        default="weighted",
+        help="hybrid fusion method for corpus diagnostic results",
+    )
     p_search_benchmark_diagnose.add_argument(
         "--include-text",
         action="store_true",
