@@ -1,6 +1,6 @@
 # Benchmark Fixtures
 
-Benchmark datasets are JSONL files consumed by `search health`, `search profile-benchmark`, and `search benchmark-diagnose`.
+Benchmark datasets are JSONL files consumed by `search health`, `search profile-benchmark`, `search benchmark-diagnose`, and `search benchmark-query-variants`.
 
 ## Row Shape
 
@@ -14,6 +14,7 @@ Rows may also include:
 - `id`: a stable query id such as `live-q001`
 - `intent`: a short non-content category such as `exact_keyword`, `paraphrase`, or `source_lookup`
 - `notes`: authoring notes, if they do not expose private message text
+- `query_variants`: optional authored query rewrites as a list or object for `search benchmark-query-variants`
 
 ## Label Rules
 
@@ -74,6 +75,24 @@ observed ranks, movement versus the first profile, top result labels, and
 compact explain metadata. Use `--fusion rrf` to inspect reciprocal-rank fusion.
 Use `--include-text` only for local debugging when message bodies or snippets
 are safe to inspect.
+
+To test whether query formulation is the blocker without changing production
+query parsing, compare deterministic variants:
+
+```bash
+slack-mirror search benchmark-query-variants \
+  --workspace default \
+  --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl \
+  --profiles baseline,local-bge-http,local-bge-http-rerank \
+  --variants original,lowercase,dehyphen,alnum \
+  --fusion weighted \
+  --json
+```
+
+Default output is aggregate-only and non-content. Use `--include-details` to
+inspect stable top-result labels for each query. The `dataset` and
+`dataset:<key>` variants use authored `query_variants` values when present and
+fall back to the original query otherwise.
 
 If validation reports incomplete coverage for a profile model, treat relevance results as rollout-limited rather than model-quality evidence.
 

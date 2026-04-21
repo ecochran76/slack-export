@@ -125,6 +125,84 @@ def _compact_explain(explain: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _query_variant_value(query: str, variant: str, authored_variants: Any = None) -> str:
+    query = str(query or "")
+    name = str(variant or "original").strip().lower()
+    if name == "original":
+        return query
+    if name == "lowercase":
+        return query.lower()
+    if name == "dehyphen":
+        return re.sub(r"\s+", " ", re.sub(r"[-_/]+", " ", query)).strip()
+    if name == "alnum":
+        return re.sub(r"\s+", " ", re.sub(r"[^0-9A-Za-z]+", " ", query)).strip().lower()
+    if name == "dataset":
+        if isinstance(authored_variants, list):
+            for value in authored_variants:
+                if str(value or "").strip():
+                    return str(value)
+        if isinstance(authored_variants, dict):
+            for key in ("default", "primary", "expanded", "normalized"):
+                value = authored_variants.get(key)
+                if str(value or "").strip():
+                    return str(value)
+            for value in authored_variants.values():
+                if str(value or "").strip():
+                    return str(value)
+        return query
+    if name.startswith("dataset:"):
+        key = name.split(":", 1)[1]
+        if isinstance(authored_variants, dict):
+            value = authored_variants.get(key)
+            if str(value or "").strip():
+                return str(value)
+        return query
+    raise ValueError(f"unsupported query variant: {variant}")
+
+
+def _variant_dataset_rows(rows: list[dict[str, Any]], variant: str) -> list[dict[str, Any]]:
+    variant_rows: list[dict[str, Any]] = []
+    for row in rows:
+        rewritten = dict(row)
+        rewritten["query"] = _query_variant_value(
+            str(row.get("query") or ""),
+            variant,
+            row.get("query_variants"),
+        )
+        variant_rows.append(rewritten)
+    return variant_rows
+
+
+def _variant_definition(variant: str) -> dict[str, Any]:
+    name = str(variant or "original").strip()
+    descriptions = {
+        "original": "benchmark query exactly as authored",
+        "lowercase": "lowercase benchmark query",
+        "dehyphen": "replace hyphen, underscore, and slash separators with spaces",
+        "alnum": "lowercase query with non-alphanumeric runs replaced by spaces",
+        "dataset": "use the row's first authored query_variants value when present, otherwise original",
+    }
+    if name.startswith("dataset:"):
+        description = f"use query_variants[{name.split(':', 1)[1]!r}] when present, otherwise original"
+    else:
+        description = descriptions.get(name, "custom query variant")
+    return {"name": name, "description": description}
+
+
+def _best_query_variant_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not runs:
+        return None
+    return max(
+        runs,
+        key=lambda run: (
+            float(run.get("metrics", {}).get("hit_at_10") or 0.0),
+            float(run.get("metrics", {}).get("ndcg_at_k") or 0.0),
+            float(run.get("metrics", {}).get("mrr_at_k") or 0.0),
+            -float(run.get("metrics", {}).get("latency_ms_p95") or 0.0),
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class LiveValidationResult:
     ok: bool
@@ -1882,6 +1960,99 @@ class SlackMirrorAppService:
             "unresolved_labels": unresolved_labels,
             "ambiguous_labels": ambiguous_labels,
             "query_reports": query_reports,
+        }
+
+    def benchmark_query_variants(
+        self,
+        conn,
+        *,
+        workspace: str,
+        dataset_path: str,
+        profile_names: list[str] | None = None,
+        variant_names: list[str] | None = None,
+        mode: str | None = None,
+        limit: int = 10,
+        fusion_method: str = "weighted",
+        model_id: str | None = None,
+        include_details: bool = False,
+    ) -> dict[str, Any]:
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        workspace_id = self.workspace_id(conn, workspace)
+        rows = dataset_rows(dataset_path)
+        profiles = [self.retrieval_profile(name) for name in (profile_names or ["baseline"])]
+        variants = [value.strip() for value in (variant_names or ["original", "lowercase", "dehyphen", "alnum"]) if value.strip()]
+        if not variants:
+            raise ValueError("at least one query variant is required")
+
+        runs: list[dict[str, Any]] = []
+        for profile in profiles:
+            profile_config = self.config_for_retrieval_profile(profile)
+            embedding_provider = build_embedding_provider(profile_config)
+            reranker_provider = build_reranker_provider(profile_config) if profile.rerank else None
+            for variant in variants:
+                benchmark = evaluate_corpus_search(
+                    conn,
+                    workspace_id=workspace_id,
+                    dataset=_variant_dataset_rows(rows, variant),
+                    mode=mode or profile.mode,
+                    limit=limit,
+                    model_id=model_id or profile.model,
+                    fusion_method=fusion_method,
+                    lexical_weight=profile.lexical_weight,
+                    semantic_weight=profile.semantic_weight,
+                    semantic_scale=profile.semantic_scale,
+                    embedding_provider=embedding_provider,
+                    rerank=bool(profile.rerank),
+                    rerank_top_n=int(profile.rerank_top_n),
+                    reranker_provider=reranker_provider,
+                )
+                query_reports = list(benchmark.pop("query_reports", []) or [])
+                metrics = {
+                    "queries": benchmark.get("queries", 0),
+                    "hit_at_3": benchmark.get("hit_at_3"),
+                    "hit_at_10": benchmark.get("hit_at_10"),
+                    "ndcg_at_k": benchmark.get("ndcg_at_k"),
+                    "mrr_at_k": benchmark.get("mrr_at_k"),
+                    "latency_ms_p50": benchmark.get("latency_ms_p50"),
+                    "latency_ms_p95": benchmark.get("latency_ms_p95"),
+                }
+                run: dict[str, Any] = {
+                    "profile": profile.name,
+                    "variant": variant,
+                    "variant_definition": _variant_definition(variant),
+                    "mode": benchmark.get("mode") or mode or profile.mode,
+                    "model": model_id or profile.model,
+                    "fusion_method": benchmark.get("fusion_method") or fusion_method,
+                    "weights": benchmark.get("weights"),
+                    "rerank": bool(profile.rerank),
+                    "rerank_provider": None if not profile.rerank else dict(profile.rerank_provider or {}),
+                    "metrics": metrics,
+                }
+                if include_details:
+                    run["query_reports"] = query_reports
+                runs.append(run)
+
+        best = _best_query_variant_run(runs)
+        return {
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "dataset_path": dataset_path,
+            "queries": len(rows),
+            "limit": int(limit),
+            "fusion_method": fusion_method,
+            "profiles": [profile.to_dict() for profile in profiles],
+            "variants": [_variant_definition(variant) for variant in variants],
+            "include_details": bool(include_details),
+            "status": "pass",
+            "runs": runs,
+            "best_run": None
+            if best is None
+            else {
+                "profile": best.get("profile"),
+                "variant": best.get("variant"),
+                "metrics": best.get("metrics"),
+            },
         }
 
     def backfill_benchmark_dataset_embeddings(

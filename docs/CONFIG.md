@@ -300,6 +300,7 @@ slack-mirror mirror benchmark-embeddings-backfill --workspace default --dataset 
 slack-mirror search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
 slack-mirror search profile-benchmark --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --fusion rrf --json
 slack-mirror search benchmark-diagnose --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --json
+slack-mirror search benchmark-query-variants --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http --variants original,lowercase,dehyphen,alnum --json
 slack-mirror search provider-probe --retrieval-profile local-bge --json
 slack-mirror search provider-probe --retrieval-profile local-bge-http --smoke --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
@@ -316,6 +317,8 @@ slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-b
 `search profile-benchmark` is read-only and compares multiple retrieval profiles against the same JSONL benchmark dataset. Its default output is aggregate-only; use `--include-details` only when per-query rows are safe to inspect locally. For corpus benchmarks, `--fusion weighted` is the release-default path and `--fusion rrf` evaluates reciprocal-rank fusion without changing tenant defaults.
 
 `search benchmark-diagnose` is read-only and compares per-query target ranks across retrieval profiles. Default output is non-content: stable labels, ranks, profile movement, source counts, and compact explain metadata. Use `--fusion rrf` to diagnose reciprocal-rank fusion, and use `--include-text` only for local debugging when message bodies or snippets are safe to inspect.
+
+`search benchmark-query-variants` is read-only and compares deterministic query formulations across retrieval profiles. Builtin variants are `original`, `lowercase`, `dehyphen`, and `alnum`; `dataset` and `dataset:<key>` consume authored row-level `query_variants` values when present. Default output is aggregate-only and non-content; use `--include-details` to inspect per-query stable result labels locally.
 
 The same readiness payload is exposed to API and MCP clients:
 

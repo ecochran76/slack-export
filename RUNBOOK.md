@@ -3797,3 +3797,51 @@ This file is the dated turn log for planning and execution continuity.
   backend and maps shared query/action-target contracts at the service edge.
 - Validation was not run; this was a planning/docs-only refinement and
   validation was not requested.
+
+## Turn 225 | 2026-04-21
+
+- Opened the next bounded `P10` query formulation diagnostic slice:
+  - `0086-2026-04-21-benchmark-query-variants.md`
+- Direction:
+  - add a read-only `search benchmark-query-variants` command over the existing JSONL benchmark format
+  - compare deterministic query variants such as original, lowercase, dehyphenated, and alphanumeric-normalized forms
+  - preserve support for authored per-row dataset variants through `query_variants`
+  - keep output aggregate-safe and non-content by default
+  - preserve production ranking, tokenization, query parsing, and default search behavior until evidence justifies a later change
+- Implemented and closed `0086`:
+  - added `search benchmark-query-variants`
+  - added service-level query-variant evaluation over named retrieval profiles, profile weights, profile providers, rerank settings, and opt-in fusion method
+  - added deterministic variants `original`, `lowercase`, `dehyphen`, and `alnum`
+  - added support for authored fixture variants through `dataset` and `dataset:<key>`
+  - updated README, config docs, benchmark docs, generated CLI docs, and generated man docs
+- Installed-wrapper evidence on `default` with `docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl`:
+  - `baseline/original`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `545.945 ms`
+  - `baseline/lowercase`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `362.77 ms`
+  - `baseline/dehyphen`: hit@10 `0.222222`, nDCG@k `0.031047`, MRR@k `0.038889`, p95 `420.901 ms`
+  - `baseline/alnum`: hit@10 `0.333333`, nDCG@k `0.070625`, MRR@k `0.057407`, p95 `361.716 ms`
+  - `local-bge-http/original`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `299.175 ms`
+  - `local-bge-http/lowercase`: hit@10 `0.333333`, nDCG@k `0.0789`, MRR@k `0.066667`, p95 `256.375 ms`
+  - `local-bge-http/dehyphen`: hit@10 `0.222222`, nDCG@k `0.031047`, MRR@k `0.038889`, p95 `332.917 ms`
+  - `local-bge-http/alnum`: hit@10 `0.333333`, nDCG@k `0.070625`, MRR@k `0.057407`, p95 `246.995 ms`
+  - `local-bge-http-rerank/original`: hit@10 `0.222222`, nDCG@k `0.052758`, MRR@k `0.046296`, p95 `2132.628 ms`
+  - `local-bge-http-rerank/lowercase`: hit@10 `0.222222`, nDCG@k `0.052758`, MRR@k `0.046296`, p95 `2018.772 ms`
+  - `local-bge-http-rerank/dehyphen`: hit@10 `0.111111`, nDCG@k `0.013179`, MRR@k `0.027778`, p95 `2024.495 ms`
+  - `local-bge-http-rerank/alnum`: hit@10 `0.222222`, nDCG@k `0.052758`, MRR@k `0.046296`, p95 `2043.814 ms`
+- Interpretation:
+  - lowercase is neutral on relevance
+  - broad punctuation normalization is not safe to promote from this fixture
+  - dehyphenation hurts this fixture
+  - the next relevance slice should focus on candidate generation or explicit query grammar/operator semantics, not automatic query rewriting
+- Validation so far:
+  - `uv run python -m unittest tests.test_cli tests.test_app_service tests.test_search -v`
+  - `uv run python -m slack_mirror.cli.main docs generate --format markdown --output docs/CLI.md`
+  - `uv run python -m slack_mirror.cli.main docs generate --format man --output docs/slack-mirror.1`
+  - `uv run python scripts/check_generated_docs.py`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml search benchmark-query-variants --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --variants original,lowercase,dehyphen,alnum --fusion weighted --mode hybrid --limit 10 --json`
+  - `uv run slack-mirror user-env update --extra local-semantic`
+  - `slack-mirror-user search benchmark-query-variants --workspace default --dataset docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http,local-bge-http-rerank --variants original,lowercase,dehyphen,alnum --fusion weighted --mode hybrid --limit 10 --json`
+  - repo and installed query-variant JSON checks found no `"text"` or `"snippet_text"` keys
+  - `git diff --check`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `uv run slack-mirror release check --require-managed-runtime --json`
+    - result: pass with expected `DEV_VERSION` warning

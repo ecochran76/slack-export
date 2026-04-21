@@ -758,6 +758,38 @@ class AppServiceTests(unittest.TestCase):
         self.assertNotIn("text", target["matched_result"])
         self.assertNotIn("snippet_text", target["matched_result"])
 
+    def test_benchmark_query_variants_compares_normalized_forms_without_content(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C1", "name": "general"})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+        upsert_message(self.conn, workspace_id, "C1", {"ts": "1.0", "text": "Nylon 5 9 target", "user": "U1"})
+        dataset = self.root / "bench-variants.jsonl"
+        dataset.write_text(
+            '{"id":"q1","query":"Nylon-5,9","intent":"punctuation_normalization","relevant":{"general:1.0":2}}\n',
+            encoding="utf-8",
+        )
+
+        result = self.service.benchmark_query_variants(
+            self.conn,
+            workspace="default",
+            dataset_path=str(dataset),
+            profile_names=["baseline"],
+            variant_names=["original", "alnum"],
+            mode="lexical",
+            limit=5,
+            include_details=True,
+        )
+
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue(result["include_details"])
+        runs = {run["variant"]: run for run in result["runs"]}
+        self.assertEqual(runs["original"]["metrics"]["hit_at_10"], 0.0)
+        self.assertEqual(runs["alnum"]["metrics"]["hit_at_10"], 1.0)
+        self.assertEqual(result["best_run"]["variant"], "alnum")
+        self.assertIn("general:1.0", runs["alnum"]["query_reports"][0]["top_results"])
+        self.assertNotIn("text", str(result))
+        self.assertNotIn("snippet_text", str(result))
+
     def test_search_health_rejects_hybrid_for_derived_text_target(self):
         with self.assertRaisesRegex(ValueError, "derived_text benchmark target only supports lexical or semantic mode"):
             self.service.search_health(

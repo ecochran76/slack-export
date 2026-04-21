@@ -658,13 +658,15 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 **Usage**
 
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,benchmark-query-variants,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 
 **Arguments**
 **Subcommands**
 .IP \[bu] 2
 `benchmark-diagnose`
+.IP \[bu] 2
+`benchmark-query-variants`
 .IP \[bu] 2
 `benchmark-validate`
 .IP \[bu] 2
@@ -720,6 +722,41 @@ usage: slack-mirror search benchmark-diagnose [-h] --workspace WORKSPACE
 `--fusion` — hybrid fusion method for corpus diagnostic results; default: `weighted`
 .IP \[bu] 2
 `--include-text` — include message text/snippets for local debugging; default output is non-content
+.IP \[bu] 2
+`--json` — json output
+.SH SLACK-MIRROR SEARCH BENCHMARK-QUERY-VARIANTS
+**Usage**
+
+usage: slack-mirror search benchmark-query-variants [-h] --workspace WORKSPACE
+                                                    --dataset DATASET
+                                                    [--profiles PROFILES]
+                                                    [--variants VARIANTS]
+                                                    [--mode {lexical,semantic,hybrid}]
+                                                    [--limit LIMIT]
+                                                    [--model MODEL]
+                                                    [--fusion {weighted,rrf}]
+                                                    [--include-details]
+                                                    [--json]
+
+**Options**
+.IP \[bu] 2
+`--workspace` — workspace name
+.IP \[bu] 2
+`--dataset` — JSONL benchmark dataset path
+.IP \[bu] 2
+`--profiles` — comma-separated retrieval profile names to benchmark (default: baseline); default: `baseline`
+.IP \[bu] 2
+`--variants` — comma-separated query variants: original, lowercase, dehyphen, alnum, dataset, or dataset:<key>; default: `original,lowercase,dehyphen,alnum`
+.IP \[bu] 2
+`--mode` — benchmark retrieval mode override
+.IP \[bu] 2
+`--limit` — benchmark result window; default: `10`
+.IP \[bu] 2
+`--model` — embedding model id override for all profiles
+.IP \[bu] 2
+`--fusion` — hybrid fusion method for corpus benchmark results; default: `weighted`
+.IP \[bu] 2
+`--include-details` — include per-query result labels; default output is aggregate-only and non-content
 .IP \[bu] 2
 `--json` — json output
 .SH SLACK-MIRROR SEARCH BENCHMARK-VALIDATE

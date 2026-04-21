@@ -1644,6 +1644,51 @@ def cmd_search_benchmark_diagnose(args: argparse.Namespace) -> int:
     return 0 if payload["status"] != "fail" else 1
 
 
+def cmd_search_benchmark_query_variants(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    profile_names = [value.strip() for value in str(args.profiles or "").split(",") if value.strip()]
+    variant_names = [value.strip() for value in str(args.variants or "").split(",") if value.strip()]
+    payload = service.benchmark_query_variants(
+        conn,
+        workspace=args.workspace,
+        dataset_path=args.dataset,
+        profile_names=profile_names or None,
+        variant_names=variant_names or None,
+        mode=args.mode,
+        limit=int(args.limit),
+        fusion_method=str(args.fusion),
+        model_id=args.model,
+        include_details=bool(args.include_details),
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"Search benchmark query variants workspace={payload['workspace']} dataset={payload['dataset_path']} "
+            f"status={payload['status']} queries={payload['queries']} limit={payload['limit']} "
+            f"fusion={payload['fusion_method']}"
+        )
+        for run in payload["runs"]:
+            metrics = run["metrics"]
+            print(
+                f"{run['profile']} variant={run['variant']} mode={run['mode']} model={run['model']} "
+                f"hit@3={metrics['hit_at_3']} hit@10={metrics['hit_at_10']} "
+                f"ndcg@k={metrics['ndcg_at_k']} mrr@k={metrics['mrr_at_k']} "
+                f"p95_ms={metrics['latency_ms_p95']}"
+            )
+        best = payload.get("best_run")
+        if best:
+            metrics = best["metrics"]
+            print(
+                f"Best: profile={best['profile']} variant={best['variant']} "
+                f"hit@10={metrics['hit_at_10']} ndcg@k={metrics['ndcg_at_k']} mrr@k={metrics['mrr_at_k']}"
+            )
+    return 0 if payload["status"] != "fail" else 1
+
+
 def cmd_search_profiles(args: argparse.Namespace) -> int:
     from slack_mirror.service.app import get_app_service
 
@@ -2415,7 +2460,7 @@ except Exception:
       ;;
     search)
       if [[ ${#COMP_WORDS[@]} -le 3 ]]; then
-        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
+        COMPREPLY=( $(compgen -W "keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose benchmark-query-variants profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword" -- "$cur") )
       else
         case "$prev" in
           --workspace)
@@ -2607,7 +2652,7 @@ _slack_mirror() {
       ;;
     search)
       if (( CURRENT == 3 )); then
-        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
+        _describe 'search command' '(keyword semantic derived-text corpus health profile-benchmark benchmark-validate benchmark-diagnose benchmark-query-variants profiles semantic-readiness scale-review provider-probe reranker-probe inference-serve inference-probe query-dir reindex-keyword)'
         return
       fi
       _arguments \
@@ -3565,6 +3610,39 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search_benchmark_diagnose.add_argument("--json", action="store_true", help="json output")
     p_search_benchmark_diagnose.set_defaults(func=cmd_search_benchmark_diagnose)
+
+    p_search_benchmark_query_variants = search_sub.add_parser(
+        "benchmark-query-variants",
+        help="compare deterministic query variants against a corpus benchmark dataset",
+    )
+    p_search_benchmark_query_variants.add_argument("--workspace", required=True, help="workspace name")
+    p_search_benchmark_query_variants.add_argument("--dataset", required=True, help="JSONL benchmark dataset path")
+    p_search_benchmark_query_variants.add_argument(
+        "--profiles",
+        default="baseline",
+        help="comma-separated retrieval profile names to benchmark (default: baseline)",
+    )
+    p_search_benchmark_query_variants.add_argument(
+        "--variants",
+        default="original,lowercase,dehyphen,alnum",
+        help="comma-separated query variants: original, lowercase, dehyphen, alnum, dataset, or dataset:<key>",
+    )
+    p_search_benchmark_query_variants.add_argument("--mode", choices=["lexical", "semantic", "hybrid"], default=None, help="benchmark retrieval mode override")
+    p_search_benchmark_query_variants.add_argument("--limit", type=int, default=10, help="benchmark result window")
+    p_search_benchmark_query_variants.add_argument("--model", default=None, help="embedding model id override for all profiles")
+    p_search_benchmark_query_variants.add_argument(
+        "--fusion",
+        choices=["weighted", "rrf"],
+        default="weighted",
+        help="hybrid fusion method for corpus benchmark results",
+    )
+    p_search_benchmark_query_variants.add_argument(
+        "--include-details",
+        action="store_true",
+        help="include per-query result labels; default output is aggregate-only and non-content",
+    )
+    p_search_benchmark_query_variants.add_argument("--json", action="store_true", help="json output")
+    p_search_benchmark_query_variants.set_defaults(func=cmd_search_benchmark_query_variants)
 
     p_search_profiles = search_sub.add_parser("profiles", help="list semantic retrieval profiles")
     p_search_profiles.add_argument("--json", action="store_true", help="json output")

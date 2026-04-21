@@ -679,7 +679,7 @@ usage: slack-mirror release check [-h] [--json] [--require-clean]
 
 ```
 usage: slack-mirror search [-h]
-                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
+                           {reindex-keyword,keyword,semantic,derived-text,corpus,health,profile-benchmark,benchmark-validate,benchmark-diagnose,benchmark-query-variants,profiles,semantic-readiness,scale-review,provider-probe,reranker-probe,inference-serve,inference-probe,query-dir}
                            ...
 ```
 
@@ -689,6 +689,7 @@ usage: slack-mirror search [-h]
 **Subcommands**
 
 - `benchmark-diagnose`
+- `benchmark-query-variants`
 - `benchmark-validate`
 - `corpus`
 - `derived-text`
@@ -726,6 +727,36 @@ usage: slack-mirror search benchmark-diagnose [-h] --workspace WORKSPACE
 - `--limit` — diagnostic result window; default: `10`
 - `--fusion` — hybrid fusion method for corpus diagnostic results; default: `weighted`
 - `--include-text` — include message text/snippets for local debugging; default output is non-content
+- `--json` — json output
+
+
+### `slack-mirror search benchmark-query-variants`
+**Usage**
+
+```
+usage: slack-mirror search benchmark-query-variants [-h] --workspace WORKSPACE
+                                                    --dataset DATASET
+                                                    [--profiles PROFILES]
+                                                    [--variants VARIANTS]
+                                                    [--mode {lexical,semantic,hybrid}]
+                                                    [--limit LIMIT]
+                                                    [--model MODEL]
+                                                    [--fusion {weighted,rrf}]
+                                                    [--include-details]
+                                                    [--json]
+```
+
+**Options**
+
+- `--workspace` — workspace name
+- `--dataset` — JSONL benchmark dataset path
+- `--profiles` — comma-separated retrieval profile names to benchmark (default: baseline); default: `baseline`
+- `--variants` — comma-separated query variants: original, lowercase, dehyphen, alnum, dataset, or dataset:<key>; default: `original,lowercase,dehyphen,alnum`
+- `--mode` — benchmark retrieval mode override
+- `--limit` — benchmark result window; default: `10`
+- `--model` — embedding model id override for all profiles
+- `--fusion` — hybrid fusion method for corpus benchmark results; default: `weighted`
+- `--include-details` — include per-query result labels; default output is aggregate-only and non-content
 - `--json` — json output
 
 

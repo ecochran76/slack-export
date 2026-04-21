@@ -297,6 +297,7 @@ Actionable plans:
 - `docs/dev/plans/0082-2026-04-21-benchmark-target-bge-backfill.md`
 - `docs/dev/plans/0084-2026-04-21-profile-aware-benchmark-diagnostics.md`
 - `docs/dev/plans/0085-2026-04-21-benchmark-fusion-experiment.md`
+- `docs/dev/plans/0086-2026-04-21-benchmark-query-variants.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 
 Current state:
@@ -429,6 +430,10 @@ Current state:
   - corpus profile benchmarks now honor retrieval-profile weights as well as model/provider/rerank settings
   - installed evidence showed RRF does not help this fixture: `local-bge-http` drops from hit@10 `0.333333` under weighted fusion to `0.0` under RRF
   - `weighted` remains the release default and the next active semantic-search step should focus on query formulation or candidate-generation experiments
+- the benchmark-query-variants slice is now complete under `0086`:
+  - `search benchmark-query-variants` compares deterministic query rewrites and future authored dataset variants against benchmark fixtures
+  - installed evidence showed lowercase ties original, `alnum` slightly lowers rank quality, and `dehyphen` is worse on the current non-content fixture
+  - no query-normalization promotion is justified; the next relevance step should target candidate generation or query grammar/operator semantics
 - `0083` adds a cross-corpus convergence planning layer on top of the shipped
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align
