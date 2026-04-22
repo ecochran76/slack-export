@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { MetricStrip } from "../../components/MetricStrip";
+import { StatusBadge, StatusPanel } from "../../components/StatusWidget";
 import { fetchJson } from "../../lib/api";
-import type { TenantDbStats, TenantSemanticProfile, TenantStatus, TenantStatusBlock, TenantsResponse } from "./tenantTypes";
+import type {
+  TenantDbStats,
+  TenantSemanticProfile,
+  TenantStatus,
+  TenantStatusBlock,
+  TenantsResponse
+} from "./tenantTypes";
 import { toneFromApi } from "./tenantTypes";
 
 type LoadState =
@@ -33,10 +40,6 @@ function tenantRuntimeTone(tenant: TenantStatus): "success" | "warning" | "dange
   if (tenant.validation_status === "healthy") return "success";
   if (tenant.validation_status === "error") return "danger";
   return "warning";
-}
-
-function statusBadgeClass(tone: "success" | "warning" | "danger" | "neutral" | "info") {
-  return `status-badge status-badge--${tone}`;
 }
 
 function statusLabel(value: string | undefined): string {
@@ -82,15 +85,18 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
           <p>{tenant.domain || "No Slack domain recorded"}</p>
         </div>
         <div className="tenant-row__badges">
-          <span className={statusBadgeClass(tenantRuntimeTone(tenant))}>
-            {tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
-          </span>
-          <span className={statusBadgeClass(tenant.credential_ready ? "success" : "warning")}>
-            {tenant.credential_ready ? "credentials ready" : "credentials needed"}
-          </span>
-          <span className={statusBadgeClass(tenant.db_synced ? "success" : "warning")}>
-            {tenant.db_synced ? "db synced" : "sync config"}
-          </span>
+          <StatusBadge
+            label={tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
+            tone={tenantRuntimeTone(tenant)}
+          />
+          <StatusBadge
+            label={tenant.credential_ready ? "credentials ready" : "credentials needed"}
+            tone={tenant.credential_ready ? "success" : "warning"}
+          />
+          <StatusBadge
+            label={tenant.db_synced ? "db synced" : "sync config"}
+            tone={tenant.db_synced ? "success" : "warning"}
+          />
         </div>
       </div>
 
@@ -106,21 +112,21 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
       <div className="tenant-row__grid">
         <StatusPanel
           detail={backfill.detail}
-          label={backfill.label}
+          label={statusLabel(backfill.label)}
           summary={backfill.summary}
           title="Backfill"
           tone={toneFromApi(backfill.tone)}
         />
         <StatusPanel
           detail={syncHealth.detail}
-          label={syncHealth.label}
+          label={statusLabel(syncHealth.label)}
           summary={syncHealth.summary}
           title="Live Sync"
           tone={toneFromApi(syncHealth.tone)}
         />
         <StatusPanel
           detail={health.detail}
-          label={tenant.next_action}
+          label={statusLabel(tenant.next_action)}
           summary={health.summary}
           title="Health"
           tone={toneFromApi(health.tone)}
@@ -155,12 +161,14 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
             <div className="chip-row">
               {semanticProfiles.length ? (
                 semanticProfiles.map((profile) => (
-                  <span className={statusBadgeClass(toneFromApi(profile.tone))} key={profile.name ?? profile.state}>
-                    {profile.name ?? "profile"}: {statusLabel(profile.state)}
-                  </span>
+                  <StatusBadge
+                    key={profile.name ?? profile.state}
+                    label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
+                    tone={toneFromApi(profile.tone)}
+                  />
                 ))
               ) : (
-                <span className={statusBadgeClass("neutral")}>no profiles</span>
+                <StatusBadge label="no profiles" tone="neutral" />
               )}
             </div>
           </div>
@@ -208,15 +216,18 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
                 </th>
                 <td>
                   <div className="tenant-table__chips">
-                    <span className={statusBadgeClass(tenantRuntimeTone(tenant))}>
-                      {tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
-                    </span>
-                    <span className={statusBadgeClass(tenant.credential_ready ? "success" : "warning")}>
-                      {tenant.credential_ready ? "credentials" : "credentials needed"}
-                    </span>
-                    <span className={statusBadgeClass(tenant.db_synced ? "success" : "warning")}>
-                      {tenant.db_synced ? "db synced" : "sync config"}
-                    </span>
+                    <StatusBadge
+                      label={tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
+                      tone={tenantRuntimeTone(tenant)}
+                    />
+                    <StatusBadge
+                      label={tenant.credential_ready ? "credentials" : "credentials needed"}
+                      tone={tenant.credential_ready ? "success" : "warning"}
+                    />
+                    <StatusBadge
+                      label={tenant.db_synced ? "db synced" : "sync config"}
+                      tone={tenant.db_synced ? "success" : "warning"}
+                    />
                   </div>
                 </td>
                 <td>
@@ -226,15 +237,15 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
                   </small>
                 </td>
                 <td>
-                  <span className={statusBadgeClass(toneFromApi(backfill.tone))}>{statusLabel(backfill.label)}</span>
+                  <StatusBadge label={statusLabel(backfill.label)} tone={toneFromApi(backfill.tone)} />
                   <small>{backfill.summary ?? "No backfill summary."}</small>
                 </td>
                 <td>
-                  <span className={statusBadgeClass(toneFromApi(syncHealth.tone))}>{statusLabel(syncHealth.label)}</span>
+                  <StatusBadge label={statusLabel(syncHealth.label)} tone={toneFromApi(syncHealth.tone)} />
                   <small>{syncHealth.summary ?? "No live-sync summary."}</small>
                 </td>
                 <td>
-                  <span className={statusBadgeClass(toneFromApi(health.tone))}>{statusLabel(tenant.next_action)}</span>
+                  <StatusBadge label={statusLabel(tenant.next_action)} tone={toneFromApi(health.tone)} />
                   <small>{health.summary ?? "No health summary."}</small>
                 </td>
                 <td>
@@ -255,15 +266,14 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
                       <div className="tenant-table__chips">
                         {semanticProfiles.length ? (
                           semanticProfiles.map((profile) => (
-                            <span
-                              className={statusBadgeClass(toneFromApi(profile.tone))}
+                            <StatusBadge
                               key={profile.name ?? profile.state}
-                            >
-                              {profile.name ?? "profile"}: {statusLabel(profile.state)}
-                            </span>
+                              label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
+                              tone={toneFromApi(profile.tone)}
+                            />
                           ))
                         ) : (
-                          <span className={statusBadgeClass("neutral")}>no profiles</span>
+                          <StatusBadge label="no profiles" tone="neutral" />
                         )}
                       </div>
                     </div>
@@ -275,31 +285,6 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function StatusPanel({
-  detail,
-  label,
-  summary,
-  title,
-  tone
-}: {
-  detail?: string;
-  label?: string;
-  summary?: string;
-  title: string;
-  tone: "neutral" | "success" | "warning" | "danger" | "info";
-}) {
-  return (
-    <section className="status-panel">
-      <div className="status-panel__head">
-        <strong>{title}</strong>
-        <span className={statusBadgeClass(tone)}>{statusLabel(label)}</span>
-      </div>
-      <p>{summary ?? "No status summary available."}</p>
-      {detail ? <small>{detail}</small> : null}
-    </section>
   );
 }
 

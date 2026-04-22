@@ -1,4 +1,6 @@
-export type StatusTone = "neutral" | "success" | "warning" | "danger" | "info";
+import type { StatusTone } from "../../contracts/status";
+
+export type { StatusTone };
 
 export interface TenantStatusBlock {
   label?: string;

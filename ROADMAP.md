@@ -214,6 +214,7 @@ Actionable plans:
 - `docs/dev/plans/0100-2026-04-21-react-tenant-workbench-browser-qa.md`
 - `docs/dev/plans/0101-2026-04-21-react-tenant-detail-expansion.md`
 - `docs/dev/plans/0102-2026-04-21-react-tenant-density-view-toggle.md`
+- `docs/dev/plans/0103-2026-04-21-neutral-status-widget-primitive.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -299,6 +300,10 @@ Cross-repo convergence refinement:
   `0102`, preserving the card view while adding a compact table view for
   scanning tenant readiness, DB stats, live/backfill/health state, semantic
   readiness, and expandable diagnostics
+- the first neutral status-widget primitive is complete under `0103`, giving
+  the React workbench reusable `StatusBadge` and `StatusPanel` components while
+  keeping Slack-specific tone and label mapping inside the local tenant adapter
+  for later `../imcli` and `../ragmail` convergence
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

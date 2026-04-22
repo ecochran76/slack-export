@@ -57,6 +57,30 @@ Slack Mirror remains the owner of:
 - Slack native identifiers and fallback labels
 - conversion from current API payloads into the neutral frontend contracts
 
+## Status Widget Model
+
+The first reusable status primitive lives in:
+
+```text
+frontend/src/contracts/status.ts
+frontend/src/components/StatusWidget.tsx
+```
+
+The status model is intentionally small:
+
+- tone: `neutral`, `success`, `warning`, `danger`, or `info`
+- label: operator-facing short text
+- summary/detail: optional explanatory copy for panel use
+
+Shared frontend code may render badges and panels from that neutral shape.
+Repo-local adapters must own provider-specific status translation, such as
+mapping Slack Mirror API `ok` / `warn` / `bad` tones into neutral tones or
+formatting Slack-specific next-action labels.
+
+This boundary should also fit `../imcli` and `../ragmail`: those repos can map
+SMS/WhatsApp account state or mailbox/source state into the same tone, label,
+summary, and detail shape without adopting Slack terminology.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

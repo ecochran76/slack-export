@@ -20,4 +20,4 @@ export type {
   TextPresence,
   ThreadRef,
 } from "./selectedResults";
-
+export type { StatusTone } from "./status";

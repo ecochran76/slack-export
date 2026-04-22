@@ -4411,3 +4411,29 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed page-level horizontal overflow remains false on desktop and mobile
     - captured `/tmp/slack-operator-qa/tenant-density-table-desktop-final.png`
     - captured `/tmp/slack-operator-qa/tenant-density-table-mobile-final.png`
+
+## Turn 242 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` reusable-frontend slice:
+  - `0103-2026-04-21-neutral-status-widget-primitive.md`
+- Direction:
+  - introduce the first reusable status-widget primitive without extracting a shared package prematurely
+  - keep Slack-specific `/v1/tenants` tone and label mapping inside the local tenant adapter
+  - preserve a convergence path where `../imcli` and `../ragmail` can map source/account/mailbox state into the same neutral status shape later
+- Implemented:
+  - added `frontend/src/contracts/status.ts` with neutral status tones
+  - added `frontend/src/components/StatusWidget.tsx` with `StatusBadge` and `StatusPanel`
+  - updated tenant cards and compact table rows to consume the reusable status components
+  - documented the status-widget model and adapter boundary in `docs/dev/FRONTEND_CONTRACTS.md`
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `agent-browser` desktop QA against `http://slack.localhost:8765/operator`:
+    - verified default card mode renders tenants `default`, `soylei`, and `pcg`
+    - verified card mode contains reusable status badges and status panels
+    - switched to table mode and confirmed 3 compact tenant rows with reusable status badges
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/neutral-status-widget-table.png`
