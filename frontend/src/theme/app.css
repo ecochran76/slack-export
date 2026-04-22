@@ -174,10 +174,34 @@ h2 {
 }
 
 .action-group {
-  align-items: stretch;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  gap: var(--op-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.action-group__section {
+  display: grid;
   gap: var(--op-space-2);
+}
+
+.action-group__section--guarded {
+  border-top: 1px dashed rgb(184 50 42 / 28%);
+  padding-top: var(--op-space-3);
+}
+
+.action-group__section-label {
+  color: var(--op-color-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.action-group__items {
+  display: grid;
+  gap: var(--op-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
 
 .action-group__button {
@@ -187,6 +211,8 @@ h2 {
   color: var(--op-color-ink);
   display: grid;
   gap: var(--op-space-1);
+  justify-content: start;
+  min-height: 3.8rem;
   opacity: 0.82;
   padding: var(--op-space-3) var(--op-space-4);
   text-align: left;
@@ -613,35 +639,35 @@ h2 {
 .entity-table {
   border-collapse: collapse;
   font-size: 0.92rem;
-  min-width: 52rem;
+  min-width: 54rem;
   table-layout: fixed;
   width: 100%;
 }
 
 .entity-table th:nth-child(1) {
-  width: 13%;
+  width: 12%;
 }
 
 .entity-table th:nth-child(2) {
-  width: 17%;
+  width: 16%;
 }
 
 .entity-table th:nth-child(3) {
-  width: 10%;
+  width: 11%;
 }
 
 .entity-table th:nth-child(4),
 .entity-table th:nth-child(5),
 .entity-table th:nth-child(6) {
-  width: 13%;
+  width: 12%;
 }
 
 .entity-table th:nth-child(7) {
-  width: 13%;
+  width: 12%;
 }
 
 .entity-table th:nth-child(8) {
-  width: 8%;
+  width: 13%;
 }
 
 .entity-table th,
@@ -692,8 +718,22 @@ h2 {
   gap: var(--op-space-2);
 }
 
-.entity-table .action-group__button {
+.entity-table .action-group__button,
+.detail-panel--compact .action-group__button {
   width: 100%;
+}
+
+.detail-panel--compact .action-group {
+  grid-template-columns: 1fr;
+  min-width: 14rem;
+}
+
+.detail-panel--compact .action-group__items {
+  grid-template-columns: 1fr;
+}
+
+.detail-panel--compact .action-group__button {
+  min-height: 0;
 }
 
 .detail-panel--card p,

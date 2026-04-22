@@ -231,6 +231,7 @@ Actionable plans:
 - `docs/dev/plans/0117-2026-04-22-react-tenant-retire-mutation.md`
 - `docs/dev/plans/0118-2026-04-22-react-maintenance-backfill-mutation.md`
 - `docs/dev/plans/0119-2026-04-22-react-tenant-action-browser-qa.md`
+- `docs/dev/plans/0120-2026-04-22-react-action-ergonomics-polish.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -370,6 +371,10 @@ Cross-repo convergence refinement:
   `0119`: current tenants render in card/table views, protected tenants hide
   retirement, non-protected retirement and stop-live actions require typed
   confirmation, and desktop/mobile layouts avoid page-level horizontal overflow
+- tenant action ergonomics polish is complete under `0120`: action affordances
+  are grouped by neutral intent, guarded stop/retire controls are visually
+  separated from maintenance work, and the compact table allocates more room to
+  the details affordance
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

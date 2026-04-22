@@ -223,6 +223,7 @@ function tenantActions({
   const retireAction: ActionButtonItem | undefined = RETIRE_PROTECTED_TENANTS.has(tenant.name)
     ? undefined
     : {
+        category: "guarded",
         disabled: mutationBusy,
         label: mutationBusy ? "Retiring tenant" : "Retire tenant",
         onClick: () => onRequestRetireTenant(tenant),
@@ -238,6 +239,7 @@ function tenantActions({
     backfillLabel !== "syncing" &&
     backfillLabel !== "needs_initial_sync"
       ? {
+          category: "maintenance",
           disabled: mutationBusy,
           label: mutationBusy ? "Backfill running" : "Run bounded backfill",
           onClick: () => onRunMaintenanceBackfill(tenant),
@@ -255,6 +257,7 @@ function tenantActions({
   if (!tenant.credential_ready) {
     return withRetireAction([
       {
+        category: "next",
         disabled: mutationBusy,
         label: mutationBusy ? "Installing credentials" : "Install credentials",
         onClick: () => onRequestCredentials(tenant),
@@ -267,13 +270,16 @@ function tenantActions({
   }
 
   if (!tenant.db_synced) {
-    return withRetireAction([{ disabled: true, label: "Sync tenant config", reason: disabledReason, tone: "warning" }]);
+    return withRetireAction([
+      { category: "next", disabled: true, label: "Sync tenant config", reason: disabledReason, tone: "warning" }
+    ]);
   }
 
   if (!tenant.enabled) {
     if (tenant.next_action === "ready_to_activate") {
       return withRetireAction([
         {
+          category: "next",
           disabled: mutationBusy,
           label: mutationBusy ? "Activating tenant" : "Activate tenant",
           onClick: () => onActivateTenant(tenant),
@@ -285,12 +291,15 @@ function tenantActions({
       ]);
     }
 
-    return withRetireAction([{ disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }]);
+    return withRetireAction([
+      { category: "next", disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }
+    ]);
   }
 
   if (tenant.next_action === "run_initial_sync" || backfill.label === "needs_initial_sync") {
     return withRetireAction([
       {
+        category: "next",
         disabled: mutationBusy,
         label: mutationBusy ? "Initial sync running" : "Run initial sync",
         onClick: () => onRunInitialSync(tenant),
@@ -305,6 +314,7 @@ function tenantActions({
   if (tenant.next_action === "start_live_sync") {
     return withMaintenanceActions([
       {
+        category: "next",
         disabled: mutationBusy,
         label: mutationBusy ? "Starting live sync" : "Start live sync",
         onClick: () => onStartLiveSync(tenant),
@@ -322,13 +332,14 @@ function tenantActions({
     includesStatus(syncHealth.label, "inactive")
   ) {
     return withMaintenanceActions([
-      { disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }
+      { category: "next", disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }
     ]);
   }
 
   if (syncHealth.tone === "warn" && unitsActive) {
     return withMaintenanceActions([
       {
+        category: "next",
         disabled: mutationBusy,
         label: mutationBusy ? "Restarting live sync" : "Restart live sync",
         onClick: () => onRestartLiveSync(tenant),
@@ -342,13 +353,14 @@ function tenantActions({
 
   if (syncHealth.tone === "warn") {
     return withMaintenanceActions([
-      { disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }
+      { category: "next", disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }
     ]);
   }
 
   if (pendingJobs > 0) {
     return withRetireAction([
       {
+        category: "maintenance",
         disabled: true,
         label: "Monitor backfill",
         reason: "Backfill or embedding work is still in progress.",
@@ -359,6 +371,7 @@ function tenantActions({
 
   const actions: ActionButtonItem[] = [
     {
+      category: "next",
       disabled: true,
       label: "No action needed",
       reason: "Tenant appears current from the latest status poll.",
@@ -368,6 +381,7 @@ function tenantActions({
 
   if (unitsActive) {
     actions.push({
+      category: "guarded",
       disabled: mutationBusy,
       label: mutationBusy ? "Stopping live sync" : "Stop live sync",
       onClick: () => onRequestStopLiveSync(tenant),

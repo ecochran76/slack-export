@@ -4856,3 +4856,30 @@ This file is the dated turn log for planning and execution continuity.
   - `/tmp/slack-operator-qa/operator-table-desktop.png`
   - `/tmp/slack-operator-qa/operator-mobile.png`
 - No real tenant mutation was confirmed or executed during this QA slice.
+
+## Turn 260 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with rendered tenant-action ergonomics polish:
+  - `0120-2026-04-22-react-action-ergonomics-polish.md`
+- Direction:
+  - keep the reusable action primitive provider-neutral
+  - separate next-step, maintenance, and guarded actions in the rendered tenant cards
+  - improve compact table scan ergonomics without adding new mutation semantics
+- Implemented:
+  - added neutral action categories to `ActionButtonGroup`
+  - mapped tenant actions into next-step, maintenance, and guarded groups
+  - tightened card action layout into grouped columns
+  - redistributed compact table column widths so the details affordance remains visible at desktop width
+  - documented the action category contract in `docs/dev/FRONTEND_CONTRACTS.md`
+- Rendered QA:
+  - used `agent-browser` against the authenticated API-served `/operator` build
+  - captured `/tmp/slack-operator-qa/action-polish-after-pcg-buttons.png`
+  - captured `/tmp/slack-operator-qa/action-polish-after-table-v2.png`
+  - captured `/tmp/slack-operator-qa/action-polish-after-mobile-actions.png`
+  - verified no page-level horizontal overflow at desktop and 375px mobile widths
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `git diff --check`

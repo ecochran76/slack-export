@@ -169,27 +169,31 @@ The primitive owns only neutral grouped-action rendering:
 
 - action label
 - tone variant
+- neutral action category: next step, maintenance, or guarded
 - disabled state
 - short explanatory reason text
 
 Repo-local workbenches own what actions mean and when they are available. For
-Slack Mirror, the tenant workbench derives a single recommended tenant action
-from credential, config, activation, backfill, live-sync, and queue state. The
-first enabled React mutations are deliberately narrow: `Install credentials`
-posts non-empty Slack credential fields to the existing tenant credentials API
-without echoing secrets; `Activate tenant` posts to the existing tenant
-activate API and then starts the bounded initial-sync backfill; `Run initial
-sync` posts to the existing tenant backfill API; and live-sync
-start/restart/stop post to the existing tenant live API. `Restart live sync` is
-enabled only as a recovery action when live units are active and status is
-degraded. `Stop live sync` is enabled only when live units are active and
-requires typed tenant-name confirmation. `Retire tenant` is exposed only for
-non-protected tenants, requires typed tenant-name confirmation, and preserves
-the explicit optional mirrored-DB deletion choice. `Run bounded backfill` is
-available as a maintenance action for enabled, DB-synced tenants that are not
-already in initial-sync or syncing state. `../imcli` and `../ragmail` should be
-able to reuse the same primitive for account/source actions, candidate/report
-actions, or runtime maintenance actions without importing Slack-specific verbs.
+Slack Mirror, the tenant workbench maps credential, config, activation,
+backfill, live-sync, and queue state into neutral action groups. Next-step
+actions are the status-derived work needed to progress the tenant. Maintenance
+actions cover bounded backfill and in-progress monitoring. Guarded actions
+cover stop/retire flows that require explicit confirmation. The first enabled
+React mutations are deliberately narrow: `Install credentials` posts non-empty
+Slack credential fields to the existing tenant credentials API without echoing
+secrets; `Activate tenant` posts to the existing tenant activate API and then
+starts the bounded initial-sync backfill; `Run initial sync` posts to the
+existing tenant backfill API; and live-sync start/restart/stop post to the
+existing tenant live API. `Restart live sync` is enabled only as a recovery
+action when live units are active and status is degraded. `Stop live sync` is
+enabled only when live units are active and requires typed tenant-name
+confirmation. `Retire tenant` is exposed only for non-protected tenants,
+requires typed tenant-name confirmation, and preserves the explicit optional
+mirrored-DB deletion choice. `Run bounded backfill` is available as a
+maintenance action for enabled, DB-synced tenants that are not already in
+initial-sync or syncing state. `../imcli` and `../ragmail` should be able to
+reuse the same primitive for account/source actions, candidate/report actions,
+or runtime maintenance actions without importing Slack-specific verbs.
 
 Do not add optimistic updates, confirmation flows, or transport behavior to the
 primitive until at least two workbenches prove the same behavior is needed.
