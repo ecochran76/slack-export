@@ -53,6 +53,22 @@ type TenantBackfillResponse = {
   tenant: TenantStatus;
 };
 
+type TenantActivateResponse = {
+  backup_path?: string;
+  changed: boolean;
+  config_path: string;
+  dry_run?: boolean;
+  live_unit_command?: string[];
+  live_units_installed: boolean;
+  ok: boolean;
+  tenant: TenantStatus;
+};
+
+type TenantActivationSequenceResponse = {
+  activation: TenantActivateResponse;
+  backfill: TenantBackfillResponse;
+};
+
 type TenantLiveResponse = {
   action: string;
   commands?: string[][];
@@ -120,8 +136,22 @@ function includesStatus(value: string | undefined, needle: string): boolean {
     .includes(needle);
 }
 
+function requestInitialSync(tenantName: string): Promise<TenantBackfillResponse> {
+  return fetchJson<TenantBackfillResponse>(`/v1/tenants/${encodeURIComponent(tenantName)}/backfill`, {
+    body: JSON.stringify({
+      auth_mode: "user",
+      channel_limit: 10,
+      include_files: false,
+      include_messages: true
+    }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  });
+}
+
 function tenantActions({
   diagnostics,
+  onActivateTenant,
   mutation,
   onRestartLiveSync,
   onRequestStopLiveSync,
@@ -131,6 +161,7 @@ function tenantActions({
 }: {
   diagnostics: TenantDiagnostics;
   mutation?: MutationState;
+  onActivateTenant: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -151,6 +182,20 @@ function tenantActions({
   }
 
   if (!tenant.enabled) {
+    if (tenant.next_action === "ready_to_activate") {
+      return [
+        {
+          disabled: mutationBusy,
+          label: mutationBusy ? "Activating tenant" : "Activate tenant",
+          onClick: () => onActivateTenant(tenant),
+          reason: mutationBusy
+            ? "Activation is running. Status will refresh when the sequence returns."
+            : "Enable the tenant, install live sync, and start bounded initial sync.",
+          tone: "primary"
+        }
+      ];
+    }
+
     return [{ disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }];
   }
 
@@ -258,6 +303,7 @@ function MutationFeedback({ mutation }: { mutation?: MutationState }) {
 
 function TenantStatusRow({
   mutation,
+  onActivateTenant,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -265,6 +311,7 @@ function TenantStatusRow({
   tenant
 }: {
   mutation?: MutationState;
+  onActivateTenant: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -336,6 +383,7 @@ function TenantStatusRow({
         actions={tenantActions({
           diagnostics,
           mutation,
+          onActivateTenant,
           onRestartLiveSync,
           onRequestStopLiveSync,
           onRunInitialSync,
@@ -392,6 +440,7 @@ function TenantStatusRow({
 
 function TenantStatusTable({
   mutations,
+  onActivateTenant,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -399,6 +448,7 @@ function TenantStatusTable({
   tenants
 }: {
   mutations: MutationStateMap;
+  onActivateTenant: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -516,6 +566,7 @@ function TenantStatusTable({
               actions={tenantActions({
                 diagnostics,
                 mutation: mutations[tenant.name],
+                onActivateTenant,
                 onRestartLiveSync,
                 onRequestStopLiveSync,
                 onRunInitialSync,
@@ -628,20 +679,40 @@ export function TenantWorkbench() {
       busyMessage: "Initial history sync requested. Waiting for the bounded backfill command to return...",
       errorMessage: (error) => (error instanceof Error ? error.message : "Initial history sync failed."),
       key: tenant.name,
-      run: () =>
-        fetchJson<TenantBackfillResponse>(`/v1/tenants/${encodeURIComponent(tenant.name)}/backfill`, {
-          body: JSON.stringify({
-            auth_mode: "user",
-            channel_limit: 10,
-            include_files: false,
-            include_messages: true
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST"
-        }),
+      run: () => requestInitialSync(tenant.name),
       setMutations,
       successMessage: (payload) =>
         `Initial history sync ${payload.action || "backfill"} completed for ${payload.tenant.name}. Refreshing status...`
+    });
+  }
+
+  async function activateTenant(tenant: TenantStatus) {
+    await runTrackedMutation<TenantActivationSequenceResponse>({
+      afterSettled: refreshTenants,
+      busyMessage: "Activating tenant, installing live sync, and starting bounded initial history sync...",
+      errorMessage: (error) => (error instanceof Error ? error.message : "Tenant activation failed."),
+      key: tenant.name,
+      run: async () => {
+        const activation = await fetchJson<TenantActivateResponse>(
+          `/v1/tenants/${encodeURIComponent(tenant.name)}/activate`,
+          {
+            body: JSON.stringify({}),
+            headers: { "content-type": "application/json" },
+            method: "POST"
+          }
+        );
+        let backfill: TenantBackfillResponse;
+        try {
+          backfill = await requestInitialSync(tenant.name);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Initial sync failed.";
+          throw new Error(`Tenant activated, but initial sync failed: ${message}`);
+        }
+        return { activation, backfill };
+      },
+      setMutations,
+      successMessage: ({ activation, backfill }) =>
+        `Activated ${activation.tenant.name}. Initial history sync ${backfill.action || "backfill"} started. Refreshing status...`
     });
   }
 
@@ -759,6 +830,7 @@ export function TenantWorkbench() {
             <TenantStatusRow
               key={tenant.name}
               mutation={mutations[tenant.name]}
+              onActivateTenant={activateTenant}
               onRestartLiveSync={restartLiveSync}
               onRequestStopLiveSync={setPendingStopTenant}
               onRunInitialSync={runInitialSync}
@@ -770,6 +842,7 @@ export function TenantWorkbench() {
       ) : (
         <TenantStatusTable
           mutations={mutations}
+          onActivateTenant={activateTenant}
           onRestartLiveSync={restartLiveSync}
           onRequestStopLiveSync={setPendingStopTenant}
           onRunInitialSync={runInitialSync}

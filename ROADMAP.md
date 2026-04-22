@@ -226,6 +226,7 @@ Actionable plans:
 - `docs/dev/plans/0112-2026-04-22-neutral-confirm-dialog-primitive.md`
 - `docs/dev/plans/0113-2026-04-22-react-stop-live-sync-mutation.md`
 - `docs/dev/plans/0114-2026-04-22-frontend-tracked-mutation-helper.md`
+- `docs/dev/plans/0115-2026-04-22-react-activate-tenant-mutation.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -349,6 +350,9 @@ Cross-repo convergence refinement:
 - the local tracked-mutation helper is complete under `0114`, consolidating
   keyed busy/success/error/refresh mechanics without moving Slack-specific
   routes, payloads, or action semantics into shared UI primitives
+- the React `Activate tenant` mutation is complete under `0115`, enabling only
+  `ready_to_activate` tenants and mirroring the production one-click sequence:
+  activate, install live sync, then start bounded initial sync
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

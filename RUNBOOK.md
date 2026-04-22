@@ -4746,3 +4746,25 @@ This file is the dated turn log for planning and execution continuity.
   - `npm run build` from `frontend/`
   - `uv run python scripts/check_generated_docs.py`
   - planning contract audit with `audit_planning_contract.py --json`
+
+## Turn 255 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next React tenant mutation:
+  - `0115-2026-04-22-react-activate-tenant-mutation.md`
+- Direction:
+  - move React toward one-click activation while preserving the current production semantics
+  - enable activation only for tenants reporting `next_action: ready_to_activate`
+  - keep credential installation, scaffold creation, retire, and maintenance backfill disabled for later slices
+- Implemented:
+  - added a typed activate response and activation-sequence response in `TenantWorkbench`
+  - added a shared local `requestInitialSync` helper for the bounded user-auth backfill payload
+  - wired `Activate tenant` to POST `/v1/tenants/<name>/activate` and then POST `/v1/tenants/<name>/backfill`
+  - reused `runTrackedMutation` for immediate busy feedback, row-local success/error state, and post-sequence refresh
+  - documented the activation action in `docs/dev/FRONTEND_CONTRACTS.md`
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
+  - `git diff --check`
