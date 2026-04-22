@@ -144,6 +144,10 @@ h2 {
   text-decoration: none;
 }
 
+.button:disabled {
+  cursor: not-allowed;
+}
+
 .button--primary {
   background: var(--op-color-accent);
   color: white;
@@ -167,6 +171,54 @@ h2 {
   display: inline-flex;
   justify-self: end;
   padding: var(--op-space-1);
+}
+
+.action-group {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-2);
+}
+
+.action-group__button {
+  align-items: flex-start;
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-md);
+  color: var(--op-color-ink);
+  display: grid;
+  gap: var(--op-space-1);
+  opacity: 0.82;
+  padding: var(--op-space-3) var(--op-space-4);
+  text-align: left;
+}
+
+.action-group__button span {
+  font-weight: 900;
+}
+
+.action-group__button small {
+  color: var(--op-color-muted);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.action-group__button--primary {
+  background: rgb(17 107 93 / 12%);
+  border-color: rgb(17 107 93 / 28%);
+}
+
+.action-group__button--warning {
+  background: rgb(167 103 0 / 12%);
+  border-color: rgb(167 103 0 / 30%);
+}
+
+.action-group__button--danger {
+  background: rgb(184 50 42 / 12%);
+  border-color: rgb(184 50 42 / 30%);
+}
+
+.action-group__button--neutral {
+  background: var(--op-color-surface-strong);
 }
 
 .metric-strip {
@@ -423,6 +475,10 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: var(--op-space-2);
+}
+
+.entity-table .action-group__button {
+  width: 100%;
 }
 
 .detail-panel--card p,

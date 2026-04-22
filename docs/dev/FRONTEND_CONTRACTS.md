@@ -157,6 +157,33 @@ Do not add persisted expansion state, route synchronization, accordions, or
 remote lazy-loading to the primitive until at least two workbenches prove the
 same behavior is needed.
 
+## Action Button Group Model
+
+The first reusable action-affordance primitive lives in:
+
+```text
+frontend/src/components/ActionButtonGroup.tsx
+```
+
+The primitive owns only neutral grouped-action rendering:
+
+- action label
+- tone variant
+- disabled state
+- short explanatory reason text
+
+Repo-local workbenches own what actions mean and when they are available. For
+Slack Mirror, the tenant workbench currently derives a single recommended
+tenant action from credential, config, activation, backfill, live-sync, and
+queue state, but keeps every button disabled until React tenant mutations are
+implemented deliberately. `../imcli` and `../ragmail` should be able to reuse
+the same primitive for account/source actions, candidate/report actions, or
+runtime maintenance actions without importing Slack-specific verbs.
+
+Do not add async mutation state, optimistic updates, confirmation flows, or
+transport behavior to the primitive until at least two workbenches prove the
+same behavior is needed.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

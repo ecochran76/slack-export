@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ActionButtonGroup, type ActionButtonItem } from "../../components/ActionButtonGroup";
 import { DetailPanel } from "../../components/DetailPanel";
 import { EntityTable, type EntityTableColumn } from "../../components/EntityTable";
 import { MetricStrip } from "../../components/MetricStrip";
@@ -80,9 +81,73 @@ function tenantDiagnostics(tenant: TenantStatus): TenantDiagnostics {
   };
 }
 
+function includesStatus(value: string | undefined, needle: string): boolean {
+  return String(value ?? "")
+    .toLowerCase()
+    .includes(needle);
+}
+
+function tenantActions(tenant: TenantStatus, diagnostics: TenantDiagnostics): ActionButtonItem[] {
+  const { backfill, pendingJobs, syncHealth } = diagnostics;
+  const disabledReason = "Available on the production tenant settings page until React mutations land.";
+
+  if (!tenant.credential_ready) {
+    return [{ disabled: true, label: "Install credentials", reason: disabledReason, tone: "warning" }];
+  }
+
+  if (!tenant.db_synced) {
+    return [{ disabled: true, label: "Sync tenant config", reason: disabledReason, tone: "warning" }];
+  }
+
+  if (!tenant.enabled) {
+    return [{ disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }];
+  }
+
+  if (
+    includesStatus(tenant.next_action, "initial") ||
+    includesStatus(tenant.next_action, "backfill") ||
+    includesStatus(backfill.label, "needed")
+  ) {
+    return [{ disabled: true, label: "Run initial sync", reason: disabledReason, tone: "primary" }];
+  }
+
+  if (
+    syncHealth.tone === "bad" ||
+    includesStatus(syncHealth.label, "stopped") ||
+    includesStatus(syncHealth.label, "inactive")
+  ) {
+    return [{ disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }];
+  }
+
+  if (syncHealth.tone === "warn") {
+    return [{ disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }];
+  }
+
+  if (pendingJobs > 0) {
+    return [
+      {
+        disabled: true,
+        label: "Monitor backfill",
+        reason: "Backfill or embedding work is still in progress.",
+        tone: "neutral"
+      }
+    ];
+  }
+
+  return [
+    {
+      disabled: true,
+      label: "No action needed",
+      reason: "Tenant appears current from the latest status poll.",
+      tone: "neutral"
+    }
+  ];
+}
+
 function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
+  const diagnostics = tenantDiagnostics(tenant);
   const { backfill, db, errorJobs, health, liveUnits, pendingJobs, semanticProfiles, semanticSummary, syncHealth } =
-    tenantDiagnostics(tenant);
+    diagnostics;
 
   return (
     <article className="tenant-row">
@@ -140,6 +205,11 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
           tone={toneFromApi(health.tone)}
         />
       </div>
+
+      <ActionButtonGroup
+        actions={tenantActions(tenant, diagnostics)}
+        ariaLabel={`${tenant.name} recommended actions`}
+      />
 
       <DetailPanel
         meta={
@@ -289,9 +359,14 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
       header: "Details",
       id: "details",
       render: (tenant) => {
-        const { db, errorJobs, liveUnits, semanticProfiles } = tenantDiagnostics(tenant);
+        const diagnostics = tenantDiagnostics(tenant);
+        const { db, errorJobs, liveUnits, semanticProfiles } = diagnostics;
         return (
           <DetailPanel title="Inspect" variant="compact">
+            <ActionButtonGroup
+              actions={tenantActions(tenant, diagnostics)}
+              ariaLabel={`${tenant.name} recommended actions`}
+            />
             <p>
               live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
             </p>

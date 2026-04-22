@@ -4533,3 +4533,29 @@ This file is the dated turn log for planning and execution continuity.
     - opened the first compact `Inspect` drawer and confirmed live webhooks, attachment text, and profile badges
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/detail-panel-table.png`
+
+## Turn 247 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` reusable-frontend slice:
+  - `0107-2026-04-21-neutral-action-button-group-primitive.md`
+- Direction:
+  - introduce a neutral grouped-action primitive before wiring React mutations
+  - derive tenant action affordances from current status without making the React preview the production mutation surface yet
+  - preserve a convergence path where `../imcli` and `../ragmail` can reuse the same primitive for account/source, candidate/report, or runtime maintenance actions
+- Implemented:
+  - added `frontend/src/components/ActionButtonGroup.tsx`
+  - added tenant-local status-to-recommended-action mapping
+  - rendered disabled recommended actions in tenant cards and compact table diagnostics
+  - documented the action-button-group model and extraction gate in `docs/dev/FRONTEND_CONTRACTS.md`
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - verified card mode renders tenants `default`, `soylei`, and `pcg`
+    - confirmed each card renders a disabled status-derived recommended action with explanatory reason text
+    - switched to `Table` mode and opened the first compact `Inspect` drawer
+    - confirmed compact diagnostics render the same disabled action context
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/action-button-group-table.png`
