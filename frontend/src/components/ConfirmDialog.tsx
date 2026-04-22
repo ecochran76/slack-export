@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
 export type ConfirmDialogTone = "neutral" | "danger";
 
@@ -7,6 +7,7 @@ export function ConfirmDialog({
   details,
   expectedText,
   message,
+  options,
   onCancel,
   onConfirm,
   open,
@@ -17,6 +18,7 @@ export function ConfirmDialog({
   details?: string;
   expectedText?: string;
   message: string;
+  options?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
   open: boolean;
@@ -63,6 +65,7 @@ export function ConfirmDialog({
             />
           </label>
         ) : null}
+        {options ? <div className="confirm-dialog__options">{options}</div> : null}
         <div className="confirm-dialog__actions">
           <button className="button confirm-dialog__cancel" onClick={onCancel} type="button">
             Cancel

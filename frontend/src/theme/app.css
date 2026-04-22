@@ -324,6 +324,22 @@ h2 {
   justify-content: flex-end;
 }
 
+.confirm-dialog__options {
+  background: rgb(255 247 223 / 72%);
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-sm);
+  padding: var(--op-space-3);
+}
+
+.confirm-dialog__checkbox {
+  align-items: center;
+  color: var(--op-color-muted);
+  display: flex;
+  font-weight: 800;
+  gap: var(--op-space-2);
+  line-height: 1.45;
+}
+
 .confirm-dialog__cancel {
   background: var(--op-color-surface-strong);
   border: 1px solid var(--op-color-line);

@@ -183,11 +183,13 @@ sync` posts to the existing tenant backfill API; and live-sync
 start/restart/stop post to the existing tenant live API. `Restart live sync` is
 enabled only as a recovery action when live units are active and status is
 degraded. `Stop live sync` is enabled only when live units are active and
-requires typed tenant-name confirmation. Retire and maintenance backfill
-actions remain disabled until their mutation contracts are migrated
-deliberately. `../imcli` and `../ragmail` should be able to reuse the same
-primitive for account/source actions, candidate/report actions, or runtime
-maintenance actions without importing Slack-specific verbs.
+requires typed tenant-name confirmation. `Retire tenant` is exposed only for
+non-protected tenants, requires typed tenant-name confirmation, and preserves
+the explicit optional mirrored-DB deletion choice. Maintenance backfill remains
+disabled until its mutation contract is migrated deliberately. `../imcli` and
+`../ragmail` should be able to reuse the same primitive for account/source
+actions, candidate/report actions, or runtime maintenance actions without
+importing Slack-specific verbs.
 
 Do not add optimistic updates, confirmation flows, or transport behavior to the
 primitive until at least two workbenches prove the same behavior is needed.
@@ -260,13 +262,15 @@ The primitive owns only neutral confirmation UI mechanics:
 - neutral or danger tone
 - cancel and confirm actions
 - optional typed confirmation text
+- optional workbench-owned confirmation options
 
 Repo-local workbenches own what action is being confirmed and what mutation
 runs after confirmation. For Slack Mirror, the tenant workbench uses
-`ConfirmDialog` to guard `Stop live sync` with typed tenant-name confirmation.
-`../imcli` and `../ragmail` should be able to reuse the same primitive for
-destructive account/source, report, or artifact actions without importing
-Slack-specific terms.
+`ConfirmDialog` to guard `Stop live sync` and `Retire tenant` with typed
+tenant-name confirmation. Retirement also passes a workbench-owned mirrored-DB
+deletion checkbox as neutral dialog content. `../imcli` and `../ragmail`
+should be able to reuse the same primitive for destructive account/source,
+report, or artifact actions without importing Slack-specific terms.
 
 Do not add mutation transport, global dialog routing, or provider-specific
 labels to the primitive until at least two workbenches prove the same behavior

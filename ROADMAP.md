@@ -228,6 +228,7 @@ Actionable plans:
 - `docs/dev/plans/0114-2026-04-22-frontend-tracked-mutation-helper.md`
 - `docs/dev/plans/0115-2026-04-22-react-activate-tenant-mutation.md`
 - `docs/dev/plans/0116-2026-04-22-react-credential-install-form.md`
+- `docs/dev/plans/0117-2026-04-22-react-tenant-retire-mutation.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -357,6 +358,9 @@ Cross-repo convergence refinement:
 - the React credential-install form is complete under `0116`, enabling
   missing-credential tenants to submit non-empty Slack credential fields to the
   existing redacting credentials API without storing secrets in React state
+- the React tenant-retirement mutation is complete under `0117`, exposing
+  typed-confirmation retirement only for non-protected tenants and preserving
+  the explicit optional mirrored-DB deletion choice
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

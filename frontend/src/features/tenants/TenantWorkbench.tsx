@@ -88,6 +88,18 @@ type TenantLiveResponse = {
   tenant: TenantStatus;
 };
 
+type TenantRetireResponse = {
+  backup_path?: string;
+  changed: boolean;
+  config_path: string;
+  db_counts: Record<string, number>;
+  db_deleted: boolean;
+  dry_run?: boolean;
+  live_unit_commands: string[][];
+  ok: boolean;
+  tenant: TenantStatus;
+};
+
 type TenantLiveAction = "start" | "restart" | "stop";
 
 type CredentialField = {
@@ -105,6 +117,8 @@ const CREDENTIAL_FIELDS: CredentialField[] = [
   { field: "user_token", label: "User token", required: false },
   { field: "outbound_user_token", label: "Write user token", required: false }
 ];
+
+const RETIRE_PROTECTED_TENANTS = new Set(["default", "soylei"]);
 
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
@@ -181,6 +195,7 @@ function tenantActions({
   onActivateTenant,
   mutation,
   onRequestCredentials,
+  onRequestRetireTenant,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -191,6 +206,7 @@ function tenantActions({
   mutation?: MutationState;
   onActivateTenant: (tenant: TenantStatus) => void;
   onRequestCredentials: (tenant: TenantStatus) => void;
+  onRequestRetireTenant: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -201,9 +217,22 @@ function tenantActions({
   const disabledReason = "Available on the production tenant settings page until React mutations land.";
   const mutationBusy = mutation?.status === "busy";
   const unitsActive = liveUnits.webhooks === "active" || liveUnits.daemon === "active";
+  const retireAction: ActionButtonItem | undefined = RETIRE_PROTECTED_TENANTS.has(tenant.name)
+    ? undefined
+    : {
+        disabled: mutationBusy,
+        label: mutationBusy ? "Retiring tenant" : "Retire tenant",
+        onClick: () => onRequestRetireTenant(tenant),
+        reason: mutationBusy
+          ? "Tenant retirement is running. Status will refresh when the command returns."
+          : "Remove this tenant from config after typed confirmation.",
+        tone: "danger"
+      };
+  const withRetireAction = (actions: ActionButtonItem[]): ActionButtonItem[] =>
+    retireAction ? [...actions, retireAction] : actions;
 
   if (!tenant.credential_ready) {
-    return [
+    return withRetireAction([
       {
         disabled: mutationBusy,
         label: mutationBusy ? "Installing credentials" : "Install credentials",
@@ -213,16 +242,16 @@ function tenantActions({
           : "Install Slack credentials into the configured local dotenv file.",
         tone: "primary"
       }
-    ];
+    ]);
   }
 
   if (!tenant.db_synced) {
-    return [{ disabled: true, label: "Sync tenant config", reason: disabledReason, tone: "warning" }];
+    return withRetireAction([{ disabled: true, label: "Sync tenant config", reason: disabledReason, tone: "warning" }]);
   }
 
   if (!tenant.enabled) {
     if (tenant.next_action === "ready_to_activate") {
-      return [
+      return withRetireAction([
         {
           disabled: mutationBusy,
           label: mutationBusy ? "Activating tenant" : "Activate tenant",
@@ -232,14 +261,14 @@ function tenantActions({
             : "Enable the tenant, install live sync, and start bounded initial sync.",
           tone: "primary"
         }
-      ];
+      ]);
     }
 
-    return [{ disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }];
+    return withRetireAction([{ disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }]);
   }
 
   if (tenant.next_action === "run_initial_sync" || backfill.label === "needs_initial_sync") {
-    return [
+    return withRetireAction([
       {
         disabled: mutationBusy,
         label: mutationBusy ? "Initial sync running" : "Run initial sync",
@@ -249,11 +278,11 @@ function tenantActions({
           : "Run a bounded user-auth history sync, then refresh tenant status.",
         tone: "primary"
       }
-    ];
+    ]);
   }
 
   if (tenant.next_action === "start_live_sync") {
-    return [
+    return withRetireAction([
       {
         disabled: mutationBusy,
         label: mutationBusy ? "Starting live sync" : "Start live sync",
@@ -263,7 +292,7 @@ function tenantActions({
           : "Install and start the tenant live-sync units, then refresh tenant status.",
         tone: "primary"
       }
-    ];
+    ]);
   }
 
   if (
@@ -271,11 +300,11 @@ function tenantActions({
     includesStatus(syncHealth.label, "stopped") ||
     includesStatus(syncHealth.label, "inactive")
   ) {
-    return [{ disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }];
+    return withRetireAction([{ disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }]);
   }
 
   if (syncHealth.tone === "warn" && unitsActive) {
-    return [
+    return withRetireAction([
       {
         disabled: mutationBusy,
         label: mutationBusy ? "Restarting live sync" : "Restart live sync",
@@ -285,22 +314,22 @@ function tenantActions({
           : "Restart active live-sync units, then refresh tenant status.",
         tone: "warning"
       }
-    ];
+    ]);
   }
 
   if (syncHealth.tone === "warn") {
-    return [{ disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }];
+    return withRetireAction([{ disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }]);
   }
 
   if (pendingJobs > 0) {
-    return [
+    return withRetireAction([
       {
         disabled: true,
         label: "Monitor backfill",
         reason: "Backfill or embedding work is still in progress.",
         tone: "neutral"
       }
-    ];
+    ]);
   }
 
   const actions: ActionButtonItem[] = [
@@ -324,7 +353,7 @@ function tenantActions({
     });
   }
 
-  return actions;
+  return withRetireAction(actions);
 }
 
 function CredentialInstallForm({
@@ -407,6 +436,7 @@ function TenantStatusRow({
   onCancelCredentials,
   onInstallCredentials,
   onRequestCredentials,
+  onRequestRetireTenant,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -419,6 +449,7 @@ function TenantStatusRow({
   onCancelCredentials: () => void;
   onInstallCredentials: (tenant: TenantStatus, credentials: Record<string, string>) => void;
   onRequestCredentials: (tenant: TenantStatus) => void;
+  onRequestRetireTenant: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -492,6 +523,7 @@ function TenantStatusRow({
           mutation,
           onActivateTenant,
           onRequestCredentials,
+          onRequestRetireTenant,
           onRestartLiveSync,
           onRequestStopLiveSync,
           onRunInitialSync,
@@ -561,6 +593,7 @@ function TenantStatusTable({
   onCancelCredentials,
   onInstallCredentials,
   onRequestCredentials,
+  onRequestRetireTenant,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -573,6 +606,7 @@ function TenantStatusTable({
   onCancelCredentials: () => void;
   onInstallCredentials: (tenant: TenantStatus, credentials: Record<string, string>) => void;
   onRequestCredentials: (tenant: TenantStatus) => void;
+  onRequestRetireTenant: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -692,6 +726,7 @@ function TenantStatusTable({
                 mutation: mutations[tenant.name],
                 onActivateTenant,
                 onRequestCredentials,
+                onRequestRetireTenant,
                 onRestartLiveSync,
                 onRequestStopLiveSync,
                 onRunInitialSync,
@@ -750,8 +785,10 @@ export function TenantWorkbench() {
   const [credentialFormTenant, setCredentialFormTenant] = useState<string | undefined>();
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
   const [mutations, setMutations] = useState<MutationStateMap>({});
+  const [pendingRetireTenant, setPendingRetireTenant] = useState<TenantStatus | undefined>();
   const [pendingStopTenant, setPendingStopTenant] = useState<TenantStatus | undefined>();
   const [refreshState, setRefreshState] = useState<RefreshStatusState>("loading");
+  const [retireDeleteDb, setRetireDeleteDb] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
   useEffect(() => {
@@ -918,6 +955,31 @@ export function TenantWorkbench() {
     await runLiveSyncAction(tenant, "stop");
   }
 
+  async function retireTenant(tenant: TenantStatus, deleteDb: boolean) {
+    setPendingRetireTenant(undefined);
+    setRetireDeleteDb(false);
+
+    await runTrackedMutation<TenantRetireResponse>({
+      afterSettled: refreshTenants,
+      busyMessage: `Retiring tenant ${tenant.name}. Stopping live units and updating config...`,
+      errorMessage: (error) => (error instanceof Error ? error.message : "Tenant retirement failed."),
+      key: tenant.name,
+      run: () =>
+        fetchJson<TenantRetireResponse>(`/v1/tenants/${encodeURIComponent(tenant.name)}/retire`, {
+          body: JSON.stringify({
+            confirm: tenant.name,
+            delete_db: deleteDb,
+            stop_live_units: true
+          }),
+          headers: { "content-type": "application/json" },
+          method: "POST"
+        }),
+      setMutations,
+      successMessage: (payload) =>
+        `Retired ${payload.tenant.name}. Mirrored DB deleted: ${payload.db_deleted ? "yes" : "no"}. Refreshing status...`
+    });
+  }
+
   const enabledCount = state.tenants.filter((tenant) => tenant.enabled).length;
   const readyCount = state.tenants.filter((tenant) => tenant.credential_ready && tenant.db_synced).length;
   const pendingJobs = state.tenants.reduce((total, tenant) => {
@@ -958,6 +1020,39 @@ export function TenantWorkbench() {
         }}
         open={Boolean(pendingStopTenant)}
         title="Stop live sync"
+        tone="danger"
+      />
+
+      <ConfirmDialog
+        confirmLabel="Retire tenant"
+        details="This removes the tenant from config and stops its live-sync units. Existing export artifacts are not removed."
+        expectedText={pendingRetireTenant?.name}
+        message={
+          pendingRetireTenant
+            ? `Retire tenant ${pendingRetireTenant.name}? Type the tenant name to confirm.`
+            : "Retire tenant?"
+        }
+        onCancel={() => {
+          setPendingRetireTenant(undefined);
+          setRetireDeleteDb(false);
+        }}
+        onConfirm={() => {
+          if (pendingRetireTenant) {
+            void retireTenant(pendingRetireTenant, retireDeleteDb);
+          }
+        }}
+        open={Boolean(pendingRetireTenant)}
+        options={
+          <label className="confirm-dialog__checkbox">
+            <input
+              checked={retireDeleteDb}
+              onChange={(event) => setRetireDeleteDb(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Also delete mirrored DB rows for this tenant</span>
+          </label>
+        }
+        title="Retire tenant"
         tone="danger"
       />
 
@@ -1004,6 +1099,7 @@ export function TenantWorkbench() {
               onCancelCredentials={() => setCredentialFormTenant(undefined)}
               onInstallCredentials={installCredentials}
               onRequestCredentials={(tenantToEdit) => setCredentialFormTenant(tenantToEdit.name)}
+              onRequestRetireTenant={setPendingRetireTenant}
               onRestartLiveSync={restartLiveSync}
               onRequestStopLiveSync={setPendingStopTenant}
               onRunInitialSync={runInitialSync}
@@ -1020,6 +1116,7 @@ export function TenantWorkbench() {
           onCancelCredentials={() => setCredentialFormTenant(undefined)}
           onInstallCredentials={installCredentials}
           onRequestCredentials={(tenantToEdit) => setCredentialFormTenant(tenantToEdit.name)}
+          onRequestRetireTenant={setPendingRetireTenant}
           onRestartLiveSync={restartLiveSync}
           onRequestStopLiveSync={setPendingStopTenant}
           onRunInitialSync={runInitialSync}

@@ -4790,3 +4790,25 @@ This file is the dated turn log for planning and execution continuity.
   - planning contract audit with `audit_planning_contract.py --json`
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
   - `git diff --check`
+
+## Turn 257 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the guarded tenant-retirement slice:
+  - `0117-2026-04-22-react-tenant-retire-mutation.md`
+- Direction:
+  - migrate the final high-risk tenant lifecycle action from the production page into React
+  - preserve backend protected-tenant checks and hide retirement for known protected tenants in the UI
+  - keep mirrored-DB deletion explicit and unchecked by default
+- Implemented:
+  - extended `ConfirmDialog` with workbench-owned option content
+  - added typed-confirmation `Retire tenant` for non-protected tenants
+  - added an optional mirrored-DB deletion checkbox to the retire confirmation
+  - posted confirmed retire actions to `POST /v1/tenants/<name>/retire`
+  - reused `runTrackedMutation` for busy/success/error feedback and status refresh
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
+  - `git diff --check`
