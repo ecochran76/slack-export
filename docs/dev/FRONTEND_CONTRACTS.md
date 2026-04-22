@@ -175,12 +175,13 @@ The primitive owns only neutral grouped-action rendering:
 Repo-local workbenches own what actions mean and when they are available. For
 Slack Mirror, the tenant workbench derives a single recommended tenant action
 from credential, config, activation, backfill, live-sync, and queue state. The
-first enabled React mutation is deliberately narrow: `Run initial sync` posts
-to the existing tenant backfill API, while activation, live-sync, credential,
-retire, and maintenance backfill actions remain disabled until their mutation
-contracts are migrated deliberately. `../imcli` and `../ragmail` should be able
-to reuse the same primitive for account/source actions, candidate/report
-actions, or runtime maintenance actions without importing Slack-specific verbs.
+first enabled React mutations are deliberately narrow: `Run initial sync` posts
+to the existing tenant backfill API, and `Start live sync` posts to the
+existing tenant live API. Activation, restart, stop, credential, retire, and
+maintenance backfill actions remain disabled until their mutation contracts are
+migrated deliberately. `../imcli` and `../ragmail` should be able to reuse the
+same primitive for account/source actions, candidate/report actions, or runtime
+maintenance actions without importing Slack-specific verbs.
 
 Do not add optimistic updates, confirmation flows, or transport behavior to the
 primitive until at least two workbenches prove the same behavior is needed.

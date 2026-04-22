@@ -56,6 +56,14 @@ type TenantBackfillResponse = {
   tenant: TenantStatus;
 };
 
+type TenantLiveResponse = {
+  action: string;
+  commands?: string[][];
+  dry_run?: boolean;
+  ok: boolean;
+  tenant: TenantStatus;
+};
+
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
 }
@@ -117,11 +125,13 @@ function tenantActions({
   diagnostics,
   mutation,
   onRunInitialSync,
+  onStartLiveSync,
   tenant
 }: {
   diagnostics: TenantDiagnostics;
   mutation?: MutationState;
   onRunInitialSync: (tenant: TenantStatus) => void;
+  onStartLiveSync: (tenant: TenantStatus) => void;
   tenant: TenantStatus;
 }): ActionButtonItem[] {
   const { backfill, pendingJobs, syncHealth } = diagnostics;
@@ -149,6 +159,20 @@ function tenantActions({
         reason: mutationBusy
           ? "Initial history sync is running. Status will refresh when the command returns."
           : "Run a bounded user-auth history sync, then refresh tenant status.",
+        tone: "primary"
+      }
+    ];
+  }
+
+  if (tenant.next_action === "start_live_sync") {
+    return [
+      {
+        disabled: mutationBusy,
+        label: mutationBusy ? "Starting live sync" : "Start live sync",
+        onClick: () => onStartLiveSync(tenant),
+        reason: mutationBusy
+          ? "Live sync start is running. Status will refresh when the command returns."
+          : "Install and start the tenant live-sync units, then refresh tenant status.",
         tone: "primary"
       }
     ];
@@ -203,10 +227,12 @@ function MutationFeedback({ mutation }: { mutation?: MutationState }) {
 function TenantStatusRow({
   mutation,
   onRunInitialSync,
+  onStartLiveSync,
   tenant
 }: {
   mutation?: MutationState;
   onRunInitialSync: (tenant: TenantStatus) => void;
+  onStartLiveSync: (tenant: TenantStatus) => void;
   tenant: TenantStatus;
 }) {
   const diagnostics = tenantDiagnostics(tenant);
@@ -271,7 +297,7 @@ function TenantStatusRow({
       </div>
 
       <ActionButtonGroup
-        actions={tenantActions({ diagnostics, mutation, onRunInitialSync, tenant })}
+        actions={tenantActions({ diagnostics, mutation, onRunInitialSync, onStartLiveSync, tenant })}
         ariaLabel={`${tenant.name} recommended actions`}
       />
       <MutationFeedback mutation={mutation} />
@@ -323,10 +349,12 @@ function TenantStatusRow({
 function TenantStatusTable({
   mutations,
   onRunInitialSync,
+  onStartLiveSync,
   tenants
 }: {
   mutations: Record<string, MutationState>;
   onRunInitialSync: (tenant: TenantStatus) => void;
+  onStartLiveSync: (tenant: TenantStatus) => void;
   tenants: TenantStatus[];
 }) {
   const columns: EntityTableColumn<TenantStatus>[] = [
@@ -441,6 +469,7 @@ function TenantStatusTable({
                 diagnostics,
                 mutation: mutations[tenant.name],
                 onRunInitialSync,
+                onStartLiveSync,
                 tenant
               })}
               ariaLabel={`${tenant.name} recommended actions`}
@@ -586,6 +615,45 @@ export function TenantWorkbench() {
     }
   }
 
+  async function startLiveSync(tenant: TenantStatus) {
+    setMutations((current) => ({
+      ...current,
+      [tenant.name]: {
+        message: "Live sync start requested. Waiting for live unit installation/start to return...",
+        status: "busy"
+      }
+    }));
+
+    try {
+      const payload = await fetchJson<TenantLiveResponse>(
+        `/v1/tenants/${encodeURIComponent(tenant.name)}/live`,
+        {
+          body: JSON.stringify({ action: "start" }),
+          headers: { "content-type": "application/json" },
+          method: "POST"
+        }
+      );
+
+      setMutations((current) => ({
+        ...current,
+        [tenant.name]: {
+          message: `Live sync ${payload.action || "start"} completed for ${payload.tenant.name}. Refreshing status...`,
+          status: "success"
+        }
+      }));
+      await refreshTenants();
+    } catch (error) {
+      setMutations((current) => ({
+        ...current,
+        [tenant.name]: {
+          message: error instanceof Error ? error.message : "Live sync start failed.",
+          status: "error"
+        }
+      }));
+      await refreshTenants();
+    }
+  }
+
   const enabledCount = state.tenants.filter((tenant) => tenant.enabled).length;
   const readyCount = state.tenants.filter((tenant) => tenant.credential_ready && tenant.db_synced).length;
   const pendingJobs = state.tenants.reduce((total, tenant) => {
@@ -648,12 +716,18 @@ export function TenantWorkbench() {
               key={tenant.name}
               mutation={mutations[tenant.name]}
               onRunInitialSync={runInitialSync}
+              onStartLiveSync={startLiveSync}
               tenant={tenant}
             />
           ))}
         </div>
       ) : (
-        <TenantStatusTable mutations={mutations} onRunInitialSync={runInitialSync} tenants={state.tenants} />
+        <TenantStatusTable
+          mutations={mutations}
+          onRunInitialSync={runInitialSync}
+          onStartLiveSync={startLiveSync}
+          tenants={state.tenants}
+        />
       )}
     </section>
   );

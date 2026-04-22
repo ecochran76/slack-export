@@ -221,6 +221,7 @@ Actionable plans:
 - `docs/dev/plans/0107-2026-04-21-neutral-action-button-group-primitive.md`
 - `docs/dev/plans/0108-2026-04-22-neutral-refresh-status-primitive.md`
 - `docs/dev/plans/0109-2026-04-22-react-initial-sync-mutation.md`
+- `docs/dev/plans/0110-2026-04-22-react-start-live-sync-mutation.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -329,6 +330,9 @@ Cross-repo convergence refinement:
 - the first React tenant mutation is complete under `0109`, enabling only
   `Run initial sync` against the existing bounded tenant backfill API with
   immediate busy/success/error feedback and post-command status refresh
+- the second narrow React tenant mutation is complete under `0110`, enabling
+  only `Start live sync` for explicit `start_live_sync` next-action status
+  against the existing tenant live API while restart/stop remain disabled
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

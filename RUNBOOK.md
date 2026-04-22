@@ -4613,3 +4613,32 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed no mutation feedback is shown before an action starts
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/react-initial-sync-mutation-current-loaded.png`
+
+## Turn 250 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the second narrow React mutation slice:
+  - `0110-2026-04-22-react-start-live-sync-mutation.md`
+- Direction:
+  - enable only the `Start live sync` tenant action after proving the initial-sync mutation path
+  - reuse the existing tenant live API and `{ action: "start" }` payload
+  - keep restart, stop, activation, credentials, retire, and maintenance backfill disabled until separate slices prove their contracts
+- Implemented:
+  - added tenant-local live-start response typing
+  - enabled `Start live sync` only for explicit `next_action: start_live_sync`
+  - wired live-start clicks to `POST /v1/tenants/<name>/live`
+  - reused per-tenant busy, success, and error feedback
+  - refreshed tenant status after the command returns
+  - updated frontend contract docs, roadmap wiring, and bounded plan coverage
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - authenticated browser dry-run API probe:
+    - posted to `/v1/tenants/default/live` with `action: start` and `dry_run: true`
+    - confirmed HTTP 200, `ok: true`, `action: start`, `dry_run: true`, tenant `default`, and a generated command containing `install_live_mode_systemd_user.sh`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - verified current live tenants `default`, `soylei`, and `pcg` render after status load
+    - confirmed all current live tenants show disabled `No action needed` actions because none currently advertises `start_live_sync`
+    - confirmed no mutation feedback is shown before an action starts
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/react-start-live-sync-current.png`
