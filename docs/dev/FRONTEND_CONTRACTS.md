@@ -175,16 +175,18 @@ The primitive owns only neutral grouped-action rendering:
 Repo-local workbenches own what actions mean and when they are available. For
 Slack Mirror, the tenant workbench derives a single recommended tenant action
 from credential, config, activation, backfill, live-sync, and queue state. The
-first enabled React mutations are deliberately narrow: `Activate tenant` posts
-to the existing tenant activate API and then starts the bounded initial-sync
-backfill; `Run initial sync` posts to the existing tenant backfill API; and
-live-sync start/restart/stop post to the existing tenant live API. `Restart
-live sync` is enabled only as a recovery action when live units are active and
-status is degraded. `Stop live sync` is enabled only when live units are active
-and requires typed tenant-name confirmation. Credential, retire, and
-maintenance backfill actions remain disabled until their mutation contracts are
-migrated deliberately. `../imcli` and `../ragmail` should be able to reuse the
-same primitive for account/source actions, candidate/report actions, or runtime
+first enabled React mutations are deliberately narrow: `Install credentials`
+posts non-empty Slack credential fields to the existing tenant credentials API
+without echoing secrets; `Activate tenant` posts to the existing tenant
+activate API and then starts the bounded initial-sync backfill; `Run initial
+sync` posts to the existing tenant backfill API; and live-sync
+start/restart/stop post to the existing tenant live API. `Restart live sync` is
+enabled only as a recovery action when live units are active and status is
+degraded. `Stop live sync` is enabled only when live units are active and
+requires typed tenant-name confirmation. Retire and maintenance backfill
+actions remain disabled until their mutation contracts are migrated
+deliberately. `../imcli` and `../ragmail` should be able to reuse the same
+primitive for account/source actions, candidate/report actions, or runtime
 maintenance actions without importing Slack-specific verbs.
 
 Do not add optimistic updates, confirmation flows, or transport behavior to the

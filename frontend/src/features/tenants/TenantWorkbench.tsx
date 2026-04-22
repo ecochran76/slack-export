@@ -69,6 +69,17 @@ type TenantActivationSequenceResponse = {
   backfill: TenantBackfillResponse;
 };
 
+type TenantCredentialsResponse = {
+  backup_path?: string;
+  changed: boolean;
+  dotenv_path: string;
+  dry_run?: boolean;
+  installed_keys: string[];
+  ok: boolean;
+  skipped_keys: string[];
+  tenant: TenantStatus;
+};
+
 type TenantLiveResponse = {
   action: string;
   commands?: string[][];
@@ -78,6 +89,22 @@ type TenantLiveResponse = {
 };
 
 type TenantLiveAction = "start" | "restart" | "stop";
+
+type CredentialField = {
+  field: string;
+  label: string;
+  required: boolean;
+};
+
+const CREDENTIAL_FIELDS: CredentialField[] = [
+  { field: "token", label: "Bot token", required: true },
+  { field: "outbound_token", label: "Write bot token", required: true },
+  { field: "app_token", label: "App token", required: true },
+  { field: "signing_secret", label: "Signing secret", required: true },
+  { field: "team_id", label: "Team ID", required: false },
+  { field: "user_token", label: "User token", required: false },
+  { field: "outbound_user_token", label: "Write user token", required: false }
+];
 
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
@@ -153,6 +180,7 @@ function tenantActions({
   diagnostics,
   onActivateTenant,
   mutation,
+  onRequestCredentials,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -162,6 +190,7 @@ function tenantActions({
   diagnostics: TenantDiagnostics;
   mutation?: MutationState;
   onActivateTenant: (tenant: TenantStatus) => void;
+  onRequestCredentials: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -174,7 +203,17 @@ function tenantActions({
   const unitsActive = liveUnits.webhooks === "active" || liveUnits.daemon === "active";
 
   if (!tenant.credential_ready) {
-    return [{ disabled: true, label: "Install credentials", reason: disabledReason, tone: "warning" }];
+    return [
+      {
+        disabled: mutationBusy,
+        label: mutationBusy ? "Installing credentials" : "Install credentials",
+        onClick: () => onRequestCredentials(tenant),
+        reason: mutationBusy
+          ? "Credential installation is running. Status will refresh when the command returns."
+          : "Install Slack credentials into the configured local dotenv file.",
+        tone: "primary"
+      }
+    ];
   }
 
   if (!tenant.db_synced) {
@@ -288,6 +327,66 @@ function tenantActions({
   return actions;
 }
 
+function CredentialInstallForm({
+  busy,
+  onCancel,
+  onSubmit,
+  tenant
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (tenant: TenantStatus, credentials: Record<string, string>) => void;
+  tenant: TenantStatus;
+}) {
+  return (
+    <form
+      className="credential-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+        const credentials = Object.fromEntries(
+          CREDENTIAL_FIELDS.map(({ field }) => [field, String(formData.get(field) ?? "").trim()]).filter(
+            ([, value]) => value
+          )
+        );
+        onSubmit(tenant, credentials);
+        form.reset();
+      }}
+    >
+      <div className="credential-form__intro">
+        <strong>Install Slack credentials for {tenant.name}</strong>
+        <small>Values are sent once to the local API and are not echoed back in the UI.</small>
+      </div>
+      <div className="credential-form__grid">
+        {CREDENTIAL_FIELDS.map((field) => (
+          <label key={field.field}>
+            <span>
+              {field.label}
+              {field.required ? " *" : ""}
+            </span>
+            <input
+              autoComplete="off"
+              disabled={busy}
+              name={field.field}
+              placeholder={field.required ? "required" : "optional"}
+              type="password"
+            />
+          </label>
+        ))}
+      </div>
+      <div className="credential-form__actions">
+        <button className="button credential-form__cancel" disabled={busy} onClick={onCancel} type="button">
+          Cancel
+        </button>
+        <button className="button button--primary" disabled={busy} type="submit">
+          {busy ? "Installing..." : "Install credentials"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function MutationFeedback({ mutation }: { mutation?: MutationState }) {
   if (!mutation) return null;
 
@@ -302,16 +401,24 @@ function MutationFeedback({ mutation }: { mutation?: MutationState }) {
 }
 
 function TenantStatusRow({
+  credentialFormOpen,
   mutation,
   onActivateTenant,
+  onCancelCredentials,
+  onInstallCredentials,
+  onRequestCredentials,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenant
 }: {
+  credentialFormOpen: boolean;
   mutation?: MutationState;
   onActivateTenant: (tenant: TenantStatus) => void;
+  onCancelCredentials: () => void;
+  onInstallCredentials: (tenant: TenantStatus, credentials: Record<string, string>) => void;
+  onRequestCredentials: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -384,6 +491,7 @@ function TenantStatusRow({
           diagnostics,
           mutation,
           onActivateTenant,
+          onRequestCredentials,
           onRestartLiveSync,
           onRequestStopLiveSync,
           onRunInitialSync,
@@ -392,6 +500,14 @@ function TenantStatusRow({
         })}
         ariaLabel={`${tenant.name} recommended actions`}
       />
+      {credentialFormOpen ? (
+        <CredentialInstallForm
+          busy={mutation?.status === "busy"}
+          onCancel={onCancelCredentials}
+          onSubmit={onInstallCredentials}
+          tenant={tenant}
+        />
+      ) : null}
       <MutationFeedback mutation={mutation} />
 
       <DetailPanel
@@ -439,16 +555,24 @@ function TenantStatusRow({
 }
 
 function TenantStatusTable({
+  credentialFormTenant,
   mutations,
   onActivateTenant,
+  onCancelCredentials,
+  onInstallCredentials,
+  onRequestCredentials,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenants
 }: {
+  credentialFormTenant?: string;
   mutations: MutationStateMap;
   onActivateTenant: (tenant: TenantStatus) => void;
+  onCancelCredentials: () => void;
+  onInstallCredentials: (tenant: TenantStatus, credentials: Record<string, string>) => void;
+  onRequestCredentials: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -567,6 +691,7 @@ function TenantStatusTable({
                 diagnostics,
                 mutation: mutations[tenant.name],
                 onActivateTenant,
+                onRequestCredentials,
                 onRestartLiveSync,
                 onRequestStopLiveSync,
                 onRunInitialSync,
@@ -575,6 +700,14 @@ function TenantStatusTable({
               })}
               ariaLabel={`${tenant.name} recommended actions`}
             />
+            {credentialFormTenant === tenant.name ? (
+              <CredentialInstallForm
+                busy={mutations[tenant.name]?.status === "busy"}
+                onCancel={onCancelCredentials}
+                onSubmit={onInstallCredentials}
+                tenant={tenant}
+              />
+            ) : null}
             <MutationFeedback mutation={mutations[tenant.name]} />
             <p>
               live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
@@ -614,6 +747,7 @@ function TenantStatusTable({
 
 export function TenantWorkbench() {
   const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
+  const [credentialFormTenant, setCredentialFormTenant] = useState<string | undefined>();
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
   const [mutations, setMutations] = useState<MutationStateMap>({});
   const [pendingStopTenant, setPendingStopTenant] = useState<TenantStatus | undefined>();
@@ -716,6 +850,41 @@ export function TenantWorkbench() {
     });
   }
 
+  async function installCredentials(tenant: TenantStatus, credentials: Record<string, string>) {
+    if (!Object.keys(credentials).length) {
+      setMutations((current) => ({
+        ...current,
+        [tenant.name]: {
+          message: "Enter at least one credential value before installing.",
+          status: "error"
+        }
+      }));
+      return;
+    }
+
+    const payload = await runTrackedMutation<TenantCredentialsResponse>({
+      afterSettled: refreshTenants,
+      busyMessage: "Installing credentials into the configured local dotenv file...",
+      errorMessage: (error) => (error instanceof Error ? error.message : "Credential installation failed."),
+      key: tenant.name,
+      run: () =>
+        fetchJson<TenantCredentialsResponse>(`/v1/tenants/${encodeURIComponent(tenant.name)}/credentials`, {
+          body: JSON.stringify({ credentials }),
+          headers: { "content-type": "application/json" },
+          method: "POST"
+        }),
+      setMutations,
+      successMessage: (payload) =>
+        `Installed ${payload.installed_keys.length} credential key(s). Readiness: ${
+          payload.tenant.credential_ready ? "ready" : "still missing required values"
+        }. Refreshing status...`
+    });
+
+    if (payload?.ok) {
+      setCredentialFormTenant(undefined);
+    }
+  }
+
   async function runLiveSyncAction(tenant: TenantStatus, action: TenantLiveAction) {
     const actionLabel = action === "start" ? "start" : action === "restart" ? "restart" : "stop";
 
@@ -763,8 +932,8 @@ export function TenantWorkbench() {
           <p className="eyebrow">Read-only adapter</p>
           <h2 id="tenant-workbench-heading">Tenant Status Workbench</h2>
           <p>
-            This React preview reads the existing tenant-status API and keeps setup, activation,
-            live-sync controls, and backfill actions on the production tenant settings page.
+            This React preview reads the existing tenant-status API and is migrating tenant setup, activation,
+            live-sync controls, and backfill actions onto reusable operator-console primitives.
           </p>
         </div>
         <a className="button button--primary" href="/settings/tenants">
@@ -829,8 +998,12 @@ export function TenantWorkbench() {
           {state.tenants.map((tenant) => (
             <TenantStatusRow
               key={tenant.name}
+              credentialFormOpen={credentialFormTenant === tenant.name}
               mutation={mutations[tenant.name]}
               onActivateTenant={activateTenant}
+              onCancelCredentials={() => setCredentialFormTenant(undefined)}
+              onInstallCredentials={installCredentials}
+              onRequestCredentials={(tenantToEdit) => setCredentialFormTenant(tenantToEdit.name)}
               onRestartLiveSync={restartLiveSync}
               onRequestStopLiveSync={setPendingStopTenant}
               onRunInitialSync={runInitialSync}
@@ -841,8 +1014,12 @@ export function TenantWorkbench() {
         </div>
       ) : (
         <TenantStatusTable
+          credentialFormTenant={credentialFormTenant}
           mutations={mutations}
           onActivateTenant={activateTenant}
+          onCancelCredentials={() => setCredentialFormTenant(undefined)}
+          onInstallCredentials={installCredentials}
+          onRequestCredentials={(tenantToEdit) => setCredentialFormTenant(tenantToEdit.name)}
           onRestartLiveSync={restartLiveSync}
           onRequestStopLiveSync={setPendingStopTenant}
           onRunInitialSync={runInitialSync}

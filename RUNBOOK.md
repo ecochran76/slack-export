@@ -4768,3 +4768,25 @@ This file is the dated turn log for planning and execution continuity.
   - planning contract audit with `audit_planning_contract.py --json`
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
   - `git diff --check`
+
+## Turn 256 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next React tenant mutation:
+  - `0116-2026-04-22-react-credential-install-form.md`
+- Direction:
+  - remove the remaining credential-ready blocker for React-side one-click activation
+  - keep Slack credential field names and payload mapping inside `TenantWorkbench`
+  - avoid storing or echoing secret values in React state or feedback
+- Implemented:
+  - added a tenant-local credential form with password inputs
+  - enabled `Install credentials` only when credentials are missing
+  - submitted non-empty credential fields to `POST /v1/tenants/<name>/credentials`
+  - reused `runTrackedMutation` for immediate busy feedback, redacted success/error feedback, and status refresh
+  - documented the credential action in `docs/dev/FRONTEND_CONTRACTS.md`
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
+  - `git diff --check`

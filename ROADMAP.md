@@ -227,6 +227,7 @@ Actionable plans:
 - `docs/dev/plans/0113-2026-04-22-react-stop-live-sync-mutation.md`
 - `docs/dev/plans/0114-2026-04-22-frontend-tracked-mutation-helper.md`
 - `docs/dev/plans/0115-2026-04-22-react-activate-tenant-mutation.md`
+- `docs/dev/plans/0116-2026-04-22-react-credential-install-form.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -353,6 +354,9 @@ Cross-repo convergence refinement:
 - the React `Activate tenant` mutation is complete under `0115`, enabling only
   `ready_to_activate` tenants and mirroring the production one-click sequence:
   activate, install live sync, then start bounded initial sync
+- the React credential-install form is complete under `0116`, enabling
+  missing-credential tenants to submit non-empty Slack credential fields to the
+  existing redacting credentials API without storing secrets in React state
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 
