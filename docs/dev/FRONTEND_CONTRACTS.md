@@ -189,6 +189,33 @@ actions without importing Slack-specific verbs.
 Do not add optimistic updates, confirmation flows, or transport behavior to the
 primitive until at least two workbenches prove the same behavior is needed.
 
+## Tracked Mutation Model
+
+The first local mutation-state helper lives in:
+
+```text
+frontend/src/lib/trackedMutation.ts
+```
+
+The helper owns only keyed busy, success, error, and after-settled bookkeeping:
+
+- stable row/entity key
+- busy message
+- success message derived from the response
+- error message derived from the thrown value
+- optional after-settled callback, such as a status refresh
+
+Repo-local workbenches still own transport, payloads, confirmation policy, and
+operator-facing action semantics. For Slack Mirror, `TenantWorkbench` uses this
+helper for initial sync and live-sync actions while keeping Slack-specific
+routes and payloads local. `../imcli` and `../ragmail` should be able to map
+account/source, search-result, report, or runtime-maintenance mutations into
+the same keyed state mechanics without importing Slack-specific terms.
+
+Do not add optimistic updates, retries, global stores, toast queues, or
+transport-specific behavior to this helper until at least two workbenches prove
+the same behavior is needed.
+
 ## Refresh Status Model
 
 The first reusable polling/freshness primitive lives in:

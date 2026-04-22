@@ -4727,3 +4727,22 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed no mutation feedback is shown after cancel and tenant rows remain rendered
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/stop-live-sync-confirmation.png`
+
+## Turn 254 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with a convergence-aware mutation refactor:
+  - `0114-2026-04-22-frontend-tracked-mutation-helper.md`
+- Direction:
+  - consolidate repeated React mutation-state mechanics before adding higher-risk activation, credential, retire, or maintenance-backfill actions
+  - keep Slack-specific API routes, payloads, and labels inside `TenantWorkbench`
+  - preserve the future `../imcli` and `../ragmail` convergence path by naming the helper around keyed tracked mutations rather than tenant/workspace concepts
+- Implemented:
+  - added `frontend/src/lib/trackedMutation.ts`
+  - moved keyed busy, success, error, and after-settled refresh bookkeeping into `runTrackedMutation`
+  - refactored initial sync and live-sync start/restart/stop to use the helper
+  - documented the helper in `docs/dev/FRONTEND_CONTRACTS.md`
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - planning contract audit with `audit_planning_contract.py --json`

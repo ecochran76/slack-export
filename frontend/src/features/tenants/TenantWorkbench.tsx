@@ -8,6 +8,7 @@ import { RefreshStatus, type RefreshStatusState } from "../../components/Refresh
 import { StatusBadge, StatusPanel } from "../../components/StatusWidget";
 import { ViewToggle, type ViewToggleOption } from "../../components/ViewToggle";
 import { fetchJson } from "../../lib/api";
+import { runTrackedMutation, type MutationState, type MutationStateMap } from "../../lib/trackedMutation";
 import type {
   TenantDbStats,
   TenantSemanticProfile,
@@ -21,11 +22,6 @@ type LoadState =
   | { status: "loading"; tenants: TenantStatus[]; error?: undefined }
   | { status: "ready"; tenants: TenantStatus[]; error?: undefined }
   | { status: "error"; tenants: TenantStatus[]; error: string };
-
-type MutationState = {
-  message: string;
-  status: "busy" | "success" | "error";
-};
 
 type ViewMode = "cards" | "table";
 
@@ -402,7 +398,7 @@ function TenantStatusTable({
   onStartLiveSync,
   tenants
 }: {
-  mutations: Record<string, MutationState>;
+  mutations: MutationStateMap;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -568,7 +564,7 @@ function TenantStatusTable({
 export function TenantWorkbench() {
   const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
-  const [mutations, setMutations] = useState<Record<string, MutationState>>({});
+  const [mutations, setMutations] = useState<MutationStateMap>({});
   const [pendingStopTenant, setPendingStopTenant] = useState<TenantStatus | undefined>();
   const [refreshState, setRefreshState] = useState<RefreshStatusState>("loading");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
@@ -627,18 +623,13 @@ export function TenantWorkbench() {
   }
 
   async function runInitialSync(tenant: TenantStatus) {
-    setMutations((current) => ({
-      ...current,
-      [tenant.name]: {
-        message: "Initial history sync requested. Waiting for the bounded backfill command to return...",
-        status: "busy"
-      }
-    }));
-
-    try {
-      const payload = await fetchJson<TenantBackfillResponse>(
-        `/v1/tenants/${encodeURIComponent(tenant.name)}/backfill`,
-        {
+    await runTrackedMutation<TenantBackfillResponse>({
+      afterSettled: refreshTenants,
+      busyMessage: "Initial history sync requested. Waiting for the bounded backfill command to return...",
+      errorMessage: (error) => (error instanceof Error ? error.message : "Initial history sync failed."),
+      key: tenant.name,
+      run: () =>
+        fetchJson<TenantBackfillResponse>(`/v1/tenants/${encodeURIComponent(tenant.name)}/backfill`, {
           body: JSON.stringify({
             auth_mode: "user",
             channel_limit: 10,
@@ -647,67 +638,31 @@ export function TenantWorkbench() {
           }),
           headers: { "content-type": "application/json" },
           method: "POST"
-        }
-      );
-
-      setMutations((current) => ({
-        ...current,
-        [tenant.name]: {
-          message: `Initial history sync ${payload.action || "backfill"} completed for ${payload.tenant.name}. Refreshing status...`,
-          status: "success"
-        }
-      }));
-      await refreshTenants();
-    } catch (error) {
-      setMutations((current) => ({
-        ...current,
-        [tenant.name]: {
-          message: error instanceof Error ? error.message : "Initial history sync failed.",
-          status: "error"
-        }
-      }));
-      await refreshTenants();
-    }
+        }),
+      setMutations,
+      successMessage: (payload) =>
+        `Initial history sync ${payload.action || "backfill"} completed for ${payload.tenant.name}. Refreshing status...`
+    });
   }
 
   async function runLiveSyncAction(tenant: TenantStatus, action: TenantLiveAction) {
     const actionLabel = action === "start" ? "start" : action === "restart" ? "restart" : "stop";
-    setMutations((current) => ({
-      ...current,
-      [tenant.name]: {
-        message: `Live sync ${actionLabel} requested. Waiting for the live-unit command to return...`,
-        status: "busy"
-      }
-    }));
 
-    try {
-      const payload = await fetchJson<TenantLiveResponse>(
-        `/v1/tenants/${encodeURIComponent(tenant.name)}/live`,
-        {
+    await runTrackedMutation<TenantLiveResponse>({
+      afterSettled: refreshTenants,
+      busyMessage: `Live sync ${actionLabel} requested. Waiting for the live-unit command to return...`,
+      errorMessage: (error) => (error instanceof Error ? error.message : `Live sync ${actionLabel} failed.`),
+      key: tenant.name,
+      run: () =>
+        fetchJson<TenantLiveResponse>(`/v1/tenants/${encodeURIComponent(tenant.name)}/live`, {
           body: JSON.stringify({ action }),
           headers: { "content-type": "application/json" },
           method: "POST"
-        }
-      );
-
-      setMutations((current) => ({
-        ...current,
-        [tenant.name]: {
-          message: `Live sync ${payload.action || actionLabel} completed for ${payload.tenant.name}. Refreshing status...`,
-          status: "success"
-        }
-      }));
-      await refreshTenants();
-    } catch (error) {
-      setMutations((current) => ({
-        ...current,
-        [tenant.name]: {
-          message: error instanceof Error ? error.message : `Live sync ${actionLabel} failed.`,
-          status: "error"
-        }
-      }));
-      await refreshTenants();
-    }
+        }),
+      setMutations,
+      successMessage: (payload) =>
+        `Live sync ${payload.action || actionLabel} completed for ${payload.tenant.name}. Refreshing status...`
+    });
   }
 
   async function startLiveSync(tenant: TenantStatus) {
