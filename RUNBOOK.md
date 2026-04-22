@@ -4179,3 +4179,51 @@ This file is the dated turn log for planning and execution continuity.
 - Validation so far:
   - `python -m py_compile slack_mirror/service/app.py`
   - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_selected_result_report_renders_derived_text_and_omitted_text -v`
+
+## Turn 235 | 2026-04-21
+
+- Returned to `P12 | Communications Corpus Convergence` for a Slack-specific
+  report convergence note.
+- Opened:
+  - `0096-2026-04-21-slack-report-convergence-design-note.md`
+- Direction:
+  - preserve Slack Mirror as the reference implementation for managed export
+    bundles, stable `/exports/<export-id>` routes, attachment preview/download
+    URLs, browser search-to-report UX, and rich Slack-native HTML rendering
+  - align Slack report/export artifacts with a provider-neutral
+    communication-event model rather than a Slack-message-only or
+    chat-message-only schema
+  - keep Slack runtime, Socket Mode, app setup, token handling, file/canvas
+    repair, live sync, and DB migrations outside future shared libraries
+  - leave room for Ragmail email evidence such as subjects, message headers,
+    To/Cc/Bcc/Reply-To participant roles, inline images, forwarded blocks,
+    mailing-list metadata, calendar invites, source hashes, and redaction hooks
+- Updated `ROADMAP.md` to wire the new plan into `P12` and record the
+  communication-event contract requirement.
+- Validation:
+  - not run; planning/docs update only
+
+## Turn 236 | 2026-04-22
+
+- Returned to `P12 | Communications Corpus Convergence` under plan `0096`.
+- Existing dirty state on entry:
+  - `ROADMAP.md`, `RUNBOOK.md`, and the untracked `0096` design note already
+    contained convergence planning edits from a prior turn.
+- Implemented:
+  - added a top-level `events` projection to managed `selected-results`
+    artifacts
+  - mapped Slack message context rows into neutral message events with source,
+    conversation, thread, participant, source-ref, action-target, and warning
+    fields
+  - mapped derived-text chunks into neutral derived-text events with attachment
+    and derived-text refs
+  - included linked Slack messages from file-backed derived text as linked
+    message events
+  - preserved the existing `context_pack`, HTML report rendering, and manifest
+    behavior for backwards compatibility
+  - updated README, roadmap, and the `0096` plan note
+- Validation:
+  - `python -m py_compile slack_mirror/service/app.py`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_build_search_context_pack_resolves_message_and_derived_targets -v`
+  - `uv run python -m unittest tests.test_app_service -v`
+    - result: 40 tests passed

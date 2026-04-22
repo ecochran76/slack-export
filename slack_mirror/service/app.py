@@ -727,6 +727,7 @@ class SlackMirrorAppService:
             "item_count": context_pack.get("item_count", 0),
             "resolved_count": context_pack.get("resolved_count", 0),
             "unresolved_count": context_pack.get("unresolved_count", 0),
+            "events": self._selected_result_events_projection(context_pack),
             "context_pack": context_pack,
         }
         (bundle_dir / "selected-results.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -740,6 +741,199 @@ class SlackMirrorAppService:
         )
         (bundle_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         return manifest
+
+    @staticmethod
+    def _selected_result_events_projection(context_pack: dict[str, Any]) -> list[dict[str, Any]]:
+        items = context_pack.get("items") if isinstance(context_pack.get("items"), list) else []
+        events: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict) or not item.get("resolved"):
+                continue
+            item_index = _safe_int_or_none(item.get("index")) or len(events) + 1
+            if item.get("kind") == "message":
+                context = item.get("context") if isinstance(item.get("context"), list) else []
+                for context_index, row in enumerate(context, start=1):
+                    if isinstance(row, dict):
+                        events.append(
+                            SlackMirrorAppService._selected_result_message_event(
+                                item,
+                                row,
+                                item_index,
+                                context_index,
+                            )
+                        )
+            elif item.get("kind") == "derived_text":
+                chunks = item.get("context_chunks") if isinstance(item.get("context_chunks"), list) else []
+                for context_index, chunk in enumerate(chunks, start=1):
+                    if isinstance(chunk, dict):
+                        events.append(
+                            SlackMirrorAppService._selected_result_derived_text_event(
+                                item,
+                                chunk,
+                                item_index,
+                                context_index,
+                            )
+                        )
+                linked_messages = item.get("linked_messages") if isinstance(item.get("linked_messages"), list) else []
+                for context_index, row in enumerate(linked_messages, start=1):
+                    if isinstance(row, dict):
+                        events.append(
+                            SlackMirrorAppService._selected_result_message_event(
+                                item,
+                                row,
+                                item_index,
+                                context_index,
+                            )
+                        )
+        return events
+
+    @staticmethod
+    def _selected_result_message_event(
+        item: dict[str, Any],
+        row: dict[str, Any],
+        item_index: int,
+        context_index: int,
+    ) -> dict[str, Any]:
+        target = item.get("target") if isinstance(item.get("target"), dict) else {}
+        workspace = str(row.get("workspace") or item.get("workspace") or target.get("workspace") or "")
+        workspace_id = item.get("workspace_id")
+        channel_id = str(row.get("channel_id") or target.get("channel_id") or "")
+        channel_name = str(row.get("channel_name") or "")
+        ts = str(row.get("ts") or target.get("ts") or "")
+        thread_ts = str(row.get("thread_ts") or "") or None
+        relation = str(row.get("relation") or ("hit" if row.get("selected") else "occurrence"))
+        user_id = row.get("user_id")
+        user_label = row.get("user_label")
+        event = {
+            "schema_version": 1,
+            "id": f"slack-message|{workspace}|{channel_id}|{ts}|{relation}|{item_index}|{context_index}",
+            "platform": "slack",
+            "kind": "message",
+            "relation": relation,
+            "selected": bool(row.get("selected")),
+            "exact_hit": bool(row.get("selected") or relation == "hit"),
+            "source": {
+                "kind": "workspace",
+                "id": str(workspace_id) if workspace_id is not None else None,
+                "name": workspace or None,
+                "native": {"workspace": workspace or None, "workspace_id": workspace_id},
+            },
+            "conversation": {
+                "kind": "slack_channel",
+                "id": channel_id or None,
+                "name": channel_name or None,
+                "native": {"channel_id": channel_id or None, "channel_name": channel_name or None},
+            },
+            "thread": {
+                "id": f"{channel_id}:{thread_ts or ts}" if channel_id and (thread_ts or ts) else None,
+                "root_ts": thread_ts or ts or None,
+                "native": {"thread_ts": thread_ts, "ts": ts or None},
+            },
+            "timestamp": None,
+            "participants": [
+                {
+                    "role": "sender",
+                    "id": user_id,
+                    "display_name": user_label,
+                    "native": {"user_id": user_id},
+                }
+            ]
+            if user_id or user_label
+            else [],
+            "subject": f"#{channel_name}" if channel_name else channel_id or None,
+            "attachments": [],
+            "derived_text_refs": [],
+            "source_refs": {
+                "workspace": workspace or None,
+                "workspace_id": workspace_id,
+                "channel_id": channel_id or None,
+                "channel_name": channel_name or None,
+                "ts": ts or None,
+                "thread_ts": thread_ts,
+                "subtype": row.get("subtype"),
+                "edited_ts": row.get("edited_ts"),
+                "deleted": row.get("deleted"),
+            },
+            "action_target": target,
+            "warnings": ["slack_ts_requires_provider_specific_timestamp_parsing"],
+        }
+        if "text" in row:
+            event["text"] = row.get("text")
+        return event
+
+    @staticmethod
+    def _selected_result_derived_text_event(
+        item: dict[str, Any],
+        chunk: dict[str, Any],
+        item_index: int,
+        context_index: int,
+    ) -> dict[str, Any]:
+        target = item.get("target") if isinstance(item.get("target"), dict) else {}
+        source = item.get("source") if isinstance(item.get("source"), dict) else {}
+        derived = item.get("derived_text") if isinstance(item.get("derived_text"), dict) else {}
+        workspace = str(item.get("workspace") or target.get("workspace") or "")
+        workspace_id = item.get("workspace_id")
+        source_kind = str(source.get("kind") or target.get("source_kind") or "")
+        source_id = str(source.get("id") or target.get("source_id") or "")
+        source_label = str(source.get("label") or source_id or "")
+        chunk_index = chunk.get("chunk_index")
+        relation = "hit" if chunk.get("selected") else "occurrence"
+        derived_ref = {
+            "source_kind": source_kind or None,
+            "source_id": source_id or None,
+            "source_label": source_label or None,
+            "derivation_kind": derived.get("derivation_kind"),
+            "extractor": derived.get("extractor"),
+            "media_type": derived.get("media_type"),
+            "language_code": derived.get("language_code"),
+            "confidence": derived.get("confidence"),
+            "chunk_index": chunk_index,
+            "start_offset": chunk.get("start_offset"),
+            "end_offset": chunk.get("end_offset"),
+        }
+        event = {
+            "schema_version": 1,
+            "id": f"slack-derived-text|{workspace}|{source_kind}|{source_id}|chunk:{chunk_index}|{relation}|{item_index}|{context_index}",
+            "platform": "slack",
+            "kind": "derived_text_chunk",
+            "relation": relation,
+            "selected": bool(chunk.get("selected")),
+            "exact_hit": bool(chunk.get("selected")),
+            "source": {
+                "kind": "workspace",
+                "id": str(workspace_id) if workspace_id is not None else None,
+                "name": workspace or None,
+                "native": {"workspace": workspace or None, "workspace_id": workspace_id},
+            },
+            "conversation": None,
+            "thread": None,
+            "timestamp": None,
+            "participants": [],
+            "subject": source_label or None,
+            "attachments": [
+                {
+                    "kind": "slack_file",
+                    "id": source_id,
+                    "filename": source_label or None,
+                    "native": {"file_id": source_id},
+                }
+            ]
+            if source_kind == "file" and source_id
+            else [],
+            "derived_text_refs": [derived_ref],
+            "source_refs": {
+                "workspace": workspace or None,
+                "workspace_id": workspace_id,
+                "source_kind": source_kind or None,
+                "source_id": source_id or None,
+                "derived_text_id": derived.get("id"),
+            },
+            "action_target": target,
+            "warnings": [],
+        }
+        if "text" in chunk:
+            event["text"] = chunk.get("text")
+        return event
 
     @staticmethod
     def _selected_result_export_index_html(payload: dict[str, Any]) -> str:

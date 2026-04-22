@@ -529,6 +529,7 @@ Purpose:
 
 Actionable plans:
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
+- `docs/dev/plans/0096-2026-04-21-slack-report-convergence-design-note.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -544,8 +545,9 @@ Current state:
   - browser search and export-management surfaces
   - `action_target` metadata on corpus search results
 - `../imcli` is planning selected-result chat exports for Google Messages and
-  WhatsApp with configurable before/after context windows and a parseable
-  portable query/action-target contract
+  WhatsApp with configurable before/after context windows, managed report
+  artifacts, hideable technical IDs, account-owner labels, attachment links,
+  and a parseable portable query/action-target contract
 - `../ragmail` has analogous mail search, thread rendering, attachment
   extraction, case bundles, and report manifests, but must preserve mailbox,
   folder, MIME, archive/live-source, and email-thread semantics
@@ -591,6 +593,23 @@ Initial shared-library candidates:
 6. `comm-workbench-ui`
    - React/Vite operator/search/export components after CLI/API/MCP contracts
      stabilize
+
+Communication-event contract requirement:
+- shared report artifacts should model a provider-neutral event timeline rather
+  than Slack-only messages or chat-message-only rows
+- selected-result export artifacts now include a first Slack-native `events`
+  projection for message rows, derived-text chunks, and linked messages while
+  retaining the existing `context_pack` for backwards compatibility
+- Slack should map workspace, channel/DM/MPIM, thread timestamp, message
+  timestamp, user/bot/app, file/canvas/email preview, reaction, edit, delete,
+  and system-event evidence into neutral source, conversation, thread,
+  participant, event, attachment, and source-ref fields
+- Slack-native IDs and URLs should remain under explicit source/native metadata
+  instead of being discarded during neutral mapping
+- shared naming must leave room for future email fields such as subject,
+  `Message-ID`, `In-Reply-To`, `References`, `To`, `Cc`, `Bcc`, `Reply-To`,
+  inline images, forwarded-message blocks, mailing-list metadata, calendar
+  invites, raw source hashes, and redaction hooks
 
 Deferred post-convergence TODO:
 - graph visualization should wait until the `slack-export`, `../imcli`, and
