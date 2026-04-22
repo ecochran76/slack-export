@@ -4642,3 +4642,31 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed no mutation feedback is shown before an action starts
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/react-start-live-sync-current.png`
+
+## Turn 251 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the third narrow React mutation slice:
+  - `0111-2026-04-22-react-restart-live-sync-mutation.md`
+- Direction:
+  - enable `Restart live sync` only as a recovery action after start-live-sync was proven
+  - require degraded status plus at least one active live unit before rendering restart as enabled
+  - keep `Stop live sync` disabled until an explicit confirmation pattern exists
+- Implemented:
+  - generalized the tenant live mutation helper for `start` and `restart`
+  - enabled restart only for warning sync-health plus active live-unit evidence
+  - reused per-tenant busy, success, and error feedback
+  - refreshed tenant status after the command returns
+  - updated frontend contract docs, roadmap wiring, and bounded plan coverage
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - authenticated browser dry-run API probe:
+    - posted to `/v1/tenants/default/live` with `action: restart` and `dry_run: true`
+    - confirmed HTTP 200, `ok: true`, `action: restart`, `dry_run: true`, tenant `default`, and a generated command containing `restart`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - verified current live tenants `default`, `soylei`, and `pcg` render after status load
+    - confirmed no enabled restart action appears because no current tenant advertises degraded active-unit status
+    - confirmed current rendered actions stay disabled and no mutation feedback is shown before an action starts
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/react-restart-live-sync-current.png`

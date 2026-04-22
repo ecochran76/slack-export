@@ -64,6 +64,8 @@ type TenantLiveResponse = {
   tenant: TenantStatus;
 };
 
+type TenantLiveAction = "start" | "restart";
+
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
 }
@@ -124,19 +126,22 @@ function includesStatus(value: string | undefined, needle: string): boolean {
 function tenantActions({
   diagnostics,
   mutation,
+  onRestartLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenant
 }: {
   diagnostics: TenantDiagnostics;
   mutation?: MutationState;
+  onRestartLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
   onStartLiveSync: (tenant: TenantStatus) => void;
   tenant: TenantStatus;
 }): ActionButtonItem[] {
-  const { backfill, pendingJobs, syncHealth } = diagnostics;
+  const { backfill, liveUnits, pendingJobs, syncHealth } = diagnostics;
   const disabledReason = "Available on the production tenant settings page until React mutations land.";
   const mutationBusy = mutation?.status === "busy";
+  const unitsActive = liveUnits.webhooks === "active" || liveUnits.daemon === "active";
 
   if (!tenant.credential_ready) {
     return [{ disabled: true, label: "Install credentials", reason: disabledReason, tone: "warning" }];
@@ -186,6 +191,20 @@ function tenantActions({
     return [{ disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }];
   }
 
+  if (syncHealth.tone === "warn" && unitsActive) {
+    return [
+      {
+        disabled: mutationBusy,
+        label: mutationBusy ? "Restarting live sync" : "Restart live sync",
+        onClick: () => onRestartLiveSync(tenant),
+        reason: mutationBusy
+          ? "Live sync restart is running. Status will refresh when the command returns."
+          : "Restart active live-sync units, then refresh tenant status.",
+        tone: "warning"
+      }
+    ];
+  }
+
   if (syncHealth.tone === "warn") {
     return [{ disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }];
   }
@@ -226,11 +245,13 @@ function MutationFeedback({ mutation }: { mutation?: MutationState }) {
 
 function TenantStatusRow({
   mutation,
+  onRestartLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenant
 }: {
   mutation?: MutationState;
+  onRestartLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
   onStartLiveSync: (tenant: TenantStatus) => void;
   tenant: TenantStatus;
@@ -297,7 +318,14 @@ function TenantStatusRow({
       </div>
 
       <ActionButtonGroup
-        actions={tenantActions({ diagnostics, mutation, onRunInitialSync, onStartLiveSync, tenant })}
+        actions={tenantActions({
+          diagnostics,
+          mutation,
+          onRestartLiveSync,
+          onRunInitialSync,
+          onStartLiveSync,
+          tenant
+        })}
         ariaLabel={`${tenant.name} recommended actions`}
       />
       <MutationFeedback mutation={mutation} />
@@ -348,11 +376,13 @@ function TenantStatusRow({
 
 function TenantStatusTable({
   mutations,
+  onRestartLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenants
 }: {
   mutations: Record<string, MutationState>;
+  onRestartLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
   onStartLiveSync: (tenant: TenantStatus) => void;
   tenants: TenantStatus[];
@@ -468,6 +498,7 @@ function TenantStatusTable({
               actions={tenantActions({
                 diagnostics,
                 mutation: mutations[tenant.name],
+                onRestartLiveSync,
                 onRunInitialSync,
                 onStartLiveSync,
                 tenant
@@ -615,11 +646,12 @@ export function TenantWorkbench() {
     }
   }
 
-  async function startLiveSync(tenant: TenantStatus) {
+  async function runLiveSyncAction(tenant: TenantStatus, action: TenantLiveAction) {
+    const actionLabel = action === "start" ? "start" : "restart";
     setMutations((current) => ({
       ...current,
       [tenant.name]: {
-        message: "Live sync start requested. Waiting for live unit installation/start to return...",
+        message: `Live sync ${actionLabel} requested. Waiting for the live-unit command to return...`,
         status: "busy"
       }
     }));
@@ -628,7 +660,7 @@ export function TenantWorkbench() {
       const payload = await fetchJson<TenantLiveResponse>(
         `/v1/tenants/${encodeURIComponent(tenant.name)}/live`,
         {
-          body: JSON.stringify({ action: "start" }),
+          body: JSON.stringify({ action }),
           headers: { "content-type": "application/json" },
           method: "POST"
         }
@@ -637,7 +669,7 @@ export function TenantWorkbench() {
       setMutations((current) => ({
         ...current,
         [tenant.name]: {
-          message: `Live sync ${payload.action || "start"} completed for ${payload.tenant.name}. Refreshing status...`,
+          message: `Live sync ${payload.action || actionLabel} completed for ${payload.tenant.name}. Refreshing status...`,
           status: "success"
         }
       }));
@@ -646,12 +678,20 @@ export function TenantWorkbench() {
       setMutations((current) => ({
         ...current,
         [tenant.name]: {
-          message: error instanceof Error ? error.message : "Live sync start failed.",
+          message: error instanceof Error ? error.message : `Live sync ${actionLabel} failed.`,
           status: "error"
         }
       }));
       await refreshTenants();
     }
+  }
+
+  async function startLiveSync(tenant: TenantStatus) {
+    await runLiveSyncAction(tenant, "start");
+  }
+
+  async function restartLiveSync(tenant: TenantStatus) {
+    await runLiveSyncAction(tenant, "restart");
   }
 
   const enabledCount = state.tenants.filter((tenant) => tenant.enabled).length;
@@ -715,6 +755,7 @@ export function TenantWorkbench() {
             <TenantStatusRow
               key={tenant.name}
               mutation={mutations[tenant.name]}
+              onRestartLiveSync={restartLiveSync}
               onRunInitialSync={runInitialSync}
               onStartLiveSync={startLiveSync}
               tenant={tenant}
@@ -724,6 +765,7 @@ export function TenantWorkbench() {
       ) : (
         <TenantStatusTable
           mutations={mutations}
+          onRestartLiveSync={restartLiveSync}
           onRunInitialSync={runInitialSync}
           onStartLiveSync={startLiveSync}
           tenants={state.tenants}
