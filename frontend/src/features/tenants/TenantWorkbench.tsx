@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { EntityTable, type EntityTableColumn } from "../../components/EntityTable";
 import { MetricStrip } from "../../components/MetricStrip";
 import { StatusBadge, StatusPanel } from "../../components/StatusWidget";
 import { fetchJson } from "../../lib/api";
@@ -179,112 +180,148 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
 }
 
 function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
-  return (
-    <div className="tenant-table-shell" role="region" aria-label="Compact tenant status table" tabIndex={0}>
-      <table className="tenant-table">
-        <thead>
-          <tr>
-            <th scope="col">Tenant</th>
-            <th scope="col">Readiness</th>
-            <th scope="col">DB Stats</th>
-            <th scope="col">Backfill</th>
-            <th scope="col">Live Sync</th>
-            <th scope="col">Health</th>
-            <th scope="col">Semantic</th>
-            <th scope="col">Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tenants.map((tenant) => {
-            const {
-              backfill,
-              db,
-              errorJobs,
-              health,
-              liveUnits,
-              pendingJobs,
-              semanticProfiles,
-              semanticSummary,
-              syncHealth
-            } = tenantDiagnostics(tenant);
+  const columns: EntityTableColumn<TenantStatus>[] = [
+    {
+      header: "Tenant",
+      id: "tenant",
+      render: (tenant) => (
+        <>
+          <strong>{tenant.name}</strong>
+          <small>{tenant.domain || "No Slack domain recorded"}</small>
+        </>
+      ),
+      rowHeader: true
+    },
+    {
+      header: "Readiness",
+      id: "readiness",
+      render: (tenant) => (
+        <div className="entity-table__chips">
+          <StatusBadge
+            label={tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
+            tone={tenantRuntimeTone(tenant)}
+          />
+          <StatusBadge
+            label={tenant.credential_ready ? "credentials" : "credentials needed"}
+            tone={tenant.credential_ready ? "success" : "warning"}
+          />
+          <StatusBadge
+            label={tenant.db_synced ? "db synced" : "sync config"}
+            tone={tenant.db_synced ? "success" : "warning"}
+          />
+        </div>
+      )
+    },
+    {
+      header: "DB Stats",
+      id: "db-stats",
+      render: (tenant) => {
+        const { db, pendingJobs } = tenantDiagnostics(tenant);
+        return (
+          <>
+            <strong>{numberLabel(db.messages)}</strong>
+            <small>
+              {numberLabel(db.channels)} channels / {numberLabel(db.files)} files / {numberLabel(pendingJobs)} pending
+            </small>
+          </>
+        );
+      }
+    },
+    {
+      header: "Backfill",
+      id: "backfill",
+      render: (tenant) => {
+        const { backfill } = tenantDiagnostics(tenant);
+        return (
+          <>
+            <StatusBadge label={statusLabel(backfill.label)} tone={toneFromApi(backfill.tone)} />
+            <small>{backfill.summary ?? "No backfill summary."}</small>
+          </>
+        );
+      }
+    },
+    {
+      header: "Live Sync",
+      id: "live-sync",
+      render: (tenant) => {
+        const { syncHealth } = tenantDiagnostics(tenant);
+        return (
+          <>
+            <StatusBadge label={statusLabel(syncHealth.label)} tone={toneFromApi(syncHealth.tone)} />
+            <small>{syncHealth.summary ?? "No live-sync summary."}</small>
+          </>
+        );
+      }
+    },
+    {
+      header: "Health",
+      id: "health",
+      render: (tenant) => {
+        const { health } = tenantDiagnostics(tenant);
+        return (
+          <>
+            <StatusBadge label={statusLabel(tenant.next_action)} tone={toneFromApi(health.tone)} />
+            <small>{health.summary ?? "No health summary."}</small>
+          </>
+        );
+      }
+    },
+    {
+      header: "Semantic",
+      id: "semantic",
+      render: (tenant) => {
+        const { semanticSummary } = tenantDiagnostics(tenant);
+        return (
+          <>
+            <strong>{semanticSummary}</strong>
+            <small>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary."}</small>
+          </>
+        );
+      }
+    },
+    {
+      header: "Details",
+      id: "details",
+      render: (tenant) => {
+        const { db, errorJobs, liveUnits, semanticProfiles } = tenantDiagnostics(tenant);
+        return (
+          <details className="entity-table__details">
+            <summary>Inspect</summary>
+            <div>
+              <p>
+                live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
+              </p>
+              <p>
+                attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
+                {numberLabel(errorJobs)}
+              </p>
+              <div className="entity-table__chips">
+                {semanticProfiles.length ? (
+                  semanticProfiles.map((profile) => (
+                    <StatusBadge
+                      key={profile.name ?? profile.state}
+                      label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
+                      tone={toneFromApi(profile.tone)}
+                    />
+                  ))
+                ) : (
+                  <StatusBadge label="no profiles" tone="neutral" />
+                )}
+              </div>
+            </div>
+          </details>
+        );
+      }
+    }
+  ];
 
-            return (
-              <tr key={tenant.name}>
-                <th scope="row">
-                  <strong>{tenant.name}</strong>
-                  <small>{tenant.domain || "No Slack domain recorded"}</small>
-                </th>
-                <td>
-                  <div className="tenant-table__chips">
-                    <StatusBadge
-                      label={tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
-                      tone={tenantRuntimeTone(tenant)}
-                    />
-                    <StatusBadge
-                      label={tenant.credential_ready ? "credentials" : "credentials needed"}
-                      tone={tenant.credential_ready ? "success" : "warning"}
-                    />
-                    <StatusBadge
-                      label={tenant.db_synced ? "db synced" : "sync config"}
-                      tone={tenant.db_synced ? "success" : "warning"}
-                    />
-                  </div>
-                </td>
-                <td>
-                  <strong>{numberLabel(db.messages)}</strong>
-                  <small>
-                    {numberLabel(db.channels)} channels / {numberLabel(db.files)} files / {numberLabel(pendingJobs)} pending
-                  </small>
-                </td>
-                <td>
-                  <StatusBadge label={statusLabel(backfill.label)} tone={toneFromApi(backfill.tone)} />
-                  <small>{backfill.summary ?? "No backfill summary."}</small>
-                </td>
-                <td>
-                  <StatusBadge label={statusLabel(syncHealth.label)} tone={toneFromApi(syncHealth.tone)} />
-                  <small>{syncHealth.summary ?? "No live-sync summary."}</small>
-                </td>
-                <td>
-                  <StatusBadge label={statusLabel(tenant.next_action)} tone={toneFromApi(health.tone)} />
-                  <small>{health.summary ?? "No health summary."}</small>
-                </td>
-                <td>
-                  <strong>{semanticSummary}</strong>
-                  <small>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary."}</small>
-                </td>
-                <td>
-                  <details className="tenant-table__details">
-                    <summary>Inspect</summary>
-                    <div>
-                      <p>
-                        live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
-                      </p>
-                      <p>
-                        attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
-                        {numberLabel(errorJobs)}
-                      </p>
-                      <div className="tenant-table__chips">
-                        {semanticProfiles.length ? (
-                          semanticProfiles.map((profile) => (
-                            <StatusBadge
-                              key={profile.name ?? profile.state}
-                              label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
-                              tone={toneFromApi(profile.tone)}
-                            />
-                          ))
-                        ) : (
-                          <StatusBadge label="no profiles" tone="neutral" />
-                        )}
-                      </div>
-                    </div>
-                  </details>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+  return (
+    <EntityTable
+      ariaLabel="Compact tenant status table"
+      columns={columns}
+      getRowKey={(tenant) => tenant.name}
+      rows={tenants}
+    />
   );
 }
 

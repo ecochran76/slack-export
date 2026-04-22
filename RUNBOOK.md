@@ -4437,3 +4437,29 @@ This file is the dated turn log for planning and execution continuity.
     - switched to table mode and confirmed 3 compact tenant rows with reusable status badges
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/neutral-status-widget-table.png`
+
+## Turn 243 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` reusable-frontend slice:
+  - `0104-2026-04-21-neutral-entity-table-primitive.md`
+- Direction:
+  - introduce a provider-neutral table primitive before adding mutation controls
+  - keep Slack tenant data mapping and column definitions inside the tenant adapter
+  - preserve a convergence path where `../imcli` account/chat rows and `../ragmail` mailbox/source rows can reuse the same table mechanics
+- Implemented:
+  - added `frontend/src/components/EntityTable.tsx`
+  - adapted the compact tenant table to provide neutral column definitions and row-key behavior
+  - renamed table styling from tenant-specific selectors to `entity-table` selectors
+  - documented the entity-table model and extraction gate in `docs/dev/FRONTEND_CONTRACTS.md`
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `agent-browser` desktop QA against `http://slack.localhost:8765/operator`:
+    - verified default card mode renders tenants `default`, `soylei`, and `pcg`
+    - switched to table mode and confirmed `EntityTable` renders 3 compact tenant rows
+    - opened the first table `Inspect` disclosure and confirmed live-unit details
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/entity-table-tenant-table.png`

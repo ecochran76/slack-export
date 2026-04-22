@@ -81,6 +81,32 @@ This boundary should also fit `../imcli` and `../ragmail`: those repos can map
 SMS/WhatsApp account state or mailbox/source state into the same tone, label,
 summary, and detail shape without adopting Slack terminology.
 
+## Entity Table Model
+
+The first reusable table primitive lives in:
+
+```text
+frontend/src/components/EntityTable.tsx
+```
+
+The table model owns only reusable presentation mechanics:
+
+- ARIA-labelled scroll region
+- column headers
+- row-key resolution
+- row-header cells
+- body cell rendering
+
+Repo-local adapters own the row data and column definitions. For Slack Mirror,
+`TenantWorkbench` maps tenant status into columns such as readiness, DB stats,
+backfill, live sync, health, semantic readiness, and details. `../imcli` and
+`../ragmail` should be able to map account/chat or mailbox/source rows into
+the same primitive without importing Slack-specific field names.
+
+Do not add table sorting, filtering, selection, bulk actions, or persistence to
+the primitive until the search and entity-management workbenches prove which
+behaviors are shared across at least two repos.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

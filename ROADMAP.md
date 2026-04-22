@@ -215,6 +215,7 @@ Actionable plans:
 - `docs/dev/plans/0101-2026-04-21-react-tenant-detail-expansion.md`
 - `docs/dev/plans/0102-2026-04-21-react-tenant-density-view-toggle.md`
 - `docs/dev/plans/0103-2026-04-21-neutral-status-widget-primitive.md`
+- `docs/dev/plans/0104-2026-04-21-neutral-entity-table-primitive.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -304,6 +305,9 @@ Cross-repo convergence refinement:
   the React workbench reusable `StatusBadge` and `StatusPanel` components while
   keeping Slack-specific tone and label mapping inside the local tenant adapter
   for later `../imcli` and `../ragmail` convergence
+- the first neutral entity-table primitive is complete under `0104`, moving
+  table shell, row-key, row-header, and column rendering mechanics into
+  `EntityTable` while leaving Slack tenant columns and API mapping local
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 
