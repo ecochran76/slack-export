@@ -4482,3 +4482,28 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - planning audit
   - `git diff --check`
+
+## Turn 245 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` reusable-frontend slice:
+  - `0105-2026-04-21-neutral-view-toggle-primitive.md`
+- Direction:
+  - extract the card/table density switch into a local neutral primitive
+  - keep option meanings and behavior inside the tenant workbench
+  - preserve the convergence path for future `../imcli` and `../ragmail` workbench density controls without extracting a shared package
+- Implemented:
+  - added `frontend/src/components/ViewToggle.tsx`
+  - replaced tenant-local `Cards` / `Table` button markup with `ViewToggle`
+  - documented the view-toggle model and extraction gate in `docs/dev/FRONTEND_CONTRACTS.md`
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - logged in through a clean browser context after the default profile reused an unrelated LitScout tab
+    - verified default `Cards` mode renders tenants `default`, `soylei`, and `pcg`
+    - switched to `Table` mode through `ViewToggle` and confirmed 3 compact tenant rows
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/view-toggle-table.png`

@@ -107,6 +107,31 @@ Do not add table sorting, filtering, selection, bulk actions, or persistence to
 the primitive until the search and entity-management workbenches prove which
 behaviors are shared across at least two repos.
 
+## View Toggle Model
+
+The first reusable view switch primitive lives in:
+
+```text
+frontend/src/components/ViewToggle.tsx
+```
+
+The primitive owns only the segmented button rendering for string-valued view
+options:
+
+- current value
+- option labels and values
+- `aria-pressed` state
+- change callback
+
+Repo-local workbenches own what each option means. For Slack Mirror, the
+tenant workbench maps `cards` and `table` to the current status-card and
+entity-table views. `../imcli` and `../ragmail` should be able to reuse the
+same primitive for account/source, search-result, report, or log density
+controls without importing Slack-specific terms.
+
+Do not persist view preferences or add route synchronization to the primitive
+until at least two workbenches prove the same behavior is needed.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

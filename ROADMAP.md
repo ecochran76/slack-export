@@ -216,6 +216,7 @@ Actionable plans:
 - `docs/dev/plans/0102-2026-04-21-react-tenant-density-view-toggle.md`
 - `docs/dev/plans/0103-2026-04-21-neutral-status-widget-primitive.md`
 - `docs/dev/plans/0104-2026-04-21-neutral-entity-table-primitive.md`
+- `docs/dev/plans/0105-2026-04-21-neutral-view-toggle-primitive.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -308,6 +309,9 @@ Cross-repo convergence refinement:
 - the first neutral entity-table primitive is complete under `0104`, moving
   table shell, row-key, row-header, and column rendering mechanics into
   `EntityTable` while leaving Slack tenant columns and API mapping local
+- the first neutral view-toggle primitive is complete under `0105`, moving the
+  card/table density switch into `ViewToggle` while keeping tenant-specific
+  view meanings inside the local workbench
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

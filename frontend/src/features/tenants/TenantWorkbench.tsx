@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { EntityTable, type EntityTableColumn } from "../../components/EntityTable";
 import { MetricStrip } from "../../components/MetricStrip";
 import { StatusBadge, StatusPanel } from "../../components/StatusWidget";
+import { ViewToggle, type ViewToggleOption } from "../../components/ViewToggle";
 import { fetchJson } from "../../lib/api";
 import type {
   TenantDbStats,
@@ -18,6 +19,11 @@ type LoadState =
   | { status: "error"; tenants: TenantStatus[]; error: string };
 
 type ViewMode = "cards" | "table";
+
+const VIEW_MODE_OPTIONS: ViewToggleOption<ViewMode>[] = [
+  { label: "Cards", value: "cards" },
+  { label: "Table", value: "table" }
+];
 
 type TenantDiagnostics = {
   backfill: TenantStatusBlock;
@@ -403,24 +409,7 @@ export function TenantWorkbench() {
       ) : null}
 
       {state.tenants.length ? (
-        <div className="view-toggle" aria-label="Tenant view mode">
-          <button
-            aria-pressed={viewMode === "cards"}
-            className="button button--toggle"
-            onClick={() => setViewMode("cards")}
-            type="button"
-          >
-            Cards
-          </button>
-          <button
-            aria-pressed={viewMode === "table"}
-            className="button button--toggle"
-            onClick={() => setViewMode("table")}
-            type="button"
-          >
-            Table
-          </button>
-        </div>
+        <ViewToggle ariaLabel="Tenant view mode" onChange={setViewMode} options={VIEW_MODE_OPTIONS} value={viewMode} />
       ) : null}
 
       {viewMode === "cards" ? (
