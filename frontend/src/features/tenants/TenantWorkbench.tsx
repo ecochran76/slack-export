@@ -1,13 +1,28 @@
 import { useEffect, useState } from "react";
 import { MetricStrip } from "../../components/MetricStrip";
 import { fetchJson } from "../../lib/api";
-import type { TenantStatus, TenantsResponse } from "./tenantTypes";
+import type { TenantDbStats, TenantSemanticProfile, TenantStatus, TenantStatusBlock, TenantsResponse } from "./tenantTypes";
 import { toneFromApi } from "./tenantTypes";
 
 type LoadState =
   | { status: "loading"; tenants: TenantStatus[]; error?: undefined }
   | { status: "ready"; tenants: TenantStatus[]; error?: undefined }
   | { status: "error"; tenants: TenantStatus[]; error: string };
+
+type ViewMode = "cards" | "table";
+
+type TenantDiagnostics = {
+  backfill: TenantStatusBlock;
+  db: TenantDbStats;
+  errorJobs: number;
+  health: TenantStatusBlock;
+  liveUnits: NonNullable<TenantStatus["live_units"]>;
+  pendingJobs: number;
+  readyProfiles: number;
+  semanticProfiles: TenantSemanticProfile[];
+  semanticSummary: string;
+  syncHealth: TenantStatusBlock;
+};
 
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
@@ -28,7 +43,7 @@ function statusLabel(value: string | undefined): string {
   return String(value || "unknown").replaceAll("_", " ");
 }
 
-function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
+function tenantDiagnostics(tenant: TenantStatus): TenantDiagnostics {
   const db = tenant.db_stats ?? {};
   const syncHealth = tenant.sync_health ?? {};
   const backfill = tenant.backfill_status ?? {};
@@ -39,6 +54,24 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
   const errorJobs = Number(db.embedding_errors ?? 0) + Number(db.derived_errors ?? 0);
   const readyProfiles = semanticProfiles.filter((profile) => profile.state === "ready").length;
   const semanticSummary = semanticProfiles.length ? `${readyProfiles}/${semanticProfiles.length} profiles ready` : "no profiles";
+
+  return {
+    backfill,
+    db,
+    errorJobs,
+    health,
+    liveUnits,
+    pendingJobs,
+    readyProfiles,
+    semanticProfiles,
+    semanticSummary,
+    syncHealth
+  };
+}
+
+function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
+  const { backfill, db, errorJobs, health, liveUnits, pendingJobs, semanticProfiles, semanticSummary, syncHealth } =
+    tenantDiagnostics(tenant);
 
   return (
     <article className="tenant-row">
@@ -137,6 +170,114 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
   );
 }
 
+function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
+  return (
+    <div className="tenant-table-shell" role="region" aria-label="Compact tenant status table" tabIndex={0}>
+      <table className="tenant-table">
+        <thead>
+          <tr>
+            <th scope="col">Tenant</th>
+            <th scope="col">Readiness</th>
+            <th scope="col">DB Stats</th>
+            <th scope="col">Backfill</th>
+            <th scope="col">Live Sync</th>
+            <th scope="col">Health</th>
+            <th scope="col">Semantic</th>
+            <th scope="col">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tenants.map((tenant) => {
+            const {
+              backfill,
+              db,
+              errorJobs,
+              health,
+              liveUnits,
+              pendingJobs,
+              semanticProfiles,
+              semanticSummary,
+              syncHealth
+            } = tenantDiagnostics(tenant);
+
+            return (
+              <tr key={tenant.name}>
+                <th scope="row">
+                  <strong>{tenant.name}</strong>
+                  <small>{tenant.domain || "No Slack domain recorded"}</small>
+                </th>
+                <td>
+                  <div className="tenant-table__chips">
+                    <span className={statusBadgeClass(tenantRuntimeTone(tenant))}>
+                      {tenant.enabled ? statusLabel(tenant.validation_status ?? "enabled") : "disabled"}
+                    </span>
+                    <span className={statusBadgeClass(tenant.credential_ready ? "success" : "warning")}>
+                      {tenant.credential_ready ? "credentials" : "credentials needed"}
+                    </span>
+                    <span className={statusBadgeClass(tenant.db_synced ? "success" : "warning")}>
+                      {tenant.db_synced ? "db synced" : "sync config"}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <strong>{numberLabel(db.messages)}</strong>
+                  <small>
+                    {numberLabel(db.channels)} channels / {numberLabel(db.files)} files / {numberLabel(pendingJobs)} pending
+                  </small>
+                </td>
+                <td>
+                  <span className={statusBadgeClass(toneFromApi(backfill.tone))}>{statusLabel(backfill.label)}</span>
+                  <small>{backfill.summary ?? "No backfill summary."}</small>
+                </td>
+                <td>
+                  <span className={statusBadgeClass(toneFromApi(syncHealth.tone))}>{statusLabel(syncHealth.label)}</span>
+                  <small>{syncHealth.summary ?? "No live-sync summary."}</small>
+                </td>
+                <td>
+                  <span className={statusBadgeClass(toneFromApi(health.tone))}>{statusLabel(tenant.next_action)}</span>
+                  <small>{health.summary ?? "No health summary."}</small>
+                </td>
+                <td>
+                  <strong>{semanticSummary}</strong>
+                  <small>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary."}</small>
+                </td>
+                <td>
+                  <details className="tenant-table__details">
+                    <summary>Inspect</summary>
+                    <div>
+                      <p>
+                        live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
+                      </p>
+                      <p>
+                        attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
+                        {numberLabel(errorJobs)}
+                      </p>
+                      <div className="tenant-table__chips">
+                        {semanticProfiles.length ? (
+                          semanticProfiles.map((profile) => (
+                            <span
+                              className={statusBadgeClass(toneFromApi(profile.tone))}
+                              key={profile.name ?? profile.state}
+                            >
+                              {profile.name ?? "profile"}: {statusLabel(profile.state)}
+                            </span>
+                          ))
+                        ) : (
+                          <span className={statusBadgeClass("neutral")}>no profiles</span>
+                        )}
+                      </div>
+                    </div>
+                  </details>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function StatusPanel({
   detail,
   label,
@@ -164,6 +305,7 @@ function StatusPanel({
 
 export function TenantWorkbench() {
   const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
   useEffect(() => {
     let cancelled = false;
@@ -238,11 +380,36 @@ export function TenantWorkbench() {
         <div className="empty-state">No tenants are configured yet.</div>
       ) : null}
 
-      <div className="tenant-list">
-        {state.tenants.map((tenant) => (
-          <TenantStatusRow key={tenant.name} tenant={tenant} />
-        ))}
-      </div>
+      {state.tenants.length ? (
+        <div className="view-toggle" aria-label="Tenant view mode">
+          <button
+            aria-pressed={viewMode === "cards"}
+            className="button button--toggle"
+            onClick={() => setViewMode("cards")}
+            type="button"
+          >
+            Cards
+          </button>
+          <button
+            aria-pressed={viewMode === "table"}
+            className="button button--toggle"
+            onClick={() => setViewMode("table")}
+            type="button"
+          >
+            Table
+          </button>
+        </div>
+      ) : null}
+
+      {viewMode === "cards" ? (
+        <div className="tenant-list">
+          {state.tenants.map((tenant) => (
+            <TenantStatusRow key={tenant.name} tenant={tenant} />
+          ))}
+        </div>
+      ) : (
+        <TenantStatusTable tenants={state.tenants} />
+      )}
     </section>
   );
 }

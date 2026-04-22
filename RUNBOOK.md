@@ -4384,3 +4384,30 @@ This file is the dated turn log for planning and execution continuity.
     - opened the first disclosure and confirmed live-unit and semantic-readiness details appeared
     - captured `/tmp/slack-operator-qa/tenant-workbench-detail-desktop-final.png`
     - captured `/tmp/slack-operator-qa/tenant-workbench-detail-mobile-final.png`
+
+## Turn 241 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` React tenant-density slice:
+  - `0102-2026-04-21-react-tenant-density-view-toggle.md`
+- Direction:
+  - add a read-only density toggle before migrating any tenant mutation controls
+  - preserve cards as the default status workbench
+  - add a compact table for scanning tenant readiness, DB stats, backfill, live-sync, health, semantic readiness, and diagnostics
+- Implemented:
+  - factored tenant diagnostic summary data for reuse across card and table views
+  - added a `Cards` / `Table` segmented control to the tenant workbench
+  - added a compact table view with per-row `Inspect` disclosures for live-unit, text/embedding, and semantic-profile diagnostics
+  - added responsive table containment so dense columns scroll inside the workbench instead of creating page-level horizontal overflow
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `git diff --check`
+  - `agent-browser` desktop/mobile QA against `http://slack.localhost:8765/operator`:
+    - verified the default `Cards` mode renders tenants `default`, `soylei`, and `pcg`
+    - switched to `Table` mode and confirmed 3 compact tenant rows
+    - opened the first table `Inspect` disclosure and confirmed live-unit/text/semantic details
+    - confirmed page-level horizontal overflow remains false on desktop and mobile
+    - captured `/tmp/slack-operator-qa/tenant-density-table-desktop-final.png`
+    - captured `/tmp/slack-operator-qa/tenant-density-table-mobile-final.png`

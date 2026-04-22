@@ -135,7 +135,9 @@ h2 {
 }
 
 .button {
+  border: 0;
   border-radius: 999px;
+  cursor: pointer;
   display: inline-flex;
   font-weight: 800;
   padding: var(--op-space-3) var(--op-space-5);
@@ -145,6 +147,26 @@ h2 {
 .button--primary {
   background: var(--op-color-accent);
   color: white;
+}
+
+.button--toggle {
+  background: transparent;
+  color: var(--op-color-muted);
+}
+
+.button--toggle[aria-pressed="true"] {
+  background: var(--op-color-accent);
+  color: white;
+}
+
+.view-toggle {
+  align-items: center;
+  background: rgb(255 247 223 / 72%);
+  border: 1px solid var(--op-color-line);
+  border-radius: 999px;
+  display: inline-flex;
+  justify-self: end;
+  padding: var(--op-space-1);
 }
 
 .metric-strip {
@@ -291,6 +313,108 @@ h2 {
   grid-area: title;
 }
 
+.tenant-table-shell {
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-lg);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.tenant-table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  min-width: 52rem;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.tenant-table th:nth-child(1) {
+  width: 13%;
+}
+
+.tenant-table th:nth-child(2) {
+  width: 17%;
+}
+
+.tenant-table th:nth-child(3) {
+  width: 10%;
+}
+
+.tenant-table th:nth-child(4),
+.tenant-table th:nth-child(5),
+.tenant-table th:nth-child(6) {
+  width: 13%;
+}
+
+.tenant-table th:nth-child(7) {
+  width: 13%;
+}
+
+.tenant-table th:nth-child(8) {
+  width: 8%;
+}
+
+.tenant-table th,
+.tenant-table td {
+  border-bottom: 1px solid var(--op-color-line);
+  padding: var(--op-space-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tenant-table thead th {
+  background: rgb(255 247 223 / 82%);
+  color: var(--op-color-accent-strong);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+  z-index: 1;
+}
+
+.tenant-table tbody tr:last-child th,
+.tenant-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tenant-table tbody th,
+.tenant-table td {
+  background: rgb(255 251 241 / 58%);
+}
+
+.tenant-table strong,
+.tenant-table small,
+.tenant-table__details p {
+  display: block;
+}
+
+.tenant-table small,
+.tenant-table__details p {
+  color: var(--op-color-muted);
+  line-height: 1.45;
+  margin-top: var(--op-space-2);
+}
+
+.tenant-table__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-2);
+}
+
+.tenant-table__details summary {
+  color: var(--op-color-accent-strong);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.tenant-table__details div {
+  display: grid;
+  gap: var(--op-space-2);
+  min-width: 14rem;
+  padding-top: var(--op-space-2);
+}
+
 .tenant-row__details p,
 .status-panel p,
 .status-panel small {
@@ -418,6 +542,15 @@ h2 {
     grid-column: 1 / -1;
     justify-self: start;
     text-align: left;
+  }
+
+  .view-toggle {
+    justify-self: stretch;
+  }
+
+  .view-toggle .button {
+    flex: 1;
+    justify-content: center;
   }
 }
 

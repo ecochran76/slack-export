@@ -213,6 +213,7 @@ Actionable plans:
 - `docs/dev/plans/0099-2026-04-21-react-tenant-status-adapter.md`
 - `docs/dev/plans/0100-2026-04-21-react-tenant-workbench-browser-qa.md`
 - `docs/dev/plans/0101-2026-04-21-react-tenant-detail-expansion.md`
+- `docs/dev/plans/0102-2026-04-21-react-tenant-density-view-toggle.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -294,6 +295,10 @@ Cross-repo convergence refinement:
   stats, backfill, live-sync, and health visible while moving lower-frequency
   live-unit, text/embedding, and semantic-readiness diagnostics behind an
   accessible per-tenant disclosure
+- the React tenant workbench now includes a read-only density toggle under
+  `0102`, preserving the card view while adding a compact table view for
+  scanning tenant readiness, DB stats, live/backfill/health state, semantic
+  readiness, and expandable diagnostics
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 
