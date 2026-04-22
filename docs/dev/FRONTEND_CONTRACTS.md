@@ -184,6 +184,33 @@ Do not add async mutation state, optimistic updates, confirmation flows, or
 transport behavior to the primitive until at least two workbenches prove the
 same behavior is needed.
 
+## Refresh Status Model
+
+The first reusable polling/freshness primitive lives in:
+
+```text
+frontend/src/components/RefreshStatus.tsx
+```
+
+The primitive owns only neutral refresh-status rendering:
+
+- last-updated label
+- optional polling interval text
+- loading, idle, and error display states
+- manual refresh button affordance
+
+Repo-local workbenches own the transport, polling policy, timestamps, and error
+handling. For Slack Mirror, the tenant workbench continues to fetch
+`/v1/tenants` and now passes the last successful refresh time plus manual
+refresh callback into `RefreshStatus`. `../imcli` and `../ragmail` should be
+able to reuse the same primitive for account/source freshness, search-result
+refresh, report generation status, or runtime health polling without importing
+Slack-specific route names.
+
+Do not add streaming behavior, persisted intervals, background retry policy, or
+transport behavior to the primitive until at least two workbenches prove the
+same behavior is needed.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

@@ -4559,3 +4559,29 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed compact diagnostics render the same disabled action context
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/action-button-group-table.png`
+
+## Turn 248 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` reusable-frontend slice:
+  - `0108-2026-04-22-neutral-refresh-status-primitive.md`
+- Direction:
+  - make tenant status freshness visible before enabling React tenant mutations
+  - introduce a neutral polling-status primitive without embedding Slack API behavior into the component
+  - preserve a convergence path where `../imcli` and `../ragmail` can reuse the same primitive for account/source, report, search, or runtime health freshness
+- Implemented:
+  - added `frontend/src/components/RefreshStatus.tsx`
+  - tracked last successful tenant refresh time and refresh display state in `TenantWorkbench`
+  - added a manual `Refresh now` action that reuses the existing `/v1/tenants` adapter
+  - documented the refresh-status model and extraction gate in `docs/dev/FRONTEND_CONTRACTS.md`
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - verified refresh status renders after the first successful tenant poll
+    - confirmed the label includes last-updated time and `auto every 15s`
+    - clicked `Refresh now` and confirmed the manual refresh path returned to idle with a newer last-updated label
+    - confirmed tenants `default`, `soylei`, and `pcg` remain rendered after refresh
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/refresh-status-idle.png`

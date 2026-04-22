@@ -219,6 +219,7 @@ Actionable plans:
 - `docs/dev/plans/0105-2026-04-21-neutral-view-toggle-primitive.md`
 - `docs/dev/plans/0106-2026-04-21-neutral-detail-panel-primitive.md`
 - `docs/dev/plans/0107-2026-04-21-neutral-action-button-group-primitive.md`
+- `docs/dev/plans/0108-2026-04-22-neutral-refresh-status-primitive.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -321,6 +322,9 @@ Cross-repo convergence refinement:
 - the first neutral action-button-group primitive is complete under `0107`,
   rendering status-derived but disabled recommended tenant actions while actual
   mutations remain on the production tenant settings surface
+- the first neutral refresh-status primitive is complete under `0108`, exposing
+  tenant status freshness, polling interval, and manual refresh affordance while
+  keeping API fetch and polling policy inside the tenant adapter
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

@@ -3,6 +3,7 @@ import { ActionButtonGroup, type ActionButtonItem } from "../../components/Actio
 import { DetailPanel } from "../../components/DetailPanel";
 import { EntityTable, type EntityTableColumn } from "../../components/EntityTable";
 import { MetricStrip } from "../../components/MetricStrip";
+import { RefreshStatus, type RefreshStatusState } from "../../components/RefreshStatus";
 import { StatusBadge, StatusPanel } from "../../components/StatusWidget";
 import { ViewToggle, type ViewToggleOption } from "../../components/ViewToggle";
 import { fetchJson } from "../../lib/api";
@@ -27,6 +28,8 @@ const VIEW_MODE_OPTIONS: ViewToggleOption<ViewMode>[] = [
   { label: "Table", value: "table" }
 ];
 
+const TENANT_POLL_INTERVAL_MS = 15000;
+
 type TenantDiagnostics = {
   backfill: TenantStatusBlock;
   db: TenantDbStats;
@@ -42,6 +45,16 @@ type TenantDiagnostics = {
 
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
+}
+
+function timeLabel(value: Date | undefined): string | undefined {
+  if (!value) return undefined;
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(value);
 }
 
 function tenantRuntimeTone(tenant: TenantStatus): "success" | "warning" | "danger" | "neutral" {
@@ -405,6 +418,8 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
 
 export function TenantWorkbench() {
   const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
+  const [refreshState, setRefreshState] = useState<RefreshStatusState>("loading");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
   useEffect(() => {
@@ -415,6 +430,8 @@ export function TenantWorkbench() {
         const payload = await fetchJson<TenantsResponse>("/v1/tenants");
         if (!cancelled) {
           setState({ status: "ready", tenants: payload.tenants ?? [] });
+          setLastUpdatedAt(new Date());
+          setRefreshState("idle");
         }
       } catch (error) {
         if (!cancelled) {
@@ -423,20 +440,40 @@ export function TenantWorkbench() {
             status: "error",
             tenants: []
           });
+          setRefreshState("error");
         }
       }
     }
 
     void loadTenants();
     const interval = window.setInterval(() => {
+      setRefreshState("loading");
       void loadTenants();
-    }, 15000);
+    }, TENANT_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
   }, []);
+
+  async function refreshTenants() {
+    setRefreshState("loading");
+
+    try {
+      const payload = await fetchJson<TenantsResponse>("/v1/tenants");
+      setState({ status: "ready", tenants: payload.tenants ?? [] });
+      setLastUpdatedAt(new Date());
+      setRefreshState("idle");
+    } catch (error) {
+      setState((current) => ({
+        error: error instanceof Error ? error.message : "Tenant status failed to load.",
+        status: "error",
+        tenants: current.tenants
+      }));
+      setRefreshState("error");
+    }
+  }
 
   const enabledCount = state.tenants.filter((tenant) => tenant.enabled).length;
   const readyCount = state.tenants.filter((tenant) => tenant.credential_ready && tenant.db_synced).length;
@@ -468,6 +505,15 @@ export function TenantWorkbench() {
           { label: "Ready", value: numberLabel(readyCount), tone: readyCount ? "success" : "warning" },
           { label: "Pending Jobs", value: numberLabel(pendingJobs), tone: pendingJobs ? "warning" : "success" }
         ]}
+      />
+
+      <RefreshStatus
+        intervalSeconds={TENANT_POLL_INTERVAL_MS / 1000}
+        lastUpdatedLabel={timeLabel(lastUpdatedAt)}
+        onRefresh={() => {
+          void refreshTenants();
+        }}
+        state={refreshState}
       />
 
       {state.status === "loading" ? <div className="empty-state">Loading tenant status...</div> : null}

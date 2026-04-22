@@ -221,6 +221,49 @@ h2 {
   background: var(--op-color-surface-strong);
 }
 
+.refresh-status {
+  align-items: center;
+  background: rgb(255 247 223 / 72%);
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-md);
+  display: flex;
+  gap: var(--op-space-4);
+  justify-content: space-between;
+  padding: var(--op-space-3) var(--op-space-4);
+}
+
+.refresh-status__label {
+  color: var(--op-color-accent-strong);
+  display: block;
+  font-weight: 900;
+}
+
+.refresh-status small {
+  color: var(--op-color-muted);
+  display: block;
+  font-weight: 700;
+  margin-top: var(--op-space-1);
+}
+
+.refresh-status__button {
+  background: var(--op-color-surface-strong);
+  border: 1px solid var(--op-color-line);
+  color: var(--op-color-accent-strong);
+  white-space: nowrap;
+}
+
+.refresh-status--loading .refresh-status__label {
+  color: var(--op-color-info);
+}
+
+.refresh-status--error {
+  border-color: rgb(184 50 42 / 36%);
+}
+
+.refresh-status--error .refresh-status__label {
+  color: var(--op-color-danger);
+}
+
 .metric-strip {
   display: grid;
   gap: var(--op-space-3);
@@ -612,6 +655,11 @@ h2 {
 
   .view-toggle {
     justify-self: stretch;
+  }
+
+  .refresh-status {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .view-toggle .button {
