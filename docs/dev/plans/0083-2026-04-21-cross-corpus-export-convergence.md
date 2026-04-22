@@ -125,6 +125,63 @@ Do not extract shared libraries for:
 - one universal search engine
 - forcing every provider to support every portable operator immediately
 
+## `imcli` Report Convergence Note Review | 2026-04-21
+
+`../imcli/docs/dev/plans/0016-2026-04-21-imcli-report-convergence-design-note.md`
+refines the convergence target after `imcli` implemented its first local
+search-to-report spine. Slack Mirror should absorb these findings before
+opening more implementation slices in this lane.
+
+Most important correction:
+
+- the shared model should be a provider-neutral communication-event report
+  model, not a chat-message-only model
+
+Implications for Slack Mirror:
+
+- keep `action_target` as the durable report handoff object
+- preserve Slack-native identifiers under explicit native/source metadata
+- add or map selected-result report JSON toward report events, not only
+  message rows
+- represent or reserve room for:
+  - message events
+  - attachment events
+  - reaction events
+  - edit events
+  - delete/tombstone events
+  - system events
+  - thread-boundary or reply-context events
+- keep account/workspace owner identity explicit so renderers can distinguish
+  "me", bot/app actors, workspace users, and external participants without a
+  global-person assumption
+- keep technical IDs hideable in rendered reports but present in canonical JSON
+  for audit and exact follow-up
+- define attachment references with enough provenance for copied assets,
+  provider-native file/canvas/email-preview identity, MIME metadata, and future
+  preview/download URLs
+- render deterministically from canonical JSON, not from live search results or
+  source DB queries at view time
+- document any lossy Slack-to-neutral mapping explicitly
+
+Email-specific requirements from `imcli` should influence Slack naming now even
+before Ragmail participates:
+
+- do not make the shared schema assume only chat messages
+- reserve room for participant roles beyond sender/recipient
+- keep subject/thread title concepts separate from conversation titles
+- anticipate MIME parts, inline images, forwarded-message blocks, quoted text,
+  signatures, and raw source hashes as email-specific report evidence
+- ensure provider-specific fields can survive under native metadata rather than
+  being flattened into Slack-shaped fields
+
+Frontend implication:
+
+- local neutral primitives such as `StatusBadge`, `StatusPanel`, and
+  `EntityTable` are acceptable because they do not encode Slack semantics
+- do not extract `comm-workbench-ui` until CLI/API/MCP selected-result export
+  and communication-event report contracts are proven across at least
+  Slack Mirror and `../imcli`
+
 ## Shared Library Home
 
 The shared libraries should not live inside `slack-export`, `../imcli`, or
@@ -163,10 +220,12 @@ Owns:
 - source refs
 - conversation refs
 - thread refs
-- message refs
+- message/event refs
+- participant refs and roles
 - attachment refs
 - context windows
 - report payload schemas
+- communication-event report schemas
 - export artifact schemas
 - manifest schemas
 - attachment link schemas
@@ -191,11 +250,13 @@ after `imcli` has implemented a compatible bundle shape.
 Owns:
 
 - provider-neutral report JSON to HTML rendering
+- communication-event timeline rendering
 - message bubble rendering
 - grouped same-sender rendering
 - avatar/initial fallback
 - compact ID metadata
 - reaction rendering
+- edit/delete/system-event rendering
 - attachment rows
 - preview/download link rendering
 

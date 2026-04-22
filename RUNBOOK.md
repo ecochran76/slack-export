@@ -4463,3 +4463,22 @@ This file is the dated turn log for planning and execution continuity.
     - opened the first table `Inspect` disclosure and confirmed live-unit details
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/entity-table-tenant-table.png`
+
+## Turn 244 | 2026-04-21
+
+- Paused implementation to review `../imcli` convergence notes before continuing frontend work.
+- Reviewed:
+  - `../imcli/docs/dev/plans/0012-2026-04-21-chat-export-and-cross-corpus-convergence.md`
+  - `../imcli/docs/dev/plans/0016-2026-04-21-imcli-report-convergence-design-note.md`
+  - related `../imcli/ROADMAP.md` and `../imcli/RUNBOOK.md` sections
+- Findings:
+  - current Slack frontend primitives remain aligned because they are local, shallow, and provider-neutral
+  - shared extraction remains premature until at least Slack Mirror and `../imcli` prove compatible selected-result export/report artifacts
+  - `imcli` sharpened the target from chat-message reports to provider-neutral communication-event reports
+  - Slack planning should preserve room for reactions, edits, tombstones, system events, participant roles, attachment provenance, hideable technical IDs, owner identity, and email-specific evidence requirements
+- Implemented planning updates:
+  - added an `imcli` report convergence note review section to `0083`
+  - updated `ROADMAP.md` P12 current state and shared-library candidate wording
+- Validation:
+  - planning audit
+  - `git diff --check`

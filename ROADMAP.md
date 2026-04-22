@@ -600,6 +600,11 @@ Current state:
 - `../ragmail` has analogous mail search, thread rendering, attachment
   extraction, case bundles, and report manifests, but must preserve mailbox,
   folder, MIME, archive/live-source, and email-thread semantics
+- `../imcli`'s report convergence note now sharpens the shared target from
+  chat-message reports to provider-neutral communication-event reports with
+  durable action targets, context expansion, participant roles, attachment
+  provenance, hideable technical IDs, owner identity, and room for reactions,
+  edits, tombstones, system events, and email-specific evidence
 - the maintainable direction is independent provider services plus shared
   contracts and extracted libraries after at least two repos prove compatible
   artifacts
@@ -628,14 +633,15 @@ Initial shared-library candidates:
      provider-native extension namespace rules, result fields, readiness, and
      action targets; not a shared search engine
 2. `comm-export-contracts`
-   - action targets, source refs, conversation/thread/message refs, context
-     windows, report payloads, artifacts, manifests, and attachment links
+   - action targets, source refs, conversation/thread/message or event refs,
+     participant roles, context windows, communication-event report payloads,
+     artifacts, manifests, and attachment links
 3. `comm-bundle-store`
    - deterministic export IDs, safe bundle paths, manifest listing, rename,
      delete, URL building, and preview URL metadata
 4. `comm-report-renderer`
-   - provider-neutral report JSON to HTML rendering, with later DOCX/PDF
-     adapters only after the JSON contract proves stable
+   - provider-neutral communication-event report JSON to HTML rendering, with
+     later DOCX/PDF adapters only after the JSON contract proves stable
 5. `comm-context-window`
    - storage-agnostic context expansion policy over backend-provided message
      neighbors
