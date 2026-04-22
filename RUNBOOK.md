@@ -4833,3 +4833,26 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
   - planning contract audit with `audit_planning_contract.py --json`
   - `git diff --check`
+
+## Turn 259 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with authenticated browser QA:
+  - `0119-2026-04-22-react-tenant-action-browser-qa.md`
+- Served the current React build through the Python API service:
+  - `SLACK_MIRROR_OPERATOR_FRONTEND_DIST=frontend/dist/app`
+  - `uv run slack-mirror --config ~/.config/slack-mirror/config.yaml api serve --bind 127.0.0.1 --port 8765`
+- Used `agent-browser` with an isolated browser profile against `http://127.0.0.1:8765/operator`.
+- Verified:
+  - signed in through `/login` using environment-backed frontend credentials without printing secret values
+  - card view loaded `default`, `soylei`, and `pcg`
+  - `default` and `soylei` showed no `Retire tenant` action
+  - `pcg` showed `Retire tenant`
+  - all three current active tenants showed `Stop live sync` and `Run bounded backfill`
+  - stop-live confirmation for `default` was disabled before typing `default`, enabled after typing, then cancelled without mutation
+  - retire confirmation for `pcg` was disabled before typing `pcg`, exposed an unchecked mirrored-DB deletion checkbox, enabled after typing, then cancelled without mutation
+  - table view rendered the compact tenant table with readiness, DB stats, backfill, live sync, health, semantic readiness, and details columns
+  - page-level horizontal overflow was false at desktop and 390px mobile widths
+- Captured:
+  - `/tmp/slack-operator-qa/operator-table-desktop.png`
+  - `/tmp/slack-operator-qa/operator-mobile.png`
+- No real tenant mutation was confirmed or executed during this QA slice.

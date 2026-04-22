@@ -230,6 +230,7 @@ Actionable plans:
 - `docs/dev/plans/0116-2026-04-22-react-credential-install-form.md`
 - `docs/dev/plans/0117-2026-04-22-react-tenant-retire-mutation.md`
 - `docs/dev/plans/0118-2026-04-22-react-maintenance-backfill-mutation.md`
+- `docs/dev/plans/0119-2026-04-22-react-tenant-action-browser-qa.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -365,6 +366,10 @@ Cross-repo convergence refinement:
 - the React maintenance-backfill mutation is complete under `0118`, exposing a
   bounded backfill maintenance action for enabled synced tenants that are not
   already in initial-sync or syncing state
+- authenticated browser QA of the React tenant action surface is complete under
+  `0119`: current tenants render in card/table views, protected tenants hide
+  retirement, non-protected retirement and stop-live actions require typed
+  confirmation, and desktop/mobile layouts avoid page-level horizontal overflow
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 
