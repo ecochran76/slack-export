@@ -4812,3 +4812,24 @@ This file is the dated turn log for planning and execution continuity.
   - planning contract audit with `audit_planning_contract.py --json`
   - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
   - `git diff --check`
+
+## Turn 258 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the maintenance-backfill parity slice:
+  - `0118-2026-04-22-react-maintenance-backfill-mutation.md`
+- Direction:
+  - close the last obvious React tenant action parity gap before ergonomics QA
+  - preserve the current bounded user-auth backfill payload rather than adding custom controls
+  - keep Slack-specific eligibility and labels inside `TenantWorkbench`
+- Implemented:
+  - added `Run bounded backfill` as a maintenance action for enabled synced tenants that are not already in initial-sync or syncing state
+  - reused the existing bounded backfill request helper
+  - added a maintenance-specific busy/success/error message path through `runTrackedMutation`
+  - documented the action in `docs/dev/FRONTEND_CONTRACTS.md`
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api -v`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `git diff --check`

@@ -196,6 +196,7 @@ function tenantActions({
   mutation,
   onRequestCredentials,
   onRequestRetireTenant,
+  onRunMaintenanceBackfill,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -207,6 +208,7 @@ function tenantActions({
   onActivateTenant: (tenant: TenantStatus) => void;
   onRequestCredentials: (tenant: TenantStatus) => void;
   onRequestRetireTenant: (tenant: TenantStatus) => void;
+  onRunMaintenanceBackfill: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -217,6 +219,7 @@ function tenantActions({
   const disabledReason = "Available on the production tenant settings page until React mutations land.";
   const mutationBusy = mutation?.status === "busy";
   const unitsActive = liveUnits.webhooks === "active" || liveUnits.daemon === "active";
+  const backfillLabel = String(backfill.label || "");
   const retireAction: ActionButtonItem | undefined = RETIRE_PROTECTED_TENANTS.has(tenant.name)
     ? undefined
     : {
@@ -228,8 +231,26 @@ function tenantActions({
           : "Remove this tenant from config after typed confirmation.",
         tone: "danger"
       };
+  const maintenanceBackfillAction: ActionButtonItem | undefined =
+    tenant.enabled &&
+    tenant.db_synced &&
+    tenant.next_action !== "run_initial_sync" &&
+    backfillLabel !== "syncing" &&
+    backfillLabel !== "needs_initial_sync"
+      ? {
+          disabled: mutationBusy,
+          label: mutationBusy ? "Backfill running" : "Run bounded backfill",
+          onClick: () => onRunMaintenanceBackfill(tenant),
+          reason: mutationBusy
+            ? "Bounded backfill is running. Status will refresh when the command returns."
+            : "Run a bounded user-auth maintenance backfill for this tenant.",
+          tone: "neutral"
+        }
+      : undefined;
   const withRetireAction = (actions: ActionButtonItem[]): ActionButtonItem[] =>
     retireAction ? [...actions, retireAction] : actions;
+  const withMaintenanceActions = (actions: ActionButtonItem[]): ActionButtonItem[] =>
+    withRetireAction(maintenanceBackfillAction ? [...actions, maintenanceBackfillAction] : actions);
 
   if (!tenant.credential_ready) {
     return withRetireAction([
@@ -282,7 +303,7 @@ function tenantActions({
   }
 
   if (tenant.next_action === "start_live_sync") {
-    return withRetireAction([
+    return withMaintenanceActions([
       {
         disabled: mutationBusy,
         label: mutationBusy ? "Starting live sync" : "Start live sync",
@@ -300,11 +321,13 @@ function tenantActions({
     includesStatus(syncHealth.label, "stopped") ||
     includesStatus(syncHealth.label, "inactive")
   ) {
-    return withRetireAction([{ disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }]);
+    return withMaintenanceActions([
+      { disabled: true, label: "Start live sync", reason: disabledReason, tone: "primary" }
+    ]);
   }
 
   if (syncHealth.tone === "warn" && unitsActive) {
-    return withRetireAction([
+    return withMaintenanceActions([
       {
         disabled: mutationBusy,
         label: mutationBusy ? "Restarting live sync" : "Restart live sync",
@@ -318,7 +341,9 @@ function tenantActions({
   }
 
   if (syncHealth.tone === "warn") {
-    return withRetireAction([{ disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }]);
+    return withMaintenanceActions([
+      { disabled: true, label: "Restart live sync", reason: disabledReason, tone: "warning" }
+    ]);
   }
 
   if (pendingJobs > 0) {
@@ -353,7 +378,7 @@ function tenantActions({
     });
   }
 
-  return withRetireAction(actions);
+  return withMaintenanceActions(actions);
 }
 
 function CredentialInstallForm({
@@ -437,6 +462,7 @@ function TenantStatusRow({
   onInstallCredentials,
   onRequestCredentials,
   onRequestRetireTenant,
+  onRunMaintenanceBackfill,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -450,6 +476,7 @@ function TenantStatusRow({
   onInstallCredentials: (tenant: TenantStatus, credentials: Record<string, string>) => void;
   onRequestCredentials: (tenant: TenantStatus) => void;
   onRequestRetireTenant: (tenant: TenantStatus) => void;
+  onRunMaintenanceBackfill: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -524,6 +551,7 @@ function TenantStatusRow({
           onActivateTenant,
           onRequestCredentials,
           onRequestRetireTenant,
+          onRunMaintenanceBackfill,
           onRestartLiveSync,
           onRequestStopLiveSync,
           onRunInitialSync,
@@ -594,6 +622,7 @@ function TenantStatusTable({
   onInstallCredentials,
   onRequestCredentials,
   onRequestRetireTenant,
+  onRunMaintenanceBackfill,
   onRestartLiveSync,
   onRequestStopLiveSync,
   onRunInitialSync,
@@ -607,6 +636,7 @@ function TenantStatusTable({
   onInstallCredentials: (tenant: TenantStatus, credentials: Record<string, string>) => void;
   onRequestCredentials: (tenant: TenantStatus) => void;
   onRequestRetireTenant: (tenant: TenantStatus) => void;
+  onRunMaintenanceBackfill: (tenant: TenantStatus) => void;
   onRestartLiveSync: (tenant: TenantStatus) => void;
   onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
@@ -727,6 +757,7 @@ function TenantStatusTable({
                 onActivateTenant,
                 onRequestCredentials,
                 onRequestRetireTenant,
+                onRunMaintenanceBackfill,
                 onRestartLiveSync,
                 onRequestStopLiveSync,
                 onRunInitialSync,
@@ -854,6 +885,19 @@ export function TenantWorkbench() {
       setMutations,
       successMessage: (payload) =>
         `Initial history sync ${payload.action || "backfill"} completed for ${payload.tenant.name}. Refreshing status...`
+    });
+  }
+
+  async function runMaintenanceBackfill(tenant: TenantStatus) {
+    await runTrackedMutation<TenantBackfillResponse>({
+      afterSettled: refreshTenants,
+      busyMessage: "Bounded maintenance backfill requested. Waiting for the command to return...",
+      errorMessage: (error) => (error instanceof Error ? error.message : "Bounded maintenance backfill failed."),
+      key: tenant.name,
+      run: () => requestInitialSync(tenant.name),
+      setMutations,
+      successMessage: (payload) =>
+        `Bounded maintenance backfill ${payload.action || "backfill"} completed for ${payload.tenant.name}. Refreshing status...`
     });
   }
 
@@ -1100,6 +1144,7 @@ export function TenantWorkbench() {
               onInstallCredentials={installCredentials}
               onRequestCredentials={(tenantToEdit) => setCredentialFormTenant(tenantToEdit.name)}
               onRequestRetireTenant={setPendingRetireTenant}
+              onRunMaintenanceBackfill={runMaintenanceBackfill}
               onRestartLiveSync={restartLiveSync}
               onRequestStopLiveSync={setPendingStopTenant}
               onRunInitialSync={runInitialSync}
@@ -1117,6 +1162,7 @@ export function TenantWorkbench() {
           onInstallCredentials={installCredentials}
           onRequestCredentials={(tenantToEdit) => setCredentialFormTenant(tenantToEdit.name)}
           onRequestRetireTenant={setPendingRetireTenant}
+          onRunMaintenanceBackfill={runMaintenanceBackfill}
           onRestartLiveSync={restartLiveSync}
           onRequestStopLiveSync={setPendingStopTenant}
           onRunInitialSync={runInitialSync}

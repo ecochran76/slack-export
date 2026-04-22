@@ -185,11 +185,11 @@ enabled only as a recovery action when live units are active and status is
 degraded. `Stop live sync` is enabled only when live units are active and
 requires typed tenant-name confirmation. `Retire tenant` is exposed only for
 non-protected tenants, requires typed tenant-name confirmation, and preserves
-the explicit optional mirrored-DB deletion choice. Maintenance backfill remains
-disabled until its mutation contract is migrated deliberately. `../imcli` and
-`../ragmail` should be able to reuse the same primitive for account/source
-actions, candidate/report actions, or runtime maintenance actions without
-importing Slack-specific verbs.
+the explicit optional mirrored-DB deletion choice. `Run bounded backfill` is
+available as a maintenance action for enabled, DB-synced tenants that are not
+already in initial-sync or syncing state. `../imcli` and `../ragmail` should be
+able to reuse the same primitive for account/source actions, candidate/report
+actions, or runtime maintenance actions without importing Slack-specific verbs.
 
 Do not add optimistic updates, confirmation flows, or transport behavior to the
 primitive until at least two workbenches prove the same behavior is needed.
