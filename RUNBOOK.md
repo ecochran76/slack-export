@@ -4670,3 +4670,29 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed current rendered actions stay disabled and no mutation feedback is shown before an action starts
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/react-restart-live-sync-current.png`
+
+## Turn 252 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the confirmation-pattern prerequisite slice:
+  - `0112-2026-04-22-neutral-confirm-dialog-primitive.md`
+- Direction:
+  - add the neutral confirmation primitive before wiring disruptive `Stop live sync`
+  - keep the first use non-mutating so the dialog can be validated independently
+  - preserve a convergence path where `../imcli` and `../ragmail` can reuse typed destructive confirmations
+- Implemented:
+  - added `frontend/src/components/ConfirmDialog.tsx`
+  - added neutral/danger tone styling, optional typed confirmation, and cancel/confirm callbacks
+  - exposed a non-mutating tenant-workbench preview button for browser QA
+  - updated frontend contract docs, roadmap wiring, and bounded plan coverage
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - logged in with an isolated browser profile after the default agent-browser profile was locked
+    - verified current live tenants `default`, `soylei`, and `pcg` render after status load
+    - opened the non-mutating confirmation preview
+    - confirmed the confirm button is disabled until typing the expected `preview` text
+    - confirmed the dialog closes after confirmation and tenant rows remain rendered
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/confirm-dialog-preview.png`

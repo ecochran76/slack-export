@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActionButtonGroup, type ActionButtonItem } from "../../components/ActionButtonGroup";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DetailPanel } from "../../components/DetailPanel";
 import { EntityTable, type EntityTableColumn } from "../../components/EntityTable";
 import { MetricStrip } from "../../components/MetricStrip";
@@ -547,6 +548,7 @@ export function TenantWorkbench() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
   const [mutations, setMutations] = useState<Record<string, MutationState>>({});
   const [refreshState, setRefreshState] = useState<RefreshStatusState>("loading");
+  const [showConfirmationPreview, setShowConfirmationPreview] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
   useEffect(() => {
@@ -716,6 +718,29 @@ export function TenantWorkbench() {
           Manage tenants
         </a>
       </div>
+
+      <div className="confirm-preview">
+        <button
+          className="button confirm-preview__button"
+          onClick={() => setShowConfirmationPreview(true)}
+          type="button"
+        >
+          Preview confirmation
+        </button>
+        <small>Stop-live wiring will use this confirmation pattern in the next slice.</small>
+      </div>
+
+      <ConfirmDialog
+        confirmLabel="Confirm preview"
+        details="This preview exercises the shared confirmation pattern only; it does not call a tenant API."
+        expectedText="preview"
+        message="This is a non-mutating confirmation preview for future destructive tenant actions."
+        onCancel={() => setShowConfirmationPreview(false)}
+        onConfirm={() => setShowConfirmationPreview(false)}
+        open={showConfirmationPreview}
+        title="Preview confirmation dialog"
+        tone="danger"
+      />
 
       <MetricStrip
         metrics={[

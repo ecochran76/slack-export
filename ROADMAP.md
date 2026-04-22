@@ -223,6 +223,7 @@ Actionable plans:
 - `docs/dev/plans/0109-2026-04-22-react-initial-sync-mutation.md`
 - `docs/dev/plans/0110-2026-04-22-react-start-live-sync-mutation.md`
 - `docs/dev/plans/0111-2026-04-22-react-restart-live-sync-mutation.md`
+- `docs/dev/plans/0112-2026-04-22-neutral-confirm-dialog-primitive.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -337,6 +338,9 @@ Cross-repo convergence refinement:
 - the third narrow React tenant mutation is complete under `0111`, enabling
   `Restart live sync` only as a degraded-active-unit recovery action while
   `Stop live sync` remains blocked on an explicit confirmation pattern
+- the neutral confirmation-dialog primitive is complete under `0112`, with a
+  non-mutating tenant-workbench preview proving typed confirmation before any
+  destructive `Stop live sync` wiring
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

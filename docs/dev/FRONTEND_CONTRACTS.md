@@ -215,6 +215,33 @@ Do not add streaming behavior, persisted intervals, background retry policy, or
 transport behavior to the primitive until at least two workbenches prove the
 same behavior is needed.
 
+## Confirm Dialog Model
+
+The first reusable confirmation primitive lives in:
+
+```text
+frontend/src/components/ConfirmDialog.tsx
+```
+
+The primitive owns only neutral confirmation UI mechanics:
+
+- title, message, and optional details
+- neutral or danger tone
+- cancel and confirm actions
+- optional typed confirmation text
+
+Repo-local workbenches own what action is being confirmed and what mutation
+runs after confirmation. For Slack Mirror, the tenant workbench currently uses
+`ConfirmDialog` only through a non-mutating preview so the destructive
+`Stop live sync` action can be wired in a later slice with a tested
+confirmation pattern. `../imcli` and `../ragmail` should be able to reuse the
+same primitive for destructive account/source, report, or artifact actions
+without importing Slack-specific terms.
+
+Do not add mutation transport, global dialog routing, or provider-specific
+labels to the primitive until at least two workbenches prove the same behavior
+is needed.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

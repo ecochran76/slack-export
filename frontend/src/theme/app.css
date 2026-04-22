@@ -264,6 +264,98 @@ h2 {
   color: var(--op-color-danger);
 }
 
+.confirm-preview {
+  align-items: center;
+  display: flex;
+  gap: var(--op-space-3);
+}
+
+.confirm-preview small {
+  color: var(--op-color-muted);
+  font-weight: 700;
+}
+
+.confirm-preview__button {
+  background: var(--op-color-surface-strong);
+  border: 1px solid var(--op-color-line);
+  color: var(--op-color-accent-strong);
+}
+
+.confirm-dialog {
+  align-items: center;
+  background: rgb(18 22 21 / 46%);
+  display: grid;
+  inset: 0;
+  padding: var(--op-space-5);
+  place-items: center;
+  position: fixed;
+  z-index: 10;
+}
+
+.confirm-dialog__panel {
+  background: var(--op-color-surface);
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-lg);
+  box-shadow: var(--op-shadow-soft);
+  display: grid;
+  gap: var(--op-space-4);
+  max-width: 36rem;
+  padding: var(--op-space-5);
+  width: min(100%, 36rem);
+}
+
+.confirm-dialog__panel--danger {
+  border-color: rgb(184 50 42 / 42%);
+}
+
+.confirm-dialog__body {
+  display: grid;
+  gap: var(--op-space-2);
+}
+
+.confirm-dialog__body small,
+.confirm-dialog__field span {
+  color: var(--op-color-muted);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.confirm-dialog__field {
+  display: grid;
+  gap: var(--op-space-2);
+}
+
+.confirm-dialog__field input {
+  background: var(--op-color-surface-strong);
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-sm);
+  color: var(--op-color-ink);
+  font: inherit;
+  padding: var(--op-space-3);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-2);
+  justify-content: flex-end;
+}
+
+.confirm-dialog__cancel {
+  background: var(--op-color-surface-strong);
+  border: 1px solid var(--op-color-line);
+  color: var(--op-color-ink);
+}
+
+.confirm-dialog__confirm {
+  background: var(--op-color-accent);
+  color: white;
+}
+
+.confirm-dialog__confirm--danger {
+  background: var(--op-color-danger);
+}
+
 .mutation-feedback {
   border: 1px solid var(--op-color-line);
   border-radius: var(--op-radius-md);
@@ -685,6 +777,11 @@ h2 {
   }
 
   .refresh-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .confirm-preview {
     align-items: stretch;
     flex-direction: column;
   }
