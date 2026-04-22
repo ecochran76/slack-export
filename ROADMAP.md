@@ -529,7 +529,7 @@ Purpose:
 
 Actionable plans:
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
-- `docs/dev/plans/0096-2026-04-21-slack-report-convergence-design-note.md`
+- `docs/dev/plans/0121-2026-04-21-slack-report-convergence-design-note.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the

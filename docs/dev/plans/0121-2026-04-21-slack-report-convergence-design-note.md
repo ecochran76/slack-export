@@ -1,4 +1,4 @@
-# 0096 | Slack report convergence design note
+# 0121 | Slack report convergence design note
 
 State: OPEN
 
@@ -201,6 +201,8 @@ managed `selected-results` artifacts. This projection maps resolved Slack
 message context rows, selected and neighboring derived-text chunks, and linked
 messages into provider-neutral event records while retaining Slack-native source
 refs and the existing `context_pack` artifact for backwards compatibility.
+Message events now include a neutral UTC `timestamp` parsed from Slack `ts`
+while preserving the native Slack timestamp under `source_refs.ts`.
 
 ## Shared-Library Gate
 

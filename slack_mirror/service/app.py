@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from html import escape as html_escape
 from pathlib import Path
 from typing import Any
@@ -267,6 +268,14 @@ def _safe_int_or_none(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _slack_ts_to_iso(value: Any) -> str | None:
+    try:
+        numeric = float(str(value or "").strip())
+    except (TypeError, ValueError):
+        return None
+    return datetime.fromtimestamp(numeric, tz=UTC).isoformat().replace("+00:00", "Z")
 
 
 def _decode_stable_part(value: str) -> str:
@@ -804,6 +813,7 @@ class SlackMirrorAppService:
         relation = str(row.get("relation") or ("hit" if row.get("selected") else "occurrence"))
         user_id = row.get("user_id")
         user_label = row.get("user_label")
+        timestamp = _slack_ts_to_iso(ts)
         event = {
             "schema_version": 1,
             "id": f"slack-message|{workspace}|{channel_id}|{ts}|{relation}|{item_index}|{context_index}",
@@ -829,7 +839,7 @@ class SlackMirrorAppService:
                 "root_ts": thread_ts or ts or None,
                 "native": {"thread_ts": thread_ts, "ts": ts or None},
             },
-            "timestamp": None,
+            "timestamp": timestamp,
             "participants": [
                 {
                     "role": "sender",
@@ -855,7 +865,7 @@ class SlackMirrorAppService:
                 "deleted": row.get("deleted"),
             },
             "action_target": target,
-            "warnings": ["slack_ts_requires_provider_specific_timestamp_parsing"],
+            "warnings": [] if timestamp else ["slack_ts_requires_provider_specific_timestamp_parsing"],
         }
         if "text" in row:
             event["text"] = row.get("text")

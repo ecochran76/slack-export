@@ -4185,7 +4185,7 @@ This file is the dated turn log for planning and execution continuity.
 - Returned to `P12 | Communications Corpus Convergence` for a Slack-specific
   report convergence note.
 - Opened:
-  - `0096-2026-04-21-slack-report-convergence-design-note.md`
+  - `0121-2026-04-21-slack-report-convergence-design-note.md`
 - Direction:
   - preserve Slack Mirror as the reference implementation for managed export
     bundles, stable `/exports/<export-id>` routes, attachment preview/download
@@ -4205,7 +4205,7 @@ This file is the dated turn log for planning and execution continuity.
 
 ## Turn 236 | 2026-04-22
 
-- Returned to `P12 | Communications Corpus Convergence` under plan `0096`.
+- Returned to `P12 | Communications Corpus Convergence` under plan `0121`.
 - Existing dirty state on entry:
   - `ROADMAP.md`, `RUNBOOK.md`, and the untracked `0096` design note already
     contained convergence planning edits from a prior turn.
@@ -4221,9 +4221,23 @@ This file is the dated turn log for planning and execution continuity.
     message events
   - preserved the existing `context_pack`, HTML report rendering, and manifest
     behavior for backwards compatibility
-  - updated README, roadmap, and the `0096` plan note
+  - updated README, roadmap, and the `0121` plan note
 - Validation:
   - `python -m py_compile slack_mirror/service/app.py`
   - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_build_search_context_pack_resolves_message_and_derived_targets -v`
   - `uv run python -m unittest tests.test_app_service -v`
     - result: 40 tests passed
+
+## Turn 237 | 2026-04-22
+
+- Reviewed the `P12` convergence work created from the sibling-agent context.
+- Fixed review findings:
+  - renumbered the Slack report convergence design note from `0096` to `0121`
+    to avoid colliding with the dedicated frontend worktree's `0096` through
+    `0120` plan sequence during later integration
+  - added neutral UTC `timestamp` values to selected-result message events
+    while preserving native Slack `source_refs.ts`
+- Planned handoff:
+  - leave a policy-compliant cross-repo note in `../ragmail` summarizing the
+    Slack-side fixes and the timestamp/plan-numbering expectations for future
+    convergence work
