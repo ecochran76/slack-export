@@ -132,6 +132,31 @@ controls without importing Slack-specific terms.
 Do not persist view preferences or add route synchronization to the primitive
 until at least two workbenches prove the same behavior is needed.
 
+## Detail Panel Model
+
+The first reusable disclosure primitive lives in:
+
+```text
+frontend/src/components/DetailPanel.tsx
+```
+
+The primitive owns only neutral native-disclosure mechanics:
+
+- title and optional summary metadata
+- open/closed affordance styling
+- card and compact visual variants
+- child content placement
+
+Repo-local workbenches own what the details mean. For Slack Mirror, the tenant
+workbench uses `DetailPanel` for live-unit, text/embedding, and semantic
+readiness diagnostics. `../imcli` and `../ragmail` should be able to reuse the
+same primitive for account/source diagnostics, message/export provenance, or
+report metadata without importing Slack-specific tenant terminology.
+
+Do not add persisted expansion state, route synchronization, accordions, or
+remote lazy-loading to the primitive until at least two workbenches prove the
+same behavior is needed.
+
 ## Extraction Gate
 
 Do not move these types into a sibling shared package until at least one sibling

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DetailPanel } from "../../components/DetailPanel";
 import { EntityTable, type EntityTableColumn } from "../../components/EntityTable";
 import { MetricStrip } from "../../components/MetricStrip";
 import { StatusBadge, StatusPanel } from "../../components/StatusWidget";
@@ -140,47 +141,46 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
         />
       </div>
 
-      <details className="tenant-row__details-disclosure">
-        <summary>
-          <span className="tenant-row__summary-title">Details and readiness</span>
-          <span className="tenant-row__summary-meta">
+      <DetailPanel
+        meta={
+          <>
             live {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"} · text{" "}
             {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} · {semanticSummary}
-          </span>
-        </summary>
-        <div className="tenant-row__details">
-          <div>
-            <strong>Live units</strong>
-            <p>
-              webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
-            </p>
-          </div>
-          <div>
-            <strong>Text and embeddings</strong>
-            <p>
-              attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
-              {numberLabel(errorJobs)}
-            </p>
-          </div>
-          <div>
-            <strong>Semantic readiness</strong>
-            <p>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary available."}</p>
-            <div className="chip-row">
-              {semanticProfiles.length ? (
-                semanticProfiles.map((profile) => (
-                  <StatusBadge
-                    key={profile.name ?? profile.state}
-                    label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
-                    tone={toneFromApi(profile.tone)}
-                  />
-                ))
-              ) : (
-                <StatusBadge label="no profiles" tone="neutral" />
-              )}
-            </div>
+          </>
+        }
+        title="Details and readiness"
+      >
+        <div>
+          <strong>Live units</strong>
+          <p>
+            webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
+          </p>
+        </div>
+        <div>
+          <strong>Text and embeddings</strong>
+          <p>
+            attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
+            {numberLabel(errorJobs)}
+          </p>
+        </div>
+        <div>
+          <strong>Semantic readiness</strong>
+          <p>{tenant.semantic_readiness?.summary ?? "No semantic readiness summary available."}</p>
+          <div className="chip-row">
+            {semanticProfiles.length ? (
+              semanticProfiles.map((profile) => (
+                <StatusBadge
+                  key={profile.name ?? profile.state}
+                  label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
+                  tone={toneFromApi(profile.tone)}
+                />
+              ))
+            ) : (
+              <StatusBadge label="no profiles" tone="neutral" />
+            )}
           </div>
         </div>
-      </details>
+      </DetailPanel>
     </article>
   );
 }
@@ -291,31 +291,28 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
       render: (tenant) => {
         const { db, errorJobs, liveUnits, semanticProfiles } = tenantDiagnostics(tenant);
         return (
-          <details className="entity-table__details">
-            <summary>Inspect</summary>
-            <div>
-              <p>
-                live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
-              </p>
-              <p>
-                attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
-                {numberLabel(errorJobs)}
-              </p>
-              <div className="entity-table__chips">
-                {semanticProfiles.length ? (
-                  semanticProfiles.map((profile) => (
-                    <StatusBadge
-                      key={profile.name ?? profile.state}
-                      label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
-                      tone={toneFromApi(profile.tone)}
-                    />
-                  ))
-                ) : (
-                  <StatusBadge label="no profiles" tone="neutral" />
-                )}
-              </div>
+          <DetailPanel title="Inspect" variant="compact">
+            <p>
+              live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
+            </p>
+            <p>
+              attachment text {numberLabel(db.attachment_text)} / OCR {numberLabel(db.ocr_text)} / errors{" "}
+              {numberLabel(errorJobs)}
+            </p>
+            <div className="entity-table__chips">
+              {semanticProfiles.length ? (
+                semanticProfiles.map((profile) => (
+                  <StatusBadge
+                    key={profile.name ?? profile.state}
+                    label={`${profile.name ?? "profile"}: ${statusLabel(profile.state)}`}
+                    tone={toneFromApi(profile.tone)}
+                  />
+                ))
+              ) : (
+                <StatusBadge label="no profiles" tone="neutral" />
+              )}
             </div>
-          </details>
+          </DetailPanel>
         );
       }
     }

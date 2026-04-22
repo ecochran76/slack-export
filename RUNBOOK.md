@@ -4507,3 +4507,29 @@ This file is the dated turn log for planning and execution continuity.
     - switched to `Table` mode through `ViewToggle` and confirmed 3 compact tenant rows
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/view-toggle-table.png`
+
+## Turn 246 | 2026-04-21
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the next bounded `P09` reusable-frontend slice:
+  - `0106-2026-04-21-neutral-detail-panel-primitive.md`
+- Direction:
+  - extract repeated native disclosure mechanics into a local neutral primitive
+  - keep Slack tenant diagnostics content inside the tenant workbench
+  - preserve a convergence path where `../imcli` and `../ragmail` can reuse the same disclosure primitive for account/source, provenance, or report metadata details
+- Implemented:
+  - added `frontend/src/components/DetailPanel.tsx`
+  - replaced tenant card and compact table native `<details>` markup with `DetailPanel`
+  - replaced tenant-specific disclosure CSS selectors with neutral `detail-panel` selectors and card/compact variants
+  - documented the detail-panel model and extraction gate in `docs/dev/FRONTEND_CONTRACTS.md`
+  - updated roadmap and plan wiring
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - verified default card mode renders tenants `default`, `soylei`, and `pcg`
+    - opened the first card `DetailPanel` and confirmed live-unit, text/embedding, and semantic-readiness diagnostics
+    - switched to `Table` mode and confirmed 3 compact `DetailPanel` inspect drawers
+    - opened the first compact `Inspect` drawer and confirmed live webhooks, attachment text, and profile badges
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/detail-panel-table.png`
