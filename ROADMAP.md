@@ -220,6 +220,7 @@ Actionable plans:
 - `docs/dev/plans/0106-2026-04-21-neutral-detail-panel-primitive.md`
 - `docs/dev/plans/0107-2026-04-21-neutral-action-button-group-primitive.md`
 - `docs/dev/plans/0108-2026-04-22-neutral-refresh-status-primitive.md`
+- `docs/dev/plans/0109-2026-04-22-react-initial-sync-mutation.md`
 
 Current state:
 - shared tenant onboarding primitives now expose redacted status, disabled scaffold creation, credential installation, activation, live-sync controls, bounded backfill, and guarded retirement over CLI and protected API routes
@@ -325,6 +326,9 @@ Cross-repo convergence refinement:
 - the first neutral refresh-status primitive is complete under `0108`, exposing
   tenant status freshness, polling interval, and manual refresh affordance while
   keeping API fetch and polling policy inside the tenant adapter
+- the first React tenant mutation is complete under `0109`, enabling only
+  `Run initial sync` against the existing bounded tenant backfill API with
+  immediate busy/success/error feedback and post-command status refresh
 
 ## P10 | Semantic Retrieval And Relevance Hardening
 

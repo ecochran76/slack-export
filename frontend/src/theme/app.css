@@ -264,6 +264,33 @@ h2 {
   color: var(--op-color-danger);
 }
 
+.mutation-feedback {
+  border: 1px solid var(--op-color-line);
+  border-radius: var(--op-radius-md);
+  color: var(--op-color-muted);
+  font-weight: 800;
+  line-height: 1.45;
+  padding: var(--op-space-3) var(--op-space-4);
+}
+
+.mutation-feedback--busy {
+  background: rgb(34 95 143 / 10%);
+  border-color: rgb(34 95 143 / 26%);
+  color: var(--op-color-info);
+}
+
+.mutation-feedback--success {
+  background: rgb(31 122 72 / 10%);
+  border-color: rgb(31 122 72 / 26%);
+  color: var(--op-color-success);
+}
+
+.mutation-feedback--error {
+  background: rgb(184 50 42 / 10%);
+  border-color: rgb(184 50 42 / 26%);
+  color: var(--op-color-danger);
+}
+
 .metric-strip {
   display: grid;
   gap: var(--op-space-3);

@@ -3,6 +3,7 @@ export type ActionButtonTone = "primary" | "neutral" | "warning" | "danger";
 export type ActionButtonItem = {
   disabled?: boolean;
   label: string;
+  onClick?: () => void;
   reason?: string;
   tone?: ActionButtonTone;
 };
@@ -19,8 +20,9 @@ export function ActionButtonGroup({
       {actions.map((action) => (
         <button
           className={`button action-group__button action-group__button--${action.tone ?? "neutral"}`}
-          disabled={action.disabled ?? true}
+          disabled={action.disabled ?? false}
           key={action.label}
+          onClick={action.onClick}
           title={action.reason}
           type="button"
         >

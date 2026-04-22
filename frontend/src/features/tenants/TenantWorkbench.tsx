@@ -21,6 +21,11 @@ type LoadState =
   | { status: "ready"; tenants: TenantStatus[]; error?: undefined }
   | { status: "error"; tenants: TenantStatus[]; error: string };
 
+type MutationState = {
+  message: string;
+  status: "busy" | "success" | "error";
+};
+
 type ViewMode = "cards" | "table";
 
 const VIEW_MODE_OPTIONS: ViewToggleOption<ViewMode>[] = [
@@ -41,6 +46,14 @@ type TenantDiagnostics = {
   semanticProfiles: TenantSemanticProfile[];
   semanticSummary: string;
   syncHealth: TenantStatusBlock;
+};
+
+type TenantBackfillResponse = {
+  action: string;
+  commands?: string[][];
+  dry_run?: boolean;
+  ok: boolean;
+  tenant: TenantStatus;
 };
 
 function numberLabel(value: number | undefined): string {
@@ -100,9 +113,20 @@ function includesStatus(value: string | undefined, needle: string): boolean {
     .includes(needle);
 }
 
-function tenantActions(tenant: TenantStatus, diagnostics: TenantDiagnostics): ActionButtonItem[] {
+function tenantActions({
+  diagnostics,
+  mutation,
+  onRunInitialSync,
+  tenant
+}: {
+  diagnostics: TenantDiagnostics;
+  mutation?: MutationState;
+  onRunInitialSync: (tenant: TenantStatus) => void;
+  tenant: TenantStatus;
+}): ActionButtonItem[] {
   const { backfill, pendingJobs, syncHealth } = diagnostics;
   const disabledReason = "Available on the production tenant settings page until React mutations land.";
+  const mutationBusy = mutation?.status === "busy";
 
   if (!tenant.credential_ready) {
     return [{ disabled: true, label: "Install credentials", reason: disabledReason, tone: "warning" }];
@@ -116,12 +140,18 @@ function tenantActions(tenant: TenantStatus, diagnostics: TenantDiagnostics): Ac
     return [{ disabled: true, label: "Activate tenant", reason: disabledReason, tone: "warning" }];
   }
 
-  if (
-    includesStatus(tenant.next_action, "initial") ||
-    includesStatus(tenant.next_action, "backfill") ||
-    includesStatus(backfill.label, "needed")
-  ) {
-    return [{ disabled: true, label: "Run initial sync", reason: disabledReason, tone: "primary" }];
+  if (tenant.next_action === "run_initial_sync" || backfill.label === "needs_initial_sync") {
+    return [
+      {
+        disabled: mutationBusy,
+        label: mutationBusy ? "Initial sync running" : "Run initial sync",
+        onClick: () => onRunInitialSync(tenant),
+        reason: mutationBusy
+          ? "Initial history sync is running. Status will refresh when the command returns."
+          : "Run a bounded user-auth history sync, then refresh tenant status.",
+        tone: "primary"
+      }
+    ];
   }
 
   if (
@@ -157,7 +187,28 @@ function tenantActions(tenant: TenantStatus, diagnostics: TenantDiagnostics): Ac
   ];
 }
 
-function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
+function MutationFeedback({ mutation }: { mutation?: MutationState }) {
+  if (!mutation) return null;
+
+  return (
+    <div
+      className={`mutation-feedback mutation-feedback--${mutation.status}`}
+      role={mutation.status === "error" ? "alert" : "status"}
+    >
+      {mutation.message}
+    </div>
+  );
+}
+
+function TenantStatusRow({
+  mutation,
+  onRunInitialSync,
+  tenant
+}: {
+  mutation?: MutationState;
+  onRunInitialSync: (tenant: TenantStatus) => void;
+  tenant: TenantStatus;
+}) {
   const diagnostics = tenantDiagnostics(tenant);
   const { backfill, db, errorJobs, health, liveUnits, pendingJobs, semanticProfiles, semanticSummary, syncHealth } =
     diagnostics;
@@ -220,9 +271,10 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
       </div>
 
       <ActionButtonGroup
-        actions={tenantActions(tenant, diagnostics)}
+        actions={tenantActions({ diagnostics, mutation, onRunInitialSync, tenant })}
         ariaLabel={`${tenant.name} recommended actions`}
       />
+      <MutationFeedback mutation={mutation} />
 
       <DetailPanel
         meta={
@@ -268,7 +320,15 @@ function TenantStatusRow({ tenant }: { tenant: TenantStatus }) {
   );
 }
 
-function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
+function TenantStatusTable({
+  mutations,
+  onRunInitialSync,
+  tenants
+}: {
+  mutations: Record<string, MutationState>;
+  onRunInitialSync: (tenant: TenantStatus) => void;
+  tenants: TenantStatus[];
+}) {
   const columns: EntityTableColumn<TenantStatus>[] = [
     {
       header: "Tenant",
@@ -377,9 +437,15 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
         return (
           <DetailPanel title="Inspect" variant="compact">
             <ActionButtonGroup
-              actions={tenantActions(tenant, diagnostics)}
+              actions={tenantActions({
+                diagnostics,
+                mutation: mutations[tenant.name],
+                onRunInitialSync,
+                tenant
+              })}
               ariaLabel={`${tenant.name} recommended actions`}
             />
+            <MutationFeedback mutation={mutations[tenant.name]} />
             <p>
               live webhooks {liveUnits.webhooks ?? "unknown"} / daemon {liveUnits.daemon ?? "unknown"}
             </p>
@@ -419,6 +485,7 @@ function TenantStatusTable({ tenants }: { tenants: TenantStatus[] }) {
 export function TenantWorkbench() {
   const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
+  const [mutations, setMutations] = useState<Record<string, MutationState>>({});
   const [refreshState, setRefreshState] = useState<RefreshStatusState>("loading");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
@@ -472,6 +539,50 @@ export function TenantWorkbench() {
         tenants: current.tenants
       }));
       setRefreshState("error");
+    }
+  }
+
+  async function runInitialSync(tenant: TenantStatus) {
+    setMutations((current) => ({
+      ...current,
+      [tenant.name]: {
+        message: "Initial history sync requested. Waiting for the bounded backfill command to return...",
+        status: "busy"
+      }
+    }));
+
+    try {
+      const payload = await fetchJson<TenantBackfillResponse>(
+        `/v1/tenants/${encodeURIComponent(tenant.name)}/backfill`,
+        {
+          body: JSON.stringify({
+            auth_mode: "user",
+            channel_limit: 10,
+            include_files: false,
+            include_messages: true
+          }),
+          headers: { "content-type": "application/json" },
+          method: "POST"
+        }
+      );
+
+      setMutations((current) => ({
+        ...current,
+        [tenant.name]: {
+          message: `Initial history sync ${payload.action || "backfill"} completed for ${payload.tenant.name}. Refreshing status...`,
+          status: "success"
+        }
+      }));
+      await refreshTenants();
+    } catch (error) {
+      setMutations((current) => ({
+        ...current,
+        [tenant.name]: {
+          message: error instanceof Error ? error.message : "Initial history sync failed.",
+          status: "error"
+        }
+      }));
+      await refreshTenants();
     }
   }
 
@@ -533,11 +644,16 @@ export function TenantWorkbench() {
       {viewMode === "cards" ? (
         <div className="tenant-list">
           {state.tenants.map((tenant) => (
-            <TenantStatusRow key={tenant.name} tenant={tenant} />
+            <TenantStatusRow
+              key={tenant.name}
+              mutation={mutations[tenant.name]}
+              onRunInitialSync={runInitialSync}
+              tenant={tenant}
+            />
           ))}
         </div>
       ) : (
-        <TenantStatusTable tenants={state.tenants} />
+        <TenantStatusTable mutations={mutations} onRunInitialSync={runInitialSync} tenants={state.tenants} />
       )}
     </section>
   );

@@ -4585,3 +4585,31 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed tenants `default`, `soylei`, and `pcg` remain rendered after refresh
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/refresh-status-idle.png`
+
+## Turn 249 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the first narrow React mutation slice:
+  - `0109-2026-04-22-react-initial-sync-mutation.md`
+- Direction:
+  - enable only the `Run initial sync` tenant action before broader React tenant controls
+  - reuse the existing bounded tenant backfill API and payload from the production settings page
+  - keep activation, live-sync, credential, retire, and maintenance backfill controls disabled until separate slices prove their mutation contracts
+- Implemented:
+  - extended `ActionButtonGroup` to support enabled callbacks
+  - added tenant-local initial-sync mutation state for busy, success, and error feedback
+  - wired eligible `Run initial sync` actions to `POST /v1/tenants/<name>/backfill`
+  - refreshed tenant status after the command returns
+  - updated frontend contract docs, roadmap wiring, and bounded plan coverage
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - authenticated browser dry-run API probe:
+    - posted to `/v1/tenants/default/backfill` with `dry_run: true`, `auth_mode: user`, `include_messages: true`, `include_files: false`, and `channel_limit: 10`
+    - confirmed HTTP 200, `ok: true`, `action: backfill`, `dry_run: true`, tenant `default`, and a generated command containing `backfill`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - verified current live tenants `default`, `soylei`, and `pcg` render after status load
+    - confirmed all current live tenants show disabled `No action needed` actions because none currently advertises `run_initial_sync` / `needs_initial_sync`
+    - confirmed no mutation feedback is shown before an action starts
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/react-initial-sync-mutation-current-loaded.png`
