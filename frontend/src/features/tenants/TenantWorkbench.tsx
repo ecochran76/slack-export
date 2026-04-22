@@ -65,7 +65,7 @@ type TenantLiveResponse = {
   tenant: TenantStatus;
 };
 
-type TenantLiveAction = "start" | "restart";
+type TenantLiveAction = "start" | "restart" | "stop";
 
 function numberLabel(value: number | undefined): string {
   return new Intl.NumberFormat().format(Number(value ?? 0));
@@ -128,6 +128,7 @@ function tenantActions({
   diagnostics,
   mutation,
   onRestartLiveSync,
+  onRequestStopLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenant
@@ -135,6 +136,7 @@ function tenantActions({
   diagnostics: TenantDiagnostics;
   mutation?: MutationState;
   onRestartLiveSync: (tenant: TenantStatus) => void;
+  onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
   onStartLiveSync: (tenant: TenantStatus) => void;
   tenant: TenantStatus;
@@ -221,7 +223,7 @@ function tenantActions({
     ];
   }
 
-  return [
+  const actions: ActionButtonItem[] = [
     {
       disabled: true,
       label: "No action needed",
@@ -229,6 +231,20 @@ function tenantActions({
       tone: "neutral"
     }
   ];
+
+  if (unitsActive) {
+    actions.push({
+      disabled: mutationBusy,
+      label: mutationBusy ? "Stopping live sync" : "Stop live sync",
+      onClick: () => onRequestStopLiveSync(tenant),
+      reason: mutationBusy
+        ? "Live sync stop is running. Status will refresh when the command returns."
+        : "Stop active live-sync units after typed confirmation.",
+      tone: "danger"
+    });
+  }
+
+  return actions;
 }
 
 function MutationFeedback({ mutation }: { mutation?: MutationState }) {
@@ -247,12 +263,14 @@ function MutationFeedback({ mutation }: { mutation?: MutationState }) {
 function TenantStatusRow({
   mutation,
   onRestartLiveSync,
+  onRequestStopLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenant
 }: {
   mutation?: MutationState;
   onRestartLiveSync: (tenant: TenantStatus) => void;
+  onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
   onStartLiveSync: (tenant: TenantStatus) => void;
   tenant: TenantStatus;
@@ -323,6 +341,7 @@ function TenantStatusRow({
           diagnostics,
           mutation,
           onRestartLiveSync,
+          onRequestStopLiveSync,
           onRunInitialSync,
           onStartLiveSync,
           tenant
@@ -378,12 +397,14 @@ function TenantStatusRow({
 function TenantStatusTable({
   mutations,
   onRestartLiveSync,
+  onRequestStopLiveSync,
   onRunInitialSync,
   onStartLiveSync,
   tenants
 }: {
   mutations: Record<string, MutationState>;
   onRestartLiveSync: (tenant: TenantStatus) => void;
+  onRequestStopLiveSync: (tenant: TenantStatus) => void;
   onRunInitialSync: (tenant: TenantStatus) => void;
   onStartLiveSync: (tenant: TenantStatus) => void;
   tenants: TenantStatus[];
@@ -500,6 +521,7 @@ function TenantStatusTable({
                 diagnostics,
                 mutation: mutations[tenant.name],
                 onRestartLiveSync,
+                onRequestStopLiveSync,
                 onRunInitialSync,
                 onStartLiveSync,
                 tenant
@@ -547,8 +569,8 @@ export function TenantWorkbench() {
   const [state, setState] = useState<LoadState>({ status: "loading", tenants: [] });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | undefined>();
   const [mutations, setMutations] = useState<Record<string, MutationState>>({});
+  const [pendingStopTenant, setPendingStopTenant] = useState<TenantStatus | undefined>();
   const [refreshState, setRefreshState] = useState<RefreshStatusState>("loading");
-  const [showConfirmationPreview, setShowConfirmationPreview] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
   useEffect(() => {
@@ -649,7 +671,7 @@ export function TenantWorkbench() {
   }
 
   async function runLiveSyncAction(tenant: TenantStatus, action: TenantLiveAction) {
-    const actionLabel = action === "start" ? "start" : "restart";
+    const actionLabel = action === "start" ? "start" : action === "restart" ? "restart" : "stop";
     setMutations((current) => ({
       ...current,
       [tenant.name]: {
@@ -696,6 +718,11 @@ export function TenantWorkbench() {
     await runLiveSyncAction(tenant, "restart");
   }
 
+  async function stopLiveSync(tenant: TenantStatus) {
+    setPendingStopTenant(undefined);
+    await runLiveSyncAction(tenant, "stop");
+  }
+
   const enabledCount = state.tenants.filter((tenant) => tenant.enabled).length;
   const readyCount = state.tenants.filter((tenant) => tenant.credential_ready && tenant.db_synced).length;
   const pendingJobs = state.tenants.reduce((total, tenant) => {
@@ -719,26 +746,23 @@ export function TenantWorkbench() {
         </a>
       </div>
 
-      <div className="confirm-preview">
-        <button
-          className="button confirm-preview__button"
-          onClick={() => setShowConfirmationPreview(true)}
-          type="button"
-        >
-          Preview confirmation
-        </button>
-        <small>Stop-live wiring will use this confirmation pattern in the next slice.</small>
-      </div>
-
       <ConfirmDialog
-        confirmLabel="Confirm preview"
-        details="This preview exercises the shared confirmation pattern only; it does not call a tenant API."
-        expectedText="preview"
-        message="This is a non-mutating confirmation preview for future destructive tenant actions."
-        onCancel={() => setShowConfirmationPreview(false)}
-        onConfirm={() => setShowConfirmationPreview(false)}
-        open={showConfirmationPreview}
-        title="Preview confirmation dialog"
+        confirmLabel="Stop live sync"
+        details="This stops the tenant's live-sync systemd user units. Mirrored history remains in the database."
+        expectedText={pendingStopTenant?.name}
+        message={
+          pendingStopTenant
+            ? `Stop live sync for ${pendingStopTenant.name}? Type the tenant name to confirm.`
+            : "Stop live sync?"
+        }
+        onCancel={() => setPendingStopTenant(undefined)}
+        onConfirm={() => {
+          if (pendingStopTenant) {
+            void stopLiveSync(pendingStopTenant);
+          }
+        }}
+        open={Boolean(pendingStopTenant)}
+        title="Stop live sync"
         tone="danger"
       />
 
@@ -781,6 +805,7 @@ export function TenantWorkbench() {
               key={tenant.name}
               mutation={mutations[tenant.name]}
               onRestartLiveSync={restartLiveSync}
+              onRequestStopLiveSync={setPendingStopTenant}
               onRunInitialSync={runInitialSync}
               onStartLiveSync={startLiveSync}
               tenant={tenant}
@@ -791,6 +816,7 @@ export function TenantWorkbench() {
         <TenantStatusTable
           mutations={mutations}
           onRestartLiveSync={restartLiveSync}
+          onRequestStopLiveSync={setPendingStopTenant}
           onRunInitialSync={runInitialSync}
           onStartLiveSync={startLiveSync}
           tenants={state.tenants}

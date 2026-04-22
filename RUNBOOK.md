@@ -4696,3 +4696,34 @@ This file is the dated turn log for planning and execution continuity.
     - confirmed the dialog closes after confirmation and tenant rows remain rendered
     - confirmed page-level horizontal overflow remains false
     - captured `/tmp/slack-operator-qa/confirm-dialog-preview.png`
+
+## Turn 253 | 2026-04-22
+
+- Continued the dedicated `feat/p09-operator-frontend` worktree with the destructive live-stop mutation slice:
+  - `0113-2026-04-22-react-stop-live-sync-mutation.md`
+- Direction:
+  - wire `Stop live sync` only after the typed confirmation primitive was validated
+  - require tenant-name confirmation before posting the stop action
+  - keep activation, credentials, retire, and maintenance backfill disabled for later slices
+- Implemented:
+  - expanded the tenant live mutation helper to support `stop`
+  - rendered `Stop live sync` only when live-unit evidence is active
+  - used `ConfirmDialog` with expected text equal to the tenant name
+  - posted confirmed stop actions to `POST /v1/tenants/<name>/live`
+  - reused per-tenant busy, success, and error feedback plus post-command status refresh
+- Validation:
+  - `npm run typecheck` from `frontend/`
+  - `npm run build` from `frontend/`
+  - `uv run python scripts/check_generated_docs.py`
+  - authenticated browser dry-run API probe:
+    - posted to `/v1/tenants/default/live` with `action: stop` and `dry_run: true`
+    - confirmed HTTP 200, `ok: true`, `action: stop`, `dry_run: true`, tenant `default`, and a generated command containing `stop`
+  - `agent-browser` desktop QA against `http://127.0.0.1:8765/operator`:
+    - logged in with an isolated browser profile
+    - verified current live tenants `default`, `soylei`, and `pcg` render after status load
+    - confirmed active tenants render enabled `Stop live sync` actions
+    - opened stop confirmation for `default` and confirmed the confirm button is disabled until typed tenant-name input is supplied
+    - typed `default`, captured the confirmation dialog, then cancelled without calling the real stop action
+    - confirmed no mutation feedback is shown after cancel and tenant rows remain rendered
+    - confirmed page-level horizontal overflow remains false
+    - captured `/tmp/slack-operator-qa/stop-live-sync-confirmation.png`

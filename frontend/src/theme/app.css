@@ -264,23 +264,6 @@ h2 {
   color: var(--op-color-danger);
 }
 
-.confirm-preview {
-  align-items: center;
-  display: flex;
-  gap: var(--op-space-3);
-}
-
-.confirm-preview small {
-  color: var(--op-color-muted);
-  font-weight: 700;
-}
-
-.confirm-preview__button {
-  background: var(--op-color-surface-strong);
-  border: 1px solid var(--op-color-line);
-  color: var(--op-color-accent-strong);
-}
-
 .confirm-dialog {
   align-items: center;
   background: rgb(18 22 21 / 46%);
@@ -777,11 +760,6 @@ h2 {
   }
 
   .refresh-status {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .confirm-preview {
     align-items: stretch;
     flex-direction: column;
   }

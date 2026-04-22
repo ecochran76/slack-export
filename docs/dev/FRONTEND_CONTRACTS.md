@@ -178,12 +178,13 @@ from credential, config, activation, backfill, live-sync, and queue state. The
 first enabled React mutations are deliberately narrow: `Run initial sync` posts
 to the existing tenant backfill API, and `Start live sync` posts to the
 existing tenant live API. `Restart live sync` is enabled only as a recovery
-action when live units are active and status is degraded. Activation, stop,
-credential, retire, and maintenance backfill actions remain disabled until
-their mutation contracts are migrated deliberately. `../imcli` and `../ragmail`
-should be able to reuse the same primitive for account/source actions,
-candidate/report actions, or runtime maintenance actions without importing
-Slack-specific verbs.
+action when live units are active and status is degraded. `Stop live sync` is
+enabled only when live units are active and requires typed tenant-name
+confirmation. Activation, credential, retire, and maintenance backfill actions
+remain disabled until their mutation contracts are migrated deliberately.
+`../imcli` and `../ragmail` should be able to reuse the same primitive for
+account/source actions, candidate/report actions, or runtime maintenance
+actions without importing Slack-specific verbs.
 
 Do not add optimistic updates, confirmation flows, or transport behavior to the
 primitive until at least two workbenches prove the same behavior is needed.
@@ -231,12 +232,11 @@ The primitive owns only neutral confirmation UI mechanics:
 - optional typed confirmation text
 
 Repo-local workbenches own what action is being confirmed and what mutation
-runs after confirmation. For Slack Mirror, the tenant workbench currently uses
-`ConfirmDialog` only through a non-mutating preview so the destructive
-`Stop live sync` action can be wired in a later slice with a tested
-confirmation pattern. `../imcli` and `../ragmail` should be able to reuse the
-same primitive for destructive account/source, report, or artifact actions
-without importing Slack-specific terms.
+runs after confirmation. For Slack Mirror, the tenant workbench uses
+`ConfirmDialog` to guard `Stop live sync` with typed tenant-name confirmation.
+`../imcli` and `../ragmail` should be able to reuse the same primitive for
+destructive account/source, report, or artifact actions without importing
+Slack-specific terms.
 
 Do not add mutation transport, global dialog routing, or provider-specific
 labels to the primitive until at least two workbenches prove the same behavior
