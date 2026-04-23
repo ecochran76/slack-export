@@ -4930,3 +4930,16 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run --isolated --with jsonschema python -m unittest tests.test_communications_contract_projection -v`
   - planning contract audit with `audit_planning_contract.py --json`
   - `git diff --check`
+
+## Turn 266 | 2026-04-23
+
+- Updated the selected-results communications-contract validator default schema
+  lookup after Ragmail merged and removed the former
+  `../ragmail-storage-architecture` worktree.
+- The validator now prefers `../receipts/schemas/communications` when present,
+  then falls back to `../ragmail/schemas/communications`.
+- Validation:
+  - `python -m py_compile scripts/validate_selected_results_communications_contract.py`
+  - `git diff --check`
+  - default schema lookup resolves to
+    `/home/ecochran76/workspace.local/receipts/schemas/communications`

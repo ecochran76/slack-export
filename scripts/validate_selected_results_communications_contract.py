@@ -19,7 +19,13 @@ def _string_or_none(value: Any) -> str | None:
 
 def _default_schema_dir() -> Path:
     workspace_root = Path(__file__).resolve().parents[2]
-    return workspace_root / "ragmail-storage-architecture" / "schemas" / "communications"
+    for candidate in (
+        workspace_root / "receipts" / "schemas" / "communications",
+        workspace_root / "ragmail" / "schemas" / "communications",
+    ):
+        if candidate.exists():
+            return candidate
+    return workspace_root / "ragmail" / "schemas" / "communications"
 
 
 def _load_json(path: Path) -> Any:
