@@ -125,6 +125,12 @@ communications-contract gate:
   projecting shared fields such as selected action targets, context policy,
   communication events, participants, thread refs, attachments, derived-text
   refs, source refs, and compatibility warnings
+- projected cross-provider `service_ids` are string-normalized so Slack DB row
+  IDs such as `derived_text_id` validate against the shared schema while the
+  native Slack payload stays lossless under `extensions`
+- the focused regression test covers both message selected-results and
+  derived-text/OCR selected-results; run it with `uv run --isolated --with
+  jsonschema` when the schema validation path itself must execute
 - validation is intentionally a projection step rather than a native artifact
   rewrite, so existing Slack report/export consumers keep the current
   `selected-results.json` contract

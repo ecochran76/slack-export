@@ -11,6 +11,12 @@ def _compact_dict(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if value is not None}
 
 
+def _string_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
 def _default_schema_dir() -> Path:
     workspace_root = Path(__file__).resolve().parents[2]
     return workspace_root / "ragmail-storage-architecture" / "schemas" / "communications"
@@ -46,12 +52,12 @@ def map_action_target(target: dict[str, Any]) -> dict[str, Any]:
     hit_kind = "chunk" if native_kind == "derived_text" and target.get("chunk_index") is not None else target_kind
     service_ids = _compact_dict(
         {
-            "message_id": target.get("ts"),
-            "thread_id": target.get("thread_ts"),
-            "conversation_id": target.get("channel_id"),
-            "channel_id": target.get("channel_id"),
-            "workspace_id": target.get("workspace"),
-            "derived_text_id": target.get("derived_text_id"),
+            "message_id": _string_or_none(target.get("ts")),
+            "thread_id": _string_or_none(target.get("thread_ts")),
+            "conversation_id": _string_or_none(target.get("channel_id")),
+            "channel_id": _string_or_none(target.get("channel_id")),
+            "workspace_id": _string_or_none(target.get("workspace_id") or target.get("workspace")),
+            "derived_text_id": _string_or_none(target.get("derived_text_id")),
         }
     )
     native_ids = _compact_dict(
@@ -271,7 +277,7 @@ def map_selected_results_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def validate_contract(payload: dict[str, Any], schema_dir: Path) -> list[str]:
     try:
-        from jsonschema import Draft202012Validator
+        from jsonschema import Draft202012Validator, FormatChecker
         from referencing import Registry, Resource
         from referencing.jsonschema import DRAFT202012
     except ModuleNotFoundError as exc:
@@ -290,7 +296,7 @@ def validate_contract(payload: dict[str, Any], schema_dir: Path) -> list[str]:
     registry = Registry().with_resources(resources)
     for schema_payload in store.values():
         Draft202012Validator.check_schema(schema_payload)
-    validator = Draft202012Validator(schema, registry=registry)
+    validator = Draft202012Validator(schema, registry=registry, format_checker=FormatChecker())
     return [
         f"{'/'.join(str(part) for part in error.absolute_path) or '<root>'}: {error.message}"
         for error in sorted(validator.iter_errors(payload), key=lambda item: list(item.path))

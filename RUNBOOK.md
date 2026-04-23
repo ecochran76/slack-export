@@ -4910,3 +4910,23 @@ This file is the dated turn log for planning and execution continuity.
   - generated message-plus-derived-text selected-result export validated with the same schema gate
   - planning contract audit with `audit_planning_contract.py --json`
   - `git diff --check`
+
+## Turn 265 | 2026-04-22
+
+- Reviewed and hardened Ragmail's `P12` selected-results communications
+  contract projection changes.
+- Fixed:
+  - string-normalized projected cross-provider `service_ids`, including
+    integer Slack `workspace_id` and `derived_text_id` values
+  - kept native Slack IDs lossless under `native_ids`, `source_refs`, and
+    `extensions`
+  - enabled JSON Schema date-time `format` checking in the validation helper
+  - expanded regression coverage from message-only mapping to message plus
+    derived-text/OCR selected-results, with the schema-backed path exercised
+    under `uv run --isolated --with jsonschema`
+- Validation:
+  - `python -m py_compile scripts/validate_selected_results_communications_contract.py`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_build_search_context_pack_resolves_message_and_derived_targets tests.test_communications_contract_projection -v`
+  - `uv run --isolated --with jsonschema python -m unittest tests.test_communications_contract_projection -v`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `git diff --check`
