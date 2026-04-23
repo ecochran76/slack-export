@@ -112,6 +112,28 @@ Slack-native details should remain under explicit source/native metadata:
 - canvas/file derived-text source IDs
 - permalink and private download URL evidence where available
 
+## Draft Contract Validation Gate
+
+Slack Mirror now has a local validation harness for the first shared
+communications-contract gate:
+
+- `scripts/validate_selected_results_communications_contract.py` maps a native
+  Slack `selected-results.json` artifact into the draft
+  `selected_result_export` schema owned by Ragmail's communications-contract
+  worktree
+- the mapper preserves the native Slack artifact under `extensions` while
+  projecting shared fields such as selected action targets, context policy,
+  communication events, participants, thread refs, attachments, derived-text
+  refs, source refs, and compatibility warnings
+- validation is intentionally a projection step rather than a native artifact
+  rewrite, so existing Slack report/export consumers keep the current
+  `selected-results.json` contract
+- run the gate from this repo with:
+
+```bash
+uv run --isolated --with jsonschema python scripts/validate_selected_results_communications_contract.py --input <bundle>/selected-results.json
+```
+
 ## Query Convergence Requirements
 
 Slack Mirror should continue its portable-query work with a shared

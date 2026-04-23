@@ -4883,3 +4883,30 @@ This file is the dated turn log for planning and execution continuity.
   - `uv run python scripts/check_generated_docs.py`
   - planning contract audit with `audit_planning_contract.py --json`
   - `git diff --check`
+
+## Turn 264 | 2026-04-22
+
+- Continued `P12 | Communications Corpus Convergence` under:
+  - `docs/dev/plans/0121-2026-04-21-slack-report-convergence-design-note.md`
+- Direction:
+  - prove Slack can validate generated selected-result output against the
+    draft provider-neutral communications contract without changing the native
+    Slack `selected-results.json` artifact
+  - keep native Slack-specific payloads as extension data instead of losing
+    fidelity during projection
+- Implemented:
+  - added `scripts/validate_selected_results_communications_contract.py`
+  - mapped native selected-result targets, context policy, message events,
+    derived-text chunk events, participants, thread refs, attachments,
+    derived-text refs, source refs, and warnings into the draft
+    `selected_result_export` schema
+  - added a focused unit test for the projection shape
+  - documented the validation gate in the Slack report convergence note
+- Validation:
+  - `uv run python -m unittest tests.test_communications_contract_projection -v`
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_build_search_context_pack_resolves_message_and_derived_targets tests.test_communications_contract_projection -v`
+  - `python -m py_compile scripts/validate_selected_results_communications_contract.py`
+  - generated message-only selected-result export validated with `uv run --isolated --with jsonschema python scripts/validate_selected_results_communications_contract.py --input <tmp>/selected-results.json`
+  - generated message-plus-derived-text selected-result export validated with the same schema gate
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `git diff --check`
