@@ -431,7 +431,7 @@ def _write_env_file(paths: UserEnvPaths) -> None:
 
 
 def _ignore_repo_snapshot(_dir: str, names: list[str]) -> set[str]:
-    ignored = {".git", ".venv", ".pytest_cache", "__pycache__", "cache", ".openclaw"}
+    ignored = {".git", ".venv", ".pytest_cache", "__pycache__", "cache", ".openclaw", "node_modules"}
     ignored.update(name for name in names if name.startswith("localhost+") and name.endswith(".pem"))
     return ignored.intersection(names)
 
