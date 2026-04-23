@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import requests
 
-from slack_mirror.service.api import create_api_server
+from slack_mirror.service.api import _resolve_operator_frontend_root, create_api_server
 from slack_mirror.service.app import LiveValidationResult, get_app_service
 
 EXPORT_DOCX_SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "export_channel_day_docx.py"
@@ -67,6 +67,19 @@ class ApiServerTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
+
+    def test_operator_frontend_root_falls_back_to_managed_app_snapshot(self):
+        fake_home = self.root / "home"
+        managed_dist = fake_home / ".local" / "share" / "slack-mirror" / "app" / "frontend" / "dist" / "app"
+        managed_dist.mkdir(parents=True)
+        (managed_dist / "index.html").write_text("<html></html>", encoding="utf-8")
+        fake_site_api = self.root / "venv" / "lib" / "python3.12" / "site-packages" / "slack_mirror" / "service" / "api.py"
+        fake_site_api.parent.mkdir(parents=True)
+        fake_site_api.write_text("", encoding="utf-8")
+        with patch.dict(os.environ, {"HOME": str(fake_home)}, clear=False), patch(
+            "slack_mirror.service.api.__file__", str(fake_site_api)
+        ):
+            self.assertEqual(_resolve_operator_frontend_root(), managed_dist.resolve())
 
     def test_health_workspaces_and_outbound_listener_flow(self):
         service = get_app_service(str(self.config_path))

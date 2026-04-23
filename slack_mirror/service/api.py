@@ -59,6 +59,22 @@ def _safe_child_path(root: Path, relpath: str) -> Path | None:
     return candidate
 
 
+def _resolve_operator_frontend_root() -> Path:
+    override = os.environ.get("SLACK_MIRROR_OPERATOR_FRONTEND_DIST")
+    if override:
+        return Path(override).expanduser().resolve()
+
+    repo_dist = (Path(__file__).resolve().parents[2] / "frontend" / "dist" / "app").resolve()
+    if (repo_dist / "index.html").exists():
+        return repo_dist
+
+    managed_dist = (Path.home() / ".local" / "share" / "slack-mirror" / "app" / "frontend" / "dist" / "app").resolve()
+    if (managed_dist / "index.html").exists():
+        return managed_dist
+
+    return repo_dist
+
+
 def _html_response(handler: BaseHTTPRequestHandler, status: int, body: str) -> None:
     data = body.encode("utf-8")
     handler.send_response(status)
@@ -1741,12 +1757,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
     export_root = resolve_export_root(config)
     export_base_urls = resolve_export_base_urls(config)
     runtime_report_dir = runtime_report_dir_for_config(config_path)
-    operator_frontend_root = Path(
-        os.environ.get(
-            "SLACK_MIRROR_OPERATOR_FRONTEND_DIST",
-            str(Path(__file__).resolve().parents[2] / "frontend" / "dist" / "app"),
-        )
-    ).resolve()
+    operator_frontend_root = _resolve_operator_frontend_root()
 
     def runtime_report_links(name: str) -> dict[str, str]:
         safe_name = _safe_runtime_report_name(name)
