@@ -4943,3 +4943,19 @@ This file is the dated turn log for planning and execution continuity.
   - `git diff --check`
   - default schema lookup resolves to
     `/home/ecochran76/workspace.local/receipts/schemas/communications`
+
+## Turn 267 | 2026-04-25
+
+- Recorded the Receipts child-service profile homework under the P12
+  communications-convergence lane:
+  - `docs/dev/plans/0122-2026-04-25-receipts-child-service-profile-homework.md`
+- Framed the requested Slack work as a machine-readable capability/profile
+  response that Receipts can consume through the BFF instead of hardcoding
+  Slack-specific frontend behavior in the parent.
+- Preserved Slack Mirror ownership of auth/session, search, export storage,
+  selected-result bundle lifecycle, and Slack-native report rendering.
+- Updated `ROADMAP.md` so the new P12 note is wired into the canonical plan
+  surface.
+- Validation:
+  - documentation-only slice; planning audit should be run before merge/commit
+    if this note is turned into a Slack implementation slice.

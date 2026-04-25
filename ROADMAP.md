@@ -646,6 +646,7 @@ Purpose:
 Actionable plans:
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 - `docs/dev/plans/0121-2026-04-21-slack-report-convergence-design-note.md`
+- `docs/dev/plans/0122-2026-04-25-receipts-child-service-profile-homework.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -675,6 +676,10 @@ Current state:
 - the maintainable direction is independent provider services plus shared
   contracts and extracted libraries after at least two repos prove compatible
   artifacts
+- `../receipts` now needs a machine-readable child-service profile/capability
+  response so its shared frontend can discover Slack auth, search,
+  selected-result export lifecycle, artifact, and query-operator support
+  instead of hardcoding Slack Mirror behavior in the parent
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture
