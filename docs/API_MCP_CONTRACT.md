@@ -319,6 +319,7 @@ Important fields for `runtime.report.latest`:
 
 API:
 
+- `GET /v1/service-profile`
 - `GET /v1/workspaces/{workspace}/channels`
 - `GET /v1/exports`
 - `GET /v1/exports/{export_id}`
@@ -331,10 +332,46 @@ API:
 
 Current semantics:
 
+- `GET /v1/service-profile` returns a machine-readable child-service profile for parent UX layers such as Receipts
 - `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
 - `POST /v1/exports` supports bounded managed bundle creation for `kind=channel-day` and `kind=selected-results`
 - export updates are intentionally bounded to rename only
 - the API remains a thin wrapper over the existing managed bundle ownership in `slack_mirror.exports`
+
+Important fields for `/v1/service-profile`:
+
+- `service: slack`
+- `displayName`
+- `productName`
+- `version`
+- `renameTarget`
+- `auth`
+  - `mode: child-session`
+  - `childSessionApi`
+  - `sessionUrl`
+  - `loginUrl`
+  - `logoutUrl`
+  - `unauthenticatedCode`
+- `providers`
+- `capabilities`
+  - `health`
+  - `search`
+  - `evidenceDetail`
+  - `contextPack`
+  - `reportCreate`
+  - `artifactList`
+  - `artifactOpen`
+  - `artifactRename`
+  - `artifactDelete`
+  - `guestGrants`
+  - `managementActions`
+- `routes`
+- `queryOperators`
+- `artifacts`
+- `sourceMetadata`
+- `ui`
+
+The profile route is intentionally readable without a child session so a parent BFF can discover Slack Mirror capabilities before deciding whether to show sign-in, search, report, and artifact-management controls. Protected operational routes still enforce Slack Mirror's child-session policy.
 
 Important fields for export listing/detail routes:
 

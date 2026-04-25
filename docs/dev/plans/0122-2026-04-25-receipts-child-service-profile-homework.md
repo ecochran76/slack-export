@@ -1,6 +1,6 @@
 # 0122 | Receipts child service profile homework
 
-State: OPEN
+State: CLOSED
 
 Roadmap: P12
 
@@ -32,11 +32,10 @@ Shipped baseline:
 
 Remaining work:
 
-- Slack Mirror does not yet expose one machine-readable profile that declares
-  those capabilities, auth requirements, query operators, artifact links, and
-  UI affordance hints for a shared parent frontend.
-- Receipts therefore still has to carry Slack-specific knowledge in its adapter
-  until the shared child-service profile contract lands.
+- Receipts still needs to consume the live Slack profile through its BFF path
+  instead of the parent-authored profile template.
+- Future Slack profile changes should stay additive unless Receipts has already
+  migrated to a newer contract version.
 
 ## Boundary
 
@@ -139,11 +138,12 @@ Receipts should be able to:
 
 ## Validation
 
-This note is documentation-only. The future implementation slice should add a
-focused Slack API test for the profile route and update the Receipts
-Slack-BFF smoke once Receipts consumes the profile.
+Slack Mirror now exposes `GET /v1/service-profile` as the stable
+machine-readable profile route. The implementation includes a focused API test
+for the profile payload. Receipts still needs to update its Slack-BFF smoke once
+it consumes the live profile.
 
 ## Next Recommended Action
 
-Wait for Receipts to land the first shared `ChildServiceProfile` contract, then
-add the smallest Slack route or documented payload that satisfies that contract.
+Update Receipts to fetch the live Slack child-service profile through its
+existing BFF path, replacing the parent-authored Slack capability template.

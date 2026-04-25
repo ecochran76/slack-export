@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
+from slack_mirror import __version__
 from slack_mirror.core.config import load_config
 from slack_mirror.exports import build_export_manifest, list_export_manifests, resolve_export_base_urls, resolve_export_root, safe_export_path
 from slack_mirror.service.frontend_auth import FrontendAuthConfig, FrontendAuthSession
@@ -305,6 +306,105 @@ def _requires_same_origin_write(path: str) -> bool:
     if re.fullmatch(r"/v1/tenants/[^/]+/(live|backfill|retire)", path):
         return True
     return False
+
+
+def _service_profile_payload() -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "service": "slack",
+        "displayName": "Slack",
+        "productName": "Slack Mirror",
+        "version": __version__,
+        "renameTarget": "slack-receipts",
+        "icon": "slack",
+        "auth": {
+            "mode": "child-session",
+            "childSessionApi": True,
+            "sessionUrl": "/auth/session",
+            "loginUrl": "/auth/login",
+            "logoutUrl": "/auth/logout",
+            "unauthenticatedCode": "AUTH_REQUIRED",
+            "sameOriginProxyExpected": True,
+        },
+        "providers": [
+            {"id": "slack", "label": "Slack", "icon": "slack"},
+        ],
+        "capabilities": {
+            "health": True,
+            "search": True,
+            "evidenceDetail": True,
+            "contextPack": True,
+            "reportCreate": True,
+            "artifactList": True,
+            "artifactOpen": True,
+            "artifactRename": True,
+            "artifactDelete": True,
+            "guestGrants": False,
+            "managementActions": True,
+        },
+        "routes": {
+            "health": "/v1/health",
+            "search": "/v1/search/corpus",
+            "workspaceSearchTemplate": "/v1/workspaces/{workspace}/search/corpus",
+            "messageDetailTemplate": "/v1/workspaces/{workspace}/messages/{channel_id}/{ts}",
+            "derivedTextDetailTemplate": "/v1/workspaces/{workspace}/derived-text/{source_kind}/{source_id}",
+            "contextPack": "/v1/search/context-pack",
+        },
+        "queryOperators": [
+            {"name": "before", "support": "supported"},
+            {"name": "after", "support": "supported"},
+            {"name": "since", "support": "supported"},
+            {"name": "until", "support": "supported"},
+            {"name": "on", "support": "supported"},
+            {"name": "participant", "support": "supported"},
+            {"name": "from", "support": "supported"},
+            {"name": "channel", "support": "supported"},
+            {"name": "has:attachment", "support": "supported"},
+            {"name": "filename", "support": "supported"},
+            {"name": "mime", "support": "supported"},
+            {"name": "extension", "support": "supported"},
+            {"name": "is:thread", "support": "supported"},
+            {"name": "is:reply", "support": "supported"},
+            {"name": "is:edited", "support": "supported"},
+            {"name": "slack.channel", "support": "native"},
+        ],
+        "artifacts": {
+            "listUrl": "/v1/exports",
+            "createUrl": "/v1/exports",
+            "itemUrlTemplate": "/exports/{exportId}",
+            "manifestUrlTemplate": "/v1/exports/{exportId}",
+            "htmlUrlTemplate": "/exports/{exportId}",
+            "rawJsonUrlTemplate": "/exports/{exportId}/selected-results.json",
+            "renameUrlTemplate": "/v1/exports/{exportId}/rename",
+            "deleteUrlTemplate": "/v1/exports/{exportId}",
+            "supportedTypes": ["html", "json", "manifest", "attachment", "preview"],
+        },
+        "sourceMetadata": {
+            "countFields": [
+                "item_count",
+                "resolved_count",
+                "unresolved_count",
+                "attachment_count",
+                "file_count",
+            ],
+            "timestampFields": ["generated_at", "ts", "thread_ts"],
+            "labelFields": ["workspace", "channel", "channel_id", "user_label"],
+            "nativeRefs": ["workspace_id", "channel_id", "ts", "thread_ts", "user_id", "permalink"],
+        },
+        "ui": {
+            "preferredIcon": "slack",
+            "accent": "#4A154B",
+            "controls": {
+                "signIn": True,
+                "search": True,
+                "createReport": True,
+                "openArtifact": True,
+                "renameArtifact": True,
+                "deleteArtifact": True,
+                "guestSharing": False,
+            },
+        },
+    }
 
 
 def _frontend_login_html(*, next_path: str, error: str | None = None, reason: str | None = None, can_register: bool) -> str:
@@ -1791,7 +1891,18 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
         def _is_protected_frontend_path(self, path: str) -> bool:
             if not auth_config.enabled:
                 return False
-            if path in {"/v1/health", "/login", "/register", "/logout", "/auth/status", "/auth/session", "/auth/login", "/auth/register", "/auth/logout"}:
+            if path in {
+                "/v1/health",
+                "/v1/service-profile",
+                "/login",
+                "/register",
+                "/logout",
+                "/auth/status",
+                "/auth/session",
+                "/auth/login",
+                "/auth/register",
+                "/auth/logout",
+            }:
                 return False
             if path in {"/", "/settings", "/settings/tenants", "/search", "/logs", "/operator"}:
                 return True
@@ -1882,6 +1993,10 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
 
             if path == "/v1/health":
                 _json_response(self, 200, {"ok": True})
+                return
+
+            if path == "/v1/service-profile":
+                _json_response(self, 200, {"ok": True, "profile": _service_profile_payload()})
                 return
 
             if path == "/auth/status":

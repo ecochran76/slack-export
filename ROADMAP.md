@@ -680,6 +680,10 @@ Current state:
   response so its shared frontend can discover Slack auth, search,
   selected-result export lifecycle, artifact, and query-operator support
   instead of hardcoding Slack Mirror behavior in the parent
+- Slack Mirror now exposes `GET /v1/service-profile` with a machine-readable
+  child-service profile for Receipts, including auth/session mode, search and
+  evidence routes, selected-result export lifecycle flags, artifact route
+  templates, query operators, source metadata hints, and UI affordance flags
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

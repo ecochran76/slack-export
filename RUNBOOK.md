@@ -4959,3 +4959,21 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - documentation-only slice; planning audit should be run before merge/commit
     if this note is turned into a Slack implementation slice.
+
+## Turn 268 | 2026-04-25
+
+- Implemented the Receipts child-service profile homework:
+  - added `GET /v1/service-profile`
+  - returned Slack Mirror's service identity, version, child-session auth
+    contract, providers, route templates, query operators, selected-result
+    export lifecycle flags, artifact route templates, source metadata hints,
+    and UI affordance flags
+  - kept the profile route readable without a child session so Receipts can
+    discover capabilities before prompting for Slack sign-in
+- Updated `docs/API_MCP_CONTRACT.md`, `README.md`, `ROADMAP.md`, and
+  `docs/dev/plans/0122-2026-04-25-receipts-child-service-profile-homework.md`.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `git diff --check`

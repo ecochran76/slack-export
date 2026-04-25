@@ -104,6 +104,20 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(health.status_code, 200)
             self.assertTrue(health.json()["ok"])
 
+            profile = requests.get(f"{self.base_url}/v1/service-profile", timeout=5)
+            self.assertEqual(profile.status_code, 200)
+            profile_payload = profile.json()["profile"]
+            self.assertEqual(profile_payload["service"], "slack")
+            self.assertEqual(profile_payload["auth"]["mode"], "child-session")
+            self.assertTrue(profile_payload["auth"]["childSessionApi"])
+            self.assertTrue(profile_payload["capabilities"]["artifactRename"])
+            self.assertTrue(profile_payload["capabilities"]["artifactDelete"])
+            self.assertEqual(profile_payload["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
+            self.assertIn(
+                {"name": "participant", "support": "supported"},
+                profile_payload["queryOperators"],
+            )
+
             workspaces = requests.get(f"{self.base_url}/v1/workspaces", timeout=5)
             self.assertEqual(workspaces.status_code, 200)
             self.assertEqual(workspaces.json()["workspaces"][0]["name"], "default")
@@ -925,6 +939,10 @@ class ApiServerTests(unittest.TestCase):
         api_blocked = requests.get(f"{base_url}/v1/runtime/reports", timeout=5)
         self.assertEqual(api_blocked.status_code, 401)
         self.assertEqual(api_blocked.json()["error"]["code"], "AUTH_REQUIRED")
+
+        service_profile = requests.get(f"{base_url}/v1/service-profile", timeout=5)
+        self.assertEqual(service_profile.status_code, 200)
+        self.assertEqual(service_profile.json()["profile"]["auth"]["mode"], "child-session")
 
         login_page = requests.get(f"{base_url}/login", timeout=5)
         self.assertEqual(login_page.status_code, 200)
