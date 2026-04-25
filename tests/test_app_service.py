@@ -382,6 +382,87 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(linked_event["kind"], "message")
         self.assertFalse(linked_event["exact_hit"])
 
+    def test_build_context_window_pages_channel_messages_with_opaque_cursors(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        for ts, text in [
+            ("10.0", "first"),
+            ("11.0", "before"),
+            ("12.0", "selected"),
+            ("13.0", "after"),
+            ("14.0", "last"),
+        ]:
+            upsert_message(
+                self.conn,
+                workspace_id,
+                "C123",
+                {
+                    "ts": ts,
+                    "user": "U1",
+                    "text": text,
+                    "channel": "C123",
+                    "files": [{"id": f"F{ts}", "name": f"{ts}.txt", "permalink": f"https://slack.test/{ts}"}],
+                },
+            )
+
+        result_id = "message|default|C123|12.0"
+        around = self.service.build_context_window(self.conn, result_id=result_id, limit=3)
+        self.assertEqual(around["service"], "slack")
+        self.assertEqual(around["streamKind"], "slack-channel")
+        self.assertEqual(around["streamLabel"], "#general")
+        self.assertEqual([item["timestamp"] for item in around["items"]], ["11.0", "12.0", "13.0"])
+        self.assertEqual(around["selectedItemId"], result_id)
+        self.assertTrue(around["items"][1]["selected"])
+        self.assertEqual(around["items"][1]["senderLabel"], "Eric")
+        self.assertEqual(around["items"][1]["nativeIds"]["channelName"], "general")
+        self.assertEqual(around["items"][1]["actionTarget"]["id"], result_id)
+        self.assertEqual(around["items"][1]["artifacts"][0]["permalink"], "https://slack.test/12.0")
+        self.assertTrue(around["pageInfo"]["hasBefore"])
+        self.assertTrue(around["pageInfo"]["hasAfter"])
+        self.assertNotIn("12.0", around["pageInfo"]["beforeCursor"])
+
+        before = self.service.build_context_window(
+            self.conn,
+            result_id=result_id,
+            direction="before",
+            cursor=around["pageInfo"]["beforeCursor"],
+            limit=2,
+        )
+        self.assertEqual([item["timestamp"] for item in before["items"]], ["10.0"])
+        self.assertFalse(before["pageInfo"]["hasBefore"])
+
+        after = self.service.build_context_window(
+            self.conn,
+            result_id=result_id,
+            direction="after",
+            cursor=around["pageInfo"]["afterCursor"],
+            limit=2,
+        )
+        self.assertEqual([item["timestamp"] for item in after["items"]], ["14.0"])
+        self.assertFalse(after["pageInfo"]["hasAfter"])
+
+    def test_build_context_window_uses_thread_stream_when_selected_message_is_in_thread(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_message(self.conn, workspace_id, "C123", {"ts": "10.0", "user": "U1", "text": "channel before", "channel": "C123"})
+        upsert_message(self.conn, workspace_id, "C123", {"ts": "11.0", "user": "U1", "text": "root", "channel": "C123"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "12.0", "thread_ts": "11.0", "user": "U1", "text": "reply", "channel": "C123"},
+        )
+        upsert_message(self.conn, workspace_id, "C123", {"ts": "13.0", "user": "U1", "text": "channel after", "channel": "C123"})
+
+        payload = self.service.build_context_window(self.conn, result_id="message|default|C123|12.0", limit=5)
+
+        self.assertEqual(payload["streamKind"], "slack-thread")
+        self.assertEqual(payload["streamLabel"], "#general / thread")
+        self.assertEqual([item["timestamp"] for item in payload["items"]], ["11.0", "12.0"])
+        self.assertEqual(payload["items"][0]["nativeIds"]["threadTs"], "11.0")
+
     def test_list_runtime_reports_includes_base_url_choices(self):
         payload = self.service.list_runtime_reports()
         self.assertEqual(

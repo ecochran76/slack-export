@@ -1,6 +1,6 @@
 # 0124 | Receipts context window handoff
 
-State: OPEN
+State: CLOSED
 
 Roadmap: P12
 
@@ -20,11 +20,11 @@ Receipts currently renders a stream-style evidence drawer from already-loaded
 search/evidence details. Earlier/later controls are parent-side reveal controls
 only; they are not backed by a Slack-owned context paging route yet.
 
-Slack Mirror already exposes search results, selected-result/export surfaces,
-human channel labels, and human sender labels in corpus search payloads. The
-remaining gap is a cursor-backed API that can return the selected Slack result
-inside surrounding channel or thread context without moving Slack retrieval
-logic into Receipts.
+Slack Mirror now exposes `GET /v1/context-window` for selected Slack message
+`action_target.id` values. The route returns a Receipts-compatible context
+window with Slack-owned opaque cursors, channel/thread stream identity, human
+channel/sender labels, selected-item metadata, native Slack IDs, artifact refs,
+and page-info cursors for earlier/later navigation.
 
 ## Requested Slack Mirror Work
 
@@ -93,5 +93,6 @@ Keep native Slack provenance separate from display text:
 
 ## Status
 
-OPEN. This is a Receipts-to-Slack handoff note; implementation remains owned by
-Slack Mirror.
+CLOSED. Slack Mirror owns the implemented context-window route and advertises
+`capabilities.contextWindow: true` plus the route template from
+`GET /v1/service-profile`.

@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import requests
 
+from slack_mirror.core.db import upsert_channel, upsert_message, upsert_user
 from slack_mirror.service.api import _resolve_operator_frontend_root, create_api_server
 from slack_mirror.service.app import LiveValidationResult, get_app_service
 
@@ -112,6 +113,11 @@ class ApiServerTests(unittest.TestCase):
             self.assertTrue(profile_payload["auth"]["childSessionApi"])
             self.assertTrue(profile_payload["capabilities"]["artifactRename"])
             self.assertTrue(profile_payload["capabilities"]["artifactDelete"])
+            self.assertTrue(profile_payload["capabilities"]["contextWindow"])
+            self.assertEqual(
+                profile_payload["routes"]["contextWindow"],
+                "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
+            )
             self.assertEqual(profile_payload["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
             self.assertIn(
                 {"name": "participant", "support": "supported"},
@@ -178,6 +184,29 @@ class ApiServerTests(unittest.TestCase):
         status = requests.get(f"{self.base_url}/v1/workspaces/default/status", timeout=5)
         self.assertEqual(status.status_code, 200)
         self.assertIn("summary", status.json())
+
+    def test_context_window_endpoint_pages_message_context(self):
+        service = get_app_service(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+        upsert_channel(conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        for ts, text in [("10.0", "before"), ("11.0", "selected"), ("12.0", "after")]:
+            upsert_message(conn, workspace_id, "C123", {"ts": ts, "user": "U1", "text": text, "channel": "C123"})
+
+        response = requests.get(
+            f"{self.base_url}/v1/context-window",
+            params={"result_id": "message|default|C123|11.0", "direction": "around", "limit": "3"},
+            timeout=5,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()["contextWindow"]
+        self.assertEqual(payload["streamKind"], "slack-channel")
+        self.assertEqual([item["timestamp"] for item in payload["items"]], ["10.0", "11.0", "12.0"])
+        self.assertEqual(payload["items"][1]["senderLabel"], "Eric")
+        self.assertFalse(payload["pageInfo"]["hasBefore"])
+        self.assertFalse(payload["pageInfo"]["hasAfter"])
 
     def test_tenant_status_and_onboard_api(self):
         tenants = requests.get(f"{self.base_url}/v1/tenants", timeout=5)
@@ -1887,6 +1916,19 @@ class ApiServerTests(unittest.TestCase):
                 "items": [{"kind": "message", "resolved": True}],
                 "unresolved": [],
             }
+            service.build_context_window.return_value = {
+                "schemaVersion": 1,
+                "service": "slack",
+                "resultId": "message|default|C123|1712870400.000100",
+                "streamId": "slack-channel|default|C123",
+                "streamLabel": "#general",
+                "streamKind": "slack-channel",
+                "tenantLabel": "default",
+                "scopeLabel": "default",
+                "selectedItemId": "message|default|C123|1712870400.000100",
+                "items": [{"itemId": "message|default|C123|1712870400.000100", "selected": True}],
+                "pageInfo": {"hasBefore": False, "hasAfter": False, "beforeCursor": "opaque-before", "afterCursor": "opaque-after"},
+            }
 
             server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -1998,6 +2040,24 @@ class ApiServerTests(unittest.TestCase):
             context_call = service.build_search_context_pack.call_args.kwargs
             self.assertEqual(context_call["before"], 1)
             self.assertEqual(context_call["after"], 1)
+
+            context_window = requests.get(
+                f"{base_url}/v1/context-window",
+                params={
+                    "result_id": "message|default|C123|1712870400.000100",
+                    "direction": "around",
+                    "limit": "5",
+                },
+                timeout=5,
+            )
+            self.assertEqual(context_window.status_code, 200)
+            self.assertTrue(context_window.json()["ok"])
+            self.assertEqual(context_window.json()["contextWindow"]["streamKind"], "slack-channel")
+            service.build_context_window.assert_called_once()
+            window_call = service.build_context_window.call_args.kwargs
+            self.assertEqual(window_call["result_id"], "message|default|C123|1712870400.000100")
+            self.assertEqual(window_call["direction"], "around")
+            self.assertEqual(window_call["limit"], 5)
 
     def test_message_send_uses_structured_error_envelope(self):
         resp = requests.post(

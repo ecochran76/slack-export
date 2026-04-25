@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -306,6 +307,25 @@ def _normalize_action_target(target: dict[str, Any]) -> dict[str, Any]:
             payload.setdefault("extractor", parts[5])
         if len(parts) >= 7 and parts[6].startswith("chunk:"):
             payload.setdefault("chunk_index", parts[6].removeprefix("chunk:"))
+    return payload
+
+
+def _encode_context_cursor(payload: dict[str, Any]) -> str:
+    data = json.dumps({"v": 1, **payload}, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+def _decode_context_cursor(value: str) -> dict[str, Any]:
+    token = str(value or "").strip()
+    if not token:
+        raise ValueError("cursor is required")
+    try:
+        padded = token + ("=" * (-len(token) % 4))
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("invalid context cursor") from exc
+    if not isinstance(payload, dict) or int(payload.get("v") or 0) != 1:
+        raise ValueError("unsupported context cursor")
     return payload
 
 
@@ -1219,6 +1239,194 @@ class SlackMirrorAppService:
             "unresolved": unresolved,
         }
 
+    def build_context_window(
+        self,
+        conn,
+        *,
+        result_id: str,
+        direction: str = "around",
+        cursor: str | None = None,
+        limit: int = 25,
+        include_text: bool = True,
+        max_text_chars: int = 4000,
+    ) -> dict[str, Any]:
+        normalized_direction = str(direction or "around").strip().lower()
+        if normalized_direction not in {"around", "before", "after"}:
+            raise ValueError("direction must be one of around, before, or after")
+
+        item_limit = max(1, min(int(limit), 100))
+        text_limit = max(0, int(max_text_chars))
+        target = _normalize_action_target({"id": result_id})
+        if target.get("kind") != "message":
+            raise ValueError("context windows currently require a message result_id")
+        workspace = str(target.get("workspace") or "").strip()
+        channel_id = str(target.get("channel_id") or "").strip()
+        selected_ts = str(target.get("ts") or "").strip()
+        if not workspace or not channel_id or not selected_ts:
+            raise ValueError("result_id must identify a Slack message")
+
+        workspace_id = self.workspace_id(conn, workspace)
+        hit = self._message_context_row(conn, workspace=workspace, workspace_id=workspace_id, channel_id=channel_id, ts=selected_ts)
+        if hit is None:
+            raise ValueError("message not found in workspace")
+
+        thread_root = str(hit.get("thread_ts") or "").strip()
+        if not thread_root:
+            reply_count = conn.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM messages
+                WHERE workspace_id = ? AND channel_id = ? AND thread_ts = ?
+                """,
+                (workspace_id, channel_id, selected_ts),
+            ).fetchone()
+            if reply_count is not None and int(reply_count["count"] or 0) > 0:
+                thread_root = selected_ts
+
+        stream_kind = "slack-thread" if thread_root else "slack-channel"
+        stream_id = (
+            f"slack-thread|{workspace}|{channel_id}|{thread_root}"
+            if thread_root
+            else f"slack-channel|{workspace}|{channel_id}"
+        )
+
+        cursor_ts = selected_ts
+        if normalized_direction in {"before", "after"}:
+            decoded = _decode_context_cursor(str(cursor or ""))
+            if (
+                decoded.get("stream_id") != stream_id
+                or decoded.get("workspace") != workspace
+                or decoded.get("channel_id") != channel_id
+            ):
+                raise ValueError("context cursor does not match result stream")
+            cursor_ts = str(decoded.get("ts") or "").strip()
+            if not cursor_ts:
+                raise ValueError("context cursor is missing ts")
+
+        if normalized_direction == "around":
+            before_limit = max(0, (item_limit - 1) // 2)
+            after_limit = max(0, item_limit - 1 - before_limit)
+            rows = [
+                *reversed(
+                    self._context_window_rows(
+                        conn,
+                        workspace_id=workspace_id,
+                        channel_id=channel_id,
+                        stream_kind=stream_kind,
+                        thread_root=thread_root,
+                        anchor_ts=selected_ts,
+                        direction="before",
+                        limit=before_limit,
+                    )
+                ),
+                hit,
+                *self._context_window_rows(
+                    conn,
+                    workspace_id=workspace_id,
+                    channel_id=channel_id,
+                    stream_kind=stream_kind,
+                    thread_root=thread_root,
+                    anchor_ts=selected_ts,
+                    direction="after",
+                    limit=after_limit,
+                ),
+            ]
+        else:
+            rows = self._context_window_rows(
+                conn,
+                workspace_id=workspace_id,
+                channel_id=channel_id,
+                stream_kind=stream_kind,
+                thread_root=thread_root,
+                anchor_ts=cursor_ts,
+                direction=normalized_direction,
+                limit=item_limit,
+            )
+            if normalized_direction == "before":
+                rows = list(reversed(rows))
+
+        items = [
+            self._project_context_window_message(
+                row,
+                workspace=workspace,
+                workspace_id=workspace_id,
+                selected_ts=selected_ts,
+                stream_kind=stream_kind,
+                thread_root=thread_root,
+                include_text=include_text,
+                max_text_chars=text_limit,
+            )
+            for row in rows
+        ]
+        first_ts = str(items[0]["nativeIds"]["ts"]) if items else cursor_ts
+        last_ts = str(items[-1]["nativeIds"]["ts"]) if items else cursor_ts
+        has_before = self._context_window_has_neighbor(
+            conn,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            stream_kind=stream_kind,
+            thread_root=thread_root,
+            anchor_ts=first_ts,
+            direction="before",
+        )
+        has_after = self._context_window_has_neighbor(
+            conn,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            stream_kind=stream_kind,
+            thread_root=thread_root,
+            anchor_ts=last_ts,
+            direction="after",
+        )
+        before_cursor = (
+            _encode_context_cursor(
+                {
+                    "stream_id": stream_id,
+                    "workspace": workspace,
+                    "channel_id": channel_id,
+                    "thread_root": thread_root,
+                    "ts": first_ts,
+                }
+            )
+            if items
+            else None
+        )
+        after_cursor = (
+            _encode_context_cursor(
+                {
+                    "stream_id": stream_id,
+                    "workspace": workspace,
+                    "channel_id": channel_id,
+                    "thread_root": thread_root,
+                    "ts": last_ts,
+                }
+            )
+            if items
+            else None
+        )
+        channel_name = hit.get("channel_name")
+        stream_label = f"#{channel_name}" if channel_name else channel_id
+        if stream_kind == "slack-thread":
+            stream_label = f"{stream_label} / thread"
+        return {
+            "schemaVersion": 1,
+            "service": "slack",
+            "resultId": result_id,
+            "streamId": stream_id,
+            "streamLabel": stream_label,
+            "streamKind": stream_kind,
+            "tenantLabel": workspace,
+            "scopeLabel": workspace,
+            "selectedItemId": f"message|{workspace}|{channel_id}|{selected_ts}",
+            "items": items,
+            "pageInfo": {
+                "hasBefore": has_before,
+                "hasAfter": has_after,
+                "beforeCursor": before_cursor,
+                "afterCursor": after_cursor,
+            },
+        }
+
     def _message_context_pack_item(
         self,
         conn,
@@ -1241,8 +1449,10 @@ class SlackMirrorAppService:
         before_rows = conn.execute(
             """
             SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   u.username AS user_name,
+                   u.display_name AS user_display_name,
                    COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
-                   m.subtype, m.text, m.edited_ts, m.deleted
+                   m.subtype, m.text, m.edited_ts, m.deleted, m.raw_json
             FROM messages m
             LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
             LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
@@ -1255,8 +1465,10 @@ class SlackMirrorAppService:
         after_rows = conn.execute(
             """
             SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   u.username AS user_name,
+                   u.display_name AS user_display_name,
                    COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
-                   m.subtype, m.text, m.edited_ts, m.deleted
+                   m.subtype, m.text, m.edited_ts, m.deleted, m.raw_json
             FROM messages m
             LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
             LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
@@ -1299,6 +1511,174 @@ class SlackMirrorAppService:
             "context": context,
         }
 
+    def _context_window_where_clause(self, *, stream_kind: str) -> str:
+        if stream_kind == "slack-thread":
+            return "AND (m.ts = ? OR m.thread_ts = ?)"
+        return ""
+
+    def _context_window_rows(
+        self,
+        conn,
+        *,
+        workspace_id: int,
+        channel_id: str,
+        stream_kind: str,
+        thread_root: str,
+        anchor_ts: str,
+        direction: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        if limit <= 0:
+            return []
+        comparator = "<" if direction == "before" else ">"
+        ordering = "DESC" if direction == "before" else "ASC"
+        stream_clause = self._context_window_where_clause(stream_kind=stream_kind)
+        params: list[Any] = [workspace_id, channel_id]
+        if stream_kind == "slack-thread":
+            params.extend([thread_root, thread_root])
+        params.extend([anchor_ts, limit])
+        rows = conn.execute(
+            f"""
+            SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   u.username AS user_name,
+                   u.display_name AS user_display_name,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.edited_ts, m.deleted, m.raw_json
+            FROM messages m
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            WHERE m.workspace_id = ? AND m.channel_id = ?
+              {stream_clause}
+              AND CAST(m.ts AS REAL) {comparator} CAST(? AS REAL)
+            ORDER BY CAST(m.ts AS REAL) {ordering}
+            LIMIT ?
+            """,
+            tuple(params),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def _context_window_has_neighbor(
+        self,
+        conn,
+        *,
+        workspace_id: int,
+        channel_id: str,
+        stream_kind: str,
+        thread_root: str,
+        anchor_ts: str,
+        direction: str,
+    ) -> bool:
+        return bool(
+            self._context_window_rows(
+                conn,
+                workspace_id=workspace_id,
+                channel_id=channel_id,
+                stream_kind=stream_kind,
+                thread_root=thread_root,
+                anchor_ts=anchor_ts,
+                direction=direction,
+                limit=1,
+            )
+        )
+
+    def _project_context_window_message(
+        self,
+        row: dict[str, Any],
+        *,
+        workspace: str,
+        workspace_id: int,
+        selected_ts: str,
+        stream_kind: str,
+        thread_root: str,
+        include_text: bool,
+        max_text_chars: int,
+    ) -> dict[str, Any]:
+        payload = dict(row)
+        ts = str(payload.get("ts") or "")
+        channel_id = str(payload.get("channel_id") or "")
+        raw = {}
+        try:
+            raw = json.loads(str(payload.get("raw_json") or "{}"))
+        except json.JSONDecodeError:
+            raw = {}
+        files = raw.get("files") if isinstance(raw, dict) else None
+        artifacts = []
+        if isinstance(files, list):
+            for file_obj in files:
+                if not isinstance(file_obj, dict):
+                    continue
+                artifacts.append(
+                    {
+                        "kind": "slack-file",
+                        "id": file_obj.get("id"),
+                        "name": file_obj.get("name") or file_obj.get("title"),
+                        "title": file_obj.get("title"),
+                        "mimetype": file_obj.get("mimetype"),
+                        "permalink": file_obj.get("permalink"),
+                    }
+                )
+        item = {
+            "id": f"message|{workspace}|{channel_id}|{ts}",
+            "itemId": f"message|{workspace}|{channel_id}|{ts}",
+            "kind": "slack-message",
+            "timestamp": ts,
+            "timestampIso": _slack_ts_to_iso(ts),
+            "senderLabel": payload.get("user_label") or payload.get("user_id") or "Unknown",
+            "selected": ts == selected_ts,
+            "nativeIds": {
+                "workspace": workspace,
+                "workspaceId": workspace_id,
+                "channelId": channel_id,
+                "channelName": payload.get("channel_name"),
+                "ts": ts,
+                "threadTs": thread_root or payload.get("thread_ts"),
+                "userId": payload.get("user_id"),
+            },
+            "sourceRefs": {
+                "service": "slack",
+                "workspace": workspace,
+                "channel_id": channel_id,
+                "channel_name": payload.get("channel_name"),
+                "ts": ts,
+                "thread_ts": thread_root or payload.get("thread_ts"),
+            },
+            "sender": {
+                "id": payload.get("user_id"),
+                "label": payload.get("user_label"),
+                "username": payload.get("user_name"),
+                "displayName": payload.get("user_display_name"),
+            },
+            "slack": {
+                "workspace": workspace,
+                "workspaceId": workspace_id,
+                "channelId": channel_id,
+                "channelName": payload.get("channel_name"),
+                "ts": ts,
+                "threadTs": thread_root or payload.get("thread_ts"),
+                "streamKind": stream_kind,
+                "subtype": payload.get("subtype"),
+                "editedTs": payload.get("edited_ts"),
+                "deleted": bool(payload.get("deleted")),
+            },
+            "artifacts": artifacts,
+            "actionTarget": {
+                "version": 1,
+                "kind": "message",
+                "id": f"message|{workspace}|{channel_id}|{ts}",
+                "workspace": workspace,
+                "workspace_id": workspace_id,
+                "channel_id": channel_id,
+                "channel_name": payload.get("channel_name"),
+                "ts": ts,
+                "thread_ts": thread_root or payload.get("thread_ts"),
+                "user_id": payload.get("user_id"),
+                "selection_label": f"{workspace}:{channel_id}:{ts}",
+            },
+        }
+        if include_text:
+            item["text"] = _truncate_text(payload.get("text"), max_text_chars)
+        return item
+
     def _message_context_row(
         self,
         conn,
@@ -1311,8 +1691,10 @@ class SlackMirrorAppService:
         row = conn.execute(
             """
             SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   u.username AS user_name,
+                   u.display_name AS user_display_name,
                    COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
-                   m.subtype, m.text, m.edited_ts, m.deleted
+                   m.subtype, m.text, m.edited_ts, m.deleted, m.raw_json
             FROM messages m
             LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
             LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id

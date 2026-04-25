@@ -5038,3 +5038,24 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - documentation-only handoff; no Slack runtime code was changed
   - `git diff --check`
+
+## Turn 272 | 2026-04-25
+
+- Implemented the Receipts context-window handoff:
+  - added shared `SlackMirrorAppService.build_context_window`
+  - added opaque Slack Mirror-owned cursor encoding and decoding
+  - added channel and thread stream paging for selected Slack message
+    `action_target.id` values
+  - projected context items with human sender/channel labels, selected-item
+    state, native Slack provenance, action targets, and file artifact refs
+  - exposed `GET /v1/context-window`
+  - advertised `capabilities.contextWindow: true` and the route template from
+    `GET /v1/service-profile`
+- Updated `README.md`, `docs/API_MCP_CONTRACT.md`, `ROADMAP.md`, and closed
+  `docs/dev/plans/0124-2026-04-25-receipts-context-window-handoff.md`.
+- Validation:
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_build_context_window_pages_channel_messages_with_opaque_cursors tests.test_app_service.AppServiceTests.test_build_context_window_uses_thread_stream_when_selected_message_is_in_thread tests.test_api_server.ApiServerTests.test_context_window_endpoint_pages_message_context tests.test_api_server.ApiServerTests.test_search_endpoints tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow -v`
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
+  - planning contract audit with `audit_planning_contract.py --json` returned
+    `ok: true`
+  - `git diff --check`

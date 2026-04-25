@@ -690,6 +690,10 @@ Current state:
   `user_display_name` from stored Slack user profile rows, allowing Receipts to
   render human-readable sender names while preserving native `user_id`
   provenance
+- Slack Mirror now exposes `GET /v1/context-window` for selected Slack message
+  `action_target.id` values, returning Receipts-compatible cursor-backed
+  channel or thread streams with human sender/channel labels and native Slack
+  provenance preserved under machine-readable fields
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

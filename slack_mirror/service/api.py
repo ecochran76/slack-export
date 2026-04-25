@@ -333,6 +333,7 @@ def _service_profile_payload() -> dict[str, Any]:
             "health": True,
             "search": True,
             "evidenceDetail": True,
+            "contextWindow": True,
             "contextPack": True,
             "reportCreate": True,
             "artifactList": True,
@@ -348,6 +349,7 @@ def _service_profile_payload() -> dict[str, Any]:
             "workspaceSearchTemplate": "/v1/workspaces/{workspace}/search/corpus",
             "messageDetailTemplate": "/v1/workspaces/{workspace}/messages/{channel_id}/{ts}",
             "derivedTextDetailTemplate": "/v1/workspaces/{workspace}/derived-text/{source_kind}/{source_id}",
+            "contextWindow": "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
             "contextPack": "/v1/search/context-pack",
         },
         "queryOperators": [
@@ -1997,6 +1999,24 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
 
             if path == "/v1/service-profile":
                 _json_response(self, 200, {"ok": True, "profile": _service_profile_payload()})
+                return
+
+            if path == "/v1/context-window":
+                conn = service.connect()
+                try:
+                    payload = service.build_context_window(
+                        conn,
+                        result_id=str(query.get("result_id", [""])[0]),
+                        direction=str(query.get("direction", ["around"])[0]),
+                        cursor=query.get("cursor", [None])[0],
+                        limit=int(query.get("limit", [25])[0]),
+                        include_text=query.get("include_text", ["1"])[0] not in {"0", "false", "no"},
+                        max_text_chars=int(query.get("max_text_chars", [4000])[0]),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="context_window.get")
+                    return
+                _json_response(self, 200, {"ok": True, "contextWindow": payload})
                 return
 
             if path == "/auth/status":

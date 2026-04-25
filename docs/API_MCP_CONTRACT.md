@@ -320,6 +320,7 @@ Important fields for `runtime.report.latest`:
 API:
 
 - `GET /v1/service-profile`
+- `GET /v1/context-window`
 - `GET /v1/workspaces/{workspace}/channels`
 - `GET /v1/exports`
 - `GET /v1/exports/{export_id}`
@@ -333,6 +334,7 @@ API:
 Current semantics:
 
 - `GET /v1/service-profile` returns a machine-readable child-service profile for parent UX layers such as Receipts
+- `GET /v1/context-window` returns a cursor-backed Slack-owned message context stream for a selected search result
 - `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
 - `POST /v1/exports` supports bounded managed bundle creation for `kind=channel-day` and `kind=selected-results`
 - export updates are intentionally bounded to rename only
@@ -357,6 +359,7 @@ Important fields for `/v1/service-profile`:
   - `health`
   - `search`
   - `evidenceDetail`
+  - `contextWindow`
   - `contextPack`
   - `reportCreate`
   - `artifactList`
@@ -372,6 +375,33 @@ Important fields for `/v1/service-profile`:
 - `ui`
 
 The profile route is intentionally readable without a child session so a parent BFF can discover Slack Mirror capabilities before deciding whether to show sign-in, search, report, and artifact-management controls. Protected operational routes still enforce Slack Mirror's child-session policy.
+
+`GET /v1/context-window` accepts:
+
+- `result_id`: a message `action_target.id`, for example `message|default|C123|1712870400.000100`
+- `direction`: `around`, `before`, or `after`
+- `cursor`: opaque Slack Mirror cursor for `before` and `after`
+- `limit`: bounded page size, capped by the service
+- `include_text`: optional `0`/`false`/`no` to omit message text
+- `max_text_chars`: optional per-item text cap
+
+The response is shaped for parent UX layers such as Receipts:
+
+- `service: slack`
+- `resultId`
+- `streamId`
+- `streamLabel`
+- `streamKind: slack-channel | slack-thread`
+- `tenantLabel`
+- `scopeLabel`
+- `selectedItemId`
+- `items[]`
+- `pageInfo.hasBefore`
+- `pageInfo.hasAfter`
+- `pageInfo.beforeCursor`
+- `pageInfo.afterCursor`
+
+Cursor values are intentionally opaque. Receipts and other parents should pass them back unchanged instead of parsing Slack timestamps, thread roots, channel IDs, or SQLite ordering.
 
 Important fields for export listing/detail routes:
 
