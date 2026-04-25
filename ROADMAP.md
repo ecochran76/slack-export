@@ -647,6 +647,8 @@ Actionable plans:
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 - `docs/dev/plans/0121-2026-04-21-slack-report-convergence-design-note.md`
 - `docs/dev/plans/0122-2026-04-25-receipts-child-service-profile-homework.md`
+- `docs/dev/plans/0123-2026-04-25-receipts-display-label-handoff.md`
+- `docs/dev/plans/0124-2026-04-25-receipts-context-window-handoff.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -684,6 +686,10 @@ Current state:
   child-service profile for Receipts, including auth/session mode, search and
   evidence routes, selected-result export lifecycle flags, artifact route
   templates, query operators, source metadata hints, and UI affordance flags
+- Slack Mirror corpus search now emits `user_label`, `user_name`, and
+  `user_display_name` from stored Slack user profile rows, allowing Receipts to
+  render human-readable sender names while preserving native `user_id`
+  provenance
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

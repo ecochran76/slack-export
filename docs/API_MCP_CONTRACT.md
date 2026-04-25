@@ -631,6 +631,16 @@ Important result fields:
 - `source_label`
 - `workspace`
 - `workspace_id`
+- `channel_id`
+- `channel_name`
+- `user_id`
+- `user_label`
+  - human-facing display label for the sender when Slack Mirror has user
+    profile data; absent or null when no profile-backed label is known
+- `user_name`
+  - Slack username/handle when available
+- `user_display_name`
+  - Slack profile display name when available
 - `action_target`
 - `_source`
   - `lexical`

@@ -25,6 +25,9 @@ class SQLiteCorpusAdapter:
               c.name AS channel_name,
               m.ts,
               m.user_id,
+              u.username AS user_name,
+              u.display_name AS user_display_name,
+              COALESCE(u.display_name, u.real_name, u.username) AS user_label,
               m.text,
               m.subtype,
               m.thread_ts,
@@ -33,6 +36,8 @@ class SQLiteCorpusAdapter:
             FROM messages m
             LEFT JOIN channels c
               ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u
+              ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
             WHERE {where_sql}
               {{fts_clause}}
             ORDER BY CAST(m.ts AS REAL) DESC
@@ -59,6 +64,9 @@ class SQLiteCorpusAdapter:
               c.name AS channel_name,
               m.ts,
               m.user_id,
+              u.username AS user_name,
+              u.display_name AS user_display_name,
+              COALESCE(u.display_name, u.real_name, u.username) AS user_label,
               m.text,
               m.subtype,
               m.thread_ts,
@@ -71,6 +79,8 @@ class SQLiteCorpusAdapter:
               ON e.workspace_id = m.workspace_id AND e.channel_id = m.channel_id AND e.ts = m.ts
             LEFT JOIN channels c
               ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u
+              ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
             WHERE {where_sql}
               AND e.model_id = ?
             ORDER BY CAST(m.ts AS REAL) DESC

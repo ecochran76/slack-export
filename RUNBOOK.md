@@ -4977,3 +4977,64 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - planning contract audit with `audit_planning_contract.py --json`
   - `git diff --check`
+
+## Turn 269 | 2026-04-25
+
+- Recorded a Receipts display-label handoff under the P12 communications
+  convergence lane:
+  - `docs/dev/plans/0123-2026-04-25-receipts-display-label-handoff.md`
+- Captured the live Receipts BFF payload evidence:
+  - Slack corpus search rows include `channel_id`, `channel_name`, and
+    `user_id`
+  - current rows do not include `user_label`, `user_name`,
+    `user_display_name`, or `sender_label`
+- Requested stable human-facing sender labels in Slack Mirror search and
+  context-pack payloads while preserving native Slack IDs for provenance.
+- Updated `ROADMAP.md` so the handoff is wired into the canonical P12 plan
+  surface.
+- Validation:
+  - documentation-only handoff; no Slack code was changed
+  - source evidence came from live Receipts BFF curl against Slack corpus search
+  - `git diff --check`
+
+## Turn 270 | 2026-04-25
+
+- Implemented the Receipts display-label handoff:
+  - Slack corpus search message rows now join the `users` table
+  - message result payloads include `user_label`, `user_name`, and
+    `user_display_name` when user profile data is available
+  - labels do not fall back to `user_id`, preserving the boundary between
+    human display fields and native provenance IDs
+- Documented the new corpus search result fields in `docs/API_MCP_CONTRACT.md`.
+- Closed `docs/dev/plans/0123-2026-04-25-receipts-display-label-handoff.md`
+  and updated the P12 roadmap current state.
+- Deployed the source checkout into the running user-scoped Slack Mirror venv
+  with editable install, then restarted `slack-mirror-api.service`.
+- Validation:
+  - `uv run python -m unittest tests.test_search.SearchTests.test_search_corpus_combines_messages_and_derived_text tests.test_api_server.ApiServerTests.test_search_endpoints -v`
+  - `python -m py_compile slack_mirror/search/sqlite_adapter.py slack_mirror/search/corpus.py slack_mirror/service/app.py tests/test_search.py tests/test_api_server.py`
+  - planning contract audit with `audit_planning_contract.py --json` returned
+    `ok: true`
+  - `git diff --check`
+  - live Slack API curl returned `user_label: OpenClaw`, `user_name: openclaw`,
+    and `user_display_name: OpenClaw`
+  - live Receipts BFF curl returned the same label fields
+  - `agent-browser` verified Receipts Cards mode renders `OpenClaw` instead of
+    the native Slack `U...` user ID
+
+## Turn 271 | 2026-04-25
+
+- Recorded the Receipts context-window handoff under the P12 communications
+  convergence lane:
+  - `docs/dev/plans/0124-2026-04-25-receipts-context-window-handoff.md`
+- Requested a Slack-owned cursor-backed context route that lets Receipts open a
+  selected search result as a scrollable Slack channel or thread stream.
+- Preserved the ownership boundary:
+  - Slack Mirror owns Slack retrieval, thread/channel ordering, native
+    provenance, and opaque cursors
+  - Receipts owns the shared `ReceiptsContextWindow` UX contract and drawer
+    rendering
+- Updated `ROADMAP.md` so the handoff is wired into P12.
+- Validation:
+  - documentation-only handoff; no Slack runtime code was changed
+  - `git diff --check`

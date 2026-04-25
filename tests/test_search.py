@@ -624,6 +624,10 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(rows[0]["_explain"]["fusion_method"], "weighted")
             self.assertIn("scores", rows[0]["_explain"])
             by_kind = {row["result_kind"]: row for row in rows}
+            self.assertEqual(by_kind["message"]["user_id"], "U1")
+            self.assertEqual(by_kind["message"]["user_name"], "alice")
+            self.assertEqual(by_kind["message"]["user_display_name"], "alice")
+            self.assertEqual(by_kind["message"]["user_label"], "alice")
             message_target = by_kind["message"]["action_target"]
             self.assertEqual(message_target["kind"], "message")
             self.assertEqual(message_target["workspace_id"], ws_id)
