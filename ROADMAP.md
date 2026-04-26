@@ -650,6 +650,7 @@ Actionable plans:
 - `docs/dev/plans/0123-2026-04-25-receipts-display-label-handoff.md`
 - `docs/dev/plans/0124-2026-04-25-receipts-context-window-handoff.md`
 - `docs/dev/plans/0125-2026-04-26-receipts-guest-grant-assertion-handoff.md`
+- `docs/dev/plans/0126-2026-04-26-receipts-event-emission-handoff.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -701,6 +702,10 @@ Current state:
   child-side awareness of Receipts-validated guest reads, while keeping native
   Slack export storage, auth/session behavior, and workspace authorization
   child-owned.
+- Receipts now consumes imcli committed product events through a cursor-backed
+  child API and stores only opaque last-read cursor bookmarks parent-side.
+  Slack Mirror should add a comparable Slack-owned event read surface before
+  Receipts treats Slack events as part of a cross-child activity stream.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

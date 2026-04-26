@@ -5078,3 +5078,24 @@ This file is the dated turn log for planning and execution continuity.
   - documentation-only handoff; no Slack runtime code was changed
   - `git diff --check`
   - planning contract audit with `audit_planning_contract.py --json`
+
+## Turn 274 | 2026-04-26
+
+- Recorded the Receipts event-emission handoff under the P12 communications
+  convergence lane:
+  - `docs/dev/plans/0126-2026-04-26-receipts-event-emission-handoff.md`
+- Requested a Slack-owned committed event read surface modeled on Receipts'
+  imcli-first event consumption:
+  - `GET /v1/events` with child-owned opaque cursors
+  - service-profile advertisement through `capabilities.eventCursorRead`
+  - privacy classes for public/user/superuser/local-private events
+  - human-readable Slack user/channel labels while preserving native Slack
+    provenance
+- Kept the ownership boundary explicit:
+  - Slack Mirror owns event creation, persistence, ordering, retention, and
+    cursor encoding
+  - Receipts owns the shared activity UX and parent-side cursor bookmark
+- Validation:
+  - documentation-only handoff; no Slack runtime code was changed
+  - `git diff --check`
+  - planning contract audit with `audit_planning_contract.py --json`
