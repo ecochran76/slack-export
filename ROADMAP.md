@@ -649,6 +649,7 @@ Actionable plans:
 - `docs/dev/plans/0122-2026-04-25-receipts-child-service-profile-homework.md`
 - `docs/dev/plans/0123-2026-04-25-receipts-display-label-handoff.md`
 - `docs/dev/plans/0124-2026-04-25-receipts-context-window-handoff.md`
+- `docs/dev/plans/0125-2026-04-26-receipts-guest-grant-assertion-handoff.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -694,6 +695,12 @@ Current state:
   `action_target.id` values, returning Receipts-compatible cursor-backed
   channel or thread streams with human sender/channel labels and native Slack
   provenance preserved under machine-readable fields
+- Receipts now forwards a constrained guest-grant assertion when a guest opens
+  a granted child report artifact through the parent BFF. Slack Mirror should
+  consume those headers on export/artifact read routes where it wants
+  child-side awareness of Receipts-validated guest reads, while keeping native
+  Slack export storage, auth/session behavior, and workspace authorization
+  child-owned.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

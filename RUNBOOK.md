@@ -5059,3 +5059,22 @@ This file is the dated turn log for planning and execution continuity.
   - planning contract audit with `audit_planning_contract.py --json` returned
     `ok: true`
   - `git diff --check`
+
+## Turn 273 | 2026-04-26
+
+- Recorded the Receipts guest-grant assertion handoff under the P12
+  communications convergence lane:
+  - `docs/dev/plans/0125-2026-04-26-receipts-guest-grant-assertion-handoff.md`
+- Requested Slack Mirror consume Receipts-forwarded guest-grant headers on
+  child-owned export/artifact read routes where child-side awareness is needed.
+- Kept the ownership boundary explicit:
+  - Receipts owns parent guest-link lifecycle, token hashing, guest chrome, and
+    `grant-target-open` audit events
+  - Slack Mirror owns export/report storage, Slack auth/session behavior,
+    workspace authorization, and native Slack provenance
+- Recorded optional HMAC verification through the documented
+  `RECEIPTS_CHILD_GRANT_SHARED_SECRET` signing payload.
+- Validation:
+  - documentation-only handoff; no Slack runtime code was changed
+  - `git diff --check`
+  - planning contract audit with `audit_planning_contract.py --json`
