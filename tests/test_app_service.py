@@ -519,9 +519,14 @@ class AppServiceTests(unittest.TestCase):
         self.assertTrue(all(event["tenant"] == "default" for event in all_events["events"]))
         self.assertTrue(all(event["privacy"] == "user" for event in all_events["events"]))
         self.assertTrue(all("sourceRefs" in event for event in all_events["events"]))
+        self.assertTrue(all("source_refs" in event for event in all_events["events"]))
+        self.assertTrue(all("native_ids" in event for event in all_events["events"]))
+        self.assertEqual(all_events["status_text"], "Event page read completed.")
 
         first = service.list_child_events(conn, tenant="default", event_type="slack.message.observed", limit=1)
         self.assertEqual(first["count"], 1)
+        self.assertEqual(first["events"][0]["event_type"], "slack.message.observed")
+        self.assertEqual(first["events"][0]["account_key"], "default")
         self.assertNotIn("10.0", first["nextCursor"])
 
         second = service.list_child_events(
@@ -536,6 +541,26 @@ class AppServiceTests(unittest.TestCase):
 
         filtered = service.list_child_events(conn, tenant="default", event_type="slack.file.linked", limit=10)
         self.assertEqual([event["eventType"] for event in filtered["events"]], ["slack.file.linked"])
+
+        upsert_message(
+            conn,
+            workspace_id,
+            "C123",
+            {"ts": "12.0", "user": "U1", "text": "another root message", "channel": "C123"},
+        )
+        status = service.child_event_status(conn, tenant="default", event_type="slack.message.observed")
+        self.assertEqual(status["service"], "slack")
+        self.assertEqual(status["status"], "complete")
+        self.assertEqual(status["event_count"], 2)
+        self.assertEqual(status["watermarks"][0]["event_type"], "slack.message.observed")
+        self.assertEqual(status["watermarks"][0]["count"], 2)
+        self.assertNotIn("10.0", status["latest_cursor"])
+        descriptor_types = {descriptor["event_type"] for descriptor in status["descriptors"]}
+        self.assertIn("slack.message.observed", descriptor_types)
+
+        empty_status = service.child_event_status(conn, tenant="missing")
+        self.assertEqual(empty_status["status"], "no-events")
+        self.assertEqual(empty_status["event_count"], 0)
 
     def test_list_runtime_reports_includes_base_url_choices(self):
         payload = self.service.list_runtime_reports()

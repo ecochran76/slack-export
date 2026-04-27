@@ -118,6 +118,8 @@ class ApiServerTests(unittest.TestCase):
             self.assertTrue(profile_payload["capabilities"]["contextWindow"])
             self.assertTrue(profile_payload["capabilities"]["guestGrants"])
             self.assertTrue(profile_payload["capabilities"]["eventCursorRead"])
+            self.assertTrue(profile_payload["capabilities"]["eventDescriptors"])
+            self.assertTrue(profile_payload["capabilities"]["eventStatus"])
             self.assertFalse(profile_payload["capabilities"]["eventFollow"])
             self.assertEqual(
                 profile_payload["routes"]["contextWindow"],
@@ -127,6 +129,12 @@ class ApiServerTests(unittest.TestCase):
                 profile_payload["routes"]["events"],
                 "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
             )
+            self.assertEqual(
+                profile_payload["routes"]["eventStatus"],
+                "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}",
+            )
+            self.assertIn("eventDescriptors", profile_payload)
+            self.assertEqual(profile_payload["events"]["cursor"]["owner"], "slack")
             self.assertEqual(profile_payload["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
             self.assertIn(
                 {"name": "participant", "support": "supported"},
@@ -243,9 +251,24 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(payload["status"], "complete")
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["events"][0]["eventType"], "slack.message.observed")
+        self.assertEqual(payload["events"][0]["event_type"], "slack.message.observed")
         self.assertEqual(payload["events"][0]["tenant"], "default")
+        self.assertEqual(payload["events"][0]["source_refs"]["channel_id"], "C123")
         self.assertEqual(payload["events"][0]["payload"]["senderLabel"], "Eric")
         self.assertNotIn("10.0", payload["nextCursor"])
+
+        status = requests.get(
+            f"{self.base_url}/v1/events/status",
+            params={"tenant": "default", "event_type": "slack.message.observed"},
+            timeout=5,
+        )
+        self.assertEqual(status.status_code, 200)
+        status_payload = status.json()
+        self.assertTrue(status_payload["ok"])
+        self.assertEqual(status_payload["status"], "complete")
+        self.assertEqual(status_payload["event_count"], 1)
+        self.assertEqual(status_payload["watermarks"][0]["event_type"], "slack.message.observed")
+        self.assertIn("slack.message.observed", {item["event_type"] for item in status_payload["descriptors"]})
 
         after = requests.get(
             f"{self.base_url}/v1/events",

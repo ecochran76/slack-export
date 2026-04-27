@@ -5190,3 +5190,35 @@ This file is the dated turn log for planning and execution continuity.
   - documentation-only handoff; no Slack runtime code was changed
   - `git diff --check`
   - planning contract audit with `audit_planning_contract.py --json`
+
+## Turn 279 | 2026-04-27
+
+- Opened the bounded Receipts Live View readiness slice:
+  - `docs/dev/plans/0127-2026-04-27-receipts-live-view-readiness.md`
+- Refreshed the managed user-scoped editable install and restarted
+  `slack-mirror-api.service` so the running API baseline includes the already
+  landed `/v1/events` route.
+- Verified the previous runtime gap changed from `NOT_FOUND` to expected auth
+  enforcement:
+  - `/v1/service-profile` now advertises `eventCursorRead` and `/v1/events`
+  - unauthenticated `/v1/events?tenant=default&limit=1` returns
+    `AUTH_REQUIRED`, proving the route is present and protected
+- Added the source contracts still needed for Receipts readiness:
+  - `capabilities.eventDescriptors: true`
+  - `capabilities.eventStatus: true`
+  - `routes.eventStatus`
+  - stable event descriptor metadata for the current event families
+  - `GET /v1/events/status` with latest cursor and per-event-type watermarks
+  - snake_case event row aliases alongside the existing camelCase fields
+- Updated the API/MCP contract docs, roadmap, and README for the new event
+  readiness/status contract.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_list_child_events_pages_committed_events_with_opaque_cursors tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+  - live managed API profile smoke showed `eventCursorRead`,
+    `eventDescriptors`, and `eventStatus` true with `eventFollow` false
+  - live authenticated `/v1/events/status?tenant=default&event_type=slack.message.observed`
+    returned `ok: true`, `status: complete`, `event_count: 85140`,
+    matching watermark count, and 4 descriptors

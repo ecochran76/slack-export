@@ -93,6 +93,70 @@ class HealthSummary:
     unhealthy_rows: int
 
 
+CHILD_EVENT_DESCRIPTORS: tuple[dict[str, Any], ...] = (
+    {
+        "event_type": "slack.message.observed",
+        "eventType": "slack.message.observed",
+        "label": "Message observed",
+        "summary": "A Slack message is present in mirrored durable state.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "message text is preview-limited; native ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.thread_reply.observed",
+        "eventType": "slack.thread_reply.observed",
+        "label": "Thread reply observed",
+        "summary": "A Slack thread reply is present in mirrored durable state.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "reply text is preview-limited; native ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.file.linked",
+        "eventType": "slack.file.linked",
+        "label": "File linked",
+        "summary": "A Slack file attachment is linked to a mirrored message.",
+        "privacy": "user",
+        "subject_kind": "slack-file",
+        "subjectKind": "slack-file",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "file labels and mimetype are exposed; file contents are not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.export.created",
+        "eventType": "slack.export.created",
+        "label": "Export created",
+        "summary": "A managed Slack Mirror export or selected-results report was created.",
+        "privacy": "user",
+        "subject_kind": "slack-export",
+        "subjectKind": "slack-export",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "artifact counts and links are exposed; artifact bodies are read through export routes",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+)
+
+
+def child_event_descriptors() -> list[dict[str, Any]]:
+    return [dict(descriptor) for descriptor in CHILD_EVENT_DESCRIPTORS]
+
+
 def _rank_movement(baseline_rank: int | None, rank: int | None) -> str:
     if baseline_rank is None and rank is None:
         return "missing_both"
@@ -1479,6 +1543,104 @@ class SlackMirrorAppService:
             return self._event_page([], limit=max(1, min(int(limit), 100)), status="complete")
         item_limit = max(1, min(int(limit), 100))
         after_tuple = _decode_event_cursor(after)
+        events = self._matching_child_events(
+            conn,
+            tenant=tenant,
+            account_key=account_key,
+            event_type=event_type,
+            privacy=privacy,
+        )
+        if after_tuple is not None:
+            events = [
+                event
+                for event in events
+                if (str(event.get("recordedAt") or ""), str(event.get("id") or "")) > after_tuple
+            ]
+        return self._event_page(events, limit=item_limit, status="complete")
+
+    def child_event_status(
+        self,
+        conn,
+        *,
+        tenant: str | None = None,
+        service_kind: str | None = None,
+        account_key: str | None = None,
+        event_type: str | None = None,
+        privacy: str | None = None,
+    ) -> dict[str, Any]:
+        if service_kind and str(service_kind).strip().lower() not in {"slack", "slack-mirror"}:
+            events: list[dict[str, Any]] = []
+        else:
+            events = self._matching_child_events(
+                conn,
+                tenant=tenant,
+                account_key=account_key,
+                event_type=event_type,
+                privacy=privacy,
+            )
+        latest = events[-1] if events else None
+        watermark_by_type: dict[str, dict[str, Any]] = {}
+        for event in events:
+            event_type_key = str(event.get("eventType") or "")
+            current = watermark_by_type.get(event_type_key)
+            current_count = int(current.get("count") or 0) if current else 0
+            if current is None or (
+                str(event.get("recordedAt") or ""),
+                str(event.get("id") or ""),
+            ) > (
+                str(current.get("latest_recorded_at") or ""),
+                str(current.get("latest_event_id") or ""),
+            ):
+                event_cursor = _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
+                watermark_by_type[event_type_key] = {
+                    "event_type": event.get("eventType"),
+                    "eventType": event.get("eventType"),
+                    "count": current_count,
+                    "latest_event_id": event.get("id"),
+                    "latestEventId": event.get("id"),
+                    "latest_recorded_at": event.get("recordedAt"),
+                    "latestRecordedAt": event.get("recordedAt"),
+                    "latest_occurred_at": event.get("occurredAt"),
+                    "latestOccurredAt": event.get("occurredAt"),
+                    "latest_cursor": event_cursor,
+                    "latestCursor": event_cursor,
+                }
+            watermark_by_type[event_type_key]["count"] += 1
+        latest_cursor = None
+        if latest:
+            latest_cursor = _encode_event_cursor(str(latest.get("recordedAt") or ""), str(latest.get("id") or ""))
+        return {
+            "schemaVersion": 1,
+            "schema_version": 1,
+            "service": "slack",
+            "status": "complete" if events else "no-events",
+            "statusText": "Event cursor is current." if events else "No matching Slack events are available.",
+            "status_text": "Event cursor is current." if events else "No matching Slack events are available.",
+            "eventCount": len(events),
+            "event_count": len(events),
+            "latestEventId": latest.get("id") if latest else None,
+            "latest_event_id": latest.get("id") if latest else None,
+            "latestRecordedAt": latest.get("recordedAt") if latest else None,
+            "latest_recorded_at": latest.get("recordedAt") if latest else None,
+            "latestOccurredAt": latest.get("occurredAt") if latest else None,
+            "latest_occurred_at": latest.get("occurredAt") if latest else None,
+            "latestCursor": latest_cursor,
+            "latest_cursor": latest_cursor,
+            "partial": False,
+            "failed": False,
+            "watermarks": list(watermark_by_type.values()),
+            "descriptors": child_event_descriptors(),
+        }
+
+    def _matching_child_events(
+        self,
+        conn,
+        *,
+        tenant: str | None,
+        account_key: str | None,
+        event_type: str | None,
+        privacy: str | None,
+    ) -> list[dict[str, Any]]:
         privacy_filter = {part.strip() for part in str(privacy or "").split(",") if part.strip()}
         event_type_filter = {part.strip() for part in str(event_type or "").split(",") if part.strip()}
         workspace_filter = str(tenant or account_key or "").strip()
@@ -1492,13 +1654,20 @@ class SlackMirrorAppService:
         if privacy_filter:
             events = [event for event in events if str(event.get("privacy") or "") in privacy_filter]
         events.sort(key=lambda event: (str(event.get("recordedAt") or ""), str(event.get("id") or "")))
-        if after_tuple is not None:
-            events = [
-                event
-                for event in events
-                if (str(event.get("recordedAt") or ""), str(event.get("id") or "")) > after_tuple
-            ]
-        return self._event_page(events, limit=item_limit, status="complete")
+        return events
+
+    def _event_with_aliases(self, event: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(event)
+        source_refs = dict(payload.get("sourceRefs") or {})
+        payload.setdefault("event_type", payload.get("eventType"))
+        payload.setdefault("occurred_at", payload.get("occurredAt"))
+        payload.setdefault("recorded_at", payload.get("recordedAt"))
+        payload.setdefault("service_kind", payload.get("serviceKind"))
+        payload.setdefault("account_key", payload.get("accountKey"))
+        payload.setdefault("source_refs", source_refs)
+        payload.setdefault("native_ids", source_refs)
+        payload.setdefault("nativeIds", source_refs)
+        return payload
 
     def _event_page(self, events: list[dict[str, Any]], *, limit: int, status: str) -> dict[str, Any]:
         page = events[:limit]
@@ -1510,11 +1679,16 @@ class SlackMirrorAppService:
                 event["cursor"] = _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
         return {
             "schemaVersion": 1,
+            "schema_version": 1,
             "service": "slack",
             "status": status,
+            "statusText": "Event page read completed.",
+            "status_text": "Event page read completed.",
             "events": page,
             "nextCursor": next_cursor,
+            "next_cursor": next_cursor,
             "hasMore": len(events) > limit,
+            "has_more": len(events) > limit,
             "count": len(page),
         }
 
@@ -1550,34 +1724,40 @@ class SlackMirrorAppService:
             sender_label = row.get("user_label") or "Unknown"
             text = _truncate_text(row.get("text"), 160)
             events.append(
-                {
-                    "id": f"{event_type}|{workspace}|{channel_id}|{ts}",
-                    "eventType": event_type,
-                    "subject": {"kind": "slack-message", "id": f"message|{workspace}|{channel_id}|{ts}"},
-                    "occurredAt": _slack_ts_to_iso(ts) or _sqlite_timestamp_to_iso(row.get("updated_at")),
-                    "recordedAt": _sqlite_timestamp_to_iso(row.get("updated_at")) or _slack_ts_to_iso(ts),
-                    "title": "Thread reply observed" if is_reply else "Slack message observed",
-                    "summary": f"{sender_label} in {channel_label}: {text}" if text else f"{sender_label} in {channel_label}",
-                    "serviceKind": "slack",
-                    "accountKey": workspace,
-                    "tenant": workspace,
-                    "privacy": "user",
-                    "sourceRefs": {
-                        "workspace": workspace,
-                        "workspace_id": row.get("workspace_id"),
-                        "channel_id": channel_id,
-                        "channel_name": row.get("channel_name"),
-                        "ts": ts,
-                        "thread_ts": row.get("thread_ts"),
-                        "user_id": row.get("user_id"),
-                    },
-                    "payload": {
-                        "channelLabel": channel_label,
-                        "senderLabel": sender_label,
-                        "textPreview": text,
-                        "subtype": row.get("subtype"),
-                    },
-                }
+                self._event_with_aliases(
+                    {
+                        "id": f"{event_type}|{workspace}|{channel_id}|{ts}",
+                        "eventType": event_type,
+                        "subject": {"kind": "slack-message", "id": f"message|{workspace}|{channel_id}|{ts}"},
+                        "occurredAt": _slack_ts_to_iso(ts) or _sqlite_timestamp_to_iso(row.get("updated_at")),
+                        "recordedAt": _sqlite_timestamp_to_iso(row.get("updated_at")) or _slack_ts_to_iso(ts),
+                        "title": "Thread reply observed" if is_reply else "Slack message observed",
+                        "summary": (
+                            f"{sender_label} in {channel_label}: {text}"
+                            if text
+                            else f"{sender_label} in {channel_label}"
+                        ),
+                        "serviceKind": "slack",
+                        "accountKey": workspace,
+                        "tenant": workspace,
+                        "privacy": "user",
+                        "sourceRefs": {
+                            "workspace": workspace,
+                            "workspace_id": row.get("workspace_id"),
+                            "channel_id": channel_id,
+                            "channel_name": row.get("channel_name"),
+                            "ts": ts,
+                            "thread_ts": row.get("thread_ts"),
+                            "user_id": row.get("user_id"),
+                        },
+                        "payload": {
+                            "channelLabel": channel_label,
+                            "senderLabel": sender_label,
+                            "textPreview": text,
+                            "subtype": row.get("subtype"),
+                        },
+                    }
+                )
             )
         return events
 
@@ -1609,32 +1789,34 @@ class SlackMirrorAppService:
             label = row.get("title") or row.get("name") or file_id
             channel_label = f"#{row.get('channel_name')}" if row.get("channel_name") else channel_id
             events.append(
-                {
-                    "id": f"slack.file.linked|{workspace}|{channel_id}|{ts}|{file_id}",
-                    "eventType": "slack.file.linked",
-                    "subject": {"kind": "slack-file", "id": file_id},
-                    "occurredAt": _slack_ts_to_iso(ts) or _sqlite_timestamp_to_iso(row.get("created_at")),
-                    "recordedAt": _sqlite_timestamp_to_iso(row.get("created_at")) or _slack_ts_to_iso(ts),
-                    "title": "Slack file linked",
-                    "summary": f"{label} linked in {channel_label}",
-                    "serviceKind": "slack",
-                    "accountKey": workspace,
-                    "tenant": workspace,
-                    "privacy": "user",
-                    "sourceRefs": {
-                        "workspace": workspace,
-                        "workspace_id": row.get("workspace_id"),
-                        "channel_id": channel_id,
-                        "channel_name": row.get("channel_name"),
-                        "ts": ts,
-                        "file_id": file_id,
-                    },
-                    "payload": {
-                        "fileLabel": label,
-                        "mimetype": row.get("mimetype"),
-                        "channelLabel": channel_label,
-                    },
-                }
+                self._event_with_aliases(
+                    {
+                        "id": f"slack.file.linked|{workspace}|{channel_id}|{ts}|{file_id}",
+                        "eventType": "slack.file.linked",
+                        "subject": {"kind": "slack-file", "id": file_id},
+                        "occurredAt": _slack_ts_to_iso(ts) or _sqlite_timestamp_to_iso(row.get("created_at")),
+                        "recordedAt": _sqlite_timestamp_to_iso(row.get("created_at")) or _slack_ts_to_iso(ts),
+                        "title": "Slack file linked",
+                        "summary": f"{label} linked in {channel_label}",
+                        "serviceKind": "slack",
+                        "accountKey": workspace,
+                        "tenant": workspace,
+                        "privacy": "user",
+                        "sourceRefs": {
+                            "workspace": workspace,
+                            "workspace_id": row.get("workspace_id"),
+                            "channel_id": channel_id,
+                            "channel_name": row.get("channel_name"),
+                            "ts": ts,
+                            "file_id": file_id,
+                        },
+                        "payload": {
+                            "fileLabel": label,
+                            "mimetype": row.get("mimetype"),
+                            "channelLabel": channel_label,
+                        },
+                    }
+                )
             )
         return events
 
@@ -1659,27 +1841,29 @@ class SlackMirrorAppService:
             kind = str(manifest.get("kind") or "export-bundle")
             title = str(manifest.get("title") or export_id)
             events.append(
-                {
-                    "id": f"slack.export.created|{export_id}",
-                    "eventType": "slack.export.created",
-                    "subject": {"kind": "slack-export", "id": export_id},
-                    "occurredAt": recorded_at,
-                    "recordedAt": recorded_at,
-                    "title": "Slack export created",
-                    "summary": f"{kind} export {title}",
-                    "serviceKind": "slack",
-                    "accountKey": workspace or None,
-                    "tenant": workspace or None,
-                    "privacy": "user",
-                    "sourceRefs": {"export_id": export_id, "kind": kind, "bundle_url": manifest.get("bundle_url")},
-                    "payload": {
-                        "title": title,
-                        "kind": kind,
-                        "itemCount": manifest.get("item_count"),
-                        "resolvedCount": manifest.get("resolved_count"),
-                        "fileCount": manifest.get("file_count"),
-                    },
-                }
+                self._event_with_aliases(
+                    {
+                        "id": f"slack.export.created|{export_id}",
+                        "eventType": "slack.export.created",
+                        "subject": {"kind": "slack-export", "id": export_id},
+                        "occurredAt": recorded_at,
+                        "recordedAt": recorded_at,
+                        "title": "Slack export created",
+                        "summary": f"{kind} export {title}",
+                        "serviceKind": "slack",
+                        "accountKey": workspace or None,
+                        "tenant": workspace or None,
+                        "privacy": "user",
+                        "sourceRefs": {"export_id": export_id, "kind": kind, "bundle_url": manifest.get("bundle_url")},
+                        "payload": {
+                            "title": title,
+                            "kind": kind,
+                            "itemCount": manifest.get("item_count"),
+                            "resolvedCount": manifest.get("resolved_count"),
+                            "fileCount": manifest.get("file_count"),
+                        },
+                    }
+                )
             )
         return events
 

@@ -21,7 +21,7 @@ from slack_mirror.exports import build_export_manifest, list_export_manifests, r
 from slack_mirror.service.frontend_auth import FrontendAuthConfig, FrontendAuthSession
 from slack_mirror.service.runtime_report import runtime_report_dir_for_config, _safe_runtime_report_name
 from slack_mirror.service.errors import map_service_error
-from slack_mirror.service.app import get_app_service
+from slack_mirror.service.app import child_event_descriptors, get_app_service
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
@@ -423,12 +423,15 @@ def _service_profile_payload() -> dict[str, Any]:
             "artifactDelete": True,
             "guestGrants": True,
             "eventCursorRead": True,
+            "eventDescriptors": True,
+            "eventStatus": True,
             "eventFollow": False,
             "managementActions": True,
         },
         "routes": {
             "health": "/v1/health",
             "events": "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
+            "eventStatus": "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}",
             "search": "/v1/search/corpus",
             "workspaceSearchTemplate": "/v1/workspaces/{workspace}/search/corpus",
             "messageDetailTemplate": "/v1/workspaces/{workspace}/messages/{channel_id}/{ts}",
@@ -477,6 +480,13 @@ def _service_profile_payload() -> dict[str, Any]:
             "labelFields": ["workspace", "channel", "channel_id", "user_label"],
             "nativeRefs": ["workspace_id", "channel_id", "ts", "thread_ts", "user_id", "permalink"],
         },
+        "events": {
+            "listUrlTemplate": "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
+            "statusUrlTemplate": "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}",
+            "cursor": {"opaque": True, "owner": "slack"},
+            "descriptors": child_event_descriptors(),
+        },
+        "eventDescriptors": child_event_descriptors(),
         "ui": {
             "preferredIcon": "slack",
             "accent": "#4A154B",
@@ -2108,6 +2118,23 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="context_window.get")
                     return
                 _json_response(self, 200, {"ok": True, "contextWindow": payload})
+                return
+
+            if path == "/v1/events/status":
+                conn = service.connect()
+                try:
+                    payload = service.child_event_status(
+                        conn,
+                        tenant=str(query.get("tenant", [""])[0] or "").strip() or None,
+                        service_kind=str(query.get("service_kind", [""])[0] or "").strip() or None,
+                        account_key=str(query.get("account_key", [""])[0] or "").strip() or None,
+                        event_type=str(query.get("event_type", [""])[0] or "").strip() or None,
+                        privacy=str(query.get("privacy", [""])[0] or "").strip() or None,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="events.status")
+                    return
+                _json_response(self, 200, {"ok": True, **payload})
                 return
 
             if path == "/v1/events":

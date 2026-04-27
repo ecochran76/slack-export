@@ -651,6 +651,7 @@ Actionable plans:
 - `docs/dev/plans/0124-2026-04-25-receipts-context-window-handoff.md`
 - `docs/dev/plans/0125-2026-04-26-receipts-guest-grant-assertion-handoff.md`
 - `docs/dev/plans/0126-2026-04-26-receipts-event-emission-handoff.md`
+- `docs/dev/plans/0127-2026-04-27-receipts-live-view-readiness.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -707,18 +708,16 @@ Current state:
   cursor-read surface over committed product events, starting with message,
   thread-reply, file-link, and export-created events; follow/SSE streaming is
   intentionally not advertised yet.
-- Receipts Live View now gates child readiness on cursor reads, event
-  descriptors, and event status. Slack Mirror has the cursor-read surface; the
-  remaining follow-up is descriptor/status advertisement for full parent
-  readiness:
-  `docs/dev/notes/0001-2026-04-27-receipts-live-view-readiness-followup.md`
+- Receipts Live View gates child readiness on cursor reads, event descriptors,
+  and event status. Slack Mirror now satisfies the source-side readiness
+  contract under `0127` with descriptor metadata, `GET /v1/events/status`,
+  child-owned watermarks, and snake_case event row aliases while keeping
+  `eventFollow: false` until a streaming/follow route exists.
 - Receipts now has a Slack-only diagnostic lane that calls `GET /v1/events`
-  when the Live View source filter is explicitly Slack. A 2026-04-27 check
-  from Receipts saw the running Slack API service on `127.0.0.1:8787` return
-  `NOT_FOUND` for `/v1/events`, so the source implementation needs to be
-  deployed/restarted into the managed runtime before the diagnostic lane can
-  show live Slack rows:
-  `docs/dev/notes/0002-2026-04-27-receipts-slack-event-diagnostic-handoff.md`
+  when the Live View source filter is explicitly Slack. The 2026-04-27
+  `NOT_FOUND` runtime gap for `/v1/events` was caused by a stale managed API
+  install and was addressed by refreshing the user-scoped editable install and
+  restarting `slack-mirror-api.service`.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

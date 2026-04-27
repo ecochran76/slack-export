@@ -336,6 +336,7 @@ Current semantics:
 
 - `GET /v1/service-profile` returns a machine-readable child-service profile for parent UX layers such as Receipts
 - `GET /v1/events` returns a cursor-backed page of Slack-owned committed product events
+- `GET /v1/events/status` returns child-owned event readiness and watermark metadata
 - `GET /v1/context-window` returns a cursor-backed Slack-owned message context stream for a selected search result
 - `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
 - `POST /v1/exports` supports bounded managed bundle creation for `kind=channel-day` and `kind=selected-results`
@@ -370,9 +371,13 @@ Important fields for `/v1/service-profile`:
   - `artifactDelete`
   - `guestGrants`
   - `eventCursorRead`
+  - `eventDescriptors`
+  - `eventStatus`
   - `eventFollow`
   - `managementActions`
 - `routes`
+- `events`
+- `eventDescriptors`
 - `queryOperators`
 - `artifacts`
 - `sourceMetadata`
@@ -400,10 +405,31 @@ rows. Current event families include:
 - `slack.export.created`
 
 The response includes `events`, `nextCursor`, `hasMore`, `count`, `status`, and
-`service: slack`. Cursors are opaque to Receipts and other parent UX layers.
-`capabilities.eventCursorRead` is true when this route is present.
+`service: slack`. It also includes snake_case aliases such as `next_cursor`,
+`has_more`, and per-row `event_type`, `occurred_at`, `recorded_at`,
+`source_refs`, and `native_ids` so parent UX layers do not have to parse
+Slack-specific field casing. Cursors are opaque to Receipts and other parent UX
+layers. `capabilities.eventCursorRead` is true when this route is present.
 `capabilities.eventFollow` remains false until Slack Mirror exposes a dedicated
 follow/SSE/streaming surface.
+
+`GET /v1/events/status` accepts the same `tenant`, `account_key`,
+`service_kind`, `event_type`, and `privacy` filters as `/v1/events`. The
+response includes:
+
+- `status`: `complete` when matching events exist, otherwise `no-events`
+- `event_count`
+- `latest_event_id`
+- `latest_recorded_at`
+- `latest_occurred_at`
+- `latest_cursor`
+- `watermarks`: per-event-type count and latest cursor metadata
+- `descriptors`: the current stable event descriptor list
+
+`GET /v1/service-profile` advertises `capabilities.eventDescriptors: true` and
+`capabilities.eventStatus: true` when this metadata is available. Current
+descriptors include label, privacy class, subject kind, payload stability,
+redaction note, and safe role hints for each emitted event family.
 
 `GET /v1/context-window` accepts:
 
