@@ -697,11 +697,10 @@ Current state:
   channel or thread streams with human sender/channel labels and native Slack
   provenance preserved under machine-readable fields
 - Receipts now forwards a constrained guest-grant assertion when a guest opens
-  a granted child report artifact through the parent BFF. Slack Mirror should
-  consume those headers on export/artifact read routes where it wants
-  child-side awareness of Receipts-validated guest reads, while keeping native
-  Slack export storage, auth/session behavior, and workspace authorization
-  child-owned.
+  a granted child report artifact through the parent BFF. Slack Mirror now
+  consumes those headers on export/artifact read routes, supports optional HMAC
+  verification through a shared secret, and keeps native Slack export storage,
+  auth/session behavior, and workspace authorization child-owned.
 - Receipts now consumes imcli committed product events through a cursor-backed
   child API and stores only opaque last-read cursor bookmarks parent-side.
   Slack Mirror should add a comparable Slack-owned event read surface before

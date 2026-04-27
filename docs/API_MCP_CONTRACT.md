@@ -403,6 +403,29 @@ The response is shaped for parent UX layers such as Receipts:
 
 Cursor values are intentionally opaque. Receipts and other parents should pass them back unchanged instead of parsing Slack timestamps, thread roots, channel IDs, or SQLite ordering.
 
+Receipts guest-grant artifact reads:
+
+- Slack Mirror accepts Receipts guest-grant assertions only on `GET /exports/{exportId}`, `GET /exports/{exportId}/{path}`, preview reads under the same bundle path, and `GET /v1/exports/{exportId}`.
+- List, create, rename, delete, runtime-report, workspace, tenant, and search routes still require the normal Slack Mirror child session when frontend auth is enabled.
+- Unsigned guest-grant assertions are accepted for trusted local development when no shared secret is configured.
+- If `SLACK_MIRROR_RECEIPTS_CHILD_GRANT_SHARED_SECRET` or `RECEIPTS_CHILD_GRANT_SHARED_SECRET` is configured, Slack Mirror requires `x-receipts-guest-grant-signature-mode: hmac-sha256` and verifies the signature before bypassing the child-session cookie requirement.
+- Slack Mirror does not receive raw guest tokens or token hashes. It uses grant ids, target ids, token ids, timestamps, and nonce values only as forwarded assertion metadata.
+
+Required guest-grant headers:
+
+- `x-receipts-request-mode: guest-grant`
+- `x-receipts-child-service: slack`
+- `x-receipts-guest-grant-id`
+- `x-receipts-guest-grant-target-id`
+- `x-receipts-guest-grant-target-kind: report-artifact | artifact`
+- `x-receipts-guest-grant-token-id`
+- `x-receipts-guest-grant-scope`
+- `x-receipts-guest-grant-audience`
+- `x-receipts-guest-grant-ts`
+- `x-receipts-guest-grant-nonce`
+- `x-receipts-guest-grant-signature-mode: unsigned | hmac-sha256`
+- `x-receipts-guest-grant-signature` when signed
+
 Important fields for export listing/detail routes:
 
 - `schema_version`

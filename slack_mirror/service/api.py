@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import mimetypes
 import os
@@ -33,6 +35,85 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -
 
 def _error_response(handler: BaseHTTPRequestHandler, status: int, code: str, message: str) -> None:
     _json_response(handler, status, {"ok": False, "error": {"code": code, "message": message}})
+
+
+def _receipts_guest_grant_secret() -> str | None:
+    return (
+        os.environ.get("SLACK_MIRROR_RECEIPTS_CHILD_GRANT_SHARED_SECRET")
+        or os.environ.get("RECEIPTS_CHILD_GRANT_SHARED_SECRET")
+        or None
+    )
+
+
+def _receipts_guest_grant_read_path(path: str) -> bool:
+    if re.fullmatch(r"/v1/exports/[^/]+", path):
+        return True
+    if re.fullmatch(r"/exports/[^/]+/?", path):
+        return True
+    if re.fullmatch(r"/exports/[^/]+/.+", path):
+        return True
+    return False
+
+
+def _receipts_guest_grant_header(handler: BaseHTTPRequestHandler, name: str) -> str:
+    return str(handler.headers.get(name, "") or "").strip()
+
+
+def _receipts_guest_grant_validation_error(handler: BaseHTTPRequestHandler, *, path: str) -> str | None:
+    if _receipts_guest_grant_header(handler, "x-receipts-request-mode") != "guest-grant":
+        return "missing guest grant mode"
+    if _receipts_guest_grant_header(handler, "x-receipts-child-service") != "slack":
+        return "guest grant child service must be slack"
+    if not _receipts_guest_grant_read_path(path):
+        return "guest grants are only accepted for export artifact reads"
+
+    required_headers = {
+        "x-receipts-guest-grant-id": "grant id",
+        "x-receipts-guest-grant-target-id": "target id",
+        "x-receipts-guest-grant-target-kind": "target kind",
+        "x-receipts-guest-grant-token-id": "token id",
+        "x-receipts-guest-grant-scope": "grant scope",
+        "x-receipts-guest-grant-audience": "grant audience",
+        "x-receipts-guest-grant-ts": "timestamp",
+        "x-receipts-guest-grant-nonce": "nonce",
+    }
+    for header_name, label in required_headers.items():
+        if not _receipts_guest_grant_header(handler, header_name):
+            return f"missing guest grant {label}"
+
+    target_kind = _receipts_guest_grant_header(handler, "x-receipts-guest-grant-target-kind")
+    if target_kind not in {"report-artifact", "artifact"}:
+        return "unsupported guest grant target kind"
+    signature_mode = _receipts_guest_grant_header(handler, "x-receipts-guest-grant-signature-mode") or "unsigned"
+    secret = _receipts_guest_grant_secret()
+    if secret and signature_mode != "hmac-sha256":
+        return "signed guest grant assertion is required"
+    if signature_mode == "unsigned":
+        return None
+    if signature_mode != "hmac-sha256":
+        return "unsupported guest grant signature mode"
+    if not secret:
+        return "guest grant shared secret is not configured"
+
+    signature = _receipts_guest_grant_header(handler, "x-receipts-guest-grant-signature")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", signature):
+        return "missing or invalid guest grant signature"
+    payload = "\n".join(
+        [
+            handler.command.upper(),
+            "slack",
+            handler._request_path_with_query(),  # type: ignore[attr-defined]
+            _receipts_guest_grant_header(handler, "x-receipts-guest-grant-id"),
+            _receipts_guest_grant_header(handler, "x-receipts-guest-grant-target-id"),
+            _receipts_guest_grant_header(handler, "x-receipts-guest-grant-token-id"),
+            _receipts_guest_grant_header(handler, "x-receipts-guest-grant-ts"),
+            _receipts_guest_grant_header(handler, "x-receipts-guest-grant-nonce"),
+        ]
+    )
+    expected = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature.lower()):
+        return "guest grant signature verification failed"
+    return None
 
 
 def _service_error_response(handler: BaseHTTPRequestHandler, exc: Exception, **details: Any) -> None:
@@ -340,7 +421,7 @@ def _service_profile_payload() -> dict[str, Any]:
             "artifactOpen": True,
             "artifactRename": True,
             "artifactDelete": True,
-            "guestGrants": False,
+            "guestGrants": True,
             "managementActions": True,
         },
         "routes": {
@@ -1927,6 +2008,12 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
         def _enforce_frontend_auth(self, path: str) -> FrontendAuthSession | None:
             if not self._is_protected_frontend_path(path):
                 return FrontendAuthSession(authenticated=False, auth_source="unprotected")
+            if self.command.upper() == "GET" and _receipts_guest_grant_header(self, "x-receipts-request-mode"):
+                validation_error = _receipts_guest_grant_validation_error(self, path=path)
+                if validation_error is None:
+                    return FrontendAuthSession(authenticated=False, auth_source="receipts_guest_grant")
+                _error_response(self, 403, "RECEIPTS_GUEST_GRANT_REJECTED", validation_error)
+                return None
             auth_session = self._frontend_auth_session()
             if auth_session.authenticated:
                 return auth_session

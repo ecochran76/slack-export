@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import json
 import os
 import tempfile
@@ -114,6 +116,7 @@ class ApiServerTests(unittest.TestCase):
             self.assertTrue(profile_payload["capabilities"]["artifactRename"])
             self.assertTrue(profile_payload["capabilities"]["artifactDelete"])
             self.assertTrue(profile_payload["capabilities"]["contextWindow"])
+            self.assertTrue(profile_payload["capabilities"]["guestGrants"])
             self.assertEqual(
                 profile_payload["routes"]["contextWindow"],
                 "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
@@ -965,6 +968,27 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(export_redirect.status_code, 303)
         self.assertIn("/login?next=%2Fexports%2Fchannel-day-default-general-2026-04-12-abc123&reason=auth_required", export_redirect.headers["location"])
 
+        guest_export = requests.get(
+            f"{base_url}/exports/channel-day-default-general-2026-04-12-abc123",
+            headers={
+                "x-receipts-request-mode": "guest-grant",
+                "x-receipts-child-service": "slack",
+                "x-receipts-guest-grant-id": "grant-123",
+                "x-receipts-guest-grant-target-id": "target-123",
+                "x-receipts-guest-grant-target-kind": "report-artifact",
+                "x-receipts-guest-grant-token-id": "tok-123",
+                "x-receipts-guest-grant-scope": "report-bundle",
+                "x-receipts-guest-grant-audience": "guest-link",
+                "x-receipts-guest-grant-permissions": "read",
+                "x-receipts-guest-grant-ts": "2026-04-26T12:00:00Z",
+                "x-receipts-guest-grant-nonce": "00000000-0000-4000-8000-000000000000",
+                "x-receipts-guest-grant-signature-mode": "unsigned",
+            },
+            timeout=5,
+        )
+        self.assertEqual(guest_export.status_code, 200)
+        self.assertIn("protected export", guest_export.text)
+
         api_blocked = requests.get(f"{base_url}/v1/runtime/reports", timeout=5)
         self.assertEqual(api_blocked.status_code, 401)
         self.assertEqual(api_blocked.json()["error"]["code"], "AUTH_REQUIRED")
@@ -1478,6 +1502,86 @@ class ApiServerTests(unittest.TestCase):
         auth_session = stale_session.get(f"{base_url}/auth/session", timeout=5)
         self.assertEqual(auth_session.status_code, 200)
         self.assertFalse(auth_session.json()["session"]["authenticated"])
+
+    def test_receipts_guest_grant_requires_valid_signature_when_secret_configured(self):
+        exports_root = self.root / "signed-exports-root"
+        bundle_dir = exports_root / "selected-default-smoke"
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+        (bundle_dir / "index.html").write_text("<html><body><h1>signed guest export</h1></body></html>", encoding="utf-8")
+        self.config_path.write_text(
+            "\n".join(
+                [
+                    "version: 1",
+                    "storage:",
+                    f"  db_path: {self.db_path}",
+                    "service:",
+                    "  auth:",
+                    "    enabled: true",
+                    "    allow_registration: false",
+                    "    cookie_secure_mode: never",
+                    "exports:",
+                    f"  root_dir: {exports_root}",
+                    "  local_base_url: http://slack.localhost",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        secret = "shared-child-secret"
+        os.environ["RECEIPTS_CHILD_GRANT_SHARED_SECRET"] = secret
+        self.addCleanup(os.environ.pop, "RECEIPTS_CHILD_GRANT_SHARED_SECRET", None)
+        server = create_api_server(bind="127.0.0.1", port=0, config_path=str(self.config_path))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        path_with_query = "/exports/selected-default-smoke?download=0"
+        headers = {
+            "x-receipts-request-mode": "guest-grant",
+            "x-receipts-child-service": "slack",
+            "x-receipts-guest-grant-id": "grant-123",
+            "x-receipts-guest-grant-target-id": "target-123",
+            "x-receipts-guest-grant-target-kind": "report-artifact",
+            "x-receipts-guest-grant-token-id": "tok-123",
+            "x-receipts-guest-grant-scope": "result-set",
+            "x-receipts-guest-grant-audience": "guest-link",
+            "x-receipts-guest-grant-permissions": "read",
+            "x-receipts-guest-grant-ts": "2026-04-26T12:00:00Z",
+            "x-receipts-guest-grant-nonce": "00000000-0000-4000-8000-000000000000",
+            "x-receipts-guest-grant-signature-mode": "hmac-sha256",
+        }
+
+        unsigned = requests.get(
+            f"{base_url}{path_with_query}",
+            headers={**headers, "x-receipts-guest-grant-signature-mode": "unsigned"},
+            timeout=5,
+        )
+        self.assertEqual(unsigned.status_code, 403)
+        self.assertEqual(unsigned.json()["error"]["code"], "RECEIPTS_GUEST_GRANT_REJECTED")
+
+        payload = "\n".join(
+            [
+                "GET",
+                "slack",
+                path_with_query,
+                headers["x-receipts-guest-grant-id"],
+                headers["x-receipts-guest-grant-target-id"],
+                headers["x-receipts-guest-grant-token-id"],
+                headers["x-receipts-guest-grant-ts"],
+                headers["x-receipts-guest-grant-nonce"],
+            ]
+        )
+        signature = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+        signed = requests.get(
+            f"{base_url}{path_with_query}",
+            headers={**headers, "x-receipts-guest-grant-signature": signature},
+            timeout=5,
+        )
+        self.assertEqual(signed.status_code, 200)
+        self.assertIn("signed guest export", signed.text)
 
     def test_export_file_serving_endpoint(self):
         exports_root = self.root / "exports-root"

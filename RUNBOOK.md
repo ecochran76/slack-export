@@ -5099,3 +5099,25 @@ This file is the dated turn log for planning and execution continuity.
   - documentation-only handoff; no Slack runtime code was changed
   - `git diff --check`
   - planning contract audit with `audit_planning_contract.py --json`
+
+## Turn 275 | 2026-04-26
+
+- Implemented the Receipts guest-grant assertion handoff:
+  - added constrained parsing for Receipts guest-grant assertion headers
+  - allowed valid assertions to bypass child-session cookies only for
+    export/artifact read routes
+  - kept export listing, create, rename, delete, runtime-report, workspace,
+    tenant, search, and other protected routes on normal Slack Mirror auth
+  - supported unsigned assertions for trusted local development when no shared
+    secret is configured
+  - required and verified HMAC-SHA256 assertions when
+    `SLACK_MIRROR_RECEIPTS_CHILD_GRANT_SHARED_SECRET` or
+    `RECEIPTS_CHILD_GRANT_SHARED_SECRET` is configured
+  - advertised `capabilities.guestGrants: true` in `GET /v1/service-profile`
+- Updated `README.md`, `docs/API_MCP_CONTRACT.md`, `ROADMAP.md`, and closed
+  `docs/dev/plans/0125-2026-04-26-receipts-guest-grant-assertion-handoff.md`.
+- Validation:
+  - `uv run python -m unittest tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login tests.test_api_server.ApiServerTests.test_receipts_guest_grant_requires_valid_signature_when_secret_configured tests.test_api_server.ApiServerTests.test_export_file_serving_endpoint tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow -v`
+  - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - planning contract audit with `audit_planning_contract.py --json`
+  - `git diff --check`

@@ -165,6 +165,7 @@ The current repo has:
 - selected corpus `action_target` values can now be expanded into bounded context packs through CLI/API/MCP, including before/hit/after message context, derived-text chunk context, and linked Slack messages for file-backed derived text
 - selected Slack message `action_target.id` values can now be opened through `/v1/context-window` as cursor-backed channel or thread streams for shared parent UX layers such as Receipts
 - selected corpus `action_target` values can now be persisted as managed `selected-results` export bundles, with a neutral `selected-results.json` artifact, a provider-neutral `events` projection for communication-event convergence, a polished human-readable HTML report at `/exports/{export_id}`, and a manifest for later report rendering or agent handoff
+- Receipts guest-grant assertion headers are accepted on export/artifact read routes, with optional HMAC verification through `SLACK_MIRROR_RECEIPTS_CHILD_GRANT_SHARED_SECRET` or `RECEIPTS_CHILD_GRANT_SHARED_SECRET`
 - `/v1/service-profile` now exposes Slack Mirror's child-service profile for shared parent UX layers such as Receipts, including auth/session mode, search support, selected-result export lifecycle, artifact route templates, query operators, and visible UI capabilities
 - the authenticated `/search` page can now select individual or visible-page result candidates with `action_target` metadata and create managed `selected-results` reports directly from the browser
 - named retrieval profiles for operator rollout control:

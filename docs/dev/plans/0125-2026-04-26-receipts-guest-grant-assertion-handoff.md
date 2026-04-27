@@ -1,6 +1,6 @@
 # 0125 | Receipts guest grant assertion handoff
 
-State: OPEN
+State: CLOSED
 
 Roadmap: P12
 
@@ -33,6 +33,16 @@ guest token hash, or a local artifact path.
 For Slack, this applies to managed export/report artifact reads such as the
 HTML export URL or future selected-result artifact readers that Receipts opens
 through the child BFF path.
+
+Slack Mirror now accepts these assertions on export/artifact read routes only:
+
+- `GET /exports/{exportId}`
+- `GET /exports/{exportId}/{path}`
+- preview reads under the same export bundle route
+- `GET /v1/exports/{exportId}`
+
+Normal child-session auth still applies to export listing, create, rename,
+delete, runtime reports, workspace, tenant, search, and other protected routes.
 
 ## Requested Slack Mirror Work
 
@@ -120,6 +130,8 @@ For the current Receipts opener, `method` is `GET`.
 
 ## Status
 
-OPEN. This is a Receipts-to-Slack Mirror handoff note. Implementation remains
-owned by Slack Mirror.
-
+CLOSED. Slack Mirror parses Receipts guest-grant assertions on export/artifact
+read routes, allows unsigned local-development assertions when no shared secret
+is configured, and requires/verifies HMAC-SHA256 signatures when
+`SLACK_MIRROR_RECEIPTS_CHILD_GRANT_SHARED_SECRET` or
+`RECEIPTS_CHILD_GRANT_SHARED_SECRET` is configured.
