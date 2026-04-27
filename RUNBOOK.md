@@ -5142,3 +5142,26 @@ This file is the dated turn log for planning and execution continuity.
   - planning contract audit with `audit_planning_contract.py --json` returned
     `ok: true`
   - `git diff --check`
+
+## Turn 277 | 2026-04-27
+
+- Recorded the Receipts Live View readiness follow-up under the P12
+  communications convergence lane:
+  - `docs/dev/notes/0001-2026-04-27-receipts-live-view-readiness-followup.md`
+- Clarified that Slack Mirror already owns the first event cursor-read surface:
+  - `GET /v1/events`
+  - `capabilities.eventCursorRead: true`
+  - Slack-owned opaque event cursors
+- Requested the remaining profile/readiness alignment needed by Receipts:
+  - `capabilities.eventDescriptors: true` plus stable event descriptors for
+    emitted event families
+  - `capabilities.eventStatus: true` plus a status/watermark route or
+    equivalent child-owned metadata
+- Preserved the ownership boundary:
+  - Slack Mirror owns event creation, ordering, retention, native provenance,
+    human Slack labels, and cursor encoding
+  - Receipts owns the shared Live View UX and parent-side cursor bookmarks
+- Validation:
+  - documentation-only handoff; no Slack runtime code was changed
+  - `git diff --check`
+  - planning contract audit with `audit_planning_contract.py --json`

@@ -707,6 +707,11 @@ Current state:
   cursor-read surface over committed product events, starting with message,
   thread-reply, file-link, and export-created events; follow/SSE streaming is
   intentionally not advertised yet.
+- Receipts Live View now gates child readiness on cursor reads, event
+  descriptors, and event status. Slack Mirror has the cursor-read surface; the
+  remaining follow-up is descriptor/status advertisement for full parent
+  readiness:
+  `docs/dev/notes/0001-2026-04-27-receipts-live-view-readiness-followup.md`
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture
