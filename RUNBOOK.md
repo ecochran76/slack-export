@@ -5165,3 +5165,28 @@ This file is the dated turn log for planning and execution continuity.
   - documentation-only handoff; no Slack runtime code was changed
   - `git diff --check`
   - planning contract audit with `audit_planning_contract.py --json`
+
+## Turn 278 | 2026-04-27
+
+- Recorded a Receipts Slack event diagnostic handoff under the P12
+  communications convergence lane:
+  - `docs/dev/notes/0002-2026-04-27-receipts-slack-event-diagnostic-handoff.md`
+- Clarified the new Receipts behavior:
+  - Receipts now has a Slack-only Live View diagnostic lane that calls
+    `GET /v1/events` only when Slack is explicitly selected.
+  - Slack still remains out of `All ready feeds` until descriptors and event
+    status are advertised.
+- Recorded the current operational gap observed from Receipts:
+  - `http://127.0.0.1:8787/v1/events?tenant=default&limit=1` returned
+    `NOT_FOUND`, so the running Slack API service baseline does not yet expose
+    the route even though source/planning history says it exists.
+- Requested Slack Export follow-up:
+  - deploy/reinstall/restart the managed API/runtime baseline that includes
+    `GET /v1/events`
+  - verify the route directly and through the Receipts BFF
+  - complete descriptor and event-status advertisement for full Live View
+    readiness
+- Validation:
+  - documentation-only handoff; no Slack runtime code was changed
+  - `git diff --check`
+  - planning contract audit with `audit_planning_contract.py --json`

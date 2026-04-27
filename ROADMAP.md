@@ -712,6 +712,13 @@ Current state:
   remaining follow-up is descriptor/status advertisement for full parent
   readiness:
   `docs/dev/notes/0001-2026-04-27-receipts-live-view-readiness-followup.md`
+- Receipts now has a Slack-only diagnostic lane that calls `GET /v1/events`
+  when the Live View source filter is explicitly Slack. A 2026-04-27 check
+  from Receipts saw the running Slack API service on `127.0.0.1:8787` return
+  `NOT_FOUND` for `/v1/events`, so the source implementation needs to be
+  deployed/restarted into the managed runtime before the diagnostic lane can
+  show live Slack rows:
+  `docs/dev/notes/0002-2026-04-27-receipts-slack-event-diagnostic-handoff.md`
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture
