@@ -117,9 +117,15 @@ class ApiServerTests(unittest.TestCase):
             self.assertTrue(profile_payload["capabilities"]["artifactDelete"])
             self.assertTrue(profile_payload["capabilities"]["contextWindow"])
             self.assertTrue(profile_payload["capabilities"]["guestGrants"])
+            self.assertTrue(profile_payload["capabilities"]["eventCursorRead"])
+            self.assertFalse(profile_payload["capabilities"]["eventFollow"])
             self.assertEqual(
                 profile_payload["routes"]["contextWindow"],
                 "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
+            )
+            self.assertEqual(
+                profile_payload["routes"]["events"],
+                "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
             )
             self.assertEqual(profile_payload["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
             self.assertIn(
@@ -210,6 +216,44 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(payload["items"][1]["senderLabel"], "Eric")
         self.assertFalse(payload["pageInfo"]["hasBefore"])
         self.assertFalse(payload["pageInfo"]["hasAfter"])
+
+    def test_events_endpoint_pages_committed_child_events(self):
+        service = get_app_service(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+        upsert_channel(conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_message(
+            conn,
+            workspace_id,
+            "C123",
+            {"ts": "10.0", "user": "U1", "text": "hello from events", "channel": "C123"},
+        )
+
+        first = requests.get(
+            f"{self.base_url}/v1/events",
+            params={"tenant": "default", "event_type": "slack.message.observed", "limit": "1"},
+            timeout=5,
+        )
+
+        self.assertEqual(first.status_code, 200)
+        payload = first.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["service"], "slack")
+        self.assertEqual(payload["status"], "complete")
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["events"][0]["eventType"], "slack.message.observed")
+        self.assertEqual(payload["events"][0]["tenant"], "default")
+        self.assertEqual(payload["events"][0]["payload"]["senderLabel"], "Eric")
+        self.assertNotIn("10.0", payload["nextCursor"])
+
+        after = requests.get(
+            f"{self.base_url}/v1/events",
+            params={"tenant": "default", "event_type": "slack.message.observed", "after": payload["nextCursor"], "limit": "1"},
+            timeout=5,
+        )
+        self.assertEqual(after.status_code, 200)
+        self.assertEqual(after.json()["count"], 0)
 
     def test_tenant_status_and_onboard_api(self):
         tenants = requests.get(f"{self.base_url}/v1/tenants", timeout=5)

@@ -703,8 +703,10 @@ Current state:
   auth/session behavior, and workspace authorization child-owned.
 - Receipts now consumes imcli committed product events through a cursor-backed
   child API and stores only opaque last-read cursor bookmarks parent-side.
-  Slack Mirror should add a comparable Slack-owned event read surface before
-  Receipts treats Slack events as part of a cross-child activity stream.
+  Slack Mirror now exposes `GET /v1/events` as a comparable Slack-owned
+  cursor-read surface over committed product events, starting with message,
+  thread-reply, file-link, and export-created events; follow/SSE streaming is
+  intentionally not advertised yet.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

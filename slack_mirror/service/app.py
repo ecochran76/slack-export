@@ -329,6 +329,42 @@ def _decode_context_cursor(value: str) -> dict[str, Any]:
     return payload
 
 
+def _encode_event_cursor(recorded_at: str, event_id: str) -> str:
+    payload = {"v": 1, "recorded_at": str(recorded_at or ""), "event_id": str(event_id or "")}
+    data = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+def _decode_event_cursor(value: str | None) -> tuple[str, str] | None:
+    token = str(value or "").strip()
+    if not token:
+        return None
+    try:
+        padded = token + ("=" * (-len(token) % 4))
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("invalid event cursor") from exc
+    if not isinstance(payload, dict) or int(payload.get("v") or 0) != 1:
+        raise ValueError("unsupported event cursor")
+    recorded_at = str(payload.get("recorded_at") or "")
+    event_id = str(payload.get("event_id") or "")
+    if not recorded_at or not event_id:
+        raise ValueError("event cursor is missing required fields")
+    return recorded_at, event_id
+
+
+def _sqlite_timestamp_to_iso(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if "T" in text:
+        return text if text.endswith("Z") or "+" in text else f"{text}Z"
+    try:
+        return datetime.fromisoformat(text.replace(" ", "T")).replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+    except ValueError:
+        return text
+
+
 def _project_context_message(
     row: Any,
     *,
@@ -1426,6 +1462,226 @@ class SlackMirrorAppService:
                 "afterCursor": after_cursor,
             },
         }
+
+    def list_child_events(
+        self,
+        conn,
+        *,
+        tenant: str | None = None,
+        after: str | None = None,
+        limit: int = 50,
+        service_kind: str | None = None,
+        account_key: str | None = None,
+        event_type: str | None = None,
+        privacy: str | None = None,
+    ) -> dict[str, Any]:
+        if service_kind and str(service_kind).strip().lower() not in {"slack", "slack-mirror"}:
+            return self._event_page([], limit=max(1, min(int(limit), 100)), status="complete")
+        item_limit = max(1, min(int(limit), 100))
+        after_tuple = _decode_event_cursor(after)
+        privacy_filter = {part.strip() for part in str(privacy or "").split(",") if part.strip()}
+        event_type_filter = {part.strip() for part in str(event_type or "").split(",") if part.strip()}
+        workspace_filter = str(tenant or account_key or "").strip()
+        events = [
+            *self._message_child_events(conn, workspace_filter=workspace_filter or None),
+            *self._file_child_events(conn, workspace_filter=workspace_filter or None),
+            *self._export_child_events(workspace_filter=workspace_filter or None),
+        ]
+        if event_type_filter:
+            events = [event for event in events if str(event.get("eventType") or "") in event_type_filter]
+        if privacy_filter:
+            events = [event for event in events if str(event.get("privacy") or "") in privacy_filter]
+        events.sort(key=lambda event: (str(event.get("recordedAt") or ""), str(event.get("id") or "")))
+        if after_tuple is not None:
+            events = [
+                event
+                for event in events
+                if (str(event.get("recordedAt") or ""), str(event.get("id") or "")) > after_tuple
+            ]
+        return self._event_page(events, limit=item_limit, status="complete")
+
+    def _event_page(self, events: list[dict[str, Any]], *, limit: int, status: str) -> dict[str, Any]:
+        page = events[:limit]
+        next_cursor = None
+        if page:
+            last = page[-1]
+            next_cursor = _encode_event_cursor(str(last.get("recordedAt") or ""), str(last.get("id") or ""))
+            for event in page:
+                event["cursor"] = _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
+        return {
+            "schemaVersion": 1,
+            "service": "slack",
+            "status": status,
+            "events": page,
+            "nextCursor": next_cursor,
+            "hasMore": len(events) > limit,
+            "count": len(page),
+        }
+
+    def _message_child_events(self, conn, *, workspace_filter: str | None) -> list[dict[str, Any]]:
+        params: list[Any] = []
+        workspace_clause = ""
+        if workspace_filter:
+            workspace_clause = "WHERE w.name = ?"
+            params.append(workspace_filter)
+        rows = conn.execute(
+            f"""
+            SELECT w.name AS workspace, w.id AS workspace_id, m.channel_id, c.name AS channel_name,
+                   m.ts, m.thread_ts, m.user_id,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.updated_at
+            FROM messages m
+            JOIN workspaces w ON w.id = m.workspace_id
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            {workspace_clause}
+            """,
+            tuple(params),
+        ).fetchall()
+        events: list[dict[str, Any]] = []
+        for row_obj in rows:
+            row = dict(row_obj)
+            workspace = str(row.get("workspace") or "")
+            channel_id = str(row.get("channel_id") or "")
+            ts = str(row.get("ts") or "")
+            is_reply = bool(row.get("thread_ts")) and str(row.get("thread_ts")) != ts
+            event_type = "slack.thread_reply.observed" if is_reply else "slack.message.observed"
+            channel_label = f"#{row.get('channel_name')}" if row.get("channel_name") else channel_id
+            sender_label = row.get("user_label") or "Unknown"
+            text = _truncate_text(row.get("text"), 160)
+            events.append(
+                {
+                    "id": f"{event_type}|{workspace}|{channel_id}|{ts}",
+                    "eventType": event_type,
+                    "subject": {"kind": "slack-message", "id": f"message|{workspace}|{channel_id}|{ts}"},
+                    "occurredAt": _slack_ts_to_iso(ts) or _sqlite_timestamp_to_iso(row.get("updated_at")),
+                    "recordedAt": _sqlite_timestamp_to_iso(row.get("updated_at")) or _slack_ts_to_iso(ts),
+                    "title": "Thread reply observed" if is_reply else "Slack message observed",
+                    "summary": f"{sender_label} in {channel_label}: {text}" if text else f"{sender_label} in {channel_label}",
+                    "serviceKind": "slack",
+                    "accountKey": workspace,
+                    "tenant": workspace,
+                    "privacy": "user",
+                    "sourceRefs": {
+                        "workspace": workspace,
+                        "workspace_id": row.get("workspace_id"),
+                        "channel_id": channel_id,
+                        "channel_name": row.get("channel_name"),
+                        "ts": ts,
+                        "thread_ts": row.get("thread_ts"),
+                        "user_id": row.get("user_id"),
+                    },
+                    "payload": {
+                        "channelLabel": channel_label,
+                        "senderLabel": sender_label,
+                        "textPreview": text,
+                        "subtype": row.get("subtype"),
+                    },
+                }
+            )
+        return events
+
+    def _file_child_events(self, conn, *, workspace_filter: str | None) -> list[dict[str, Any]]:
+        params: list[Any] = []
+        workspace_clause = ""
+        if workspace_filter:
+            workspace_clause = "WHERE w.name = ?"
+            params.append(workspace_filter)
+        rows = conn.execute(
+            f"""
+            SELECT w.name AS workspace, w.id AS workspace_id, mf.channel_id, c.name AS channel_name,
+                   mf.ts, mf.file_id, mf.created_at, f.name, f.title, f.mimetype
+            FROM message_files mf
+            JOIN workspaces w ON w.id = mf.workspace_id
+            LEFT JOIN channels c ON c.workspace_id = mf.workspace_id AND c.channel_id = mf.channel_id
+            LEFT JOIN files f ON f.workspace_id = mf.workspace_id AND f.file_id = mf.file_id
+            {workspace_clause}
+            """,
+            tuple(params),
+        ).fetchall()
+        events: list[dict[str, Any]] = []
+        for row_obj in rows:
+            row = dict(row_obj)
+            workspace = str(row.get("workspace") or "")
+            channel_id = str(row.get("channel_id") or "")
+            file_id = str(row.get("file_id") or "")
+            ts = str(row.get("ts") or "")
+            label = row.get("title") or row.get("name") or file_id
+            channel_label = f"#{row.get('channel_name')}" if row.get("channel_name") else channel_id
+            events.append(
+                {
+                    "id": f"slack.file.linked|{workspace}|{channel_id}|{ts}|{file_id}",
+                    "eventType": "slack.file.linked",
+                    "subject": {"kind": "slack-file", "id": file_id},
+                    "occurredAt": _slack_ts_to_iso(ts) or _sqlite_timestamp_to_iso(row.get("created_at")),
+                    "recordedAt": _sqlite_timestamp_to_iso(row.get("created_at")) or _slack_ts_to_iso(ts),
+                    "title": "Slack file linked",
+                    "summary": f"{label} linked in {channel_label}",
+                    "serviceKind": "slack",
+                    "accountKey": workspace,
+                    "tenant": workspace,
+                    "privacy": "user",
+                    "sourceRefs": {
+                        "workspace": workspace,
+                        "workspace_id": row.get("workspace_id"),
+                        "channel_id": channel_id,
+                        "channel_name": row.get("channel_name"),
+                        "ts": ts,
+                        "file_id": file_id,
+                    },
+                    "payload": {
+                        "fileLabel": label,
+                        "mimetype": row.get("mimetype"),
+                        "channelLabel": channel_label,
+                    },
+                }
+            )
+        return events
+
+    def _export_child_events(self, *, workspace_filter: str | None) -> list[dict[str, Any]]:
+        export_root = resolve_export_root(self.config)
+        if not export_root.exists():
+            return []
+        events: list[dict[str, Any]] = []
+        for manifest in list_export_manifests(
+            export_root,
+            base_urls=resolve_export_base_urls(self.config),
+            default_audience="local",
+        ):
+            workspace = str(manifest.get("workspace") or "").strip()
+            if workspace_filter and workspace != workspace_filter:
+                continue
+            export_id = str(manifest.get("export_id") or "")
+            if not export_id:
+                continue
+            bundle_dir = export_root / export_id
+            recorded_at = datetime.fromtimestamp(bundle_dir.stat().st_mtime, tz=UTC).isoformat().replace("+00:00", "Z")
+            kind = str(manifest.get("kind") or "export-bundle")
+            title = str(manifest.get("title") or export_id)
+            events.append(
+                {
+                    "id": f"slack.export.created|{export_id}",
+                    "eventType": "slack.export.created",
+                    "subject": {"kind": "slack-export", "id": export_id},
+                    "occurredAt": recorded_at,
+                    "recordedAt": recorded_at,
+                    "title": "Slack export created",
+                    "summary": f"{kind} export {title}",
+                    "serviceKind": "slack",
+                    "accountKey": workspace or None,
+                    "tenant": workspace or None,
+                    "privacy": "user",
+                    "sourceRefs": {"export_id": export_id, "kind": kind, "bundle_url": manifest.get("bundle_url")},
+                    "payload": {
+                        "title": title,
+                        "kind": kind,
+                        "itemCount": manifest.get("item_count"),
+                        "resolvedCount": manifest.get("resolved_count"),
+                        "fileCount": manifest.get("file_count"),
+                    },
+                }
+            )
+        return events
 
     def _message_context_pack_item(
         self,

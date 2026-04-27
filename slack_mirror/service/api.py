@@ -422,10 +422,13 @@ def _service_profile_payload() -> dict[str, Any]:
             "artifactRename": True,
             "artifactDelete": True,
             "guestGrants": True,
+            "eventCursorRead": True,
+            "eventFollow": False,
             "managementActions": True,
         },
         "routes": {
             "health": "/v1/health",
+            "events": "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
             "search": "/v1/search/corpus",
             "workspaceSearchTemplate": "/v1/workspaces/{workspace}/search/corpus",
             "messageDetailTemplate": "/v1/workspaces/{workspace}/messages/{channel_id}/{ts}",
@@ -1996,6 +1999,7 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 "/operator/assets",
                 "/v1/exports",
                 "/v1/logs",
+                "/v1/events",
                 "/v1/workspaces",
                 "/runtime/reports",
                 "/v1/runtime/reports",
@@ -2104,6 +2108,25 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="context_window.get")
                     return
                 _json_response(self, 200, {"ok": True, "contextWindow": payload})
+                return
+
+            if path == "/v1/events":
+                conn = service.connect()
+                try:
+                    payload = service.list_child_events(
+                        conn,
+                        tenant=str(query.get("tenant", [""])[0] or "").strip() or None,
+                        after=str(query.get("after", [""])[0] or "").strip() or None,
+                        limit=int(query.get("limit", [50])[0]),
+                        service_kind=str(query.get("service_kind", [""])[0] or "").strip() or None,
+                        account_key=str(query.get("account_key", [""])[0] or "").strip() or None,
+                        event_type=str(query.get("event_type", [""])[0] or "").strip() or None,
+                        privacy=str(query.get("privacy", [""])[0] or "").strip() or None,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="events.list")
+                    return
+                _json_response(self, 200, {"ok": True, **payload})
                 return
 
             if path == "/auth/status":

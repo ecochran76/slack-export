@@ -5121,3 +5121,24 @@ This file is the dated turn log for planning and execution continuity.
   - `python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
   - planning contract audit with `audit_planning_contract.py --json`
   - `git diff --check`
+
+## Turn 276 | 2026-04-26
+
+- Implemented the Receipts event-emission handoff:
+  - added shared `SlackMirrorAppService.list_child_events`
+  - added opaque Slack Mirror event cursor encoding and decoding
+  - exposed `GET /v1/events`
+  - projected committed product events from durable Slack Mirror state:
+    Slack messages, thread replies, linked files, and managed export bundles
+  - included exact filters for tenant/account, event type, privacy class,
+    service kind, page size, and cursor
+  - advertised `capabilities.eventCursorRead: true` and
+    `capabilities.eventFollow: false` from `GET /v1/service-profile`
+- Updated `README.md`, `docs/API_MCP_CONTRACT.md`, `ROADMAP.md`, and closed
+  `docs/dev/plans/0126-2026-04-26-receipts-event-emission-handoff.md`.
+- Validation:
+  - `uv run python -m unittest tests.test_app_service.AppServiceTests.test_list_child_events_pages_committed_events_with_opaque_cursors tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
+  - planning contract audit with `audit_planning_contract.py --json` returned
+    `ok: true`
+  - `git diff --check`

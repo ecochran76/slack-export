@@ -320,6 +320,7 @@ Important fields for `runtime.report.latest`:
 API:
 
 - `GET /v1/service-profile`
+- `GET /v1/events`
 - `GET /v1/context-window`
 - `GET /v1/workspaces/{workspace}/channels`
 - `GET /v1/exports`
@@ -334,6 +335,7 @@ API:
 Current semantics:
 
 - `GET /v1/service-profile` returns a machine-readable child-service profile for parent UX layers such as Receipts
+- `GET /v1/events` returns a cursor-backed page of Slack-owned committed product events
 - `GET /v1/context-window` returns a cursor-backed Slack-owned message context stream for a selected search result
 - `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
 - `POST /v1/exports` supports bounded managed bundle creation for `kind=channel-day` and `kind=selected-results`
@@ -367,6 +369,8 @@ Important fields for `/v1/service-profile`:
   - `artifactRename`
   - `artifactDelete`
   - `guestGrants`
+  - `eventCursorRead`
+  - `eventFollow`
   - `managementActions`
 - `routes`
 - `queryOperators`
@@ -375,6 +379,31 @@ Important fields for `/v1/service-profile`:
 - `ui`
 
 The profile route is intentionally readable without a child session so a parent BFF can discover Slack Mirror capabilities before deciding whether to show sign-in, search, report, and artifact-management controls. Protected operational routes still enforce Slack Mirror's child-session policy.
+
+`GET /v1/events` accepts:
+
+- `tenant`: Slack Mirror workspace name
+- `account_key`: equivalent workspace/account filter when a parent uses provider-neutral naming
+- `after`: opaque Slack Mirror cursor from a prior event page
+- `limit`: bounded page size, capped by the service
+- `service_kind`: optional `slack` or `slack-mirror`
+- `event_type`: exact event type or comma-separated event types
+- `privacy`: exact privacy class or comma-separated privacy classes
+
+The first event surface is read-only and derives committed product events from
+durable Slack Mirror state rather than exposing raw webhook/socket transport
+rows. Current event families include:
+
+- `slack.message.observed`
+- `slack.thread_reply.observed`
+- `slack.file.linked`
+- `slack.export.created`
+
+The response includes `events`, `nextCursor`, `hasMore`, `count`, `status`, and
+`service: slack`. Cursors are opaque to Receipts and other parent UX layers.
+`capabilities.eventCursorRead` is true when this route is present.
+`capabilities.eventFollow` remains false until Slack Mirror exposes a dedicated
+follow/SSE/streaming surface.
 
 `GET /v1/context-window` accepts:
 

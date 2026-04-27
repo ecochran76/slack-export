@@ -463,6 +463,80 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual([item["timestamp"] for item in payload["items"]], ["11.0", "12.0"])
         self.assertEqual(payload["items"][0]["nativeIds"]["threadTs"], "11.0")
 
+    def test_list_child_events_pages_committed_events_with_opaque_cursors(self):
+        export_root = self.root / "event-exports"
+        self.config_path.write_text(
+            self.config_path.read_text(encoding="utf-8")
+            + "\n".join(
+                [
+                    "exports:",
+                    f"  root_dir: {export_root}",
+                    "  local_base_url: http://slack.localhost",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        service = SlackMirrorAppService(str(self.config_path))
+        conn = service.connect()
+        workspace_id = service.workspace_id(conn, "default")
+        upsert_channel(conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_message(
+            conn,
+            workspace_id,
+            "C123",
+            {
+                "ts": "10.0",
+                "user": "U1",
+                "text": "root message",
+                "channel": "C123",
+                "files": [{"id": "F1", "name": "incident.pdf", "mimetype": "application/pdf"}],
+            },
+        )
+        upsert_message(
+            conn,
+            workspace_id,
+            "C123",
+            {"ts": "11.0", "thread_ts": "10.0", "user": "U1", "text": "reply", "channel": "C123"},
+        )
+        bundle_dir = export_root / "selected-default-smoke"
+        bundle_dir.mkdir(parents=True)
+        (bundle_dir / "index.html").write_text("<html>report</html>", encoding="utf-8")
+        (bundle_dir / "manifest.json").write_text(
+            json.dumps({"kind": "selected-results", "title": "Selection", "workspace": "default", "item_count": 1}),
+            encoding="utf-8",
+        )
+
+        all_events = service.list_child_events(conn, tenant="default", limit=10)
+
+        self.assertEqual(all_events["service"], "slack")
+        self.assertEqual(all_events["status"], "complete")
+        event_types = {event["eventType"] for event in all_events["events"]}
+        self.assertIn("slack.message.observed", event_types)
+        self.assertIn("slack.thread_reply.observed", event_types)
+        self.assertIn("slack.export.created", event_types)
+        self.assertTrue(all(event["tenant"] == "default" for event in all_events["events"]))
+        self.assertTrue(all(event["privacy"] == "user" for event in all_events["events"]))
+        self.assertTrue(all("sourceRefs" in event for event in all_events["events"]))
+
+        first = service.list_child_events(conn, tenant="default", event_type="slack.message.observed", limit=1)
+        self.assertEqual(first["count"], 1)
+        self.assertNotIn("10.0", first["nextCursor"])
+
+        second = service.list_child_events(
+            conn,
+            tenant="default",
+            event_type="slack.message.observed",
+            after=first["nextCursor"],
+            limit=10,
+        )
+
+        self.assertEqual(second["count"], 0)
+
+        filtered = service.list_child_events(conn, tenant="default", event_type="slack.file.linked", limit=10)
+        self.assertEqual([event["eventType"] for event in filtered["events"]], ["slack.file.linked"])
+
     def test_list_runtime_reports_includes_base_url_choices(self):
         payload = self.service.list_runtime_reports()
         self.assertEqual(

@@ -1,6 +1,6 @@
 # 0126 | Receipts event emission handoff
 
-State: OPEN
+State: CLOSED
 
 Roadmap: P12
 
@@ -31,6 +31,13 @@ GET /api/children/im/v1/events
 Receipts stores only the last-read cursor per child service, tenant, provider,
 account, and event type. Cursor values are opaque to Receipts and remain
 child-owned.
+
+Slack Mirror now exposes `GET /v1/events` as a comparable child-owned
+cursor-read surface. The first implementation derives committed product events
+from durable Slack Mirror state and includes message, thread-reply, file-link,
+and export-created events. It advertises `capabilities.eventCursorRead: true`
+and keeps `capabilities.eventFollow: false` until a dedicated follow/SSE stream
+exists.
 
 ## Requested Slack Mirror Work
 
@@ -111,5 +118,6 @@ Slack IDs separately for provenance.
 
 ## Status
 
-OPEN. Implementation remains owned by Slack Mirror. Receipts only owns the
-shared frontend contract and parent-side cursor bookmark.
+CLOSED. Slack Mirror owns the implemented `GET /v1/events` route and opaque
+cursor encoding. Receipts owns the shared frontend contract and parent-side
+cursor bookmark.
