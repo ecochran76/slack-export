@@ -5305,3 +5305,41 @@ This file is the dated turn log for planning and execution continuity.
     result rows, and populated next-call payloads with no JSON-RPC error
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 283 | 2026-04-28
+
+- Opened and closed the bounded P11 MCP release-smoke slice:
+  - `docs/dev/plans/0131-2026-04-28-mcp-release-smoke-pass.md`
+- Managed runtime gate evidence:
+  - `slack-mirror-user user-env status --json` passed, including
+    `mcp_smoke_ok: true`, `mcp_multi_client_ok: true`, and active API,
+    inference, daemon, webhook/socket-mode, and runtime-report timer surfaces
+  - initial `slack-mirror-user user-env check-live --json` passed with one
+    transient warning for 17 pending `default` embedding jobs
+  - re-run `slack-mirror-user user-env check-live --json` passed cleanly with
+    zero failures and zero warnings after the queue drained
+  - `slack-mirror release check --require-managed-runtime --json` passed with
+    no failures and only the expected `DEV_VERSION` warning for `0.2.0-dev`
+- Full managed-wrapper MCP stdio smoke passed:
+  - initialized protocol `2025-03-26`
+  - `tools/list` returned 23 tools and no missing release-baseline tools
+  - `health`, `runtime.status`, `runtime.live_validation`,
+    `runtime.report.latest`, `workspaces.list`, and `workspace.status` returned
+    JSON-RPC results
+  - `conversations.list` returned 3 SoyLei MPDM candidates for
+    `member_query=Michael`
+  - `search.conversation` returned one scoped conversation, one scoped search,
+    and 3 action targets
+  - `search.context_pack` resolved 1 selected action target
+  - `search.corpus` returned 3 all-workspace hybrid rows
+  - `search.profiles`, `search.readiness`, `search.semantic_readiness`, and
+    `search.health` returned JSON-RPC results; `search.health` reported
+    `pass_with_warnings`
+  - listener lifecycle register/status/delivery-list/unregister completed with
+    no pending deliveries left behind
+- Real outbound writes were intentionally not sent during this release-smoke
+  pass; `messages.send` and `threads.reply` were verified present in the tool
+  schema only.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
