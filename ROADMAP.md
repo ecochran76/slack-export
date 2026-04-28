@@ -424,6 +424,7 @@ Actionable plans:
 - `docs/dev/plans/0094-2026-04-21-browser-selected-result-bulk-affordances.md`
 - `docs/dev/plans/0095-2026-04-21-selected-result-report-polish.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
+- `docs/dev/plans/0135-2026-04-28-source-label-candidate-generation.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -604,6 +605,14 @@ Current state:
   first stable MCP release; the next active semantic slice should resume from
   the existing benchmark/relevance evidence rather than reopening release
   hardening
+- the source-label candidate-generation slice is complete under `0135`:
+  - plain source-oriented queries can now use a bounded fallback that matches
+    mirrored channel ids/names as candidate-generation evidence
+  - managed baseline benchmark evidence improved hit@10 from `0.333333` to
+    `0.555556` and hit@3 from `0.0` to `0.111111` without a latency regression
+  - remaining misses are mainly paraphrase and broader candidate-generation
+    failures, so this is an incremental improvement rather than a full
+    relevance fix
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

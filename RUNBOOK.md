@@ -5404,3 +5404,39 @@ This file is the dated turn log for planning and execution continuity.
     returned `ok: true`, open lanes `P08`, `P09`, `P10`, and `P12`, and
     confirmed `0134` is wired into roadmap and runbook
   - `git diff --check`
+
+## Turn 287 | 2026-04-28
+
+- Opened and closed the bounded P10 source-label candidate-generation slice:
+  - `docs/dev/plans/0135-2026-04-28-source-label-candidate-generation.md`
+- Ran post-release benchmark discovery before coding:
+  - `benchmark-validate` resolved all 19 labels for `baseline` and
+    `local-bge-http`
+  - baseline and BGE hit@10 were both `0.333333`, confirming remaining misses
+    were not caused by unresolved labels or missing target embeddings
+  - compact miss analysis showed source lookup queries failed because plain
+    lexical terms did not contribute channel/source labels to candidate
+    generation
+- Implemented a narrow message-search candidate-generation improvement:
+  - primary FTS lexical search remains text-first
+  - a bounded fallback runs only when a plain term matches a mirrored channel id
+    or channel name
+  - fallback candidates can satisfy source-label terms through channel metadata
+    while non-label terms still match message text
+  - channel-label term hits contribute to lexical scoring
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_keyword_search_messages tests.test_search.SearchTests.test_sqlite_semantic_candidates_honor_candidate_limit -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/keyword.py slack_mirror/search/sqlite_adapter.py tests/test_search.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed baseline `profile-benchmark` improved from hit@10 `0.333333` to
+    `0.555556`, hit@3 from `0.0` to `0.111111`, nDCG@k from `0.0789` to
+    `0.160233`, and p95 latency was `437.746 ms`
+  - managed `benchmark-diagnose` showed `research website nylon` now hits
+    `website:1658780875.573539` at rank 3 and
+    `polyamide research source` now hits `reu2022:1652305847.089769` at rank 1
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+    returned `ok: true` and confirmed `0135` is wired into roadmap and runbook
+  - `git diff --check`
+  - `slack-mirror release check --require-managed-runtime --json` passed with
+    only the expected `DEV_VERSION` warning for `0.2.1-dev`

@@ -164,6 +164,7 @@ The current repo has:
   - `rrf` enables opt-in reciprocal-rank fusion for deterministic lexical/semantic candidate blending
 - corpus results now include machine-readable `_explain` metadata with source, fusion method, lane ranks, score breakdown, weights, and rerank provider when applicable
 - corpus results now include stable `action_target` metadata for message and derived-text hits so agents and future browser workflows can select candidates for export/report/action handoff without re-parsing display fields
+- message lexical candidate generation now has a bounded source-label fallback, so plain source-oriented queries can match mirrored channel ids/names without requiring explicit `channel:` or `source:` syntax
 - selected corpus `action_target` values can now be expanded into bounded context packs through CLI/API/MCP, including before/hit/after message context, derived-text chunk context, and linked Slack messages for file-backed derived text
 - selected Slack message `action_target.id` values can now be opened through `/v1/context-window` as cursor-backed channel or thread streams for shared parent UX layers such as Receipts
 - selected corpus `action_target` values can now be persisted as managed `selected-results` export bundles, with a neutral `selected-results.json` artifact, a provider-neutral `events` projection for communication-event convergence, a polished human-readable HTML report at `/exports/{export_id}`, and a manifest for later report rendering or agent handoff

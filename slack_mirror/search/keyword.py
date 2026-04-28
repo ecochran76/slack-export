@@ -363,11 +363,14 @@ def _rank_rows(
     ranked: list[dict[str, Any]] = []
     for r in rows:
         text = (r.get("text") or "").lower()
+        channel_text = f"{r.get('channel_id') or ''} {r.get('channel_name') or ''}".lower()
         term_hits = 0
+        channel_term_hits = 0
         for t in positive_terms:
             tt = (t or "").lower().strip()
             if tt:
                 term_hits += text.count(tt)
+                channel_term_hits += channel_text.count(tt)
 
         has_link = ("http://" in text) or ("https://" in text)
         is_thread = bool(r.get("thread_ts"))
@@ -380,6 +383,7 @@ def _rank_rows(
 
         score = (
             (term_hits * term_weight)
+            + (channel_term_hits * term_weight)
             + (link_weight if has_link else 0.0)
             + (thread_weight if is_thread else 0.0)
             + (recency * recency_weight)
@@ -388,6 +392,103 @@ def _rank_rows(
 
     ranked.sort(key=lambda x: (x.get("_score", 0.0), float(x.get("ts") or 0.0)), reverse=True)
     return ranked
+
+
+def _has_channel_label_term(conn: sqlite3.Connection, *, workspace_id: int, terms: list[str]) -> bool:
+    for term in terms:
+        value = str(term or "").strip()
+        if not value:
+            continue
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM channels
+            WHERE workspace_id = ?
+              AND (
+                channel_id LIKE ?
+                OR lower(COALESCE(name, '')) LIKE lower(?)
+              )
+            LIMIT 1
+            """,
+            (workspace_id, f"%{value}%", f"%{value}%"),
+        ).fetchone()
+        if row:
+            return True
+    return False
+
+
+def _channel_label_candidates(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    terms: list[str],
+    candidate_limit: int,
+) -> list[dict[str, Any]]:
+    term_values = [str(term or "").strip() for term in terms if str(term or "").strip()]
+    if not term_values:
+        return []
+
+    matching_channels: dict[str, set[str]] = {}
+    for term in term_values:
+        rows = conn.execute(
+            """
+            SELECT channel_id
+            FROM channels
+            WHERE workspace_id = ?
+              AND (
+                channel_id LIKE ?
+                OR lower(COALESCE(name, '')) LIKE lower(?)
+              )
+            LIMIT 50
+            """,
+            (workspace_id, f"%{term}%", f"%{term}%"),
+        ).fetchall()
+        if rows:
+            matching_channels[term] = {str(row["channel_id"]) for row in rows}
+
+    if not matching_channels:
+        return []
+
+    clauses = ["m.workspace_id = ?", "m.deleted = 0"]
+    params: list[Any] = [workspace_id]
+    for term in term_values:
+        like = f"%{term}%"
+        channels = sorted(matching_channels.get(term) or [])
+        if channels:
+            placeholders = ", ".join("?" for _ in channels)
+            clauses.append(f"(COALESCE(m.text, '') LIKE ? OR m.channel_id IN ({placeholders}))")
+            params.extend([like, *channels])
+        else:
+            clauses.append("COALESCE(m.text, '') LIKE ?")
+            params.append(like)
+
+    rows = conn.execute(
+        f"""
+        SELECT
+          m.channel_id,
+          c.name AS channel_name,
+          m.ts,
+          m.user_id,
+          u.username AS user_name,
+          u.display_name AS user_display_name,
+          COALESCE(u.display_name, u.real_name, u.username) AS user_label,
+          m.text,
+          m.subtype,
+          m.thread_ts,
+          m.edited_ts,
+          m.deleted
+        FROM messages m
+        LEFT JOIN channels c
+          ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+        LEFT JOIN users u
+          ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+        WHERE {" AND ".join(clauses)}
+        ORDER BY CAST(m.ts AS REAL) DESC
+        LIMIT ?
+        """,
+        (*params, max(1, int(candidate_limit))),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def _search_lexical(
@@ -424,6 +525,7 @@ def _search_lexical(
 
     candidate_limit = max(max(1, limit) * 5, 100)
     adapter = SQLiteCorpusAdapter(conn)
+    needs_channel_label_fallback = bool(fts_sql) and _has_channel_label_term(conn, workspace_id=workspace_id, terms=positive_terms)
     rows = adapter.lexical_candidates(
         workspace_id=workspace_id,
         where_sql=where_sql,
@@ -431,8 +533,21 @@ def _search_lexical(
         fts_sql=fts_sql,
         fts_params=fts_params,
         candidate_limit=candidate_limit,
-        fallback_without_fts=(use_fts and bool(positive_terms)),
+        fallback_without_fts=needs_channel_label_fallback,
     )
+    if needs_channel_label_fallback:
+        seen = {(str(row.get("channel_id")), str(row.get("ts"))) for row in rows}
+        for row in _channel_label_candidates(
+            conn,
+            workspace_id=workspace_id,
+            terms=positive_terms,
+            candidate_limit=max(max(1, limit) * 2, 20),
+        ):
+            key = (str(row.get("channel_id")), str(row.get("ts")))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(row)
     ranked = _rank_rows(
         rows,
         positive_terms,

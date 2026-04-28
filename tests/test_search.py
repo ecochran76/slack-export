@@ -302,6 +302,15 @@ class SearchTests(unittest.TestCase):
             rows = search_messages(conn, workspace_id=ws_id, query="deploy", limit=10, use_fts=True)
             self.assertEqual(len(rows), 2)
 
+            upsert_channel(conn, ws_id, {"id": "C2", "name": "website"})
+            upsert_message(conn, ws_id, "C2", {"ts": "2.1", "text": "nylon research note", "user": "U1"})
+            indexed = reindex_messages_fts(conn, workspace_id=ws_id)
+            self.assertGreaterEqual(indexed, 4)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="website nylon research", limit=10, use_fts=True)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["channel_name"], "website")
+
             job_result = process_embedding_jobs(conn, workspace_id=ws_id, limit=50)
             self.assertEqual(job_result["errored"], 0)
 

@@ -45,7 +45,16 @@ class SQLiteCorpusAdapter:
         """
         rows = self.conn.execute(sql.format(fts_clause=fts_sql), (workspace_id, *params, *fts_params, candidate_limit)).fetchall()
         if fallback_without_fts and not rows:
-            rows = self.conn.execute(sql.format(fts_clause=""), (workspace_id, *params, candidate_limit)).fetchall()
+            fallback_rows = self.conn.execute(sql.format(fts_clause=""), (workspace_id, *params, candidate_limit)).fetchall()
+            seen = {(str(row["channel_id"]), str(row["ts"])) for row in rows}
+            merged = list(rows)
+            for row in fallback_rows:
+                key = (str(row["channel_id"]), str(row["ts"]))
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged.append(row)
+            rows = merged[: max(1, int(candidate_limit))]
         return [dict(r) for r in rows]
 
     def semantic_candidates(
