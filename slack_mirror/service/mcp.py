@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shlex
 import sys
 import traceback
 import time
@@ -83,6 +84,34 @@ def _text_content(payload: Any) -> list[dict[str, str]]:
     return [{"type": "text", "text": text}]
 
 
+def _conversation_scoped_query(query: str, channel_id: str) -> str:
+    base = str(query or "").strip()
+    channel = str(channel_id or "").strip()
+    if not base:
+        raise ValueError("query is required")
+    if not channel:
+        raise ValueError("channel_id is required")
+    return f"{base} in:{shlex.quote(channel)}"
+
+
+def _row_channel_id(row: dict[str, Any]) -> str | None:
+    if row.get("channel_id"):
+        return str(row["channel_id"])
+    target = row.get("action_target")
+    if isinstance(target, dict) and target.get("channel_id"):
+        return str(target["channel_id"])
+    return None
+
+
+def _action_targets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    targets: list[dict[str, Any]] = []
+    for row in rows:
+        target = row.get("action_target")
+        if isinstance(target, dict):
+            targets.append(target)
+    return targets
+
+
 class SlackMirrorMcpServer:
     def __init__(self, config_path: str | None = None):
         _mcp_trace("server.init.begin", config_path=config_path)
@@ -133,6 +162,38 @@ class SlackMirrorMcpServer:
                         "member_query": {"type": "string"},
                         "limit": {"type": "integer", "default": 50},
                     },
+                },
+            ),
+            _tool(
+                "search.conversation",
+                "Search inside discovered or selected Slack conversations and return ready-to-expand action targets",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "all_workspaces": {"type": "boolean", "default": False},
+                        "channel_id": {"type": "string"},
+                        "channel_type": {
+                            "type": "string",
+                            "enum": ["public_channel", "private_channel", "im", "mpdm"],
+                        },
+                        "name_query": {"type": "string"},
+                        "member_query": {"type": "string"},
+                        "query": {"type": "string"},
+                        "conversation_limit": {"type": "integer", "default": 5},
+                        "per_conversation_limit": {"type": "integer", "default": 10},
+                        "retrieval_profile": {
+                            "type": "string",
+                            "description": "Named search.retrieval_profiles profile. When set, profile provider/model/weights/rerank settings are used.",
+                        },
+                        "mode": {"type": "string", "enum": ["lexical", "semantic", "hybrid"], "default": "hybrid"},
+                        "fusion": {"type": "string", "enum": ["weighted", "rrf"], "default": "weighted"},
+                        "rerank": {"type": "boolean", "default": False},
+                        "rerank_top_n": {"type": "integer", "default": 50},
+                        "before": {"type": "integer", "default": 2},
+                        "after": {"type": "integer", "default": 2},
+                    },
+                    "required": ["query"],
                 },
             ),
             _tool(
@@ -411,6 +472,95 @@ class SlackMirrorMcpServer:
                         member_query=str(args["member_query"]) if args.get("member_query") is not None else None,
                         limit=int(args.get("limit", 50)),
                     )
+                }
+            )
+        if name == "search.conversation":
+            query = str(args["query"])
+            channel_id = str(args["channel_id"]).strip() if args.get("channel_id") is not None else None
+            conversation_limit = int(args.get("conversation_limit", 5))
+            per_conversation_limit = int(args.get("per_conversation_limit", 10))
+            if channel_id:
+                workspace = str(args["workspace"]) if args.get("workspace") is not None else None
+                if not workspace:
+                    raise ValueError("workspace is required when channel_id is set")
+                conversations = [
+                    {
+                        "workspace": workspace,
+                        "channel_id": channel_id,
+                        "name": channel_id,
+                        "conversation_type": str(args["channel_type"]) if args.get("channel_type") is not None else None,
+                    }
+                ]
+            else:
+                conversations = self.service.list_conversations(
+                    conn,
+                    workspace=str(args["workspace"]) if args.get("workspace") is not None else None,
+                    all_workspaces=bool(args.get("all_workspaces", False)),
+                    channel_type=str(args["channel_type"]) if args.get("channel_type") is not None else None,
+                    name_query=str(args["name_query"]) if args.get("name_query") is not None else None,
+                    member_query=str(args["member_query"]) if args.get("member_query") is not None else None,
+                    limit=conversation_limit,
+                )
+
+            searches: list[dict[str, Any]] = []
+            for conversation in conversations[: max(1, conversation_limit)]:
+                scoped_workspace = str(conversation.get("workspace") or "")
+                scoped_channel = str(conversation.get("channel_id") or "")
+                scoped_query = _conversation_scoped_query(query, scoped_channel)
+                rows = self.service.corpus_search(
+                    conn,
+                    workspace=scoped_workspace,
+                    query=scoped_query,
+                    retrieval_profile_name=str(args["retrieval_profile"]) if args.get("retrieval_profile") is not None else None,
+                    limit=per_conversation_limit,
+                    mode=str(args.get("mode", "hybrid")),
+                    fusion_method=str(args.get("fusion", "weighted")),
+                    rerank=bool(args.get("rerank", False)),
+                    rerank_top_n=int(args.get("rerank_top_n", 50)),
+                )
+                scoped_rows = [row for row in rows if _row_channel_id(row) == scoped_channel]
+                targets = _action_targets(scoped_rows)
+                searches.append(
+                    {
+                        "workspace": scoped_workspace,
+                        "channel_id": scoped_channel,
+                        "conversation": conversation,
+                        "scoped_query": scoped_query,
+                        "result_count": len(scoped_rows),
+                        "results": scoped_rows,
+                        "action_targets": targets,
+                        "next_calls": {
+                            "context_pack": {
+                                "tool": "search.context_pack",
+                                "arguments": {
+                                    "targets": targets,
+                                    "before": int(args.get("before", 2)),
+                                    "after": int(args.get("after", 2)),
+                                },
+                            },
+                            "context_export": {
+                                "tool": "search.context_export",
+                                "arguments": {
+                                    "targets": targets,
+                                    "before": int(args.get("before", 2)),
+                                    "after": int(args.get("after", 2)),
+                                    "title": f"Selected Slack context: {query[:80]}",
+                                },
+                            },
+                        },
+                    }
+                )
+            return self._mcp_result(
+                {
+                    "workflow": "conversation_search",
+                    "query": query,
+                    "conversation_count": len(conversations),
+                    "search_count": len(searches),
+                    "searches": searches,
+                    "notes": [
+                        "Use action_targets with search.context_pack for inspection or search.context_export for a durable selected-results bundle.",
+                        "The helper scopes message search with in:<channel_id> and returns only rows whose action_target channel matches the conversation.",
+                    ],
                 }
             )
         if name == "search.corpus":

@@ -5277,3 +5277,31 @@ This file is the dated turn log for planning and execution continuity.
     `limit=5` returned 5 MPDM rows with no JSON-RPC error
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 282 | 2026-04-28
+
+- Opened and closed the bounded P11 conversation-search workflow slice:
+  - `docs/dev/plans/0130-2026-04-28-mcp-conversation-search-workflow.md`
+- Added MCP tool `search.conversation` as a read-only helper over the existing
+  discovery, corpus search, and selected-result context/export primitives.
+- The helper accepts either an explicit `workspace` + `channel_id` or
+  `conversations.list`-style discovery filters, runs corpus search with
+  `in:<channel_id>`, filters message results back to the selected conversation,
+  and returns:
+  - scoped query evidence
+  - selected `action_target` values
+  - ready-to-use `search.context_pack` and `search.context_export` next-call
+    payloads
+- Documented that derived-text attachment hits are intentionally not treated as
+  conversation-scoped by this helper until the derived-text lane has a
+  first-class channel provenance filter.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_mcp_server.McpServerTests.test_initialize_and_tools_list tests.test_mcp_server.McpServerTests.test_search_conversation_discovers_and_scopes_results -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/service/mcp.py tests/test_mcp_server.py`
+  - live managed-wrapper MCP smoke for `search.conversation` with
+    `workspace=soylei`, `channel_type=mpdm`, `member_query=Michael`,
+    `query=lei`, `conversation_limit=1`, and `per_conversation_limit=3`
+    returned `workflow=conversation_search`, one scoped conversation, three
+    result rows, and populated next-call payloads with no JSON-RPC error
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

@@ -843,6 +843,7 @@ Actionable plans:
 - `docs/dev/plans/0073-2026-04-20-semantic-mcp-smoke-after-client-restart.md`
 - `docs/dev/plans/0128-2026-04-28-mcp-hybrid-search-json-safety.md`
 - `docs/dev/plans/0129-2026-04-28-mcp-conversation-discovery.md`
+- `docs/dev/plans/0130-2026-04-28-mcp-conversation-search-workflow.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -866,6 +867,7 @@ Current state:
 - semantic smoke also confirmed two follow-up gaps for `P10`: baseline local-hash semantic relevance is weak on conceptual queries, and MCP corpus search does not yet expose retrieval-profile selection for profile-driven dense search
 - the Lei banter harvest workflow exposed a release-significant MCP regression where all-workspace hybrid corpus search could return a private `embedding_blob` bytes field and fail JSON serialization; `0128` fixes the derived-text source leak and adds MCP-side defensive bytes omission
 - MCP now exposes a read-only `conversations.list` discovery tool under `0129`, giving agents a bounded way to find MPDM, IM, private-channel, or public-channel candidates by workspace, name, and member labels before using search/context/export tools
+- MCP now exposes `search.conversation` under `0130`, letting agents discover or select a conversation, run scoped `in:<channel_id>` corpus search, and receive ready-to-use context-pack/export payloads without manual tool-chaining
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:

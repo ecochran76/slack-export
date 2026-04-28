@@ -94,6 +94,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("runtime.report.latest", names)
         self.assertIn("runtime.live_validation", names)
         self.assertIn("conversations.list", names)
+        self.assertIn("search.conversation", names)
         self.assertIn("search.corpus", names)
         self.assertIn("search.health", names)
         self.assertIn("search.readiness", names)
@@ -633,6 +634,110 @@ class McpServerTests(unittest.TestCase):
             name_query=None,
             member_query="Michael",
             limit=10,
+        )
+
+    def test_search_conversation_discovers_and_scopes_results(self):
+        with patch.object(
+            self.server.service,
+            "list_conversations",
+            return_value=[
+                {
+                    "workspace": "default",
+                    "channel_id": "GMPDM1",
+                    "name": "mpdm-eric--michael-1",
+                    "conversation_type": "mpdm",
+                    "message_count": 2,
+                }
+            ],
+        ) as mock_list, patch.object(
+            self.server.service,
+            "corpus_search",
+            return_value=[
+                {
+                    "result_kind": "message",
+                    "workspace": "default",
+                    "channel_id": "GMPDM1",
+                    "ts": "12.0",
+                    "text": "banter harvest candidate",
+                    "action_target": {
+                        "version": 1,
+                        "kind": "message",
+                        "workspace": "default",
+                        "channel_id": "GMPDM1",
+                        "ts": "12.0",
+                        "id": "message|default|GMPDM1|12.0",
+                    },
+                },
+                {
+                    "result_kind": "message",
+                    "workspace": "default",
+                    "channel_id": "COTHER",
+                    "ts": "9.0",
+                    "text": "outside conversation",
+                    "action_target": {
+                        "version": 1,
+                        "kind": "message",
+                        "workspace": "default",
+                        "channel_id": "COTHER",
+                        "ts": "9.0",
+                        "id": "message|default|COTHER|9.0",
+                    },
+                },
+            ],
+        ) as mock_corpus:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 70,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search.conversation",
+                        "arguments": {
+                            "workspace": "default",
+                            "channel_type": "mpdm",
+                            "member_query": "Michael",
+                            "query": "banter harvest",
+                            "conversation_limit": 3,
+                            "per_conversation_limit": 7,
+                            "retrieval_profile": "baseline",
+                            "mode": "hybrid",
+                            "fusion": "rrf",
+                            "rerank": True,
+                            "rerank_top_n": 25,
+                            "before": 4,
+                            "after": 5,
+                        },
+                    },
+                }
+            )
+
+        payload = _result_payload(result)
+        self.assertEqual(payload["workflow"], "conversation_search")
+        self.assertEqual(payload["conversation_count"], 1)
+        self.assertEqual(payload["searches"][0]["scoped_query"], "banter harvest in:GMPDM1")
+        self.assertEqual(payload["searches"][0]["result_count"], 1)
+        self.assertEqual(payload["searches"][0]["action_targets"][0]["id"], "message|default|GMPDM1|12.0")
+        self.assertEqual(payload["searches"][0]["next_calls"]["context_pack"]["arguments"]["before"], 4)
+        self.assertEqual(payload["searches"][0]["next_calls"]["context_export"]["arguments"]["after"], 5)
+        mock_list.assert_called_once_with(
+            unittest.mock.ANY,
+            workspace="default",
+            all_workspaces=False,
+            channel_type="mpdm",
+            name_query=None,
+            member_query="Michael",
+            limit=3,
+        )
+        mock_corpus.assert_called_once_with(
+            unittest.mock.ANY,
+            workspace="default",
+            query="banter harvest in:GMPDM1",
+            retrieval_profile_name="baseline",
+            limit=7,
+            mode="hybrid",
+            fusion_method="rrf",
+            rerank=True,
+            rerank_top_n=25,
         )
 
     def test_search_tools(self):

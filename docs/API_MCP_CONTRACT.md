@@ -77,7 +77,7 @@ The managed runtime status probes are safe for agent-client environments that do
 Supported release-baseline MCP tool groups:
 
 - runtime and install health: `health`, `runtime.status`, `runtime.live_validation`, `runtime.report.latest`, `workspaces.list`, `workspace.status`
-- conversation discovery: `conversations.list`
+- conversation discovery and scoped review: `conversations.list`, `search.conversation`
 - search and retrieval diagnostics: `search.corpus`, `search.context_pack`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
 - outbound actions: `messages.send`, `threads.reply`
 - listener workflow: `listeners.register`, `listeners.list`, `listeners.status`, `listeners.unregister`, `deliveries.list`, `deliveries.ack`
@@ -89,6 +89,7 @@ Recommended operator preflight from MCP clients:
 - call `runtime.live_validation` when the client needs stricter workspace, token, queue, DB, and live-unit health
 - call `workspace.status` before workspace-scoped search or outbound actions
 - call `conversations.list` when the client needs to discover MPDM, IM, private-channel, or public-channel candidates before searching or exporting context
+- call `search.conversation` when the client wants discovery, scoped search, and ready-to-expand context/export payloads in one read-only workflow
 - call `search.readiness` or `search.semantic_readiness` before assuming semantic coverage is complete
 
 Outbound tools are real writes. Use them only after workspace token verification, and prefer an `options.idempotency_key` for retryable sends. `messages.send` accepts channel references or DM-style targets according to the shared outbound service contract; `threads.reply` requires an existing channel reference and thread timestamp/reference.
@@ -128,6 +129,28 @@ mirror has channel membership. Use `conversations.list` to find candidate
 conversations, `search.corpus` to select result candidates, and
 `search.context_pack` or `search.context_export` to inspect or persist bounded
 adjacent context.
+
+`search.conversation` is a read-only workflow helper over the existing
+conversation discovery, corpus search, and selected-result context/export
+primitives. It accepts:
+
+- `query`: required corpus query text
+- `workspace` plus optional `channel_id`: search one known conversation
+- `all_workspaces`, `channel_type`, `name_query`, and `member_query`: discover
+  candidate conversations before searching
+- `conversation_limit`: maximum discovered conversations to search
+- `per_conversation_limit`: maximum result rows per conversation
+- `retrieval_profile`, `mode`, `fusion`, `rerank`, and `rerank_top_n`: the same
+  release-baseline search controls used by `search.corpus`
+- `before` and `after`: context-window sizes copied into returned next-call
+  payloads
+
+The helper builds a message-scoped query with `in:<channel_id>`, calls
+`search.corpus`, filters returned rows back to the selected channel id, and
+returns `action_targets` plus explicit `search.context_pack` and
+`search.context_export` argument payloads. Derived-text attachment hits are not
+treated as conversation-scoped by this helper until the derived-text lane has a
+first-class channel provenance filter.
 
 ## Frontend Auth
 
