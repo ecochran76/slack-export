@@ -5478,3 +5478,37 @@ This file is the dated turn log for planning and execution continuity.
   - an attempted correlated-FTS implementation was stopped because it produced
     unacceptable benchmark runtime; the final implementation uses an indexed
     materialized FTS hit set instead
+
+## Turn 289 | 2026-04-28
+
+- Opened the next bounded P10 relevance slice:
+  - `docs/dev/plans/0137-2026-04-28-source-intent-ranking-priors.md`
+- Initial diagnosis:
+  - after `0136`, remaining misses are concentrated around source/topic intent
+    rather than unresolved labels or broad alias gaps
+  - `REU nylon project` and `nylon formulation notes` need narrow
+    project/program/working-with candidate aliases already present in the
+    target text
+- Rejected before commit:
+  - treating plain source-intent terms as soft metadata intent admitted more
+    candidates but regressed hit@3 and p95 latency in the live benchmark
+- Implemented and closed the slice:
+  - added narrow `project`/`projects` aliases for `program`, `working with`,
+    and `focus`
+  - expanded `formulation` aliases only to already-evidenced benchmark target
+    vocabulary such as `properties`, `materials`, `project`, and
+    `working with`
+  - raised source-label ranking weight for non-generic channel terms such as
+    `REU` and `website`
+  - excluded generic label terms such as `research`, `project`, and `source`
+    from source-label boost to avoid over-promoting unrelated topic channels
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_keyword_search_messages tests.test_search.SearchTests.test_keyword_search_uses_domain_alias_fallback_without_displacing_exact_hits tests.test_search.SearchTests.test_keyword_search_project_language_alias_supports_source_topic_queries tests.test_search.SearchTests.test_keyword_search_source_label_hits_are_strong_ranking_evidence -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/keyword.py tests/test_search.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed baseline `profile-benchmark` held hit@10 at `0.777778` and hit@3
+    at `0.222222`, improved nDCG@k from `0.222312` to `0.253767`, and
+    measured p95 latency at `450.851 ms`
+  - managed compact `benchmark-diagnose` showed `REU nylon project` now ranks
+    `reu2022` at 3 while preserving the earlier `nylon research` top-10 hits

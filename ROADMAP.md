@@ -426,6 +426,7 @@ Actionable plans:
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 - `docs/dev/plans/0135-2026-04-28-source-label-candidate-generation.md`
 - `docs/dev/plans/0136-2026-04-28-domain-alias-candidate-generation.md`
+- `docs/dev/plans/0137-2026-04-28-source-intent-ranking-priors.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -621,6 +622,16 @@ Current state:
     the benchmark latency failure threshold
   - remaining misses now point more toward source-prior/ranking behavior than
     another broad alias-expansion pass
+- the project-language ranking-priors slice is complete under `0137`:
+  - narrow project/formulation aliases are now available for lexical candidate
+    generation
+  - non-generic source-label hits now count as stronger ranking evidence
+  - an initial soft-source-term experiment was rejected before commit because
+    it regressed hit@3 and latency
+  - managed baseline nDCG@k improved from `0.222312` to `0.253767`, while
+    hit@10 and hit@3 held at `0.777778` and `0.222222`
+  - remaining misses should be handled through grouping/source-prior review
+    rather than another small alias expansion
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

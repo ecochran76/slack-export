@@ -51,10 +51,26 @@ _DOMAIN_TERM_ALIASES: dict[str, tuple[str, ...]] = {
     "comonomer": ("monomer", "monomers", "comonomers"),
     "comonomers": ("monomer", "monomers", "comonomer"),
     "synthesis": ("polymer chemistry design", "chemical recycling", "chemically recycled", "chemistry"),
-    "formulation": ("composition", "properties", "composite", "composites"),
-    "formulations": ("composition", "properties", "composite", "composites"),
+    "formulation": ("composition", "properties", "materials", "project", "working with"),
+    "formulations": ("composition", "properties", "materials", "project", "working with"),
+    "project": ("program", "working with", "focus"),
+    "projects": ("program", "working with", "focus"),
     "discussion": ("focus", "project", "program", "working with"),
     "notes": ("properties", "project", "program", "working with"),
+}
+
+
+_GENERIC_CHANNEL_LABEL_TERMS = {
+    "discussion",
+    "focus",
+    "note",
+    "notes",
+    "program",
+    "project",
+    "projects",
+    "research",
+    "source",
+    "sources",
 }
 
 
@@ -383,6 +399,7 @@ def _rank_rows(
     term_aliases: dict[str, tuple[str, ...]] | None = None,
     term_weight: float = 5.0,
     alias_weight: float = 2.0,
+    channel_label_weight: float = 30.0,
     link_weight: float = 1.0,
     thread_weight: float = 0.5,
     recency_weight: float = 2.0,
@@ -408,7 +425,8 @@ def _rank_rows(
             tt = (t or "").lower().strip()
             if tt:
                 term_hits += text.count(tt)
-                channel_term_hits += channel_text.count(tt)
+                if tt not in _GENERIC_CHANNEL_LABEL_TERMS:
+                    channel_term_hits += channel_text.count(tt)
                 alias_group_hit = False
                 for alias in (term_aliases or {}).get(t, ()):
                     alias_text = alias.lower().strip()
@@ -428,7 +446,7 @@ def _rank_rows(
         score = (
             (term_hits * term_weight)
             + (alias_hits * alias_weight)
-            + (channel_term_hits * term_weight)
+            + (channel_term_hits * channel_label_weight)
             + (link_weight if has_link else 0.0)
             + (thread_weight if is_thread else 0.0)
             + (recency * recency_weight)

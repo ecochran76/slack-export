@@ -386,6 +386,50 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(rows[0]["text"], "polyamide monomers project notes")
             self.assertIn("nylon comonomers project notes", [row["text"] for row in rows])
 
+    def test_keyword_search_project_language_alias_supports_source_topic_queries(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "reu2022"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "BioMAP REU program working with mentors on Nylon-5,9", "user": "U1"})
+            indexed = reindex_messages_fts(conn, workspace_id=ws_id)
+            self.assertGreaterEqual(indexed, 1)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="REU nylon project", limit=10, use_fts=True)
+
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["channel_name"], "reu2022")
+
+    def test_keyword_search_source_label_hits_are_strong_ranking_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "website"})
+            upsert_channel(conn, ws_id, {"id": "C2", "name": "general"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "nylon research note", "user": "U1"})
+            upsert_message(
+                conn,
+                ws_id,
+                "C2",
+                {"ts": "2.0", "text": "website website website nylon research note", "user": "U1"},
+            )
+            indexed = reindex_messages_fts(conn, workspace_id=ws_id)
+            self.assertGreaterEqual(indexed, 2)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="website nylon research", limit=10, use_fts=True)
+
+            self.assertEqual(rows[0]["channel_name"], "website")
+
     def test_search_messages_rerank_uses_provider(self):
         class FakeReranker:
             name = "fake_reranker"
