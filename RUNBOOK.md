@@ -5385,3 +5385,22 @@ This file is the dated turn log for planning and execution continuity.
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
     returned `ok: true` and confirmed `0133` is wired into roadmap and runbook
   - `git diff --check`
+
+## Turn 286 | 2026-04-28
+
+- Opened and closed the bounded P11 post-release roadmap realignment slice:
+  - `docs/dev/plans/0134-2026-04-28-post-release-roadmap-realignment.md`
+- Closed `P11 | Stable MCP-Capable User-Scoped Release` now that:
+  - `v0.2.0` is tagged and pushed
+  - `master` is back on `0.2.1-dev`
+  - strict clean managed-runtime release validation passed before tagging
+- Removed stale roadmap language that described the first stable MCP release as
+  still blocking `P10`.
+- Updated `P10` to make semantic retrieval and relevance diagnostics the next
+  active technical lane, with candidate-generation/retrieval-quality work
+  preferred over more ranking-only experiments.
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+    returned `ok: true`, open lanes `P08`, `P09`, `P10`, and `P12`, and
+    confirmed `0134` is wired into roadmap and runbook
+  - `git diff --check`

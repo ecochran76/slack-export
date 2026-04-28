@@ -382,7 +382,7 @@ Status: OPEN
 
 Purpose:
 - upgrade the current basic local semantic-search baseline into a real retrieval stack that better serves messages, attachments, OCR text, and corpus-wide search
-- keep the first stable MCP-capable user-scoped release as the immediate priority, then flesh this lane out into bounded follow-on plans
+- build on the shipped `v0.2.0` MCP-capable user-scoped baseline with relevance, rollout, and local-inference improvements that remain explicitly opt-in until proven
 
 Actionable plans:
 - `docs/dev/plans/0053-2026-04-19-semantic-provider-and-model-seam-hardening.md`
@@ -600,6 +600,10 @@ Current state:
   `action_target` contract: Slack Mirror should evolve selected search results
   toward provider-neutral export/report action targets that can later align
   with `../imcli` chat exports and `../ragmail` thread/report artifacts
+- `v0.2.0` is now cut under `P11`, so this lane is no longer blocked on the
+  first stable MCP release; the next active semantic slice should resume from
+  the existing benchmark/relevance evidence rather than reopening release
+  hardening
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
@@ -624,7 +628,7 @@ Remaining project phases:
    - completed under `0069`
 
 Recommended remaining child plans:
-- next semantic child plan should focus on profile-aware ranking diagnostics for the covered benchmark fixture; SQLite-native vector extension evaluation can remain sidelined unless new full-corpus exact-scan measurements regress above target
+- next semantic child plan should focus on candidate-generation and retrieval-quality diagnostics over the covered benchmark fixture, because profile-aware diagnostics, fusion experiments, and query variants have already shown that ranking-only changes are not enough
 - the next export/report actionability child plan should only add new report/export behavior if it closes a concrete release gap; otherwise shift back to relevance diagnostics or the shared frontend architecture track
 
 Planned outputs:
@@ -829,7 +833,7 @@ Anti-goals:
 
 ## P11 | Stable MCP-Capable User-Scoped Release
 
-Status: OPEN
+Status: CLOSED
 
 Purpose:
 - cut the first stable user-scoped release where install, update, managed services, and MCP access are reliable enough to be treated as the supported product baseline
@@ -847,8 +851,11 @@ Actionable plans:
 - `docs/dev/plans/0131-2026-04-28-mcp-release-smoke-pass.md`
 - `docs/dev/plans/0132-2026-04-28-release-candidate-version-cut.md`
 - `docs/dev/plans/0133-2026-04-28-v0-2-0-tag-and-post-release-dev-bump.md`
+- `docs/dev/plans/0134-2026-04-28-post-release-roadmap-realignment.md`
 
 Current state:
+- `v0.2.0` is tagged and pushed as the first stable MCP-capable user-scoped release
+- `master` is back on the `0.2.1-dev` development line for post-release work
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
 - recent slices fixed several important installer and runtime regressions, including managed-update path resolution, runtime-report snapshot auth regressions, and tenant-status durability after bounded backfill
 - `user-env check-live` now verifies the managed MCP wrapper with a real stdio health probe, not just file presence
@@ -859,8 +866,6 @@ Current state:
   - fresh `user-env install` seeds the configured dotenv file automatically
   - the install/update bootstrap gate no longer blocks on workspace credentials before the operator has edited config
   - `check-live` remains the stricter post-onboarding gate for credentials and live units
-- the repo still lacks one explicit release-hardening lane that treats install/update reliability, managed-service health, and MCP usability as one coordinated product target
-- MCP is present and functional, but it has not yet been hardened and validated as a release-quality interface with clear readiness criteria, predictable failure handling, and explicit operator guidance
 - `release check --require-managed-runtime` now combines repo release discipline with the installed `slack-mirror-user user-env check-live --json` gate, including real MCP stdio and concurrent MCP readiness probes
 - the release MCP operator baseline is now documented around runtime checks, workspace status, search/readiness, outbound sends, listener deliveries, supported preflight gates, tracing, and non-goals
 - live MCP client acceptance found and fixed a missing user-bus environment fallback so agent clients launched without `XDG_RUNTIME_DIR` or `DBUS_SESSION_BUS_ADDRESS` no longer misreport active systemd user units as inactive
@@ -874,28 +879,6 @@ Current state:
 - the full managed MCP release-smoke pass under `0131` now passes across runtime, workspace, search, conversation, context-pack, semantic-readiness, search-health, and listener lifecycle surfaces; real outbound writes were intentionally skipped and `release check --require-managed-runtime` still warns only because the version is a development version
 - the release-candidate version cut under `0132` moves the canonical package version to `0.2.0`; tagging/publishing remains a separate explicit release step after the strict clean managed-runtime gate passes
 - `v0.2.0` is tagged and pushed under `0133`; `master` is back on the `0.2.1-dev` development line for post-release work
-- this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
-
-Planned subprojects:
-1. installer and updater reliability:
-   - `user-env install`, `user-env update`, and rollback behavior
-   - managed app snapshot correctness
-   - release-safe upgrade and repair paths
-2. managed service health:
-   - API, daemon, webhook/socket-mode, and runtime-report service stability after install, restart, and update
-   - operator-visible health gates and bounded recovery paths
-3. MCP contract usability:
-   - supported MCP tool coverage is now documented for the first release baseline
-   - harden machine-readable success and error behavior
-   - reduce surprising preconditions and weak operator feedback
-4. release validation and smoke coverage:
-   - define the release gate for a user-scoped install
-   - ensure `check-live` and related status paths are trustworthy as release criteria
-5. operator documentation and runbook fit:
-   - tighten the docs for install, update, health checking, and MCP usage so the supported path is obvious
-
-Definition of done for this lane:
-- a clean user-scoped install can reach a healthy managed state using the documented path
-- update and restart flows are repeatable and recoverable
-- MCP is documented and validated as a reliable supported interface for the shipped baseline
-- release-readiness can be checked by explicit repo-owned validation commands rather than chat memory or manual guesswork
+- post-release roadmap cleanup under `0134` closes this lane and routes active technical follow-up back to `P10` semantic retrieval quality
+- this lane is closed; future release hardening should open a narrower
+  post-release maintenance plan rather than reopening the first-release lane
