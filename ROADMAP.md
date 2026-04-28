@@ -846,6 +846,7 @@ Actionable plans:
 - `docs/dev/plans/0130-2026-04-28-mcp-conversation-search-workflow.md`
 - `docs/dev/plans/0131-2026-04-28-mcp-release-smoke-pass.md`
 - `docs/dev/plans/0132-2026-04-28-release-candidate-version-cut.md`
+- `docs/dev/plans/0133-2026-04-28-v0-2-0-tag-and-post-release-dev-bump.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -872,6 +873,7 @@ Current state:
 - MCP now exposes `search.conversation` under `0130`, letting agents discover or select a conversation, run scoped `in:<channel_id>` corpus search, and receive ready-to-use context-pack/export payloads without manual tool-chaining
 - the full managed MCP release-smoke pass under `0131` now passes across runtime, workspace, search, conversation, context-pack, semantic-readiness, search-health, and listener lifecycle surfaces; real outbound writes were intentionally skipped and `release check --require-managed-runtime` still warns only because the version is a development version
 - the release-candidate version cut under `0132` moves the canonical package version to `0.2.0`; tagging/publishing remains a separate explicit release step after the strict clean managed-runtime gate passes
+- `v0.2.0` is tagged and pushed under `0133`; `master` is back on the `0.2.1-dev` development line for post-release work
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:

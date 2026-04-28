@@ -5364,3 +5364,24 @@ This file is the dated turn log for planning and execution continuity.
   - `git diff --check`
   - strict clean managed-runtime release gate will run after this slice is
     committed so `--require-clean` can evaluate the final worktree
+
+## Turn 285 | 2026-04-28
+
+- Tagged the validated `0.2.0` release candidate:
+  - tag: `v0.2.0`
+  - commit: `326e469 chore(release): cut 0.2.0 candidate`
+  - pushed to `origin`
+- Opened and closed the bounded P11 post-release bump slice:
+  - `docs/dev/plans/0133-2026-04-28-v0-2-0-tag-and-post-release-dev-bump.md`
+- Moved `master` back to the next development version:
+  - `pyproject.toml`: `0.2.1-dev`
+- Validation:
+  - `./.venv/bin/python - <<'PY' ... import slack_mirror; print(slack_mirror.__version__) ... PY`
+    returned `0.2.1-dev`
+  - `git rev-list -n 1 v0.2.0` returned
+    `326e469c415501bfc1573e6ae3fa94fa07fadd4a`
+  - `git log -1 --oneline v0.2.0^{}` returned
+    `326e469 chore(release): cut 0.2.0 candidate`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+    returned `ok: true` and confirmed `0133` is wired into roadmap and runbook
+  - `git diff --check`
