@@ -5343,3 +5343,24 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 284 | 2026-04-28
+
+- Opened and closed the bounded P11 release-candidate version slice:
+  - `docs/dev/plans/0132-2026-04-28-release-candidate-version-cut.md`
+- Ran the strict release gate before changing the version:
+  - `slack-mirror release check --require-clean --require-release-version --require-managed-runtime --json`
+  - result: failed only with `RELEASE_VERSION_REQUIRED` because
+    `pyproject.toml` still advertised `0.2.0-dev`
+- Updated the canonical package version in `pyproject.toml` to `0.2.0`.
+- Kept tagging/publishing out of this slice; the next step is to run the strict
+  clean managed-runtime release gate on the committed `0.2.0` state, then tag
+  only if it passes.
+- Validation:
+  - `./.venv/bin/python - <<'PY' ... import slack_mirror; print(slack_mirror.__version__) ... PY`
+    returned `0.2.0`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+    returned `ok: true` and confirmed `0132` is wired into roadmap and runbook
+  - `git diff --check`
+  - strict clean managed-runtime release gate will run after this slice is
+    committed so `--require-clean` can evaluate the final worktree

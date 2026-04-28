@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slack-mirror"
-version = "0.2.0-dev"
+version = "0.2.0"
 description = "Slack mirror and export toolkit"
 readme = "README.md"
 requires-python = ">=3.11"
