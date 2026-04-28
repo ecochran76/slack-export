@@ -5222,3 +5222,31 @@ This file is the dated turn log for planning and execution continuity.
   - live authenticated `/v1/events/status?tenant=default&event_type=slack.message.observed`
     returned `ok: true`, `status: complete`, `event_count: 85140`,
     matching watermark count, and 4 descriptors
+
+## Turn 280 | 2026-04-28
+
+- Reviewed the Lei banter harvest handoff note:
+  - `docs/dev/notes/0003-2026-04-28-lei-banter-harvest-handoff.md`
+- Reproduced the reported MCP failure for hybrid all-workspace
+  `search.corpus`:
+  - call shape used `all_workspaces: true`, `mode: hybrid`, and `limit: 20`
+  - live service rows were produced, but MCP JSON serialization failed on
+    `results[0].embedding_blob`
+- Opened and closed the bounded P11 release-hardening slice:
+  - `docs/dev/plans/0128-2026-04-28-mcp-hybrid-search-json-safety.md`
+- Fixed the defect at two levels:
+  - derived-text semantic search now removes `embedding_blob` after using it
+    for cosine scoring
+  - MCP result conversion now defensively omits bytes-like values with a
+    machine-readable binary placeholder instead of raising `TypeError`
+- Trimmed the Slack Export handoff note so it records source pointers and
+  Slack tooling follow-ups without retaining detailed private banter-style
+  guidance in this repo.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_search_derived_text_semantic_uses_shared_embedding_model tests.test_mcp_server.McpServerTests.test_search_tools -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/derived_text.py slack_mirror/service/mcp.py tests/test_search.py tests/test_mcp_server.py`
+  - live managed-wrapper MCP smoke for the reported all-workspace hybrid
+    query returned a JSON-RPC `result` and no `Object of type bytes is not JSON
+    serializable` error
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

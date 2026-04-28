@@ -102,6 +102,12 @@ First-release MCP non-goals:
 
 MCP tool failures use JSON-RPC `error` responses. The `error.data` value contains the shared service error envelope so clients can branch on stable fields instead of parsing prose.
 
+MCP success payloads are expected to be JSON-safe. Private binary fields such
+as embedding blobs are not part of the MCP contract; if a bytes-like value
+escapes an internal service result, MCP omits the bytes and emits a compact
+placeholder with `type: binary`, `encoding: omitted`, and `size` instead of
+failing the whole tool response.
+
 ## Frontend Auth
 
 API only:

@@ -402,6 +402,7 @@ def search_derived_text_semantic(
             chunk_vec = vec.tolist()
         else:
             chunk_vec = embed_text(matched_text, model_id=model_id, provider=provider)
+        item.pop("embedding_blob", None)
         sem = cosine_similarity(qvec, chunk_vec)
         item["_semantic_score"] = round(sem, 6)
         item["_source"] = "semantic"

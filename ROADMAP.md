@@ -841,6 +841,7 @@ Actionable plans:
 - `docs/dev/plans/0071-2026-04-20-mcp-operator-usability-guide.md`
 - `docs/dev/plans/0072-2026-04-20-live-mcp-client-acceptance.md`
 - `docs/dev/plans/0073-2026-04-20-semantic-mcp-smoke-after-client-restart.md`
+- `docs/dev/plans/0128-2026-04-28-mcp-hybrid-search-json-safety.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -862,6 +863,7 @@ Current state:
 - after MCP client restart, the connected MCP semantic smoke passed for tool visibility, runtime status, semantic readiness, no-dataset search health, and corpus search across semantic, lexical, hybrid/RRF, all-workspace, and heuristic-rerank modes
 - semantic smoke confirmed the release `baseline` profile is ready across `default`, `pcg`, and `soylei`; opt-in BGE profiles remain unavailable in the managed environment until optional model dependencies are installed
 - semantic smoke also confirmed two follow-up gaps for `P10`: baseline local-hash semantic relevance is weak on conceptual queries, and MCP corpus search does not yet expose retrieval-profile selection for profile-driven dense search
+- the Lei banter harvest workflow exposed a release-significant MCP regression where all-workspace hybrid corpus search could return a private `embedding_blob` bytes field and fail JSON serialization; `0128` fixes the derived-text source leak and adds MCP-side defensive bytes omission
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:

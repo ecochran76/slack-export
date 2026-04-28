@@ -349,6 +349,12 @@ class SlackMirrorMcpServer:
                 return {k: convert(v) for k, v in value.items()}
             if isinstance(value, list):
                 return [convert(v) for v in value]
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                return {
+                    "type": "binary",
+                    "encoding": "omitted",
+                    "size": len(value),
+                }
             return value
 
         payload = convert(payload)

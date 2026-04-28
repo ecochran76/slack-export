@@ -582,6 +582,7 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(rows[0]["source_label"], "Deploy Notes")
             self.assertIn("gateway outage recovery", str(rows[0]["matched_text"]))
             self.assertIsNone(rows[0]["text"])
+            self.assertNotIn("embedding_blob", rows[0])
             self.assertGreater(float(rows[0]["_semantic_score"]), 0.0)
 
     def test_search_corpus_combines_messages_and_derived_text(self):
