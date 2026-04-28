@@ -425,6 +425,7 @@ Actionable plans:
 - `docs/dev/plans/0095-2026-04-21-selected-result-report-polish.md`
 - `docs/dev/plans/0083-2026-04-21-cross-corpus-export-convergence.md`
 - `docs/dev/plans/0135-2026-04-28-source-label-candidate-generation.md`
+- `docs/dev/plans/0136-2026-04-28-domain-alias-candidate-generation.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -613,6 +614,13 @@ Current state:
   - remaining misses are mainly paraphrase and broader candidate-generation
     failures, so this is an incremental improvement rather than a full
     relevance fix
+- the domain-alias candidate-generation slice is complete under `0136`:
+  - baseline hit@10 improved from `0.555556` to `0.777778`
+  - baseline hit@3 improved from `0.111111` to `0.222222`
+  - p95 latency was `477.057 ms`, above the source-label-only run but below
+    the benchmark latency failure threshold
+  - remaining misses now point more toward source-prior/ranking behavior than
+    another broad alias-expansion pass
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

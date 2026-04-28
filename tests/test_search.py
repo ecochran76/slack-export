@@ -364,6 +364,28 @@ class SearchTests(unittest.TestCase):
             rows = search_messages(conn, workspace_id=ws_id, query="deploy before:2024-04-10T00:00:00Z", limit=10)
             self.assertEqual([row["text"] for row in rows], ["deploy monday", "deploy sunday"])
 
+    def test_keyword_search_uses_domain_alias_fallback_without_displacing_exact_hits(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "research"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "polyamide monomers project notes", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "2.0", "text": "nylon comonomers project notes", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "3.0", "text": "unrelated deployment update", "user": "U1"})
+            indexed = reindex_messages_fts(conn, workspace_id=ws_id)
+            self.assertGreaterEqual(indexed, 3)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="polyamide monomers", limit=10, use_fts=True)
+
+            self.assertGreaterEqual(len(rows), 2)
+            self.assertEqual(rows[0]["text"], "polyamide monomers project notes")
+            self.assertIn("nylon comonomers project notes", [row["text"] for row in rows])
+
     def test_search_messages_rerank_uses_provider(self):
         class FakeReranker:
             name = "fake_reranker"

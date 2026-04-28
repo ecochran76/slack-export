@@ -5440,3 +5440,41 @@ This file is the dated turn log for planning and execution continuity.
   - `git diff --check`
   - `slack-mirror release check --require-managed-runtime --json` passed with
     only the expected `DEV_VERSION` warning for `0.2.1-dev`
+
+## Turn 288 | 2026-04-28
+
+- Opened the next bounded P10 relevance slice:
+  - `docs/dev/plans/0136-2026-04-28-domain-alias-candidate-generation.md`
+- Initial diagnosis:
+  - the remaining benchmark misses are no longer mainly source-label lookup
+    failures
+  - relevant target messages use nearby domain vocabulary such as
+    `polyamides`, `comonomers`, `polymer chemistry design`, `materials`, and
+    `Nylon 59 properties`
+  - this slice will keep the primary FTS path unchanged and add only a bounded
+    candidate-generation fallback with lower-weight alias scoring
+- Implemented and closed the slice:
+  - added a deliberately small built-in domain alias map in
+    `slack_mirror.search.keyword`
+  - kept the primary FTS-backed lexical path unchanged
+  - added a bounded FTS-indexed alias fallback for plain positive terms with
+    known aliases
+  - scored alias hits lower than original-term hits and capped alias
+    contribution per original query term
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_keyword_search_messages tests.test_search.SearchTests.test_keyword_search_uses_domain_alias_fallback_without_displacing_exact_hits tests.test_search.SearchTests.test_sqlite_semantic_candidates_honor_candidate_limit -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/keyword.py tests/test_search.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed baseline `profile-benchmark` improved from hit@10 `0.555556` to
+    `0.777778`, hit@3 `0.111111` to `0.222222`, nDCG@k `0.160233` to
+    `0.222312`, MRR@k `0.131481` to `0.214815`, with p95 latency
+    `477.057 ms`
+  - managed compact `benchmark-diagnose` showed:
+    `polyamide monomers` now ranks `reu2022` at 1,
+    `nylon polymer synthesis` ranks `website` at 2,
+    `monomer materials discussion` ranks `website` at 5 and `reu2022` at 9,
+    and `nylon formulation notes` ranks `general` at 6
+  - an attempted correlated-FTS implementation was stopped because it produced
+    unacceptable benchmark runtime; the final implementation uses an indexed
+    materialized FTS hit set instead

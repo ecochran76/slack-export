@@ -40,6 +40,41 @@ def _glob_to_like(value: str) -> str:
     return (value or "").replace("*", "%")
 
 
+_DOMAIN_TERM_ALIASES: dict[str, tuple[str, ...]] = {
+    # Keep this deliberately small: these aliases support candidate generation
+    # for known Slack corpus vocabulary without becoming a general synonym engine.
+    "polyamide": ("polyamides", "nylon"),
+    "polyamides": ("polyamide", "nylon"),
+    "nylon": ("polyamide", "polyamides"),
+    "monomer": ("monomers", "comonomer", "comonomers"),
+    "monomers": ("monomer", "comonomer", "comonomers"),
+    "comonomer": ("monomer", "monomers", "comonomers"),
+    "comonomers": ("monomer", "monomers", "comonomer"),
+    "synthesis": ("polymer chemistry design", "chemical recycling", "chemically recycled", "chemistry"),
+    "formulation": ("composition", "properties", "composite", "composites"),
+    "formulations": ("composition", "properties", "composite", "composites"),
+    "discussion": ("focus", "project", "program", "working with"),
+    "notes": ("properties", "project", "program", "working with"),
+}
+
+
+def _term_aliases(term: str) -> tuple[str, ...]:
+    value = str(term or "").lower().strip(" \t\r\n.,;:!?()[]{}<>\"'")
+    if not value:
+        return ()
+    aliases = _DOMAIN_TERM_ALIASES.get(value, ())
+    return tuple(alias for alias in aliases if alias and alias != value)
+
+
+def _alias_groups(terms: list[str]) -> dict[str, tuple[str, ...]]:
+    groups: dict[str, tuple[str, ...]] = {}
+    for term in terms:
+        aliases = _term_aliases(term)
+        if aliases:
+            groups[term] = aliases
+    return groups
+
+
 def _parse_temporal_value(value: str) -> tuple[float, str]:
     raw = (value or "").strip()
     if not raw:
@@ -345,7 +380,9 @@ def _rank_rows(
     rows: list[dict[str, Any]],
     positive_terms: list[str],
     *,
+    term_aliases: dict[str, tuple[str, ...]] | None = None,
     term_weight: float = 5.0,
+    alias_weight: float = 2.0,
     link_weight: float = 1.0,
     thread_weight: float = 0.5,
     recency_weight: float = 2.0,
@@ -365,12 +402,19 @@ def _rank_rows(
         text = (r.get("text") or "").lower()
         channel_text = f"{r.get('channel_id') or ''} {r.get('channel_name') or ''}".lower()
         term_hits = 0
+        alias_hits = 0
         channel_term_hits = 0
         for t in positive_terms:
             tt = (t or "").lower().strip()
             if tt:
                 term_hits += text.count(tt)
                 channel_term_hits += channel_text.count(tt)
+                alias_group_hit = False
+                for alias in (term_aliases or {}).get(t, ()):
+                    alias_text = alias.lower().strip()
+                    if alias_text and alias_text in text:
+                        alias_group_hit = True
+                alias_hits += 1 if alias_group_hit else 0
 
         has_link = ("http://" in text) or ("https://" in text)
         is_thread = bool(r.get("thread_ts"))
@@ -383,6 +427,7 @@ def _rank_rows(
 
         score = (
             (term_hits * term_weight)
+            + (alias_hits * alias_weight)
             + (channel_term_hits * term_weight)
             + (link_weight if has_link else 0.0)
             + (thread_weight if is_thread else 0.0)
@@ -491,6 +536,73 @@ def _channel_label_candidates(
     return [dict(row) for row in rows]
 
 
+def _domain_alias_candidates(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    terms: list[str],
+    term_aliases: dict[str, tuple[str, ...]],
+    candidate_limit: int,
+) -> list[dict[str, Any]]:
+    if not terms or not term_aliases:
+        return []
+
+    match_groups: list[str] = []
+    for term in terms:
+        values = [str(term or "").strip(), *term_aliases.get(term, ())]
+        values = [value for value in values if value]
+        if not values:
+            continue
+        parts = [_fts_escape(value) for value in values if _fts_escape(value)]
+        if parts:
+            match_groups.append("(" + " OR ".join(parts) + ")")
+
+    if not match_groups:
+        return []
+    match = " AND ".join(match_groups)
+
+    rows = conn.execute(
+        """
+        WITH fts_hit AS MATERIALIZED (
+          SELECT workspace_id, channel_id, user_id, ts
+          FROM messages_fts
+          WHERE text MATCH ?
+            AND workspace_id = ?
+          LIMIT ?
+        )
+        SELECT
+          m.channel_id,
+          c.name AS channel_name,
+          m.ts,
+          m.user_id,
+          u.username AS user_name,
+          u.display_name AS user_display_name,
+          COALESCE(u.display_name, u.real_name, u.username) AS user_label,
+          m.text,
+          m.subtype,
+          m.thread_ts,
+          m.edited_ts,
+          m.deleted
+        FROM fts_hit f
+        JOIN messages m
+          ON m.workspace_id = f.workspace_id
+         AND m.channel_id = f.channel_id
+         AND m.ts = f.ts
+         AND COALESCE(m.user_id, '') = f.user_id
+        LEFT JOIN channels c
+          ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+        LEFT JOIN users u
+          ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+        WHERE m.workspace_id = ?
+          AND m.deleted = 0
+        ORDER BY CAST(m.ts AS REAL) DESC
+        LIMIT ?
+        """,
+        (match, workspace_id, max(1, int(candidate_limit)), workspace_id, max(1, int(candidate_limit))),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def _search_lexical(
     conn: sqlite3.Connection,
     *,
@@ -504,6 +616,7 @@ def _search_lexical(
     rank_recency_weight: float,
 ) -> list[dict[str, Any]]:
     positive_terms, where_sql, params = _parse_query(query)
+    term_aliases = _alias_groups(positive_terms)
 
     fts_sql = ""
     fts_params: list[Any] = []
@@ -548,9 +661,24 @@ def _search_lexical(
                 continue
             seen.add(key)
             rows.append(row)
+    if use_fts and term_aliases:
+        seen = {(str(row.get("channel_id")), str(row.get("ts"))) for row in rows}
+        for row in _domain_alias_candidates(
+            conn,
+            workspace_id=workspace_id,
+            terms=positive_terms,
+            term_aliases=term_aliases,
+            candidate_limit=max(max(1, limit) * 3, 30),
+        ):
+            key = (str(row.get("channel_id")), str(row.get("ts")))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(row)
     ranked = _rank_rows(
         rows,
         positive_terms,
+        term_aliases=term_aliases,
         term_weight=rank_term_weight,
         link_weight=rank_link_weight,
         thread_weight=rank_thread_weight,
