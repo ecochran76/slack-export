@@ -5250,3 +5250,30 @@ This file is the dated turn log for planning and execution continuity.
     serializable` error
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 281 | 2026-04-28
+
+- Opened and closed the bounded P11 conversation-discovery slice:
+  - `docs/dev/plans/0129-2026-04-28-mcp-conversation-discovery.md`
+- Added read-only conversation discovery to the shared application service.
+- Added MCP tool `conversations.list` with filters for workspace or all enabled
+  workspaces, conversation type, channel/name query, member-label query, and
+  bounded limit. The member-label query also falls back to conversation name/id
+  matching when mirrored membership rows are sparse.
+- The returned rows include compact metadata only:
+  - workspace and channel identity
+  - conversation type
+  - message count
+  - latest Slack timestamp and ISO timestamp
+  - member count and mirrored member labels
+- Updated the MCP contract docs and README so agents can use the intended flow:
+  discover conversation candidates, search corpus rows, then use
+  `search.context_pack` or `search.context_export` for bounded context.
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_list_conversations_filters_mpdm_by_member_label tests.test_mcp_server.McpServerTests.test_initialize_and_tools_list tests.test_mcp_server.McpServerTests.test_conversations_list_tool -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/mcp.py tests/test_app_service.py tests/test_mcp_server.py`
+  - live managed-wrapper MCP smoke for `conversations.list` with
+    `workspace=soylei`, `channel_type=mpdm`, `member_query=Michael`, and
+    `limit=5` returned 5 MPDM rows with no JSON-RPC error
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

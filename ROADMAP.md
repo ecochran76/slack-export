@@ -842,6 +842,7 @@ Actionable plans:
 - `docs/dev/plans/0072-2026-04-20-live-mcp-client-acceptance.md`
 - `docs/dev/plans/0073-2026-04-20-semantic-mcp-smoke-after-client-restart.md`
 - `docs/dev/plans/0128-2026-04-28-mcp-hybrid-search-json-safety.md`
+- `docs/dev/plans/0129-2026-04-28-mcp-conversation-discovery.md`
 
 Current state:
 - user-scoped install, update, rollback, managed live services, browser auth, and MCP surfaces all exist
@@ -864,6 +865,7 @@ Current state:
 - semantic smoke confirmed the release `baseline` profile is ready across `default`, `pcg`, and `soylei`; opt-in BGE profiles remain unavailable in the managed environment until optional model dependencies are installed
 - semantic smoke also confirmed two follow-up gaps for `P10`: baseline local-hash semantic relevance is weak on conceptual queries, and MCP corpus search does not yet expose retrieval-profile selection for profile-driven dense search
 - the Lei banter harvest workflow exposed a release-significant MCP regression where all-workspace hybrid corpus search could return a private `embedding_blob` bytes field and fail JSON serialization; `0128` fixes the derived-text source leak and adds MCP-side defensive bytes omission
+- MCP now exposes a read-only `conversations.list` discovery tool under `0129`, giving agents a bounded way to find MPDM, IM, private-channel, or public-channel candidates by workspace, name, and member labels before using search/context/export tools
 - this lane is the immediate priority before `P10`; semantic retrieval improvements remain planned follow-on work after this release target is reached
 
 Planned subprojects:

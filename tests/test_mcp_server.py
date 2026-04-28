@@ -93,6 +93,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("runtime.status", names)
         self.assertIn("runtime.report.latest", names)
         self.assertIn("runtime.live_validation", names)
+        self.assertIn("conversations.list", names)
         self.assertIn("search.corpus", names)
         self.assertIn("search.health", names)
         self.assertIn("search.readiness", names)
@@ -588,6 +589,51 @@ class McpServerTests(unittest.TestCase):
         self.assertIn('"ok": false', text)
         self.assertIn('"code": "NOT_FOUND"', text)
         mock_latest.assert_called_once_with()
+
+    def test_conversations_list_tool(self):
+        with patch.object(
+            self.server.service,
+            "list_conversations",
+            return_value=[
+                {
+                    "workspace": "default",
+                    "channel_id": "GMPDM1",
+                    "name": "mpdm-eric--michael-1",
+                    "conversation_type": "mpdm",
+                    "message_count": 2,
+                    "member_labels": ["Eric", "Michael"],
+                }
+            ],
+        ) as mock_list:
+            result = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 69,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "conversations.list",
+                        "arguments": {
+                            "workspace": "default",
+                            "channel_type": "mpdm",
+                            "member_query": "Michael",
+                            "limit": 10,
+                        },
+                    },
+                }
+            )
+
+        text = result["result"]["content"][0]["text"]
+        self.assertIn('"conversation_type": "mpdm"', text)
+        self.assertIn('"member_labels"', text)
+        mock_list.assert_called_once_with(
+            unittest.mock.ANY,
+            workspace="default",
+            all_workspaces=False,
+            channel_type="mpdm",
+            name_query=None,
+            member_query="Michael",
+            limit=10,
+        )
 
     def test_search_tools(self):
         with patch.object(

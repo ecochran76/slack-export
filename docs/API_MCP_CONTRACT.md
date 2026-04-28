@@ -77,6 +77,7 @@ The managed runtime status probes are safe for agent-client environments that do
 Supported release-baseline MCP tool groups:
 
 - runtime and install health: `health`, `runtime.status`, `runtime.live_validation`, `runtime.report.latest`, `workspaces.list`, `workspace.status`
+- conversation discovery: `conversations.list`
 - search and retrieval diagnostics: `search.corpus`, `search.context_pack`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
 - outbound actions: `messages.send`, `threads.reply`
 - listener workflow: `listeners.register`, `listeners.list`, `listeners.status`, `listeners.unregister`, `deliveries.list`, `deliveries.ack`
@@ -87,6 +88,7 @@ Recommended operator preflight from MCP clients:
 - call `runtime.status` to read managed artifact, service, MCP smoke, and concurrent-MCP readiness state
 - call `runtime.live_validation` when the client needs stricter workspace, token, queue, DB, and live-unit health
 - call `workspace.status` before workspace-scoped search or outbound actions
+- call `conversations.list` when the client needs to discover MPDM, IM, private-channel, or public-channel candidates before searching or exporting context
 - call `search.readiness` or `search.semantic_readiness` before assuming semantic coverage is complete
 
 Outbound tools are real writes. Use them only after workspace token verification, and prefer an `options.idempotency_key` for retryable sends. `messages.send` accepts channel references or DM-style targets according to the shared outbound service contract; `threads.reply` requires an existing channel reference and thread timestamp/reference.
@@ -107,6 +109,25 @@ as embedding blobs are not part of the MCP contract; if a bytes-like value
 escapes an internal service result, MCP omits the bytes and emits a compact
 placeholder with `type: binary`, `encoding: omitted`, and `size` instead of
 failing the whole tool response.
+
+`conversations.list` is read-only and returns conversation metadata, not message
+bodies. It accepts:
+
+- `workspace`: workspace name for a single-workspace scan
+- `all_workspaces`: scan enabled workspaces; omit `workspace` when true
+- `channel_type`: one of `public_channel`, `private_channel`, `im`, or `mpdm`
+- `name_query`: case-insensitive match against the mirrored channel name/id
+- `member_query`: case-insensitive match against mirrored member labels, names,
+  user ids, or the conversation name/id as a fallback when membership rows are
+  sparse
+- `limit`: bounded result count, capped by the service
+
+Rows include workspace, channel id/name, conversation type, message count,
+latest Slack timestamp/ISO timestamp, member count, and member labels where the
+mirror has channel membership. Use `conversations.list` to find candidate
+conversations, `search.corpus` to select result candidates, and
+`search.context_pack` or `search.context_export` to inspect or persist bounded
+adjacent context.
 
 ## Frontend Auth
 

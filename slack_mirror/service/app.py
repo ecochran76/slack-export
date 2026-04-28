@@ -2609,6 +2609,153 @@ class SlackMirrorAppService:
                 names.append(name)
         return names
 
+    def list_conversations(
+        self,
+        conn,
+        *,
+        workspace: str | None = None,
+        all_workspaces: bool = False,
+        channel_type: str | None = None,
+        name_query: str | None = None,
+        member_query: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        if all_workspaces and workspace:
+            raise ValueError("workspace must not be set when all_workspaces is true")
+        if not all_workspaces and not workspace:
+            raise ValueError("workspace is required unless all_workspaces is true")
+        allowed_types = {"public_channel", "private_channel", "im", "mpdm"}
+        normalized_type = str(channel_type or "").strip().lower()
+        if normalized_type and normalized_type not in allowed_types:
+            raise ValueError(f"unsupported channel_type: {channel_type}")
+
+        clauses: list[str] = []
+        params: list[Any] = []
+        if all_workspaces:
+            names = self.enabled_workspace_names()
+            if not names:
+                return []
+            placeholders = ", ".join("?" for _ in names)
+            clauses.append(f"w.name IN ({placeholders})")
+            params.extend(names)
+        else:
+            clauses.append("w.name = ?")
+            params.append(str(workspace or "").strip())
+        if normalized_type == "mpdm":
+            clauses.append("c.is_mpim = 1")
+        elif normalized_type == "im":
+            clauses.append("c.is_im = 1")
+        elif normalized_type == "private_channel":
+            clauses.append("c.is_private = 1 AND c.is_im = 0 AND c.is_mpim = 0")
+        elif normalized_type == "public_channel":
+            clauses.append("c.is_private = 0 AND c.is_im = 0 AND c.is_mpim = 0")
+        if str(name_query or "").strip():
+            clauses.append("LOWER(COALESCE(c.name, c.channel_id, '')) LIKE ?")
+            params.append(f"%{str(name_query).strip().lower()}%")
+        where_sql = " AND ".join(clauses)
+        member_filter = ""
+        if str(member_query or "").strip():
+            member_filter = """
+            AND (
+              LOWER(COALESCE(c.name, c.channel_id, '')) LIKE ?
+              OR EXISTS (
+                SELECT 1
+                FROM channel_members cm_filter
+                LEFT JOIN users u_filter
+                  ON u_filter.workspace_id = cm_filter.workspace_id
+                 AND u_filter.user_id = cm_filter.user_id
+                WHERE cm_filter.workspace_id = c.workspace_id
+                  AND cm_filter.channel_id = c.channel_id
+                  AND LOWER(
+                    COALESCE(u_filter.display_name, '') || ' ' ||
+                    COALESCE(u_filter.real_name, '') || ' ' ||
+                    COALESCE(u_filter.username, '') || ' ' ||
+                    COALESCE(cm_filter.user_id, '')
+                  ) LIKE ?
+              )
+            )
+            """
+            member_like = f"%{str(member_query).strip().lower()}%"
+            params.extend([member_like, member_like])
+
+        rows = conn.execute(
+            f"""
+            SELECT
+              w.name AS workspace,
+              w.id AS workspace_id,
+              c.channel_id,
+              c.name,
+              c.is_private,
+              c.is_im,
+              c.is_mpim,
+              c.topic,
+              c.purpose,
+              c.updated_at,
+              COUNT(DISTINCT m.ts) AS message_count,
+              MAX(CAST(m.ts AS REAL)) AS latest_ts_numeric,
+              MAX(m.ts) AS latest_ts,
+              COUNT(DISTINCT cm.user_id) AS member_count,
+              GROUP_CONCAT(
+                DISTINCT COALESCE(u.display_name, u.real_name, u.username, cm.user_id)
+              ) AS member_labels
+            FROM channels c
+            JOIN workspaces w ON w.id = c.workspace_id
+            LEFT JOIN messages m
+              ON m.workspace_id = c.workspace_id
+             AND m.channel_id = c.channel_id
+            LEFT JOIN channel_members cm
+              ON cm.workspace_id = c.workspace_id
+             AND cm.channel_id = c.channel_id
+            LEFT JOIN users u
+              ON u.workspace_id = cm.workspace_id
+             AND u.user_id = cm.user_id
+            WHERE {where_sql}
+            {member_filter}
+            GROUP BY w.name, w.id, c.channel_id
+            ORDER BY latest_ts_numeric IS NULL ASC, latest_ts_numeric DESC, message_count DESC, c.name ASC
+            LIMIT ?
+            """,
+            tuple([*params, max(1, min(int(limit or 50), 200))]),
+        ).fetchall()
+
+        conversations: list[dict[str, Any]] = []
+        for row_obj in rows:
+            row = dict(row_obj)
+            if row.get("is_mpim"):
+                row_type = "mpdm"
+            elif row.get("is_im"):
+                row_type = "im"
+            elif row.get("is_private"):
+                row_type = "private_channel"
+            else:
+                row_type = "public_channel"
+            member_labels = [
+                part.strip()
+                for part in str(row.get("member_labels") or "").split(",")
+                if part.strip()
+            ]
+            latest_ts = str(row.get("latest_ts") or "").strip() or None
+            conversations.append(
+                {
+                    "workspace": row.get("workspace"),
+                    "workspace_id": row.get("workspace_id"),
+                    "channel_id": row.get("channel_id"),
+                    "name": row.get("name") or row.get("channel_id"),
+                    "conversation_type": row_type,
+                    "is_private": bool(row.get("is_private")),
+                    "is_im": bool(row.get("is_im")),
+                    "is_mpim": bool(row.get("is_mpim")),
+                    "message_count": int(row.get("message_count") or 0),
+                    "latest_ts": latest_ts,
+                    "latest_at": _slack_ts_to_iso(latest_ts),
+                    "member_count": int(row.get("member_count") or 0),
+                    "member_labels": member_labels,
+                    "topic": row.get("topic"),
+                    "purpose": row.get("purpose"),
+                }
+            )
+        return conversations
+
     def _corpus_profile_search_options(self, profile_name: str) -> dict[str, Any]:
         profile = self.retrieval_profile(profile_name)
         profile_config = self.config_for_retrieval_profile(profile)

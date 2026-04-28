@@ -14,6 +14,7 @@ from slack_mirror.core.db import (
     get_workspace_by_name,
     mark_derived_text_job_status,
     upsert_channel,
+    upsert_channel_member,
     upsert_derived_text,
     upsert_derived_text_chunk_embedding,
     upsert_message,
@@ -65,6 +66,50 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["name"], "default")
         self.assertEqual(workspace_id, int(rows[0]["id"]))
+
+    def test_list_conversations_filters_mpdm_by_member_label(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_user(self.conn, workspace_id, {"id": "U2", "name": "michael", "profile": {"display_name": "Michael"}})
+        upsert_channel(
+            self.conn,
+            workspace_id,
+            {
+                "id": "GMPDM1",
+                "name": "mpdm-eric--michael-1",
+                "is_private": True,
+                "is_mpim": True,
+            },
+        )
+        upsert_channel(
+            self.conn,
+            workspace_id,
+            {
+                "id": "C1",
+                "name": "general",
+                "is_private": False,
+            },
+        )
+        upsert_channel_member(self.conn, workspace_id, "GMPDM1", "U1")
+        upsert_channel_member(self.conn, workspace_id, "GMPDM1", "U2")
+        upsert_message(self.conn, workspace_id, "GMPDM1", {"ts": "10.0", "user": "U1", "text": "hello"})
+        upsert_message(self.conn, workspace_id, "GMPDM1", {"ts": "12.0", "user": "U2", "text": "reply"})
+
+        rows = self.service.list_conversations(
+            self.conn,
+            workspace="default",
+            channel_type="mpdm",
+            member_query="Michael",
+            limit=10,
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["conversation_type"], "mpdm")
+        self.assertEqual(rows[0]["channel_id"], "GMPDM1")
+        self.assertEqual(rows[0]["message_count"], 2)
+        self.assertEqual(rows[0]["latest_ts"], "12.0")
+        self.assertIn("Eric", rows[0]["member_labels"])
+        self.assertIn("Michael", rows[0]["member_labels"])
 
     def test_validate_live_runtime_includes_reconcile_fields(self):
         report = SimpleNamespace(

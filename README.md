@@ -139,6 +139,7 @@ The current repo has:
 - a shared extraction-provider boundary that keeps the current host-local toolchain as the default path and now supports optional command-backed and HTTP-backed providers selected from config, with local extraction retained as the fallback path by default
 - a corpus-wide hybrid search path over messages plus derived text through `search corpus`
 - an explicit cross-workspace corpus-search path through `search corpus --all-workspaces`
+- a read-only MCP conversation discovery path through `conversations.list`, so agents can find MPDM, IM, private-channel, or public-channel candidates by workspace, name, and member labels before selecting context/export targets
 - chunk-aware derived-text retrieval so long attachments and OCR-heavy documents surface the matching segment instead of only the top-level document row
 - a machine-readable search health path over readiness plus optional smoke benchmarks through `search health`
 - a shared embedding-provider seam under `slack_mirror.search.embeddings`, with the current `local-hash-128` baseline now owned in one place across sync-time embedding jobs and query-time semantic retrieval

@@ -118,6 +118,24 @@ class SlackMirrorMcpServer:
             ),
             _tool("workspaces.list", "List configured workspaces", {"type": "object", "properties": {}, "additionalProperties": False}),
             _tool(
+                "conversations.list",
+                "Discover mirrored Slack conversations for agent review workflows",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "all_workspaces": {"type": "boolean", "default": False},
+                        "channel_type": {
+                            "type": "string",
+                            "enum": ["public_channel", "private_channel", "im", "mpdm"],
+                        },
+                        "name_query": {"type": "string"},
+                        "member_query": {"type": "string"},
+                        "limit": {"type": "integer", "default": 50},
+                    },
+                },
+            ),
+            _tool(
                 "search.corpus",
                 "Search messages plus derived attachment and OCR text",
                 {
@@ -381,6 +399,20 @@ class SlackMirrorMcpServer:
             )
         if name == "workspaces.list":
             return self._mcp_result({"workspaces": self.service.list_workspaces(conn)})
+        if name == "conversations.list":
+            return self._mcp_result(
+                {
+                    "conversations": self.service.list_conversations(
+                        conn,
+                        workspace=str(args["workspace"]) if args.get("workspace") is not None else None,
+                        all_workspaces=bool(args.get("all_workspaces", False)),
+                        channel_type=str(args["channel_type"]) if args.get("channel_type") is not None else None,
+                        name_query=str(args["name_query"]) if args.get("name_query") is not None else None,
+                        member_query=str(args["member_query"]) if args.get("member_query") is not None else None,
+                        limit=int(args.get("limit", 50)),
+                    )
+                }
+            )
         if name == "search.corpus":
             workspace = str(args["workspace"]) if args.get("workspace") is not None else None
             all_workspaces = bool(args.get("all_workspaces", False))
