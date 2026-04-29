@@ -1188,10 +1188,15 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(run["profile"], "baseline")
         self.assertEqual(target["rank"], 1)
         self.assertEqual(target["movement_vs_baseline"], "unchanged")
+        self.assertEqual(target["evidence"]["query_terms"], ["alpha"])
+        self.assertEqual(target["evidence"]["exact_terms_present"], ["alpha"])
+        self.assertEqual(target["evidence"]["missing_terms"], [])
+        self.assertEqual(target["evidence"]["exact_term_coverage"], 1.0)
         self.assertEqual(target["matched_result"]["labels"], ["C1:1.0", "general:1.0"])
         self.assertIn("explain", target["matched_result"])
         self.assertNotIn("text", target["matched_result"])
         self.assertNotIn("snippet_text", target["matched_result"])
+        self.assertNotIn("text", target["evidence"])
 
     def test_benchmark_query_variants_compares_normalized_forms_without_content(self):
         workspace_id = self.service.workspace_id(self.conn, "default")

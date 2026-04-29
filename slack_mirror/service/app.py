@@ -3721,6 +3721,12 @@ class SlackMirrorAppService:
                         "weight": weight,
                         "resolved": bool(matches),
                         "ambiguous": len(matches) > 1,
+                        "evidence": self._benchmark_target_evidence(
+                            conn,
+                            workspace_id=workspace_id,
+                            query=str(row.get("query") or ""),
+                            matches=matches,
+                        ),
                         "matches": [self._benchmark_match_identity(match) for match in matches],
                     }
                 )
@@ -3780,6 +3786,7 @@ class SlackMirrorAppService:
                             "weight": target["weight"],
                             "resolved": target["resolved"],
                             "ambiguous": target["ambiguous"],
+                            "evidence": target.get("evidence"),
                             "rank": rank,
                             "hit_at_3": rank is not None and rank <= 3,
                             "hit_at_10": rank is not None and rank <= 10,
@@ -4108,6 +4115,97 @@ class SlackMirrorAppService:
                 "labels": labels,
             }
         return {"kind": match.get("kind"), "labels": []}
+
+    def _benchmark_target_evidence(
+        self,
+        conn,
+        *,
+        workspace_id: int,
+        query: str,
+        matches: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        query_terms = sorted(set(re.findall(r"[a-z0-9]+", str(query or "").lower())))
+        if not query_terms:
+            return {
+                "query_terms": [],
+                "resolved_targets": len(matches),
+                "text_targets": 0,
+                "exact_terms_present": [],
+                "source_label_terms_present": [],
+                "missing_terms": [],
+                "exact_term_coverage": 0.0,
+                "source_label_coverage": 0.0,
+            }
+
+        exact_present: set[str] = set()
+        source_label_present: set[str] = set()
+        text_targets = 0
+        for match in matches:
+            text = ""
+            source_label = ""
+            if match.get("kind") == "message":
+                row = conn.execute(
+                    """
+                    SELECT COALESCE(m.text, '') AS text, COALESCE(c.name, m.channel_id, '') AS source_label
+                    FROM messages m
+                    LEFT JOIN channels c
+                      ON c.workspace_id = m.workspace_id
+                     AND c.channel_id = m.channel_id
+                    WHERE m.workspace_id = ?
+                      AND m.channel_id = ?
+                      AND m.ts = ?
+                    LIMIT 1
+                    """,
+                    (workspace_id, match.get("channel_id"), match.get("ts")),
+                ).fetchone()
+                if row:
+                    text = str(row["text"] or "")
+                    source_label = str(row["source_label"] or "")
+            elif match.get("kind") == "derived_text":
+                row = conn.execute(
+                    """
+                    SELECT COALESCE(dt.text, '') AS text,
+                           COALESCE(f.title, f.name, c.title, dt.source_id, '') AS source_label
+                    FROM derived_text dt
+                    LEFT JOIN files f
+                      ON dt.source_kind = 'file'
+                     AND f.workspace_id = dt.workspace_id
+                     AND f.file_id = dt.source_id
+                    LEFT JOIN canvases c
+                      ON dt.source_kind = 'canvas'
+                     AND c.workspace_id = dt.workspace_id
+                     AND c.canvas_id = dt.source_id
+                    WHERE dt.workspace_id = ?
+                      AND dt.id = ?
+                    LIMIT 1
+                    """,
+                    (workspace_id, match.get("derived_text_id")),
+                ).fetchone()
+                if row:
+                    text = str(row["text"] or "")
+                    source_label = str(row["source_label"] or "")
+
+            normalized_text = text.lower()
+            normalized_source_label = source_label.lower()
+            if normalized_text:
+                text_targets += 1
+            for term in query_terms:
+                if term in normalized_text:
+                    exact_present.add(term)
+                if term in normalized_source_label:
+                    source_label_present.add(term)
+
+        covered_terms = exact_present | source_label_present
+        return {
+            "query_terms": query_terms,
+            "resolved_targets": len(matches),
+            "text_targets": text_targets,
+            "exact_terms_present": sorted(exact_present),
+            "source_label_terms_present": sorted(source_label_present),
+            "missing_terms": [term for term in query_terms if term not in covered_terms],
+            "exact_term_coverage": round(len(exact_present) / len(query_terms), 6),
+            "source_label_coverage": round(len(source_label_present) / len(query_terms), 6),
+        }
 
     def _benchmark_result_diagnostic(self, result: dict[str, Any], *, rank: int, include_text: bool = False) -> dict[str, Any]:
         labels: list[str] = []

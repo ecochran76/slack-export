@@ -1006,6 +1006,7 @@ Current semantics:
 - health is a gate over readiness plus optional benchmark quality checks
 - readiness degradation currently becomes a warning unless benchmark or extraction policy failures also occur
 - benchmark output includes per-query diagnostics through `query_reports`
+- benchmark diagnostics include non-content expected-target evidence such as query terms, exact/source-label coverage ratios, and missing terms
 - `degraded_queries` surfaces the subset of benchmark queries that missed ranking-quality floors or hit-rate expectations
 - benchmark execution is optional but should be used before ranking changes or release decisions that affect search behavior
 

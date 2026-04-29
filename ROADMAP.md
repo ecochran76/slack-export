@@ -430,6 +430,7 @@ Actionable plans:
 - `docs/dev/plans/0138-2026-04-28-corpus-source-diversity-ordering.md`
 - `docs/dev/plans/0139-2026-04-28-benchmark-row-level-metrics.md`
 - `docs/dev/plans/0140-2026-04-28-lexical-coverage-rank-quality.md`
+- `docs/dev/plans/0141-2026-04-28-benchmark-target-evidence-diagnostics.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -663,6 +664,13 @@ Current state:
   - BGE and learned rerank still are not promoted; pre-slice comparison showed
     `local-bge-http` effectively tied with baseline and
     `local-bge-http-rerank` lower quality plus slower
+- the benchmark target-evidence diagnostic slice is complete under `0141`:
+  - `benchmark-diagnose` expected targets now include non-content evidence for
+    exact query-term coverage, source-label coverage, missing terms, and target
+    resolution counts
+  - residual degraded queries now show expected targets often lack one or more
+    query terms, supporting fixture/context review or richer semantic-query
+    work instead of another immediate baseline ranker tweak
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

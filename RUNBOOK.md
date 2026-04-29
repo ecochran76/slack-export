@@ -5603,3 +5603,30 @@ This file is the dated turn log for planning and execution continuity.
     `general` from rank 5 to rank 2, `research website nylon` moving
     `website` from rank 2 to rank 1, and `REU nylon project` moving
     `reu2022` from rank 2 to rank 1 while preserving hit@10 `1.0`
+
+## Turn 293 | 2026-04-28
+
+- Opened the next bounded P10 relevance slice:
+  - `docs/dev/plans/0141-2026-04-28-benchmark-target-evidence-diagnostics.md`
+- Initial diagnosis:
+  - managed baseline now passes the non-content benchmark gate, so further
+    ranking changes need better evidence
+  - residual degraded queries are concentrated in paraphrase-like fixture rows
+  - manual inspection shows some expected targets are contextual/curated rows
+    whose relevance is not fully visible from exact query terms in the message
+    body
+- Implemented and closed the slice:
+  - added non-content expected-target evidence to `benchmark-diagnose`
+  - reported normalized query terms, exact target-text term coverage,
+    source-label coverage, missing terms, and resolved/text target counts
+  - preserved `--include-text` as the only path that emits Slack body text
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_benchmark_profile_diagnostics_reports_rank_movement_without_text tests.test_cli.CliTests.test_parse_search_benchmark_diagnose -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py tests/test_app_service.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed `benchmark-diagnose` confirmed the residual degraded targets are
+    missing one or more query terms without requiring text output:
+    `nylon polymer synthesis` lacks `synthesis`,
+    `monomer materials discussion` lacks `discussion`, and
+    `nylon formulation notes` lacks `formulation` plus `notes`
