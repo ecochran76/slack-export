@@ -524,6 +524,35 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(report["weights"], {"lexical": 0.25, "semantic": 0.75, "semantic_scale": 2.0})
             self.assertEqual(report["query_reports"][0]["top_results"][0], "C1:1.0")
 
+    def test_evaluate_corpus_search_scores_result_rows_not_flattened_labels(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "alpha"})
+            upsert_channel(conn, ws_id, {"id": "C2", "name": "beta"})
+            upsert_channel(conn, ws_id, {"id": "C3", "name": "target"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "incident incident incident", "user": "U1"})
+            upsert_message(conn, ws_id, "C2", {"ts": "2.0", "text": "incident incident", "user": "U1"})
+            upsert_message(conn, ws_id, "C3", {"ts": "3.0", "text": "incident", "user": "U1"})
+            reindex_messages_fts(conn, workspace_id=ws_id)
+
+            report = evaluate_corpus_search(
+                conn,
+                workspace_id=ws_id,
+                dataset=[{"query": "incident", "relevant": {"target:3.0": 1}}],
+                mode="lexical",
+                limit=3,
+            )
+
+            self.assertTrue(report["query_reports"][0]["hit_at_3"])
+            self.assertEqual(report["hit_at_3"], 1.0)
+            self.assertAlmostEqual(report["mrr_at_k"], 1 / 3, places=6)
+
     def test_search_derived_text_rows(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

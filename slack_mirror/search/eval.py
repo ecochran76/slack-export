@@ -37,6 +37,26 @@ def mrr_at_k(pred: list[str], truth: dict[str, int], k: int) -> float:
     return 0.0
 
 
+def ndcg_from_relevances(relevances: list[int], truth: dict[str, int], k: int) -> float:
+    rels = relevances[:k]
+    ideal = sorted(truth.values(), reverse=True)[:k]
+    denom = dcg(ideal)
+    if denom <= 0:
+        return 0.0
+    return dcg(rels) / denom
+
+
+def mrr_from_relevances(relevances: list[int], k: int) -> float:
+    for i, rel in enumerate(relevances[:k], start=1):
+        if rel > 0:
+            return 1.0 / i
+    return 0.0
+
+
+def _row_relevance(labels: list[str], truth: dict[str, int]) -> int:
+    return max([int(truth.get(label, 0) or 0) for label in labels] or [0])
+
+
 def dataset_rows(path: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
@@ -194,21 +214,25 @@ def evaluate_corpus_search(
         lat_ms = (time.perf_counter() - t0) * 1000.0
 
         pred: list[str] = []
+        row_relevances: list[int] = []
         for r in found:
+            row_labels: list[str] = []
             if r.get("result_kind") == "message":
-                pred.append(f"{r.get('channel_id')}:{r.get('ts')}")
+                row_labels.append(f"{r.get('channel_id')}:{r.get('ts')}")
                 if r.get("channel_name"):
-                    pred.append(f"{r.get('channel_name')}:{r.get('ts')}")
+                    row_labels.append(f"{r.get('channel_name')}:{r.get('ts')}")
             else:
-                pred.append(
+                row_labels.append(
                     f"{r.get('source_kind')}:{r.get('source_id')}:{r.get('derivation_kind')}:{r.get('extractor')}"
                 )
                 if r.get("source_label"):
-                    pred.append(str(r.get("source_label")))
-        ndcgs.append(ndcg_at_k(pred, truth, limit))
-        mrrs.append(mrr_at_k(pred, truth, limit))
-        query_hit3 = 1 if any(truth.get(x, 0) > 0 for x in pred[:3]) else 0
-        query_hit10 = 1 if any(truth.get(x, 0) > 0 for x in pred[:10]) else 0
+                    row_labels.append(str(r.get("source_label")))
+            pred.extend(row_labels)
+            row_relevances.append(_row_relevance(row_labels, truth))
+        ndcgs.append(ndcg_from_relevances(row_relevances, truth, limit))
+        mrrs.append(mrr_from_relevances(row_relevances, limit))
+        query_hit3 = 1 if any(rel > 0 for rel in row_relevances[:3]) else 0
+        query_hit10 = 1 if any(rel > 0 for rel in row_relevances[:10]) else 0
         hit3 += query_hit3
         hit10 += query_hit10
         lats.append(lat_ms)

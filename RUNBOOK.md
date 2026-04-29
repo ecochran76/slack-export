@@ -5544,3 +5544,33 @@ This file is the dated turn log for planning and execution continuity.
   - managed compact `benchmark-diagnose` showed `website` now enters top 10
     for `nylon research` and `polyamide monomers`, and `REU nylon project`
     now ranks `reu2022` at 2 and `general` at 3
+
+## Turn 291 | 2026-04-28
+
+- Opened the next bounded P10 relevance slice:
+  - `docs/dev/plans/0139-2026-04-28-benchmark-row-level-metrics.md`
+- Initial diagnosis:
+  - `benchmark-diagnose` already reports expected target ranks by result row
+  - `profile-benchmark` aggregate metrics flatten label alternatives such as
+    `channel_id:ts` and `channel_name:ts`
+  - flattened labels can make a target on the third result row miss hit@3,
+    which makes the current hit@3 blocker misleading
+- Implemented and closed the slice:
+  - corpus benchmark aggregation now scores each result row once
+  - each row can still match any stable label alternative for that row
+  - existing flattened `top_results` labels remain in query reports for
+    compatibility
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_evaluate_corpus_search_scores_result_rows_not_flattened_labels tests.test_search.SearchTests.test_evaluate_corpus_search_threads_fusion_method tests.test_search.SearchTests.test_evaluate_corpus_search_honors_rerank_provider -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/eval.py tests/test_search.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed baseline `profile-benchmark` now reports hit@3 `0.666667`,
+    hit@10 `1.0`, nDCG@k `0.526822`, MRR@k `0.504762`, and p95 latency
+    `435.95 ms`
+  - the remaining managed baseline failure code is
+    `BENCHMARK_NDCG_AT_K_LOW`
+  - managed compact `benchmark-diagnose` preserved the same row-rank evidence,
+    including top-3 hits for `Nylon-5,9`, `polyamide monomers`,
+    `nylon polymer synthesis`, `research website nylon`, `REU nylon project`,
+    and `polyamide research source`

@@ -186,7 +186,7 @@ The current repo has:
 - a benchmark-target embedding backfill at `slack-mirror mirror benchmark-embeddings-backfill`, which covers only labels referenced by a benchmark dataset
 - a read-only scale review at `slack-mirror search scale-review`, which reports corpus size, embedding coverage, timed retrieval-profile latency, and the current SQLite/index plus inference-boundary recommendation
 - a read-only benchmark validator at `slack-mirror search benchmark-validate`, which checks dataset label resolvability and per-profile model coverage before interpreting relevance evidence
-- an aggregate-safe profile benchmark at `slack-mirror search profile-benchmark`, which compares named profiles and opt-in corpus fusion methods against a JSONL benchmark dataset without emitting per-query detail unless `--include-details` is set
+- an aggregate-safe profile benchmark at `slack-mirror search profile-benchmark`, which compares named profiles and opt-in corpus fusion methods against a JSONL benchmark dataset without emitting per-query detail unless `--include-details` is set; corpus aggregates score result rows once while allowing each row's stable label alternatives to match
 - a non-content benchmark diagnostic at `slack-mirror search benchmark-diagnose`, which reports expected target ranks, profile-to-profile movement, top result labels, and compact lane contribution metadata without emitting Slack bodies by default
 - a read-only query-variant benchmark at `slack-mirror search benchmark-query-variants`, which compares deterministic query rewrites and authored `query_variants` fixture values without changing production query behavior
 - bounded exact-scan discipline for the shipped SQLite path:

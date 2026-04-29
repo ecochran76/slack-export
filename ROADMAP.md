@@ -428,6 +428,7 @@ Actionable plans:
 - `docs/dev/plans/0136-2026-04-28-domain-alias-candidate-generation.md`
 - `docs/dev/plans/0137-2026-04-28-source-intent-ranking-priors.md`
 - `docs/dev/plans/0138-2026-04-28-corpus-source-diversity-ordering.md`
+- `docs/dev/plans/0139-2026-04-28-benchmark-row-level-metrics.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -642,6 +643,16 @@ Current state:
     `438.661 ms`
   - hit@3 remains `0.222222`, so remaining quality work should focus on
     target-specific semantic retrieval or explicit grouped result presentation
+- the benchmark row-level metrics slice is complete under `0139`:
+  - aggregate corpus benchmark metrics now score result rows rather than
+    flattened label alternatives, aligning `profile-benchmark` with
+    `benchmark-diagnose` row-rank semantics
+  - managed baseline evidence after the correction is hit@3 `0.666667`,
+    hit@10 `1.0`, nDCG@k `0.526822`, MRR@k `0.504762`, and p95 latency
+    `435.95 ms`
+  - the remaining managed baseline benchmark failure is low nDCG@k, so the
+    next relevance work should focus on rank quality rather than treating
+    hit@3/hit@10 as the primary blockers
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:
