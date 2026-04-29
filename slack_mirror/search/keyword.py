@@ -398,6 +398,8 @@ def _rank_rows(
     *,
     term_aliases: dict[str, tuple[str, ...]] | None = None,
     term_weight: float = 5.0,
+    term_hit_cap: int = 2,
+    coverage_weight: float = 8.0,
     alias_weight: float = 2.0,
     channel_label_weight: float = 30.0,
     link_weight: float = 1.0,
@@ -420,19 +422,27 @@ def _rank_rows(
         channel_text = f"{r.get('channel_id') or ''} {r.get('channel_name') or ''}".lower()
         term_hits = 0
         alias_hits = 0
+        coverage_hits = 0
         channel_term_hits = 0
+        per_term_cap = max(1, int(term_hit_cap or 1))
         for t in positive_terms:
             tt = (t or "").lower().strip()
             if tt:
-                term_hits += text.count(tt)
+                exact_count = text.count(tt)
+                term_hits += min(exact_count, per_term_cap)
+                covered = exact_count > 0
                 if tt not in _GENERIC_CHANNEL_LABEL_TERMS:
-                    channel_term_hits += channel_text.count(tt)
+                    channel_count = channel_text.count(tt)
+                    channel_term_hits += channel_count
+                    covered = covered or channel_count > 0
                 alias_group_hit = False
                 for alias in (term_aliases or {}).get(t, ()):
                     alias_text = alias.lower().strip()
                     if alias_text and alias_text in text:
                         alias_group_hit = True
                 alias_hits += 1 if alias_group_hit else 0
+                covered = covered or alias_group_hit
+                coverage_hits += 1 if covered else 0
 
         has_link = ("http://" in text) or ("https://" in text)
         is_thread = bool(r.get("thread_ts"))
@@ -445,6 +455,7 @@ def _rank_rows(
 
         score = (
             (term_hits * term_weight)
+            + (coverage_hits * coverage_weight)
             + (alias_hits * alias_weight)
             + (channel_term_hits * channel_label_weight)
             + (link_weight if has_link else 0.0)

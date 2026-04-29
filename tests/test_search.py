@@ -553,6 +553,25 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(report["hit_at_3"], 1.0)
             self.assertAlmostEqual(report["mrr_at_k"], 1 / 3, places=6)
 
+    def test_keyword_search_prefers_distinct_query_coverage_over_repetition(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "spam"})
+            upsert_channel(conn, ws_id, {"id": "C2", "name": "target"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "nylon nylon nylon nylon nylon", "user": "U1"})
+            upsert_message(conn, ws_id, "C2", {"ts": "2.0", "text": "nylon research", "user": "U1"})
+            reindex_messages_fts(conn, workspace_id=ws_id)
+
+            rows = search_messages(conn, workspace_id=ws_id, query="nylon research", mode="lexical", limit=2)
+
+            self.assertEqual(rows[0]["channel_id"], "C2")
+
     def test_search_derived_text_rows(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

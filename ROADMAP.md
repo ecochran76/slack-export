@@ -429,6 +429,7 @@ Actionable plans:
 - `docs/dev/plans/0137-2026-04-28-source-intent-ranking-priors.md`
 - `docs/dev/plans/0138-2026-04-28-corpus-source-diversity-ordering.md`
 - `docs/dev/plans/0139-2026-04-28-benchmark-row-level-metrics.md`
+- `docs/dev/plans/0140-2026-04-28-lexical-coverage-rank-quality.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -653,6 +654,15 @@ Current state:
   - the remaining managed baseline benchmark failure is low nDCG@k, so the
     next relevance work should focus on rank quality rather than treating
     hit@3/hit@10 as the primary blockers
+- the lexical coverage rank-quality slice is complete under `0140`:
+  - baseline lexical ranking now caps repeated exact hits per query term and
+    adds distinct query-concept coverage evidence
+  - managed baseline benchmark status improved to `pass_with_warnings`, with
+    no failure codes, hit@3 `0.666667`, hit@10 `1.0`, nDCG@k `0.602684`,
+    MRR@k `0.60119`, and p95 latency `487.751 ms`
+  - BGE and learned rerank still are not promoted; pre-slice comparison showed
+    `local-bge-http` effectively tied with baseline and
+    `local-bge-http-rerank` lower quality plus slower
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

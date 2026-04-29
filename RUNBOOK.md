@@ -5574,3 +5574,32 @@ This file is the dated turn log for planning and execution continuity.
     including top-3 hits for `Nylon-5,9`, `polyamide monomers`,
     `nylon polymer synthesis`, `research website nylon`, `REU nylon project`,
     and `polyamide research source`
+
+## Turn 292 | 2026-04-28
+
+- Opened the next bounded P10 relevance slice:
+  - `docs/dev/plans/0140-2026-04-28-lexical-coverage-rank-quality.md`
+- Initial diagnosis:
+  - managed baseline after `0139` has acceptable hit coverage but still fails
+    nDCG@k
+  - `local-bge-http` remains effectively tied with baseline after the metric
+    correction, while `local-bge-http-rerank` is lower quality and slower
+  - degraded query reports show repeated single-term lexical matches outranking
+    rows that cover more distinct query concepts
+- Implemented and closed the slice:
+  - capped exact lexical repetition at two hits per query term during ranking
+  - added a distinct query-concept coverage component across exact term hits,
+    alias-group hits, and non-generic source-label hits
+  - kept candidate generation and CLI/API/MCP result contracts unchanged
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_keyword_search_prefers_distinct_query_coverage_over_repetition tests.test_search.SearchTests.test_keyword_search_messages tests.test_search.SearchTests.test_keyword_search_uses_domain_alias_fallback_without_displacing_exact_hits tests.test_search.SearchTests.test_evaluate_corpus_search_scores_result_rows_not_flattened_labels -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/keyword.py tests/test_search.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed baseline `profile-benchmark` improved to `pass_with_warnings`
+    with no failure codes, hit@3 `0.666667`, hit@10 `1.0`, nDCG@k
+    `0.602684`, MRR@k `0.60119`, and p95 latency `487.751 ms`
+  - managed compact `benchmark-diagnose` showed `nylon research` moving
+    `general` from rank 5 to rank 2, `research website nylon` moving
+    `website` from rank 2 to rank 1, and `REU nylon project` moving
+    `reu2022` from rank 2 to rank 1 while preserving hit@10 `1.0`
