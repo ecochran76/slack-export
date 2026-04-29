@@ -56,6 +56,46 @@ def _rank_by_key(rows: list[dict[str, Any]], key_fn) -> dict[tuple[str, str], in
     return ranks
 
 
+def _source_diversity_key(row: dict[str, Any]) -> str:
+    result_kind = str(row.get("result_kind") or "")
+    if result_kind == "message":
+        return f"message:{row.get('channel_id') or row.get('source_label') or ''}"
+    if result_kind == "derived_text":
+        return f"derived:{row.get('source_kind') or ''}:{row.get('source_id') or row.get('source_label') or ''}"
+    return str(row.get("source_label") or row.get("channel_name") or row.get("source_id") or "")
+
+
+def _source_diversified_order(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(rows) <= 2:
+        return rows
+
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    source_order: list[str] = []
+    for row in rows:
+        key = _source_diversity_key(row)
+        if key not in buckets:
+            buckets[key] = []
+            source_order.append(key)
+        buckets[key].append(row)
+
+    if len(source_order) <= 1:
+        return rows
+
+    ordered: list[dict[str, Any]] = []
+    depth = 0
+    while len(ordered) < len(rows):
+        added = False
+        for key in source_order:
+            bucket = buckets[key]
+            if depth < len(bucket):
+                ordered.append(bucket[depth])
+                added = True
+        if not added:
+            break
+        depth += 1
+    return ordered
+
+
 def _attach_explain(
     row: dict[str, Any],
     *,
@@ -205,6 +245,7 @@ def _search_corpus_rows(
         )
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+        merged = _source_diversified_order(merged)
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
@@ -253,6 +294,7 @@ def _search_corpus_rows(
         )
         merged = msg_rows + derived_rows
         merged.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+        merged = _source_diversified_order(merged)
         for row in merged:
             row["workspace_id"] = workspace_id
             row["workspace"] = workspace_name
@@ -408,6 +450,7 @@ def _search_corpus_rows(
         key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""),
         reverse=True,
     )
+    out = _source_diversified_order(out)
     for row in out:
         row["workspace_id"] = workspace_id
         row["workspace"] = workspace_name
@@ -584,6 +627,7 @@ def _search_corpus_multi_rows(
         rows.sort(key=lambda x: (float(x.get("_semantic_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
     else:
         rows.sort(key=lambda x: (float(x.get("_hybrid_score") or 0.0), x.get("sort_ts") or ""), reverse=True)
+    rows = _source_diversified_order(rows)
     if rerank:
         rows = rerank_rows(rows, query=query, top_n=rerank_top_n, provider=reranker_provider)
     return rows

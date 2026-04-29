@@ -721,6 +721,27 @@ class SearchTests(unittest.TestCase):
             self.assertEqual([row["result_kind"] for row in filtered], ["message"])
             self.assertEqual(filtered[0]["ts"], "10.0")
 
+    def test_search_corpus_interleaves_repeated_sources_without_dropping_rows(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+
+            ws_id = upsert_workspace(conn, name="default")
+            upsert_channel(conn, ws_id, {"id": "C1", "name": "busy"})
+            upsert_channel(conn, ws_id, {"id": "C2", "name": "target"})
+            upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example"})
+            upsert_message(conn, ws_id, "C1", {"ts": "1.0", "text": "incident incident incident incident", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "2.0", "text": "incident incident incident", "user": "U1"})
+            upsert_message(conn, ws_id, "C2", {"ts": "3.0", "text": "incident", "user": "U1"})
+            reindex_messages_fts(conn, workspace_id=ws_id)
+
+            rows = search_corpus(conn, workspace_id=ws_id, query="incident", limit=3, mode="lexical")
+
+            self.assertEqual([row["channel_name"] for row in rows], ["busy", "target", "busy"])
+            self.assertEqual(len(rows), 3)
+
     def test_derived_text_file_operators_filter_metadata(self):
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "mirror.db"

@@ -162,6 +162,7 @@ The current repo has:
 - corpus hybrid search now has explicit fusion policy controls:
   - `weighted` preserves the current release-safe weighted score behavior
   - `rrf` enables opt-in reciprocal-rank fusion for deterministic lexical/semantic candidate blending
+- corpus search applies source-diversified ordering after scoring so first-page results avoid repeated-source clutter without dropping duplicate-source rows or changing per-row score metadata
 - corpus results now include machine-readable `_explain` metadata with source, fusion method, lane ranks, score breakdown, weights, and rerank provider when applicable
 - corpus results now include stable `action_target` metadata for message and derived-text hits so agents and future browser workflows can select candidates for export/report/action handoff without re-parsing display fields
 - message lexical candidate generation now has bounded source-label and domain-alias fallbacks, so plain source-oriented queries can match mirrored channel ids/names and narrow domain paraphrases such as `polyamide`/`nylon` can use indexed alias candidates without requiring explicit query syntax

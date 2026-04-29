@@ -427,6 +427,7 @@ Actionable plans:
 - `docs/dev/plans/0135-2026-04-28-source-label-candidate-generation.md`
 - `docs/dev/plans/0136-2026-04-28-domain-alias-candidate-generation.md`
 - `docs/dev/plans/0137-2026-04-28-source-intent-ranking-priors.md`
+- `docs/dev/plans/0138-2026-04-28-corpus-source-diversity-ordering.md`
 
 Current state:
 - the repo already has lexical, semantic, and hybrid search, plus first-class derived-text and chunk storage
@@ -632,6 +633,15 @@ Current state:
     hit@10 and hit@3 held at `0.777778` and `0.222222`
   - remaining misses should be handled through grouping/source-prior review
     rather than another small alias expansion
+- the corpus source-diversity ordering slice is complete under `0138`:
+  - corpus search now interleaves repeated-source rows after scoring without
+    dropping rows or mutating score metadata
+  - managed baseline hit@10 improved from `0.777778` to `0.888889`
+  - managed baseline nDCG@k improved from `0.253767` to `0.286554`, MRR@k
+    improved from `0.214815` to `0.244444`, and p95 latency improved to
+    `438.661 ms`
+  - hit@3 remains `0.222222`, so remaining quality work should focus on
+    target-specific semantic retrieval or explicit grouped result presentation
 
 Remaining project phases:
 1. live relevance rehearsal and benchmark lock:

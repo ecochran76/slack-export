@@ -5512,3 +5512,35 @@ This file is the dated turn log for planning and execution continuity.
     measured p95 latency at `450.851 ms`
   - managed compact `benchmark-diagnose` showed `REU nylon project` now ranks
     `reu2022` at 3 while preserving the earlier `nylon research` top-10 hits
+
+## Turn 290 | 2026-04-28
+
+- Opened the next bounded P10 relevance slice:
+  - `docs/dev/plans/0138-2026-04-28-corpus-source-diversity-ordering.md`
+- Initial diagnosis:
+  - remaining misses are no longer mainly alias gaps
+  - several top result windows are duplicate-heavy by source/channel
+  - source-diversity simulation without dropping rows would move `website`
+    into top 10 for `nylon research` and move `reu2022` to rank 2 for
+    `REU nylon project`
+  - this slice will operate at corpus result ordering, not message-level
+    lexical score mutation
+- Implemented and closed the slice:
+  - added corpus-level source-diversified ordering after scoring
+  - applied it to lexical, semantic, hybrid, and multi-workspace corpus result
+    sets
+  - preserved per-row score and explain metadata
+  - kept duplicate-source rows available by interleaving rather than capping or
+    hiding them
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_search_corpus_interleaves_repeated_sources_without_dropping_rows tests.test_search.SearchTests.test_search_corpus_combines_messages_and_derived_text tests.test_search.SearchTests.test_evaluate_corpus_search_threads_fusion_method -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/search/corpus.py tests/test_search.py`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - managed baseline `profile-benchmark` improved hit@10 from `0.777778` to
+    `0.888889`, nDCG@k from `0.253767` to `0.286554`, MRR@k from `0.214815`
+    to `0.244444`, p95 latency from `450.851 ms` to `438.661 ms`, and kept
+    hit@3 at `0.222222`
+  - managed compact `benchmark-diagnose` showed `website` now enters top 10
+    for `nylon research` and `polyamide monomers`, and `REU nylon project`
+    now ranks `reu2022` at 2 and `general` at 3
