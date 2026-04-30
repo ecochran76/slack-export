@@ -5659,3 +5659,23 @@ This file is the dated turn log for planning and execution continuity.
   - `curl -sS 'http://127.0.0.1:8787/v1/service-profile'` returned `ok: true`
     with `guestGrants.assertionsUnderstood: true`, four guest-safe artifact
     routes, and explicit local-only mutation/search routes
+
+## Turn 295 | 2026-04-30
+
+- Left a Receipts-directed handoff note for guest preview mention rendering:
+  - `docs/dev/notes/0005-2026-04-30-receipts-guest-preview-mention-labels.md`
+- Context:
+  - Receipts validated a real guest bundle from one live Slack result and one
+    live IM result.
+  - The Slack result preview supplied useful title, location, participant, and
+    timestamp fields.
+  - The remaining Slack-owned quality gap is snippet text that can still show
+    generic `@Slack user` placeholders in guest review.
+- Requested child-owned follow-up:
+  - expose guest-safe rendered mention labels in selected-result summaries
+    where policy allows
+  - keep raw Slack ids in native/provenance/debug fields rather than making
+    Receipts infer display identities
+- Validation:
+  - docs-only handoff slice
+  - `git diff --check`
