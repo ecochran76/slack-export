@@ -724,6 +724,7 @@ Actionable plans:
 - `docs/dev/plans/0126-2026-04-26-receipts-event-emission-handoff.md`
 - `docs/dev/plans/0127-2026-04-27-receipts-live-view-readiness.md`
 - `docs/dev/plans/0142-2026-04-29-receipts-guest-grants-service-profile.md`
+- `docs/dev/plans/0143-2026-04-30-guest-safe-mention-rendering.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -796,6 +797,10 @@ Current state:
     routes, accepted signature modes, and recognized permissions
   - the managed API service has been refreshed/restarted and now serves the
     policy object at `http://127.0.0.1:8787/v1/service-profile`
+- Receipts guest previews now have a Slack-owned path to avoid generic mention
+  fallbacks: message corpus rows expose guest-safe `matched_text`, selected-result
+  context/event `text` uses locally resolved Slack display labels, and changed
+  rows retain `raw_text` for child-owned provenance/debugging.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

@@ -8,6 +8,7 @@ from slack_mirror.search.derived_text import search_derived_text, search_derived
 from slack_mirror.search.keyword import search_messages
 from slack_mirror.search.query_syntax import has_message_context_operator
 from slack_mirror.search.rerankers import RerankerProvider, rerank_rows
+from slack_mirror.core.slack_text import render_guest_safe_user_mentions, slack_user_mention_ids, workspace_user_mention_labels
 
 FUSION_WEIGHTED = "weighted"
 FUSION_RRF = "rrf"
@@ -186,6 +187,26 @@ def _attach_action_target(row: dict[str, Any], *, workspace_id: int, workspace_n
     return row
 
 
+def _attach_guest_safe_message_text(conn: sqlite3.Connection, rows: list[dict[str, Any]], *, workspace_id: int) -> None:
+    mention_ids: set[str] = set()
+    for row in rows:
+        if row.get("result_kind") == "message":
+            mention_ids.update(slack_user_mention_ids(row.get("text")))
+    mention_labels = workspace_user_mention_labels(conn, workspace_id=workspace_id, user_ids=mention_ids)
+    for row in rows:
+        if row.get("result_kind") != "message" or "text" not in row:
+            continue
+        raw_text = str(row.get("text") or "")
+        rendered_text = render_guest_safe_user_mentions(raw_text, mention_labels)
+        row["matched_text"] = rendered_text
+        if rendered_text != raw_text:
+            row["text_rendering"] = {
+                "kind": "slack_mrkdwn_guest_safe",
+                "mentions": "user_display_labels",
+                "unresolved_user_placeholder": "@unresolved-slack-user",
+            }
+
+
 def _search_corpus_rows(
     conn: sqlite3.Connection,
     *,
@@ -256,6 +277,7 @@ def _search_corpus_rows(
             for row in merged:
                 _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
                 _attach_explain(row, mode="lexical")
+        _attach_guest_safe_message_text(conn, merged, workspace_id=workspace_id)
         return merged
 
     if mode == "semantic":
@@ -305,6 +327,7 @@ def _search_corpus_rows(
             for row in merged:
                 _attach_action_target(row, workspace_id=workspace_id, workspace_name=workspace_name)
                 _attach_explain(row, mode="semantic")
+        _attach_guest_safe_message_text(conn, merged, workspace_id=workspace_id)
         return merged
 
     msg_lexical = (
@@ -467,6 +490,7 @@ def _search_corpus_rows(
                 semantic_weight=semantic_weight,
                 semantic_scale=semantic_scale,
             )
+    _attach_guest_safe_message_text(conn, out, workspace_id=workspace_id)
     return out
 
 

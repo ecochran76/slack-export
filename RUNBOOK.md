@@ -5679,3 +5679,31 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - docs-only handoff slice
   - `git diff --check`
+
+## Turn 296 | 2026-04-30
+
+- Opened the next bounded P12 Receipts convergence slice:
+  - `docs/dev/plans/0143-2026-04-30-guest-safe-mention-rendering.md`
+- Initial diagnosis:
+  - Receipts guest preview snippets are built from Slack search/context display
+    text that can still contain raw `<@U...>` mentions.
+  - Receipts can normalize labeled Slack mrkdwn but should not guess Slack user
+    IDs; Slack Mirror owns local identity resolution and privacy policy.
+- Implemented:
+  - added shared Slack text helpers for user mention ID extraction and
+    guest-safe rendering from the local user table
+  - made corpus search message rows expose rendered `matched_text` while
+    leaving raw `text` intact
+  - made selected-result context/event `text` use rendered display labels and
+    preserve `raw_text` plus rendering metadata when the text changes
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_search.SearchTests.test_search_corpus_combines_messages_and_derived_text -v`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_search.SearchTests.test_search_corpus_combines_messages_and_derived_text tests.test_api_server.ApiServerTests.test_search_endpoints -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/core/slack_text.py slack_mirror/service/app.py slack_mirror/search/corpus.py tests/test_app_service.py tests/test_search.py`
+  - planning contract audit returned `ok: true`
+  - `git diff --check`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - restarted `slack-mirror-api.service`
+  - `curl -sS http://127.0.0.1:8787/v1/service-profile` returned `ok: true`
+  - `curl -sS http://127.0.0.1:8787/v1/health` returned `ok: true`

@@ -215,6 +215,7 @@ class AppServiceTests(unittest.TestCase):
         workspace_id = service.workspace_id(conn, "default")
         upsert_channel(conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
         upsert_user(conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_user(conn, workspace_id, {"id": "U2", "name": "alex", "real_name": "Alex Analyst"})
         upsert_message(
             conn,
             workspace_id,
@@ -222,7 +223,7 @@ class AppServiceTests(unittest.TestCase):
             {
                 "ts": "11.0",
                 "user": "U1",
-                "text": "selected message",
+                "text": "selected message for <@U2> and <@U404>",
                 "channel": "C123",
             },
         )
@@ -256,9 +257,12 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(event["timestamp"], "1970-01-01T00:00:11Z")
         self.assertEqual(event["source_refs"]["ts"], "11.0")
         self.assertEqual(event["action_target"]["kind"], "message")
-        self.assertEqual(event["text"], "selected message")
+        self.assertEqual(event["text"], "selected message for @Alex Analyst and @unresolved-slack-user")
+        self.assertEqual(artifact["context_pack"]["items"][0]["hit"]["text"], "selected message for @Alex Analyst and @unresolved-slack-user")
+        self.assertEqual(artifact["context_pack"]["items"][0]["hit"]["raw_text"], "selected message for <@U2> and <@U404>")
         self.assertIn("Message context: general", index_html)
-        self.assertIn("selected message", index_html)
+        self.assertIn("selected message for @Alex Analyst and @unresolved-slack-user", index_html)
+        self.assertNotIn("@Slack user", index_html)
         self.assertIn("selected-results.json", index_html)
         self.assertIn("report-toolbar", index_html)
         self.assertIn("Print / Save PDF", index_html)

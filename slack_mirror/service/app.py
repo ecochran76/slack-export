@@ -24,6 +24,7 @@ from slack_mirror.core.db import (
     list_workspaces,
     upsert_workspace,
 )
+from slack_mirror.core.slack_text import render_guest_safe_user_mentions, slack_user_mention_ids, workspace_user_mention_labels
 from slack_mirror.exports import (
     build_export_id,
     build_export_manifest,
@@ -437,6 +438,7 @@ def _project_context_message(
     selected: bool,
     include_text: bool,
     max_text_chars: int,
+    mention_labels: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     payload = dict(row)
     result = {
@@ -455,7 +457,16 @@ def _project_context_message(
         "selected": bool(selected),
     }
     if include_text:
-        result["text"] = _truncate_text(payload.get("text"), max_text_chars)
+        raw_text = _truncate_text(payload.get("text"), max_text_chars)
+        guest_safe_text = render_guest_safe_user_mentions(raw_text, mention_labels or {})
+        result["text"] = guest_safe_text
+        if guest_safe_text != raw_text:
+            result["raw_text"] = raw_text
+            result["text_rendering"] = {
+                "kind": "slack_mrkdwn_guest_safe",
+                "mentions": "user_display_labels",
+                "unresolved_user_placeholder": "@unresolved-slack-user",
+            }
     return result
 
 
@@ -1918,14 +1929,43 @@ class SlackMirrorAppService:
             """,
             (workspace_id, channel_id, ts, after),
         ).fetchall()
+        message_rows = [*reversed(before_rows), hit, *after_rows]
+        mention_ids: set[str] = set()
+        for row in message_rows:
+            mention_ids.update(slack_user_mention_ids(dict(row).get("text")))
+        mention_labels = workspace_user_mention_labels(conn, workspace_id=workspace_id, user_ids=mention_ids)
         context = [
             *[
-                _project_context_message(row, workspace=workspace, relation="before", selected=False, include_text=include_text, max_text_chars=max_text_chars)
-                for row in reversed(before_rows)
+                _project_context_message(
+                    row,
+                    workspace=workspace,
+                    relation="before",
+                    selected=False,
+                    include_text=include_text,
+                    max_text_chars=max_text_chars,
+                    mention_labels=mention_labels,
+                )
+                for row in message_rows[: len(before_rows)]
             ],
-            _project_context_message(hit, workspace=workspace, relation="hit", selected=True, include_text=include_text, max_text_chars=max_text_chars),
+            _project_context_message(
+                hit,
+                workspace=workspace,
+                relation="hit",
+                selected=True,
+                include_text=include_text,
+                max_text_chars=max_text_chars,
+                mention_labels=mention_labels,
+            ),
             *[
-                _project_context_message(row, workspace=workspace, relation="after", selected=False, include_text=include_text, max_text_chars=max_text_chars)
+                _project_context_message(
+                    row,
+                    workspace=workspace,
+                    relation="after",
+                    selected=False,
+                    include_text=include_text,
+                    max_text_chars=max_text_chars,
+                    mention_labels=mention_labels,
+                )
                 for row in after_rows
             ],
         ]
@@ -1947,6 +1987,7 @@ class SlackMirrorAppService:
                 selected=True,
                 include_text=include_text,
                 max_text_chars=max_text_chars,
+                mention_labels=mention_labels,
             ),
             "context": context,
         }
@@ -2252,6 +2293,10 @@ class SlackMirrorAppService:
             """,
             (workspace_id, source_id, limit),
         ).fetchall()
+        mention_ids: set[str] = set()
+        for row in rows:
+            mention_ids.update(slack_user_mention_ids(dict(row).get("text")))
+        mention_labels = workspace_user_mention_labels(conn, workspace_id=workspace_id, user_ids=mention_ids)
         return [
             _project_context_message(
                 row,
@@ -2260,6 +2305,7 @@ class SlackMirrorAppService:
                 selected=False,
                 include_text=include_text,
                 max_text_chars=max_text_chars,
+                mention_labels=mention_labels,
             )
             for row in rows
         ]
