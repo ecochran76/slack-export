@@ -136,6 +136,26 @@ class ApiServerTests(unittest.TestCase):
             self.assertIn("eventDescriptors", profile_payload)
             self.assertEqual(profile_payload["events"]["cursor"]["owner"], "slack")
             self.assertEqual(profile_payload["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
+            guest_grants = profile_payload["guestGrants"]
+            self.assertTrue(guest_grants["assertionsUnderstood"])
+            self.assertEqual(guest_grants["defaultBehavior"], "local_only_unless_route_allows_guest_grant")
+            self.assertFalse(guest_grants["permissions"]["currentlyEnforced"])
+            self.assertIn("hmac-sha256", guest_grants["signatureModes"]["accepted"])
+            self.assertIn("report-artifact", guest_grants["targetKinds"])
+            self.assertGreaterEqual(len(guest_grants["routes"]), 4)
+            for route in guest_grants["routes"]:
+                self.assertEqual(route["methods"], ["GET"])
+                self.assertTrue(route["routeTemplate"])
+                self.assertTrue(route["guestSafe"])
+                self.assertTrue(route["honorsAssertion"])
+                self.assertIn("report-artifact", route["targetKinds"])
+            local_templates = {route["routeTemplate"] for route in guest_grants["localOnlyRoutes"]}
+            self.assertIn("/v1/exports", local_templates)
+            self.assertIn("/v1/search", local_templates)
+            for route in guest_grants["localOnlyRoutes"]:
+                self.assertTrue(route["methods"])
+                self.assertTrue(route["routeTemplate"])
+                self.assertTrue(route["reason"])
             self.assertIn(
                 {"name": "participant", "support": "supported"},
                 profile_payload["queryOperators"],

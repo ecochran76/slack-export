@@ -723,6 +723,7 @@ Actionable plans:
 - `docs/dev/plans/0125-2026-04-26-receipts-guest-grant-assertion-handoff.md`
 - `docs/dev/plans/0126-2026-04-26-receipts-event-emission-handoff.md`
 - `docs/dev/plans/0127-2026-04-27-receipts-live-view-readiness.md`
+- `docs/dev/plans/0142-2026-04-29-receipts-guest-grants-service-profile.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -789,6 +790,12 @@ Current state:
   `NOT_FOUND` runtime gap for `/v1/events` was caused by a stale managed API
   install and was addressed by refreshing the user-scoped editable install and
   restarting `slack-mirror-api.service`.
+- the Receipts guest-grant route-policy handoff is complete under `0142`:
+  - `/v1/service-profile` now exposes a concrete `guestGrants` object with
+    guest-safe export/report artifact read routes, local-only mutation/search
+    routes, accepted signature modes, and recognized permissions
+  - the managed API service has been refreshed/restarted and now serves the
+    policy object at `http://127.0.0.1:8787/v1/service-profile`
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

@@ -139,3 +139,11 @@ documentation. Receipts already sends `hmac-sha256` signatures when
   - open Reports Guest Bundle;
   - confirm Slack row changes from pending route-policy gap to ready.
 
+## Status
+
+ADDRESSED IN SOURCE. Plan
+`docs/dev/plans/0142-2026-04-29-receipts-guest-grants-service-profile.md`
+adds the concrete `guestGrants` route-policy object to
+`GET /v1/service-profile`. The managed runtime was refreshed and
+`slack-mirror-api.service` was restarted; `http://127.0.0.1:8787/v1/service-profile`
+now returns the policy object for Receipts to consume.

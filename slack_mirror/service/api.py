@@ -487,6 +487,76 @@ def _service_profile_payload() -> dict[str, Any]:
             "descriptors": child_event_descriptors(),
         },
         "eventDescriptors": child_event_descriptors(),
+        "guestGrants": {
+            "assertionsUnderstood": True,
+            "defaultBehavior": "local_only_unless_route_allows_guest_grant",
+            "permissions": {
+                "currentlyEnforced": False,
+                "recognized": ["view", "download", "open-artifact"],
+            },
+            "routes": [
+                {
+                    "methods": ["GET"],
+                    "routeTemplate": "/exports/{exportId}",
+                    "guestSafe": True,
+                    "honorsAssertion": True,
+                    "targetKinds": ["artifact", "report-artifact"],
+                },
+                {
+                    "methods": ["GET"],
+                    "routeTemplate": "/exports/{exportId}/{path}",
+                    "guestSafe": True,
+                    "honorsAssertion": True,
+                    "targetKinds": ["artifact", "report-artifact"],
+                },
+                {
+                    "methods": ["GET"],
+                    "routeTemplate": "/exports/{exportId}/{path}/preview",
+                    "guestSafe": True,
+                    "honorsAssertion": True,
+                    "targetKinds": ["artifact", "report-artifact"],
+                },
+                {
+                    "methods": ["GET"],
+                    "routeTemplate": "/v1/exports/{exportId}",
+                    "guestSafe": True,
+                    "honorsAssertion": True,
+                    "targetKinds": ["artifact", "report-artifact"],
+                },
+            ],
+            "localOnlyRoutes": [
+                {
+                    "methods": ["GET"],
+                    "routeTemplate": "/v1/exports",
+                    "reason": "Export listing remains a child-session/operator route.",
+                },
+                {
+                    "methods": ["POST"],
+                    "routeTemplate": "/v1/exports",
+                    "reason": "Export creation mutates Slack-owned artifact state.",
+                },
+                {
+                    "methods": ["POST"],
+                    "routeTemplate": "/v1/exports/{exportId}/rename",
+                    "reason": "Export rename mutates Slack-owned artifact state.",
+                },
+                {
+                    "methods": ["DELETE"],
+                    "routeTemplate": "/v1/exports/{exportId}",
+                    "reason": "Export deletion mutates Slack-owned artifact state.",
+                },
+                {
+                    "methods": ["GET"],
+                    "routeTemplate": "/v1/search",
+                    "reason": "Search exposes corpus data outside a selected report bundle.",
+                },
+            ],
+            "signatureModes": {
+                "accepted": ["unsigned", "hmac-sha256"],
+                "productionRecommended": "hmac-sha256",
+            },
+            "targetKinds": ["artifact", "report-artifact"],
+        },
         "ui": {
             "preferredIcon": "slack",
             "accent": "#4A154B",

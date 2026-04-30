@@ -428,12 +428,29 @@ Important fields for `/v1/service-profile`:
 - `routes`
 - `events`
 - `eventDescriptors`
+- `guestGrants`
 - `queryOperators`
 - `artifacts`
 - `sourceMetadata`
 - `ui`
 
 The profile route is intentionally readable without a child session so a parent BFF can discover Slack Mirror capabilities before deciding whether to show sign-in, search, report, and artifact-management controls. Protected operational routes still enforce Slack Mirror's child-session policy.
+
+`guestGrants` describes which Slack-owned routes can honor a parent guest-grant
+assertion. Slack Mirror currently marks only export/report artifact read routes
+as guest-safe:
+
+- `GET /exports/{exportId}`
+- `GET /exports/{exportId}/{path}`
+- `GET /exports/{exportId}/{path}/preview`
+- `GET /v1/exports/{exportId}`
+
+Each guest-safe route includes `guestSafe: true`, `honorsAssertion: true`, and
+`targetKinds` containing `artifact` and `report-artifact`. Listing, search,
+creation, rename, deletion, tenant, runtime, and workspace routes remain
+local-only child-session/operator routes. Unsigned assertions are accepted for
+local development when no shared secret is configured; `hmac-sha256` is the
+recommended production signature mode.
 
 `GET /v1/events` accepts:
 

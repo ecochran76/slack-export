@@ -5630,3 +5630,32 @@ This file is the dated turn log for planning and execution continuity.
     `nylon polymer synthesis` lacks `synthesis`,
     `monomer materials discussion` lacks `discussion`, and
     `nylon formulation notes` lacks `formulation` plus `notes`
+
+## Turn 294 | 2026-04-29
+
+- Opened the next bounded P12 Receipts convergence slice:
+  - `docs/dev/plans/0142-2026-04-29-receipts-guest-grants-service-profile.md`
+- Initial diagnosis:
+  - `docs/dev/notes/0004-2026-04-29-receipts-guest-grants-route-policy.md`
+    requests a concrete `guestGrants` route-policy object in
+    `/v1/service-profile`
+  - Slack Mirror already advertises `capabilities.guestGrants: true` and
+    accepts guest-grant assertion headers on artifact reads
+  - the current profile lacks the machine-readable route policy Receipts uses
+    for Reports Guest Bundle readiness
+- Implemented and closed the slice:
+  - added `guestGrants` to the service-profile payload
+  - marked only export/report artifact reads as guest-safe
+  - marked export list/create/rename/delete and search as local-only routes
+  - documented the route policy in `README.md` and
+    `docs/API_MCP_CONTRACT.md`
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow -v`
+  - `./.venv/bin/python -m py_compile slack_mirror/service/api.py tests/test_api_server.py`
+  - `git diff --check`
+  - refreshed the managed editable install with
+    `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - restarted `slack-mirror-api.service`
+  - `curl -sS 'http://127.0.0.1:8787/v1/service-profile'` returned `ok: true`
+    with `guestGrants.assertionsUnderstood: true`, four guest-safe artifact
+    routes, and explicit local-only mutation/search routes
