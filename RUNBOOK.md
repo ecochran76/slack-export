@@ -5725,3 +5725,26 @@ This file is the dated turn log for planning and execution continuity.
     requires sender `user_label`, even when `matched_text` is correctly
     guest-safe; Receipts should add a preview-text assertion and allow bot
     sender rows when the rendered preview is safe.
+
+## Turn 298 | 2026-05-01
+
+- Reviewed Slack Export's current Receipts-facing development state from:
+  - `ROADMAP.md` P12 Communications Corpus Convergence
+  - `docs/API_MCP_CONTRACT.md`
+  - existing Receipts handoff notes under `docs/dev/notes/`
+  - service/profile, context-window, event, and guest-grant implementation
+    references in `slack_mirror/service/`
+- Left a new Receipts-directed Slack homework note:
+  - `docs/dev/notes/0007-2026-05-01-receipts-dev-state-homework.md`
+- Summary:
+  - Slack Export is already the strongest child reference for Receipts report,
+    selected-result export, guest-grant, context-window, and event-readiness
+    behavior.
+  - The next work should harden compatibility and child-owned API contracts
+    rather than making Slack Export the shared frontend.
+  - The note prioritizes a Receipts compatibility smoke gate, profile contract
+    tests, display/emoji fixture coverage, richer event readiness, and stable
+    tenant-maintenance APIs for the parent settings page.
+- Validation:
+  - docs-only handoff slice
+  - `git diff --check`
