@@ -5880,3 +5880,19 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 305 | 2026-05-01
+
+- Completed Receipts homework H6:
+  - `docs/dev/plans/0149-2026-05-01-receipts-reference-child-boundary-review.md`
+- Implemented:
+  - closed the original homework note at
+    `docs/dev/notes/0007-2026-05-01-receipts-dev-state-homework.md`
+  - added consolidated handoff note
+    `docs/dev/notes/0009-2026-05-01-receipts-h1-h6-contract-handoff.md`
+  - recorded the boundary that Receipts owns the shared parent UX while Slack
+    Export remains the Slack child owner for sync, storage, search, projection,
+    evidence, events, reports, tenant maintenance, and Slack guardrails
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

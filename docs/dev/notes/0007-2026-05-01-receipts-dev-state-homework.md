@@ -3,7 +3,7 @@
 Date: 2026-05-01
 From: `../receipts`
 Audience: Slack Export / Slack Mirror maintainers
-Status: OPEN
+Status: CLOSED
 
 ## Context
 
@@ -185,3 +185,8 @@ that includes:
 - changed API/profile fields or artifact fields
 - validation command and result
 - any remaining parent-side adaptation needed in Receipts
+
+Completion note:
+
+- Slack Export completed H1-H6 under plans `0144` through `0149`.
+- Consolidated handoff: `docs/dev/notes/0009-2026-05-01-receipts-h1-h6-contract-handoff.md`.

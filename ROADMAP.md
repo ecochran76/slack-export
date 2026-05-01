@@ -730,6 +730,7 @@ Actionable plans:
 - `docs/dev/plans/0146-2026-05-01-receipts-identity-display-fixtures.md`
 - `docs/dev/plans/0147-2026-05-01-receipts-event-readiness-lifecycle.md`
 - `docs/dev/plans/0148-2026-05-01-receipts-tenant-maintenance-capabilities.md`
+- `docs/dev/plans/0149-2026-05-01-receipts-reference-child-boundary-review.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -822,6 +823,11 @@ Current state:
   includes redacted per-tenant `maintenance_actions`, and
   `/v1/tenants/{tenant}` returns a focused status payload so Receipts settings
   pages do not need to scrape Slack-native HTML or infer action safety.
+- H6 reference-child boundary review is complete: Receipts owns the shared
+  parent UX shell, while Slack Export remains the Slack child-service reference
+  for sync, storage, search, projection, evidence, events, reports, tenant
+  maintenance, and Slack-native guardrails. Consolidated handoff:
+  `docs/dev/notes/0009-2026-05-01-receipts-h1-h6-contract-handoff.md`.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture
