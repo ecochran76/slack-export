@@ -5776,3 +5776,14 @@ This file is the dated turn log for planning and execution continuity.
   - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
   - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/health`
   - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
+
+## Turn 300 | 2026-05-01
+
+- Left the Receipts-facing H1 completion handoff:
+  - `docs/dev/notes/0008-2026-05-01-receipts-compatibility-smoke-ready.md`
+- References:
+  - implementation commit `b58bc25`
+  - fixture command `python scripts/smoke_receipts_compatibility.py --json`
+  - live command `python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
+- Validation:
+  - docs-only handoff slice
