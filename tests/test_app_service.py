@@ -491,6 +491,72 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual([item["timestamp"] for item in after["items"]], ["14.0"])
         self.assertFalse(after["pageInfo"]["hasAfter"])
 
+    def test_receipts_identity_display_fixture_preserves_guest_safe_text_and_raw_provenance(self):
+        workspace_id = self.service.workspace_id(self.conn, "default")
+        upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "eric", "profile": {"display_name": "Eric"}})
+        upsert_user(self.conn, workspace_id, {"id": "U2", "name": "alex", "real_name": "Alex Analyst"})
+        upsert_user(self.conn, workspace_id, {"id": "B1", "name": "formbot", "profile": {"display_name": "Slack Form Bot"}, "is_bot": True})
+        upsert_message(self.conn, workspace_id, "C123", {"ts": "10.0", "user": "U1", "text": "human mentions <@U2> :rocket:", "channel": "C123"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "11.0", "bot_id": "B1", "text": "bot form response for <@U2> :white_check_mark:", "channel": "C123"},
+        )
+        upsert_message(self.conn, workspace_id, "C123", {"ts": "12.0", "user": "U1", "text": "unresolved mention <@U404> :warning:", "channel": "C123"})
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C123",
+            {"ts": "13.0", "user": "U1", "subtype": "message_deleted", "text": "redacted/deleted <@U2> :x:", "channel": "C123"},
+        )
+
+        context_pack = self.service.build_search_context_pack(
+            self.conn,
+            targets=[{"kind": "message", "workspace": "default", "channel_id": "C123", "ts": "11.0"}],
+            before=1,
+            after=2,
+        )
+
+        item = context_pack["items"][0]
+        rows_by_ts = {row["ts"]: row for row in item["context"]}
+        self.assertEqual(rows_by_ts["10.0"]["user_label"], "Eric")
+        self.assertEqual(rows_by_ts["10.0"]["text"], "human mentions @Alex Analyst 🚀")
+        self.assertEqual(rows_by_ts["10.0"]["raw_text"], "human mentions <@U2> :rocket:")
+        self.assertEqual(rows_by_ts["11.0"]["user_label"], "Slack Form Bot")
+        self.assertEqual(rows_by_ts["11.0"]["text"], "bot form response for @Alex Analyst ✅")
+        self.assertEqual(rows_by_ts["11.0"]["raw_text"], "bot form response for <@U2> :white_check_mark:")
+        self.assertEqual(rows_by_ts["11.0"]["text_rendering"]["emoji"], "common_unicode_aliases")
+        self.assertEqual(rows_by_ts["12.0"]["text"], "unresolved mention @unresolved-slack-user ⚠️")
+        self.assertEqual(rows_by_ts["12.0"]["raw_text"], "unresolved mention <@U404> :warning:")
+        self.assertTrue(rows_by_ts["13.0"]["deleted"])
+        self.assertEqual(rows_by_ts["13.0"]["text"], "redacted/deleted @Alex Analyst ❌")
+        self.assertEqual(rows_by_ts["13.0"]["raw_text"], "redacted/deleted <@U2> :x:")
+
+        events = SlackMirrorAppService._selected_result_events_projection(context_pack)
+        selected_event = next(event for event in events if event["selected"])
+        self.assertEqual(selected_event["participants"][0]["display_name"], "Slack Form Bot")
+        self.assertEqual(selected_event["text"], "bot form response for @Alex Analyst ✅")
+        self.assertEqual(selected_event["raw_text"], "bot form response for <@U2> :white_check_mark:")
+        self.assertEqual(selected_event["text_rendering"]["emoji"], "common_unicode_aliases")
+        self.assertEqual(selected_event["source_refs"]["channel_id"], "C123")
+        self.assertEqual(selected_event["source_refs"]["ts"], "11.0")
+        deleted_event = next(event for event in events if event["source_refs"]["ts"] == "13.0")
+        self.assertTrue(deleted_event["source_refs"]["deleted"])
+
+        context_window = self.service.build_context_window(self.conn, result_id="message|default|C123|11.0", limit=4)
+        window_by_ts = {row["timestamp"]: row for row in context_window["items"]}
+        self.assertEqual(window_by_ts["11.0"]["senderLabel"], "Slack Form Bot")
+        self.assertEqual(window_by_ts["11.0"]["text"], "bot form response for @Alex Analyst ✅")
+        self.assertEqual(window_by_ts["11.0"]["rawText"], "bot form response for <@U2> :white_check_mark:")
+        self.assertEqual(window_by_ts["11.0"]["textRendering"]["emoji"], "common_unicode_aliases")
+        self.assertEqual(window_by_ts["11.0"]["nativeIds"]["userId"], "B1")
+        self.assertEqual(window_by_ts["11.0"]["sourceRefs"]["ts"], "11.0")
+        self.assertEqual(window_by_ts["12.0"]["text"], "unresolved mention @unresolved-slack-user ⚠️")
+        self.assertTrue(window_by_ts["13.0"]["slack"]["deleted"])
+        self.assertEqual(window_by_ts["13.0"]["rawText"], "redacted/deleted <@U2> :x:")
+
     def test_build_context_window_uses_thread_stream_when_selected_message_is_in_thread(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
         upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})

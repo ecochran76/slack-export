@@ -528,6 +528,12 @@ The response is shaped for parent UX layers such as Receipts:
 - `scopeLabel`
 - `selectedItemId`
 - `items[]`
+  - `text` is the Receipts-facing display lane and may include safe user labels
+    plus common Unicode emoji aliases
+  - `rawText` and `textRendering` are present when Slack-native mrkdwn was
+    transformed for display
+  - `nativeIds`, `sourceRefs`, `sender`, and `actionTarget` preserve Slack-owned
+    provenance and stable expansion handles
 - `pageInfo.hasBefore`
 - `pageInfo.hasAfter`
 - `pageInfo.beforeCursor`
@@ -810,6 +816,11 @@ Important result fields:
 - `text`
 - `matched_text`
 - `snippet_text`
+- `text_rendering`
+  - present when Slack Mirror transformed Slack-native display text for a
+    guest-safe lane
+  - current transformations include user mention labels and common Unicode
+    emoji aliases
 - `chunk_index`
 - `start_offset`
 - `end_offset`
@@ -901,7 +912,10 @@ Current semantics:
 - message results reuse the existing message-search path
 - derived-text results reuse shared-core `derived_text` rows
 - long derived-text rows may be retrieved through chunk-level matches but still resolve to one owning derived-text result
-- `matched_text` and `snippet_text` are best-match snippet fields for long documents and OCR-heavy attachments
+- `matched_text` and `snippet_text` are best-match snippet fields for long
+  documents and OCR-heavy attachments; for Slack messages, `matched_text` is the
+  Receipts-facing display lane and may render `<@U...>` mentions as safe labels
+  plus common `:emoji:` aliases as Unicode while preserving raw Slack `text`
 - selected search candidates should be persisted or handed off using `action_target`, not by scraping labels, snippets, or score fields
 - derived-text semantic scoring currently uses the same local embedding baseline used elsewhere in-repo
 - cross-workspace corpus search is explicit rather than implicit:

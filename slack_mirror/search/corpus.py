@@ -203,6 +203,7 @@ def _attach_guest_safe_message_text(conn: sqlite3.Connection, rows: list[dict[st
             row["text_rendering"] = {
                 "kind": "slack_mrkdwn_guest_safe",
                 "mentions": "user_display_labels",
+                "emoji": "common_unicode_aliases",
                 "unresolved_user_placeholder": "@unresolved-slack-user",
             }
 

@@ -5808,3 +5808,28 @@ This file is the dated turn log for planning and execution continuity.
   - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/service-profile`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 302 | 2026-05-01
+
+- Continued Receipts homework H4:
+  - `docs/dev/plans/0146-2026-05-01-receipts-identity-display-fixtures.md`
+- Implemented:
+  - expanded Slack display rendering to common Unicode emoji aliases while
+    preserving unresolved-user placeholder behavior
+  - added emoji rendering metadata to corpus/context-pack display rows
+  - applied guest-safe display rendering to context-window text and preserved
+    `rawText` plus `textRendering`
+  - preserved `raw_text` and `text_rendering` in selected-result event
+    projections when display rendering changes Slack-native text
+  - added fixtures for human-authored, bot-authored, unresolved, and
+    deleted/redacted-style messages
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/core/slack_text.py slack_mirror/service/app.py slack_mirror/search/corpus.py tests/test_app_service.py tests/test_search.py`
+  - `./.venv/bin/python -m unittest tests.test_search.SearchTests.test_search_corpus_combines_messages_and_derived_text tests.test_app_service.AppServiceTests.test_receipts_identity_display_fixture_preserves_guest_safe_text_and_raw_provenance -v`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_create_selected_result_export_writes_context_artifact_and_manifest tests.test_app_service.AppServiceTests.test_build_context_window_pages_channel_messages_with_opaque_cursors tests.test_api_server.ApiServerTests.test_search_endpoints -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/health`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

@@ -719,7 +719,7 @@ class SearchTests(unittest.TestCase):
             upsert_channel(conn, ws_id, {"id": "C1", "name": "general"})
             upsert_user(conn, ws_id, {"id": "U1", "name": "alice", "real_name": "Alice Example", "profile": {"display_name": "alice"}})
             upsert_user(conn, ws_id, {"id": "U2", "name": "alex", "real_name": "Alex Analyst"})
-            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "incident review follow-up with <@U2> and <@U404>", "user": "U1"})
+            upsert_message(conn, ws_id, "C1", {"ts": "10.0", "text": "incident review follow-up with <@U2> and <@U404> :rocket:", "user": "U1"})
             conn.execute(
                 """
                 INSERT INTO files(workspace_id, file_id, name, title, mimetype, local_path, raw_json)
@@ -753,8 +753,9 @@ class SearchTests(unittest.TestCase):
             self.assertEqual(by_kind["message"]["user_name"], "alice")
             self.assertEqual(by_kind["message"]["user_display_name"], "alice")
             self.assertEqual(by_kind["message"]["user_label"], "alice")
-            self.assertEqual(by_kind["message"]["matched_text"], "incident review follow-up with @Alex Analyst and @unresolved-slack-user")
-            self.assertEqual(by_kind["message"]["text"], "incident review follow-up with <@U2> and <@U404>")
+            self.assertEqual(by_kind["message"]["matched_text"], "incident review follow-up with @Alex Analyst and @unresolved-slack-user 🚀")
+            self.assertEqual(by_kind["message"]["text"], "incident review follow-up with <@U2> and <@U404> :rocket:")
+            self.assertEqual(by_kind["message"]["text_rendering"]["emoji"], "common_unicode_aliases")
             message_target = by_kind["message"]["action_target"]
             self.assertEqual(message_target["kind"], "message")
             self.assertEqual(message_target["workspace_id"], ws_id)

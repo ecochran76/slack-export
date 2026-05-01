@@ -727,6 +727,7 @@ Actionable plans:
 - `docs/dev/plans/0143-2026-04-30-guest-safe-mention-rendering.md`
 - `docs/dev/plans/0144-2026-05-01-receipts-compatibility-smoke-gate.md`
 - `docs/dev/plans/0145-2026-05-01-receipts-service-profile-contract.md`
+- `docs/dev/plans/0146-2026-05-01-receipts-identity-display-fixtures.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -801,16 +802,18 @@ Current state:
     policy object at `http://127.0.0.1:8787/v1/service-profile`
 - Receipts guest previews now have a Slack-owned path to avoid generic mention
   fallbacks: message corpus rows expose guest-safe `matched_text`, selected-result
-  context/event `text` uses locally resolved Slack display labels, and changed
-  rows retain `raw_text` for child-owned provenance/debugging.
-- The current Receipts homework priority is a Slack-owned compatibility smoke
-  gate that validates the child-service profile, events, context-window,
-  selected-result artifact, and guest-grant route policy before parent UI
-  integration work relies on those surfaces.
-- The next Receipts homework slice is making `/v1/service-profile` the stable
-  contract authority for parent routing and feature gating, including explicit
-  UI ownership metadata that distinguishes shared Receipts UX from child-owned
-  Slack maintenance/runtime controls.
+  context/event text, and context-window text use locally resolved Slack display
+  labels plus common Unicode emoji aliases; changed rows retain raw Slack text
+  for child-owned provenance/debugging.
+- H1, H2, and H4 from the current Receipts homework are complete:
+  - H1 added the Slack-owned compatibility smoke gate.
+  - H2 hardened `/v1/service-profile` as the stable contract authority with
+    explicit UI ownership metadata.
+  - H4 pinned guest-facing identity/display fixtures across search,
+    context-window, selected-result artifacts, and event projections.
+- The next Receipts homework priority is H3 event readiness/lifecycle expansion
+  so Live View can explain current, empty, degraded, and behind states without
+  scraping logs.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

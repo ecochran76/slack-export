@@ -465,6 +465,7 @@ def _project_context_message(
             result["text_rendering"] = {
                 "kind": "slack_mrkdwn_guest_safe",
                 "mentions": "user_display_labels",
+                "emoji": "common_unicode_aliases",
                 "unresolved_user_placeholder": "@unresolved-slack-user",
             }
     return result
@@ -1000,6 +1001,10 @@ class SlackMirrorAppService:
         }
         if "text" in row:
             event["text"] = row.get("text")
+        if "raw_text" in row:
+            event["raw_text"] = row.get("raw_text")
+        if "text_rendering" in row:
+            event["text_rendering"] = row.get("text_rendering")
         return event
 
     @staticmethod
@@ -1456,6 +1461,8 @@ class SlackMirrorAppService:
             if normalized_direction == "before":
                 rows = list(reversed(rows))
 
+        mention_ids = {mention_id for row in rows for mention_id in slack_user_mention_ids(dict(row).get("text"))}
+        mention_labels = workspace_user_mention_labels(conn, workspace_id=workspace_id, user_ids=mention_ids)
         items = [
             self._project_context_window_message(
                 row,
@@ -1466,6 +1473,7 @@ class SlackMirrorAppService:
                 thread_root=thread_root,
                 include_text=include_text,
                 max_text_chars=text_limit,
+                mention_labels=mention_labels,
             )
             for row in rows
         ]
@@ -2073,6 +2081,7 @@ class SlackMirrorAppService:
         thread_root: str,
         include_text: bool,
         max_text_chars: int,
+        mention_labels: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         payload = dict(row)
         ts = str(payload.get("ts") or "")
@@ -2157,7 +2166,17 @@ class SlackMirrorAppService:
             },
         }
         if include_text:
-            item["text"] = _truncate_text(payload.get("text"), max_text_chars)
+            raw_text = _truncate_text(payload.get("text"), max_text_chars)
+            guest_safe_text = render_guest_safe_user_mentions(raw_text, mention_labels or {})
+            item["text"] = guest_safe_text
+            if guest_safe_text != raw_text:
+                item["rawText"] = raw_text
+                item["textRendering"] = {
+                    "kind": "slack_mrkdwn_guest_safe",
+                    "mentions": "user_display_labels",
+                    "emoji": "common_unicode_aliases",
+                    "unresolvedUserPlaceholder": "@unresolved-slack-user",
+                }
         return item
 
     def _message_context_row(
