@@ -958,6 +958,7 @@ Actionable plans:
 - `docs/dev/plans/0132-2026-04-28-release-candidate-version-cut.md`
 - `docs/dev/plans/0133-2026-04-28-v0-2-0-tag-and-post-release-dev-bump.md`
 - `docs/dev/plans/0134-2026-04-28-post-release-roadmap-realignment.md`
+- `docs/dev/plans/0150-2026-05-01-agent-skills-slack-mirror-mcp-workflows.md`
 
 Current state:
 - `v0.2.0` is tagged and pushed as the first stable MCP-capable user-scoped release
@@ -986,5 +987,8 @@ Current state:
 - the release-candidate version cut under `0132` moves the canonical package version to `0.2.0`; tagging/publishing remains a separate explicit release step after the strict clean managed-runtime gate passes
 - `v0.2.0` is tagged and pushed under `0133`; `master` is back on the `0.2.1-dev` development line for post-release work
 - post-release roadmap cleanup under `0134` closes this lane and routes active technical follow-up back to `P10` semantic retrieval quality
+- post-release skill usability under `0150` adds a dedicated `slack-mirror-send`
+  skill, upgrades `slack-mirror-search` for person/date query workflows, and
+  makes skill installation preserve unrelated runtime skills
 - this lane is closed; future release hardening should open a narrower
   post-release maintenance plan rather than reopening the first-release lane

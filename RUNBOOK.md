@@ -5896,3 +5896,27 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 306 | 2026-05-01
+
+- Added agent skills for Slack Mirror MCP workflows:
+  - `docs/dev/plans/0150-2026-05-01-agent-skills-slack-mirror-mcp-workflows.md`
+- Implemented:
+  - added `agent-skills/slack-mirror-send/SKILL.md` for outbound messages,
+    DM-style user targets, thread replies, bot-vs-user auth mode, and
+    idempotency keys
+  - updated `agent-skills/slack-mirror-search/SKILL.md` for MCP-first
+    person/date searches such as "What did Baker say about amazon today?"
+  - updated `agent-skills/slack-mirror-orchestrator/SKILL.md` to route outbound
+    sends
+  - hardened `scripts/install_agent_skills.sh` so it syncs only repo-owned
+    Slack Mirror skill folders and preserves unrelated installed skills
+  - installed updated skills to `~/.codex/skills`, `~/.openclaw/skills`, and
+    `~/.gemini/skills`
+- Validation:
+  - `bash -n scripts/install_agent_skills.sh`
+  - `scripts/install_agent_skills.sh --dry-run`
+  - temp-target install smoke preserving an unrelated skill folder
+  - skill frontmatter validation
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

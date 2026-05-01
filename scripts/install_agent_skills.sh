@@ -53,11 +53,20 @@ echo "Source: ${SRC_DIR}"
 for target in "${TARGETS[@]}"; do
   if [[ "${DRY_RUN}" == "true" ]]; then
     echo "[dry-run] would install to: ${target}"
+    for skill_dir in "${SRC_DIR}"/*; do
+      [[ -d "${skill_dir}" ]] || continue
+      echo "[dry-run]   $(basename "${skill_dir}")"
+    done
     continue
   fi
 
   mkdir -p "${target}"
-  rsync -a --delete "${SRC_DIR}/" "${target}/"
+  for skill_dir in "${SRC_DIR}"/*; do
+    [[ -d "${skill_dir}" ]] || continue
+    skill_name="$(basename "${skill_dir}")"
+    mkdir -p "${target}/${skill_name}"
+    rsync -a --delete "${skill_dir}/" "${target}/${skill_name}/"
+  done
   echo "Installed skills to: ${target}"
 
 done

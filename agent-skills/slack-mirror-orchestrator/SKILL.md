@@ -13,6 +13,7 @@ Use this skill as the top-level router for Slack Mirror tasks.
 - Use `slack-mirror-ingest` for backfill/hydration, auth-mode selection, file/canvas ingest, stalled runs.
 - Use `slack-mirror-search` for keyword/semantic queries, relevance sanity checks, scoped retrieval.
 - Use `slack-mirror-export` for channel/day exports, multi-day bundles, PDF formatting and attachments.
+- Use `slack-mirror-send` for outbound Slack messages, DMs, and thread replies through MCP/API.
 
 ## Orchestration rules
 
@@ -21,6 +22,7 @@ Use this skill as the top-level router for Slack Mirror tasks.
 3. Prefer deterministic checks after actions (service status, queue counts, query validation).
 4. When search quality is noisy, run lexical cross-checks and report both.
 5. If a run stalls, stop and pivot to bounded/safer pass rather than waiting indefinitely.
+6. For real outbound writes, require clear workspace, target, sender mode, and message text; use idempotency keys.
 
 ## Minimal validation checklist
 
@@ -28,3 +30,4 @@ Use this skill as the top-level router for Slack Mirror tasks.
 - Ingest change: verify message/file/canvas counts moved as expected.
 - Search change: verify keyword and semantic both return plausible hits.
 - Export change: produce output artifact path(s) and message count.
+- Outbound send: report status, channel id, timestamp, and idempotent replay state.

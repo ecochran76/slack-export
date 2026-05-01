@@ -37,6 +37,7 @@ For release smoke and unattended installs, treat `slack-mirror user-env check-li
 For release signoff from a repo checkout, use `slack-mirror release check --require-managed-runtime` to combine repo release discipline with the installed `slack-mirror-user user-env check-live --json` gate. Keep plain `slack-mirror release check` for repo-only development machines that do not have a managed install.
 
 For agent clients, use the managed MCP launcher at `~/.local/bin/slack-mirror-mcp` after `check-live` passes. The supported release-baseline MCP tool groups, outbound-write cautions, listener workflow, tracing flags, and non-goals are documented in [docs/API_MCP_CONTRACT.md](/home/ecochran76/workspace.local/slack-export/docs/API_MCP_CONTRACT.md#mcp-release-baseline).
+Repo-bundled agent skills for Slack Mirror search, send, ingest, live-ops, and export workflows live under `agent-skills/` and can be installed with `scripts/install_agent_skills.sh`.
 
 A fresh `user-env install` is intentionally narrower: it bootstraps the managed runtime, seeds the configured dotenv file if needed, and leaves workspace credentials plus live units for the later onboarding steps.
 
