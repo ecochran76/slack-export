@@ -179,6 +179,33 @@ class ApiServerTests(unittest.TestCase):
             self.assertIn(descriptor["privacy"], {"user", "metadata"})
             self.assertIn("owner", descriptor["safeForRoles"])
 
+        tenant_maintenance = profile["tenantMaintenance"]
+        self.assertEqual(tenant_maintenance["owner"], "slack")
+        self.assertEqual(tenant_maintenance["auth"], "child-session")
+        self.assertTrue(tenant_maintenance["sameOriginWrites"])
+        self.assertTrue(tenant_maintenance["credentialsRedacted"])
+        self.assertEqual(tenant_maintenance["listUrl"], "/v1/tenants")
+        self.assertEqual(tenant_maintenance["statusUrlTemplate"], "/v1/tenants/{tenant}")
+        self.assertEqual(tenant_maintenance["actionField"], "maintenance_actions")
+        tenant_action_ids = {item["id"] for item in tenant_maintenance["actions"]}
+        self.assertEqual(
+            tenant_action_ids,
+            {
+                "onboard",
+                "install_credentials",
+                "activate",
+                "start_live_sync",
+                "restart_live_sync",
+                "stop_live_sync",
+                "run_initial_sync",
+                "retire",
+            },
+        )
+        dangerous_actions = {item["id"] for item in tenant_maintenance["actions"] if item["dangerous"]}
+        self.assertEqual(dangerous_actions, {"stop_live_sync", "retire"})
+        confirming_actions = {item["id"] for item in tenant_maintenance["actions"] if item["requiresConfirmation"]}
+        self.assertEqual(confirming_actions, {"stop_live_sync", "retire"})
+
         source_metadata = profile["sourceMetadata"]
         self.assertIn("user_label", source_metadata["labelFields"])
         self.assertIn("channel", source_metadata["labelFields"])
@@ -440,6 +467,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(tenants.status_code, 200)
         self.assertTrue(tenants.json()["ok"])
         self.assertEqual(tenants.json()["tenants"][0]["name"], "default")
+        default_actions = {item["id"]: item for item in tenants.json()["tenants"][0]["maintenance_actions"]}
+        self.assertIn("install_credentials", default_actions)
+        self.assertFalse(default_actions["retire"]["enabled"])
+        self.assertTrue(default_actions["retire"]["dangerous"])
         self.assertNotIn("xoxb-test-token", json.dumps(tenants.json()))
 
         manifest_path = self.root / "polymer.rendered.json"
@@ -465,6 +496,14 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(updated.status_code, 200)
         tenant_names = [item["name"] for item in updated.json()["tenants"]]
         self.assertIn("polymer", tenant_names)
+        polymer = requests.get(f"{self.base_url}/v1/tenants/polymer", timeout=5)
+        self.assertEqual(polymer.status_code, 200)
+        self.assertTrue(polymer.json()["ok"])
+        self.assertEqual(polymer.json()["tenant"]["name"], "polymer")
+        polymer_actions = {item["id"]: item for item in polymer.json()["tenant"]["maintenance_actions"]}
+        self.assertFalse(polymer_actions["activate"]["enabled"])
+        self.assertEqual(polymer_actions["activate"]["disabled_reason"], "Required Slack credentials are missing.")
+        self.assertTrue(polymer_actions["retire"]["enabled"])
 
         manifest = requests.get(f"{self.base_url}/v1/tenants/polymer/manifest", timeout=5)
         self.assertEqual(manifest.status_code, 200)

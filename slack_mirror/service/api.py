@@ -496,6 +496,106 @@ def _service_profile_payload() -> dict[str, Any]:
             "descriptors": child_event_descriptors(),
         },
         "eventDescriptors": child_event_descriptors(),
+        "tenantMaintenance": {
+            "owner": "slack",
+            "auth": "child-session",
+            "sameOriginWrites": True,
+            "credentialsRedacted": True,
+            "listUrl": "/v1/tenants",
+            "statusUrlTemplate": "/v1/tenants/{tenant}",
+            "onboardUrl": "/v1/tenants/onboard",
+            "manifestUrlTemplate": "/v1/tenants/{tenant}/manifest",
+            "actionField": "maintenance_actions",
+            "actions": [
+                {
+                    "id": "onboard",
+                    "label": "Create disabled scaffold",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/onboard",
+                    "dangerous": False,
+                    "requiresConfirmation": False,
+                    "enabledWhen": "operator has child session",
+                    "bodyTemplate": {"name": "{tenant}", "domain": "{slackDomain}", "display_name": "{displayName}"},
+                },
+                {
+                    "id": "install_credentials",
+                    "label": "Install or rotate credentials",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/credentials",
+                    "dangerous": False,
+                    "requiresConfirmation": False,
+                    "enabledWhen": "tenant exists",
+                    "bodyTemplate": {"credentials": "{credential_fields}"},
+                },
+                {
+                    "id": "activate",
+                    "label": "Activate tenant",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/activate",
+                    "dangerous": False,
+                    "requiresConfirmation": False,
+                    "enabledWhen": "tenant is disabled and required credentials are present",
+                    "bodyTemplate": {"skip_live_units": False},
+                },
+                {
+                    "id": "start_live_sync",
+                    "label": "Start live sync",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/live",
+                    "dangerous": False,
+                    "requiresConfirmation": False,
+                    "enabledWhen": "tenant is active, synced, credential-ready, and live units are not active",
+                    "bodyTemplate": {"action": "start"},
+                },
+                {
+                    "id": "restart_live_sync",
+                    "label": "Restart live sync",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/live",
+                    "dangerous": False,
+                    "requiresConfirmation": False,
+                    "enabledWhen": "tenant is active, synced, credential-ready, and live units are active or failed",
+                    "bodyTemplate": {"action": "restart"},
+                },
+                {
+                    "id": "stop_live_sync",
+                    "label": "Stop live sync",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/live",
+                    "dangerous": True,
+                    "requiresConfirmation": True,
+                    "confirmationField": "confirm",
+                    "enabledWhen": "tenant is active, synced, credential-ready, and live units are active",
+                    "bodyTemplate": {"action": "stop"},
+                },
+                {
+                    "id": "run_initial_sync",
+                    "label": "Run initial sync",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/backfill",
+                    "dangerous": False,
+                    "requiresConfirmation": False,
+                    "enabledWhen": "tenant is active, synced, credential-ready, and no backfill queue is already syncing",
+                    "bodyTemplate": {
+                        "auth_mode": "user",
+                        "include_messages": True,
+                        "include_files": False,
+                        "channel_limit": 10,
+                    },
+                },
+                {
+                    "id": "retire",
+                    "label": "Retire tenant",
+                    "method": "POST",
+                    "routeTemplate": "/v1/tenants/{tenant}/retire",
+                    "dangerous": True,
+                    "requiresConfirmation": True,
+                    "confirmationField": "confirm",
+                    "enabledWhen": "tenant is not protected",
+                    "bodyTemplate": {"confirm": "{tenant}", "delete_db": False, "stop_live_units": True},
+                },
+            ],
+        },
         "guestGrants": {
             "assertionsUnderstood": True,
             "defaultBehavior": "local_only_unless_route_allows_guest_grant",
@@ -2419,6 +2519,22 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="tenants.status")
                     return
                 _json_response(self, 200, {"ok": True, "tenants": tenants})
+                return
+
+            m = re.fullmatch(r"/v1/tenants/([^/]+)", path)
+            if m:
+                from slack_mirror.service.tenant_onboarding import tenant_status
+
+                tenant_name = unquote(m.group(1))
+                try:
+                    tenants = _attach_semantic_readiness_to_tenants(
+                        service,
+                        tenant_status(config_path=config_path, name=tenant_name),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="tenants.status", tenant=tenant_name)
+                    return
+                _json_response(self, 200, {"ok": True, "tenant": tenants[0]})
                 return
 
             if path == "/logs":

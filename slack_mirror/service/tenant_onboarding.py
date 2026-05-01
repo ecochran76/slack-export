@@ -33,6 +33,8 @@ _CREDENTIAL_FIELDS = (
     ("signing_secret", "SIGNING_SECRET", True),
 )
 
+_PROTECTED_RETIRE_TENANTS = {"default", "soylei"}
+
 
 @dataclass(frozen=True)
 class TenantOnboardResult:
@@ -702,6 +704,151 @@ def _tenant_backfill_status(*, enabled: bool, db_stats: dict[str, Any], sync_hea
     }
 
 
+def _maintenance_action(
+    *,
+    action_id: str,
+    label: str,
+    method: str,
+    path: str,
+    enabled: bool,
+    disabled_reason: str | None = None,
+    dangerous: bool = False,
+    requires_confirmation: bool = False,
+    confirmation_value: str | None = None,
+    body_template: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": action_id,
+        "label": label,
+        "method": method,
+        "path": path,
+        "enabled": enabled,
+        "disabled_reason": None if enabled else disabled_reason or "Action is not available in the current tenant state.",
+        "dangerous": dangerous,
+        "requires_confirmation": requires_confirmation,
+    }
+    if confirmation_value is not None:
+        payload["confirmation_value"] = confirmation_value
+    if body_template is not None:
+        payload["body_template"] = body_template
+    return payload
+
+
+def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return redacted tenant-management actions for parent UX capability discovery."""
+    name = str(status.get("name") or "")
+    enabled = bool(status.get("enabled"))
+    credential_ready = bool(status.get("credential_ready"))
+    db_synced = bool(status.get("db_synced"))
+    live_units = dict(status.get("live_units") or {})
+    live_states = {str(value or "unknown") for value in live_units.values()}
+    live_active = "active" in live_states
+    live_failed = "failed" in live_states
+    backfill_label = str((status.get("backfill_status") or {}).get("label") or "")
+    protected_retire = name in _PROTECTED_RETIRE_TENANTS
+
+    if not credential_ready:
+        activate_reason = "Required Slack credentials are missing."
+    elif enabled:
+        activate_reason = "Tenant is already active."
+    else:
+        activate_reason = None
+
+    live_block_reason = None
+    if not enabled:
+        live_block_reason = "Activate the tenant before managing live sync."
+    elif not credential_ready:
+        live_block_reason = "Install required Slack credentials before managing live sync."
+    elif not db_synced:
+        live_block_reason = "Sync tenant config into the DB before managing live sync."
+
+    backfill_reason = None
+    if not enabled:
+        backfill_reason = "Activate the tenant before running initial sync."
+    elif not credential_ready:
+        backfill_reason = "Install required Slack credentials before running initial sync."
+    elif not db_synced:
+        backfill_reason = "Sync tenant config into the DB before running initial sync."
+    elif backfill_label == "syncing":
+        backfill_reason = "Initial sync or queue processing is already in progress."
+
+    return [
+        _maintenance_action(
+            action_id="install_credentials",
+            label="Install or rotate credentials",
+            method="POST",
+            path=f"/v1/tenants/{name}/credentials",
+            enabled=True,
+            body_template={"credentials": "{credential_fields}"},
+        ),
+        _maintenance_action(
+            action_id="activate",
+            label="Activate tenant",
+            method="POST",
+            path=f"/v1/tenants/{name}/activate",
+            enabled=(not enabled and credential_ready),
+            disabled_reason=activate_reason,
+            body_template={"skip_live_units": False},
+        ),
+        _maintenance_action(
+            action_id="start_live_sync",
+            label="Start live sync",
+            method="POST",
+            path=f"/v1/tenants/{name}/live",
+            enabled=(live_block_reason is None and not live_active),
+            disabled_reason=live_block_reason or "Live sync is already active; use restart or stop.",
+            body_template={"action": "start"},
+        ),
+        _maintenance_action(
+            action_id="restart_live_sync",
+            label="Restart live sync",
+            method="POST",
+            path=f"/v1/tenants/{name}/live",
+            enabled=(live_block_reason is None and (live_active or live_failed)),
+            disabled_reason=live_block_reason or "Live sync is not running; use start instead.",
+            body_template={"action": "restart"},
+        ),
+        _maintenance_action(
+            action_id="stop_live_sync",
+            label="Stop live sync",
+            method="POST",
+            path=f"/v1/tenants/{name}/live",
+            enabled=(live_block_reason is None and live_active),
+            disabled_reason=live_block_reason or "Live sync is not running.",
+            dangerous=True,
+            requires_confirmation=True,
+            confirmation_value=name,
+            body_template={"action": "stop"},
+        ),
+        _maintenance_action(
+            action_id="run_initial_sync",
+            label="Run initial sync",
+            method="POST",
+            path=f"/v1/tenants/{name}/backfill",
+            enabled=(backfill_reason is None),
+            disabled_reason=backfill_reason,
+            body_template={
+                "auth_mode": "user",
+                "include_messages": True,
+                "include_files": False,
+                "channel_limit": 10,
+            },
+        ),
+        _maintenance_action(
+            action_id="retire",
+            label="Retire tenant",
+            method="POST",
+            path=f"/v1/tenants/{name}/retire",
+            enabled=not protected_retire,
+            disabled_reason="This built-in tenant is protected from browser/API retirement." if protected_retire else None,
+            dangerous=True,
+            requires_confirmation=True,
+            confirmation_value=name,
+            body_template={"confirm": name, "delete_db": False, "stop_live_units": True},
+        ),
+    ]
+
+
 def tenant_status(
     *,
     config_path: str | Path | None = None,
@@ -755,26 +902,26 @@ def tenant_status(
             next_action = "credentials_required"
         elif not synced:
             next_action = "sync_config"
-        rows.append(
-            {
-                "name": ws_name,
-                "domain": expanded_ws.get("domain") or raw_ws.get("domain") or "",
-                "enabled": enabled,
-                "db_synced": synced,
-                "credential_placeholders": credentials["placeholders"],
-                "credential_presence": credentials["presence"],
-                "credential_ready": credentials["ready"],
-                "missing_required_credentials": credentials["missing_required"],
-                "manifest": _manifest_status(ws_name),
-                "validation_status": validation_status,
-                "live_units": live_units,
-                "db_stats": db_stats,
-                "sync_health": sync_health,
-                "backfill_status": backfill_status,
-                "health": health,
-                "next_action": next_action,
-            }
-        )
+        row = {
+            "name": ws_name,
+            "domain": expanded_ws.get("domain") or raw_ws.get("domain") or "",
+            "enabled": enabled,
+            "db_synced": synced,
+            "credential_placeholders": credentials["placeholders"],
+            "credential_presence": credentials["presence"],
+            "credential_ready": credentials["ready"],
+            "missing_required_credentials": credentials["missing_required"],
+            "manifest": _manifest_status(ws_name),
+            "validation_status": validation_status,
+            "live_units": live_units,
+            "db_stats": db_stats,
+            "sync_health": sync_health,
+            "backfill_status": backfill_status,
+            "health": health,
+            "next_action": next_action,
+        }
+        row["maintenance_actions"] = tenant_maintenance_actions(row)
+        rows.append(row)
     if selected_name and not rows:
         raise ValueError(f"Tenant '{selected_name}' not found in config")
     return rows
@@ -1153,7 +1300,7 @@ def retire_tenant(
     existing = _find_workspace(raw, tenant_name)
     if existing is None:
         raise ValueError(f"Tenant '{tenant_name}' not found in config")
-    if tenant_name in {"default", "soylei"}:
+    if tenant_name in _PROTECTED_RETIRE_TENANTS:
         raise ValueError(f"Tenant '{tenant_name}' is protected from browser retirement")
 
     before_status = tenant_status(config_path=resolved, name=tenant_name)[0]

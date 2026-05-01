@@ -729,6 +729,7 @@ Actionable plans:
 - `docs/dev/plans/0145-2026-05-01-receipts-service-profile-contract.md`
 - `docs/dev/plans/0146-2026-05-01-receipts-identity-display-fixtures.md`
 - `docs/dev/plans/0147-2026-05-01-receipts-event-readiness-lifecycle.md`
+- `docs/dev/plans/0148-2026-05-01-receipts-tenant-maintenance-capabilities.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -812,10 +813,15 @@ Current state:
     explicit UI ownership metadata.
   - H4 pinned guest-facing identity/display fixtures across search,
     context-window, selected-result artifacts, and event projections.
-- H3 event readiness/lifecycle expansion is active: Slack-owned event status is
-  being hardened with oldest/latest cursor metadata, stale-cursor recovery,
-  family counts, clearer empty/filter states, and export rename/delete lifecycle
-  events so Receipts Live View does not need to scrape logs.
+- H3 event readiness/lifecycle expansion is complete: Slack-owned event status
+  now exposes oldest/latest cursor metadata, stale-cursor recovery, family
+  counts, clearer empty/filter states, and export rename/delete lifecycle events
+  so Receipts Live View does not need to scrape logs.
+- H5 tenant-maintenance capability expansion is complete: `/v1/service-profile`
+  now advertises Slack-owned tenant route/action metadata, `/v1/tenants` now
+  includes redacted per-tenant `maintenance_actions`, and
+  `/v1/tenants/{tenant}` returns a focused status payload so Receipts settings
+  pages do not need to scrape Slack-native HTML or infer action safety.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

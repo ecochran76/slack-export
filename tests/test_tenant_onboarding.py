@@ -153,6 +153,14 @@ class TenantOnboardingTests(unittest.TestCase):
             self.assertFalse(row["credential_ready"])
             self.assertIn("token", row["missing_required_credentials"])
             self.assertEqual(row["credential_presence"]["token"]["env"], "SLACK_POLYMER_BOT_TOKEN")
+            actions = {item["id"]: item for item in row["maintenance_actions"]}
+            self.assertTrue(actions["install_credentials"]["enabled"])
+            self.assertFalse(actions["activate"]["enabled"])
+            self.assertEqual(actions["activate"]["disabled_reason"], "Required Slack credentials are missing.")
+            self.assertTrue(actions["retire"]["enabled"])
+            self.assertTrue(actions["retire"]["dangerous"])
+            self.assertTrue(actions["retire"]["requires_confirmation"])
+            self.assertEqual(actions["retire"]["confirmation_value"], "polymer")
             rendered = json.dumps(row)
             self.assertNotIn("xox", rendered)
 
@@ -184,6 +192,11 @@ class TenantOnboardingTests(unittest.TestCase):
             self.assertEqual(row["validation_status"], "needs_initial_sync")
             self.assertEqual(row["backfill_status"]["label"], "needs_initial_sync")
             self.assertEqual(row["next_action"], "run_initial_sync")
+            actions = {item["id"]: item for item in row["maintenance_actions"]}
+            self.assertTrue(actions["restart_live_sync"]["enabled"])
+            self.assertTrue(actions["stop_live_sync"]["enabled"])
+            self.assertFalse(actions["start_live_sync"]["enabled"])
+            self.assertTrue(actions["run_initial_sync"]["enabled"])
 
     def test_activate_tenant_blocks_until_required_credentials_exist(self):
         with tempfile.TemporaryDirectory() as td:

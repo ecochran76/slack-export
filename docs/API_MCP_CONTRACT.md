@@ -428,6 +428,7 @@ Important fields for `/v1/service-profile`:
 - `routes`
 - `events`
 - `eventDescriptors`
+- `tenantMaintenance`
 - `guestGrants`
 - `queryOperators`
 - `artifacts`
@@ -435,6 +436,24 @@ Important fields for `/v1/service-profile`:
 - `ui`
 
 The profile route is intentionally readable without a child session so a parent BFF can discover Slack Mirror capabilities before deciding whether to show sign-in, search, report, and artifact-management controls. Protected operational routes still enforce Slack Mirror's child-session policy.
+
+`tenantMaintenance` describes the Slack-owned tenant settings contract for
+parent UX layers. It includes list/status route templates, the redacted tenant
+action field name, and action descriptors for scaffold creation, credential
+installation, activation, live-sync start/restart/stop, bounded initial sync,
+and guarded retirement. Concrete tenant status responses from `/v1/tenants` and
+`/v1/tenants/{tenant}` include `maintenance_actions` entries with:
+
+- `enabled` and `disabled_reason`
+- `dangerous`
+- `requires_confirmation`
+- `confirmation_value` when typed confirmation is required
+- concrete `path`, HTTP `method`, and default `body_template`
+
+Credential presence remains redacted. Tenant mutations remain child-session and
+same-origin protected; Receipts should call these routes through the child
+service rather than scrape `/settings/tenants` or duplicate Slack lifecycle
+logic.
 
 `ui.surfaceOwnership` is the boundary map for shared parent interfaces:
 

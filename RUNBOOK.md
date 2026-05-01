@@ -5856,3 +5856,27 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 304 | 2026-05-01
+
+- Continued Receipts homework H5:
+  - `docs/dev/plans/0148-2026-05-01-receipts-tenant-maintenance-capabilities.md`
+- Implemented:
+  - added `tenantMaintenance` route/action discovery metadata to
+    `/v1/service-profile`
+  - added redacted per-tenant `maintenance_actions` to tenant status payloads,
+    including enabled/disabled reasons, danger flags, typed confirmation values,
+    and default request body templates
+  - added `GET /v1/tenants/<name>` as a focused single-tenant status endpoint
+    for shared settings pages
+  - kept tenant mutation execution child-owned and same-origin/session
+    protected
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py tests/test_tenant_onboarding.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_tenant_onboarding.TenantOnboardingTests.test_tenant_status_reports_missing_credentials_without_secret_values tests.test_tenant_onboarding.TenantOnboardingTests.test_tenant_status_prefers_run_initial_sync_when_live_units_are_active_without_reconcile_state -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/health`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
