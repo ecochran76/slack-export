@@ -5707,3 +5707,21 @@ This file is the dated turn log for planning and execution continuity.
   - restarted `slack-mirror-api.service`
   - `curl -sS http://127.0.0.1:8787/v1/service-profile` returned `ok: true`
   - `curl -sS http://127.0.0.1:8787/v1/health` returned `ok: true`
+
+## Turn 297 | 2026-04-30
+
+- Ran the follow-up Receipts smoke requested after the guest-safe mention
+  rendering slice:
+  - direct Slack child API search for `Vacuum Oven #8` returned raw `text` with
+    `<@UEHFF497A>` and rendered `matched_text` with `@Andrew Becker`
+  - `npm run smoke:slack-bff -- --slack-base-url http://127.0.0.1:8787 --query 'website service' --skip-build`
+    passed the full Slack BFF lifecycle through Receipts
+  - a throwaway Receipts guest-grant payload smoke resolved a live Slack preview
+    containing `@Nacu` and no raw `<@...>` or `@Slack user`
+- Recorded a Receipts-directed handoff note:
+  - `docs/dev/notes/0006-2026-04-30-receipts-guest-preview-smoke-results.md`
+- Follow-up found for Receipts:
+  - its Slack BFF smoke currently fails on bot-authored form posts because it
+    requires sender `user_label`, even when `matched_text` is correctly
+    guest-safe; Receipts should add a preview-text assertion and allow bot
+    sender rows when the rendered preview is safe.

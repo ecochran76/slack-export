@@ -53,6 +53,11 @@ Shipped in this slice:
 - managed editable install refresh
 - `systemctl --user restart slack-mirror-api.service`
 - live `/v1/service-profile` and `/v1/health` curls returned `ok: true`
+- direct live Slack child search confirmed raw `text` preserved `<@UEHFF497A>`
+  while rendered `matched_text` exposed `@Andrew Becker`
+- Receipts Slack BFF lifecycle smoke passed with query `website service`
+- throwaway Receipts guest-grant payload smoke resolved a live Slack preview
+  containing `@Nacu` with no raw `<@...>` or `@Slack user`
 
 ## Next Recommended Action
 
