@@ -2250,6 +2250,44 @@ class ApiServerTests(unittest.TestCase):
             self.assertEqual(window_call["direction"], "around")
             self.assertEqual(window_call["limit"], 5)
 
+    def test_guest_grant_headers_are_rejected_on_local_only_routes(self):
+        headers = {
+            "x-receipts-request-mode": "guest-grant",
+            "x-receipts-child-service": "slack",
+            "x-receipts-guest-grant-id": "grant-123",
+            "x-receipts-guest-grant-target-id": "target-123",
+            "x-receipts-guest-grant-target-kind": "report-artifact",
+            "x-receipts-guest-grant-token-id": "tok-123",
+            "x-receipts-guest-grant-scope": "report-bundle",
+            "x-receipts-guest-grant-audience": "guest-link",
+            "x-receipts-guest-grant-permissions": "read",
+            "x-receipts-guest-grant-ts": "2026-05-01T12:00:00Z",
+            "x-receipts-guest-grant-nonce": "00000000-0000-4000-8000-000000000001",
+            "x-receipts-guest-grant-signature-mode": "unsigned",
+        }
+
+        search = requests.get(
+            f"{self.base_url}/v1/search/corpus",
+            params={"query": "incident"},
+            headers=headers,
+            timeout=5,
+        )
+        self.assertEqual(search.status_code, 403)
+        self.assertEqual(search.json()["error"]["code"], "RECEIPTS_GUEST_GRANT_REJECTED")
+
+        export_list = requests.get(f"{self.base_url}/v1/exports", headers=headers, timeout=5)
+        self.assertEqual(export_list.status_code, 403)
+        self.assertEqual(export_list.json()["error"]["code"], "RECEIPTS_GUEST_GRANT_REJECTED")
+
+        export_create = requests.post(
+            f"{self.base_url}/v1/exports",
+            headers={**headers, "Origin": self.base_url},
+            json={"kind": "selected-results"},
+            timeout=5,
+        )
+        self.assertEqual(export_create.status_code, 403)
+        self.assertEqual(export_create.json()["error"]["code"], "RECEIPTS_GUEST_GRANT_REJECTED")
+
     def test_message_send_uses_structured_error_envelope(self):
         resp = requests.post(
             f"{self.base_url}/v1/workspaces/default/messages",

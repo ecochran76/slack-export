@@ -725,6 +725,7 @@ Actionable plans:
 - `docs/dev/plans/0127-2026-04-27-receipts-live-view-readiness.md`
 - `docs/dev/plans/0142-2026-04-29-receipts-guest-grants-service-profile.md`
 - `docs/dev/plans/0143-2026-04-30-guest-safe-mention-rendering.md`
+- `docs/dev/plans/0144-2026-05-01-receipts-compatibility-smoke-gate.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -801,6 +802,10 @@ Current state:
   fallbacks: message corpus rows expose guest-safe `matched_text`, selected-result
   context/event `text` uses locally resolved Slack display labels, and changed
   rows retain `raw_text` for child-owned provenance/debugging.
+- The current Receipts homework priority is a Slack-owned compatibility smoke
+  gate that validates the child-service profile, events, context-window,
+  selected-result artifact, and guest-grant route policy before parent UI
+  integration work relies on those surfaces.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

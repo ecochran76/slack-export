@@ -5748,3 +5748,31 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - docs-only handoff slice
   - `git diff --check`
+
+## Turn 299 | 2026-05-01
+
+- Started the H1 Receipts homework implementation:
+  - `docs/dev/plans/0144-2026-05-01-receipts-compatibility-smoke-gate.md`
+- Initial diagnosis:
+  - Slack already exposes the required profile, event, context-window,
+    selected-result export, and artifact read surfaces.
+  - The default compatibility gate should use seeded fixture state so Receipts
+    maintainers do not depend on private live corpus contents.
+  - Guest-grant route-policy enforcement needs to reject guest assertions on
+    local-only routes such as search/list/mutation, not only advertise the
+    policy in `/v1/service-profile`.
+- Completed:
+  - Added `scripts/smoke_receipts_compatibility.py`.
+  - Added fixture smoke coverage in
+    `tests/test_receipts_compatibility_smoke.py`.
+  - Added API route-policy regression coverage for guest-grant assertions on
+    `/v1/search/corpus`, `/v1/exports`, and `POST /v1/exports`.
+  - Refreshed the user-scoped editable install and restarted
+    `slack-mirror-api.service`.
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/api.py scripts/smoke_receipts_compatibility.py tests/test_api_server.py tests/test_receipts_compatibility_smoke.py`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_guest_grant_headers_are_rejected_on_local_only_routes tests.test_receipts_compatibility_smoke.ReceiptsCompatibilitySmokeTests.test_fixture_smoke_gate_returns_structured_pass -v`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/health`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`

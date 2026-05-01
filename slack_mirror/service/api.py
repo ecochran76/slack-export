@@ -116,6 +116,15 @@ def _receipts_guest_grant_validation_error(handler: BaseHTTPRequestHandler, *, p
     return None
 
 
+def _reject_invalid_receipts_guest_grant(handler: BaseHTTPRequestHandler, *, path: str) -> bool:
+    if _receipts_guest_grant_header(handler, "x-receipts-request-mode") != "guest-grant":
+        return False
+    if handler.command.upper() == "GET" and _receipts_guest_grant_read_path(path):
+        return False
+    _error_response(handler, 403, "RECEIPTS_GUEST_GRANT_REJECTED", "guest grants are only accepted for export artifact reads")
+    return True
+
+
 def _service_error_response(handler: BaseHTTPRequestHandler, exc: Exception, **details: Any) -> None:
     error = map_service_error(exc, **details)
     _json_response(handler, error.http_status, {"ok": False, "error": error.envelope()})
@@ -2160,6 +2169,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
             path = self._path()
             query = self._query()
 
+            if _reject_invalid_receipts_guest_grant(self, path=path):
+                return
             auth_session = self._enforce_frontend_auth(path)
             if auth_session is None:
                 return
@@ -2983,6 +2994,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
         def do_POST(self):  # noqa: N802
             path = self._path()
             query = self._query()
+            if _reject_invalid_receipts_guest_grant(self, path=path):
+                return
             if self._is_protected_frontend_path(path):
                 auth_session = self._enforce_frontend_auth(path)
                 if auth_session is None:
@@ -3467,6 +3480,8 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
 
         def do_DELETE(self):  # noqa: N802
             path = self._path()
+            if _reject_invalid_receipts_guest_grant(self, path=path):
+                return
             if self._is_protected_frontend_path(path):
                 auth_session = self._enforce_frontend_auth(path)
                 if auth_session is None:

@@ -118,6 +118,8 @@ slack-mirror search benchmark-diagnose --workspace default --dataset ./docs/dev/
 slack-mirror search benchmark-query-variants --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http --variants original,lowercase,dehyphen,alnum --json
 slack-mirror mirror benchmark-embeddings-backfill --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --retrieval-profile local-bge-http --json
 slack-mirror mirror rollout-plan --workspace default --retrieval-profile local-bge --limit 500 --json
+python scripts/smoke_receipts_compatibility.py --json
+python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "incident" --username "$SLACK_MIRROR_FRONTEND_USERNAME" --password "$SLACK_MIRROR_FRONTEND_PASSWORD" --json
 slack-mirror search health --workspace default
 slack-mirror search health --workspace default --dataset ./docs/dev/benchmarks/slack_corpus_smoke.jsonl
 slack-mirror search health --workspace default --target derived_text --dataset ./docs/dev/benchmarks/slack_derived_text_smoke.jsonl --mode semantic
@@ -175,6 +177,11 @@ The current repo has:
 - `/v1/events` now exposes a cursor-backed page of committed Slack product events for parent UX layers, starting with message, thread-reply, file-link, and export-created events
 - `/v1/events/status` and the service profile now expose event descriptors and child-owned watermark status so parent UX layers can determine Slack Live View readiness without parsing Slack-native tables
 - `/v1/service-profile` now exposes Slack Mirror's child-service profile for shared parent UX layers such as Receipts, including auth/session mode, search support, selected-result export lifecycle, artifact route templates, query operators, and visible UI capabilities
+- `scripts/smoke_receipts_compatibility.py --json` is the Slack-owned
+  compatibility gate for Receipts-facing integration work. Its default mode
+  starts a seeded fixture API and validates service profile, events, context
+  windows, selected-result artifacts, guest artifact reads, and local-only
+  guest-grant denials without depending on private live corpus contents.
 - the authenticated `/search` page can now select individual or visible-page result candidates with `action_target` metadata and create managed `selected-results` reports directly from the browser
 - named retrieval profiles for operator rollout control:
   - `baseline` for the shipped local-hash release-safe path
