@@ -71,6 +71,134 @@ class ApiServerTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=2)
 
+    def test_service_profile_receipts_contract_is_stable(self):
+        response = requests.get(f"{self.base_url}/v1/service-profile", timeout=5)
+        self.assertEqual(response.status_code, 200)
+        profile = response.json()["profile"]
+
+        self.assertEqual(profile["service"], "slack")
+        self.assertEqual(profile["auth"]["mode"], "child-session")
+        self.assertTrue(profile["auth"]["childSessionApi"])
+        self.assertTrue(profile["auth"]["sameOriginProxyExpected"])
+        self.assertEqual(profile["auth"]["sessionUrl"], "/auth/session")
+        self.assertEqual(profile["auth"]["loginUrl"], "/auth/login")
+        self.assertEqual(profile["auth"]["logoutUrl"], "/auth/logout")
+        self.assertEqual(profile["auth"]["unauthenticatedCode"], "AUTH_REQUIRED")
+
+        required_capabilities = {
+            "health",
+            "search",
+            "evidenceDetail",
+            "contextWindow",
+            "contextPack",
+            "reportCreate",
+            "artifactList",
+            "artifactOpen",
+            "artifactRename",
+            "artifactDelete",
+            "guestGrants",
+            "eventCursorRead",
+            "eventDescriptors",
+            "eventStatus",
+            "managementActions",
+        }
+        self.assertTrue(required_capabilities.issubset(profile["capabilities"]))
+        for capability in required_capabilities:
+            self.assertTrue(profile["capabilities"][capability], capability)
+        self.assertFalse(profile["capabilities"]["eventFollow"])
+
+        self.assertEqual(profile["routes"]["health"], "/v1/health")
+        self.assertEqual(profile["routes"]["search"], "/v1/search/corpus")
+        self.assertEqual(profile["routes"]["workspaceSearchTemplate"], "/v1/workspaces/{workspace}/search/corpus")
+        self.assertEqual(
+            profile["routes"]["events"],
+            "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
+        )
+        self.assertEqual(
+            profile["routes"]["eventStatus"],
+            "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}",
+        )
+        self.assertEqual(
+            profile["routes"]["contextWindow"],
+            "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
+        )
+        self.assertEqual(profile["routes"]["contextPack"], "/v1/search/context-pack")
+
+        self.assertEqual(profile["artifacts"]["listUrl"], "/v1/exports")
+        self.assertEqual(profile["artifacts"]["createUrl"], "/v1/exports")
+        self.assertEqual(profile["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
+        self.assertEqual(profile["artifacts"]["rawJsonUrlTemplate"], "/exports/{exportId}/selected-results.json")
+        self.assertIn("preview", profile["artifacts"]["supportedTypes"])
+
+        guest_grants = profile["guestGrants"]
+        self.assertTrue(guest_grants["assertionsUnderstood"])
+        self.assertEqual(guest_grants["defaultBehavior"], "local_only_unless_route_allows_guest_grant")
+        self.assertIn("unsigned", guest_grants["signatureModes"]["accepted"])
+        self.assertIn("hmac-sha256", guest_grants["signatureModes"]["accepted"])
+        self.assertEqual(guest_grants["signatureModes"]["productionRecommended"], "hmac-sha256")
+        self.assertEqual(guest_grants["targetKinds"], ["artifact", "report-artifact"])
+        guest_route_templates = {route["routeTemplate"] for route in guest_grants["routes"]}
+        self.assertEqual(
+            guest_route_templates,
+            {
+                "/exports/{exportId}",
+                "/exports/{exportId}/{path}",
+                "/exports/{exportId}/{path}/preview",
+                "/v1/exports/{exportId}",
+            },
+        )
+        for route in guest_grants["routes"]:
+            self.assertEqual(route["methods"], ["GET"])
+            self.assertTrue(route["guestSafe"])
+            self.assertTrue(route["honorsAssertion"])
+            self.assertEqual(route["targetKinds"], ["artifact", "report-artifact"])
+        local_only: dict[str, set[str]] = {}
+        for route in guest_grants["localOnlyRoutes"]:
+            local_only.setdefault(route["routeTemplate"], set()).update(route["methods"])
+        self.assertEqual(local_only["/v1/exports"], {"GET", "POST"})
+        self.assertEqual(local_only["/v1/exports/{exportId}/rename"], {"POST"})
+        self.assertEqual(local_only["/v1/exports/{exportId}"], {"DELETE"})
+        self.assertEqual(local_only["/v1/search"], {"GET"})
+
+        event_types = {descriptor["eventType"] for descriptor in profile["eventDescriptors"]}
+        self.assertEqual(
+            event_types,
+            {
+                "slack.message.observed",
+                "slack.thread_reply.observed",
+                "slack.file.linked",
+                "slack.export.created",
+            },
+        )
+        self.assertEqual(profile["events"]["cursor"], {"opaque": True, "owner": "slack"})
+        self.assertEqual(profile["events"]["descriptors"], profile["eventDescriptors"])
+        for descriptor in profile["eventDescriptors"]:
+            self.assertEqual(descriptor["payloadStability"], "stable")
+            self.assertIn(descriptor["privacy"], {"user", "metadata"})
+            self.assertIn("owner", descriptor["safeForRoles"])
+
+        source_metadata = profile["sourceMetadata"]
+        self.assertIn("user_label", source_metadata["labelFields"])
+        self.assertIn("channel", source_metadata["labelFields"])
+        self.assertIn("user_id", source_metadata["nativeRefs"])
+        self.assertIn("channel_id", source_metadata["nativeRefs"])
+        self.assertIn("ts", source_metadata["nativeRefs"])
+        self.assertIn("permalink", source_metadata["nativeRefs"])
+
+        controls = profile["ui"]["controls"]
+        self.assertTrue(controls["search"])
+        self.assertTrue(controls["createReport"])
+        self.assertTrue(controls["openArtifact"])
+        self.assertFalse(controls["guestSharing"])
+        ownership = profile["ui"]["surfaceOwnership"]
+        self.assertIn("searchWorkbench", ownership["parentOwned"])
+        self.assertIn("reportCreation", ownership["parentOwned"])
+        self.assertIn("tenantSettings", ownership["childOwned"])
+        self.assertIn("runtimeOperations", ownership["childOwned"])
+        operator_preview = next(item for item in ownership["experimental"] if item["surface"] == "operatorPreview")
+        self.assertEqual(operator_preview["route"], "/operator")
+        self.assertFalse(operator_preview["durableIntegrationTarget"])
+
     def test_operator_frontend_root_falls_back_to_managed_app_snapshot(self):
         fake_home = self.root / "home"
         managed_dist = fake_home / ".local" / "share" / "slack-mirror" / "app" / "frontend" / "dist" / "app"

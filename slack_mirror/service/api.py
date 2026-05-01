@@ -578,6 +578,29 @@ def _service_profile_payload() -> dict[str, Any]:
                 "deleteArtifact": True,
                 "guestSharing": False,
             },
+            "surfaceOwnership": {
+                "parentOwned": [
+                    "searchWorkbench",
+                    "reportCreation",
+                    "guestLinks",
+                    "evidenceInspector",
+                    "liveView",
+                ],
+                "childOwned": [
+                    "authSession",
+                    "tenantSettings",
+                    "runtimeOperations",
+                    "syncState",
+                    "workspaceManagement",
+                ],
+                "experimental": [
+                    {
+                        "surface": "operatorPreview",
+                        "route": "/operator",
+                        "durableIntegrationTarget": False,
+                    },
+                ],
+            },
         },
     }
 

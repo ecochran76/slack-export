@@ -5787,3 +5787,24 @@ This file is the dated turn log for planning and execution continuity.
   - live command `python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
 - Validation:
   - docs-only handoff slice
+
+## Turn 301 | 2026-05-01
+
+- Continued Receipts homework locally instead of handing control back early.
+- Opened H2 plan:
+  - `docs/dev/plans/0145-2026-05-01-receipts-service-profile-contract.md`
+- Implemented:
+  - added `ui.surfaceOwnership` to `/v1/service-profile`
+  - added a dedicated Receipts service-profile contract test covering auth,
+    capabilities, route templates, artifact lifecycle templates, guest-grant
+    policy, event descriptors/status, source metadata, and UI ownership
+  - documented the surface ownership boundary in `docs/API_MCP_CONTRACT.md`
+    and `README.md`
+- Validation:
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `./.venv/bin/python -m py_compile slack_mirror/service/api.py tests/test_api_server.py scripts/smoke_receipts_compatibility.py`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/service-profile`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

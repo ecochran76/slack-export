@@ -726,6 +726,7 @@ Actionable plans:
 - `docs/dev/plans/0142-2026-04-29-receipts-guest-grants-service-profile.md`
 - `docs/dev/plans/0143-2026-04-30-guest-safe-mention-rendering.md`
 - `docs/dev/plans/0144-2026-05-01-receipts-compatibility-smoke-gate.md`
+- `docs/dev/plans/0145-2026-05-01-receipts-service-profile-contract.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -806,6 +807,10 @@ Current state:
   gate that validates the child-service profile, events, context-window,
   selected-result artifact, and guest-grant route policy before parent UI
   integration work relies on those surfaces.
+- The next Receipts homework slice is making `/v1/service-profile` the stable
+  contract authority for parent routing and feature gating, including explicit
+  UI ownership metadata that distinguishes shared Receipts UX from child-owned
+  Slack maintenance/runtime controls.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

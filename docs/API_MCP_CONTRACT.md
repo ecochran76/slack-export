@@ -436,6 +436,16 @@ Important fields for `/v1/service-profile`:
 
 The profile route is intentionally readable without a child session so a parent BFF can discover Slack Mirror capabilities before deciding whether to show sign-in, search, report, and artifact-management controls. Protected operational routes still enforce Slack Mirror's child-session policy.
 
+`ui.surfaceOwnership` is the boundary map for shared parent interfaces:
+
+- `parentOwned`: shared Receipts UX surfaces such as search workbench, report
+  creation, guest links, evidence inspector, and live view
+- `childOwned`: Slack-owned auth/session, tenant settings, runtime operations,
+  sync state, and workspace management surfaces
+- `experimental`: child preview pages that are useful proving grounds but are
+  not durable parent integration targets; `/operator` is currently listed here
+  with `durableIntegrationTarget: false`
+
 `guestGrants` describes which Slack-owned routes can honor a parent guest-grant
 assertion. Slack Mirror currently marks only export/report artifact read routes
 as guest-safe:

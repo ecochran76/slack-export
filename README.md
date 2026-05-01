@@ -177,6 +177,7 @@ The current repo has:
 - `/v1/events` now exposes a cursor-backed page of committed Slack product events for parent UX layers, starting with message, thread-reply, file-link, and export-created events
 - `/v1/events/status` and the service profile now expose event descriptors and child-owned watermark status so parent UX layers can determine Slack Live View readiness without parsing Slack-native tables
 - `/v1/service-profile` now exposes Slack Mirror's child-service profile for shared parent UX layers such as Receipts, including auth/session mode, search support, selected-result export lifecycle, artifact route templates, query operators, and visible UI capabilities
+- `/v1/service-profile` now also exposes `ui.surfaceOwnership`, which marks shared Receipts UX surfaces as parent-owned while keeping Slack auth/session, tenant settings, runtime operations, sync state, and workspace management child-owned
 - `scripts/smoke_receipts_compatibility.py --json` is the Slack-owned
   compatibility gate for Receipts-facing integration work. Its default mode
   starts a seeded fixture API and validates service profile, events, context
