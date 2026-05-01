@@ -22,7 +22,7 @@ from slack_mirror.core.db import (
     upsert_user,
     upsert_workspace,
 )
-from slack_mirror.service.app import SlackMirrorAppService
+from slack_mirror.service.app import SlackMirrorAppService, _encode_event_cursor
 from slack_mirror.sync.derived_text import backfill_derived_text_chunk_embeddings
 from slack_mirror.sync.embeddings import process_embedding_jobs
 
@@ -622,7 +622,6 @@ class AppServiceTests(unittest.TestCase):
             json.dumps({"kind": "selected-results", "title": "Selection", "workspace": "default", "item_count": 1}),
             encoding="utf-8",
         )
-
         all_events = service.list_child_events(conn, tenant="default", limit=10)
 
         self.assertEqual(all_events["service"], "slack")
@@ -636,13 +635,34 @@ class AppServiceTests(unittest.TestCase):
         self.assertTrue(all("sourceRefs" in event for event in all_events["events"]))
         self.assertTrue(all("source_refs" in event for event in all_events["events"]))
         self.assertTrue(all("native_ids" in event for event in all_events["events"]))
+        self.assertTrue(all_events["oldest_cursor"])
+        self.assertTrue(all_events["latest_cursor"])
         self.assertEqual(all_events["status_text"], "Event page read completed.")
+
+        service.rename_export(export_id="selected-default-smoke", new_export_id="selected-default-renamed")
+        service.delete_export(export_id="selected-default-renamed")
+        lifecycle = service.list_child_events(conn, tenant="default", event_type="slack.export.renamed,slack.export.deleted", limit=10)
+        self.assertEqual([event["eventType"] for event in lifecycle["events"]], ["slack.export.renamed", "slack.export.deleted"])
+        self.assertEqual(lifecycle["events"][0]["source_refs"]["old_export_id"], "selected-default-smoke")
+        self.assertEqual(lifecycle["events"][0]["source_refs"]["new_export_id"], "selected-default-renamed")
+        self.assertEqual(lifecycle["events"][1]["source_refs"]["export_id"], "selected-default-renamed")
 
         first = service.list_child_events(conn, tenant="default", event_type="slack.message.observed", limit=1)
         self.assertEqual(first["count"], 1)
         self.assertEqual(first["events"][0]["event_type"], "slack.message.observed")
         self.assertEqual(first["events"][0]["account_key"], "default")
         self.assertNotIn("10.0", first["nextCursor"])
+
+        stale = service.list_child_events(
+            conn,
+            tenant="default",
+            event_type="slack.message.observed",
+            after=_encode_event_cursor("0000-01-01T00:00:00Z", "old-event"),
+            limit=1,
+        )
+        self.assertEqual(stale["status"], "stale-cursor")
+        self.assertTrue(stale["stale_cursor"])
+        self.assertEqual(stale["recovery"]["action"], "reset_cursor")
 
         second = service.list_child_events(
             conn,
@@ -665,17 +685,28 @@ class AppServiceTests(unittest.TestCase):
         )
         status = service.child_event_status(conn, tenant="default", event_type="slack.message.observed")
         self.assertEqual(status["service"], "slack")
-        self.assertEqual(status["status"], "complete")
+        self.assertEqual(status["status"], "current")
         self.assertEqual(status["event_count"], 2)
+        self.assertEqual(status["event_family_counts"], {"slack.message.observed": 2})
         self.assertEqual(status["watermarks"][0]["event_type"], "slack.message.observed")
         self.assertEqual(status["watermarks"][0]["count"], 2)
+        self.assertTrue(status["oldest_cursor"])
         self.assertNotIn("10.0", status["latest_cursor"])
+        self.assertEqual(status["cursor_retention"]["stale_cursor_status"], "stale-cursor")
+        self.assertEqual(status["recovery"]["action"], "continue")
         descriptor_types = {descriptor["event_type"] for descriptor in status["descriptors"]}
         self.assertIn("slack.message.observed", descriptor_types)
+        self.assertIn("slack.export.renamed", descriptor_types)
+        self.assertIn("slack.export.deleted", descriptor_types)
 
         empty_status = service.child_event_status(conn, tenant="missing")
-        self.assertEqual(empty_status["status"], "no-events")
+        self.assertEqual(empty_status["status"], "empty")
         self.assertEqual(empty_status["event_count"], 0)
+        self.assertEqual(empty_status["recovery"]["action"], "wait_or_sync")
+
+        filtered_empty = service.child_event_status(conn, tenant="default", event_type="slack.not-real")
+        self.assertEqual(filtered_empty["status"], "filtered-empty")
+        self.assertEqual(filtered_empty["recovery"]["action"], "relax_filters")
 
     def test_list_runtime_reports_includes_base_url_choices(self):
         payload = self.service.list_runtime_reports()

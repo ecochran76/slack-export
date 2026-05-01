@@ -5833,3 +5833,26 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 303 | 2026-05-01
+
+- Continued Receipts homework H3:
+  - `docs/dev/plans/0147-2026-05-01-receipts-event-readiness-lifecycle.md`
+- Implemented:
+  - added export lifecycle descriptors for `slack.export.renamed` and
+    `slack.export.deleted`
+  - persisted export rename/delete lifecycle records in the export root
+  - expanded `/v1/events` with oldest/latest cursors, stale-cursor flags, and
+    reset guidance
+  - expanded `/v1/events/status` with oldest/latest cursor metadata, event
+    family counts, cursor-retention metadata, and explicit recovery guidance
+  - documented stale cursor and status semantics
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_list_child_events_pages_committed_events_with_opaque_cursors tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/health`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --base-url http://127.0.0.1:8787 --query "website service" --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

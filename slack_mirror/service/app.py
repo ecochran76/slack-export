@@ -151,6 +151,34 @@ CHILD_EVENT_DESCRIPTORS: tuple[dict[str, Any], ...] = (
         "safe_for_roles": ["owner", "user"],
         "safeForRoles": ["owner", "user"],
     },
+    {
+        "event_type": "slack.export.renamed",
+        "eventType": "slack.export.renamed",
+        "label": "Export renamed",
+        "summary": "A managed Slack Mirror export or selected-results report was renamed.",
+        "privacy": "user",
+        "subject_kind": "slack-export",
+        "subjectKind": "slack-export",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "old and new artifact ids are exposed; artifact bodies are read through export routes",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.export.deleted",
+        "eventType": "slack.export.deleted",
+        "label": "Export deleted",
+        "summary": "A managed Slack Mirror export or selected-results report was deleted.",
+        "privacy": "user",
+        "subject_kind": "slack-export",
+        "subjectKind": "slack-export",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "artifact ids and counts may be exposed; deleted artifact bodies are not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
 )
 
 
@@ -416,6 +444,10 @@ def _decode_event_cursor(value: str | None) -> tuple[str, str] | None:
     if not recorded_at or not event_id:
         raise ValueError("event cursor is missing required fields")
     return recorded_at, event_id
+
+
+def _event_cursor_for(event: dict[str, Any]) -> str:
+    return _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
 
 
 def _sqlite_timestamp_to_iso(value: Any) -> str | None:
@@ -1272,16 +1304,47 @@ class SlackMirrorAppService:
         return f"<pre class=\"text\">{html_escape(text)}</pre>"
 
     def rename_export(self, *, export_id: str, new_export_id: str, audience: str = "local") -> dict[str, Any]:
-        return rename_export_bundle(
+        manifest = rename_export_bundle(
             resolve_export_root(self.config),
             export_id=export_id,
             new_export_id=new_export_id,
             base_urls=resolve_export_base_urls(self.config),
             default_audience=audience,
         )
+        if export_id != new_export_id:
+            self._append_export_lifecycle_event(
+                event_type="slack.export.renamed",
+                export_id=str(new_export_id),
+                workspace=str(manifest.get("workspace") or ""),
+                manifest=manifest,
+                payload={"oldExportId": export_id, "newExportId": new_export_id},
+            )
+        return manifest
 
     def delete_export(self, *, export_id: str) -> bool:
-        return delete_export_bundle(resolve_export_root(self.config), export_id)
+        export_root = resolve_export_root(self.config)
+        manifest: dict[str, Any] = {}
+        bundle_dir = export_root / export_id
+        if bundle_dir.exists() and bundle_dir.is_dir():
+            try:
+                manifest = build_export_manifest(
+                    bundle_dir,
+                    export_id=export_id,
+                    base_urls=resolve_export_base_urls(self.config),
+                    default_audience="local",
+                )
+            except Exception:  # noqa: BLE001 - deletion should still be attempted.
+                manifest = {"export_id": export_id}
+        deleted = delete_export_bundle(export_root, export_id)
+        if deleted:
+            self._append_export_lifecycle_event(
+                event_type="slack.export.deleted",
+                export_id=str(export_id),
+                workspace=str(manifest.get("workspace") or ""),
+                manifest=manifest or {"export_id": export_id},
+                payload={"exportId": export_id},
+            )
+        return deleted
 
     def build_search_context_pack(
         self,
@@ -1569,13 +1632,18 @@ class SlackMirrorAppService:
             event_type=event_type,
             privacy=privacy,
         )
+        stale_cursor = False
         if after_tuple is not None:
+            if events:
+                oldest_tuple = (str(events[0].get("recordedAt") or ""), str(events[0].get("id") or ""))
+                stale_cursor = after_tuple < oldest_tuple
             events = [
                 event
                 for event in events
                 if (str(event.get("recordedAt") or ""), str(event.get("id") or "")) > after_tuple
             ]
-        return self._event_page(events, limit=item_limit, status="complete")
+        status = "stale-cursor" if stale_cursor else "complete"
+        return self._event_page(events, limit=item_limit, status=status, stale_cursor=stale_cursor)
 
     def child_event_status(
         self,
@@ -1597,10 +1665,22 @@ class SlackMirrorAppService:
                 event_type=event_type,
                 privacy=privacy,
             )
+        unfiltered_events: list[dict[str, Any]] = []
+        if not service_kind or str(service_kind).strip().lower() in {"slack", "slack-mirror"}:
+            unfiltered_events = self._matching_child_events(
+                conn,
+                tenant=tenant,
+                account_key=account_key,
+                event_type=None,
+                privacy=None,
+            )
         latest = events[-1] if events else None
+        oldest = events[0] if events else None
         watermark_by_type: dict[str, dict[str, Any]] = {}
+        family_counts: dict[str, int] = {}
         for event in events:
             event_type_key = str(event.get("eventType") or "")
+            family_counts[event_type_key] = family_counts.get(event_type_key, 0) + 1
             current = watermark_by_type.get(event_type_key)
             current_count = int(current.get("count") or 0) if current else 0
             if current is None or (
@@ -1610,7 +1690,7 @@ class SlackMirrorAppService:
                 str(current.get("latest_recorded_at") or ""),
                 str(current.get("latest_event_id") or ""),
             ):
-                event_cursor = _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
+                event_cursor = _event_cursor_for(event)
                 watermark_by_type[event_type_key] = {
                     "event_type": event.get("eventType"),
                     "eventType": event.get("eventType"),
@@ -1627,16 +1707,31 @@ class SlackMirrorAppService:
             watermark_by_type[event_type_key]["count"] += 1
         latest_cursor = None
         if latest:
-            latest_cursor = _encode_event_cursor(str(latest.get("recordedAt") or ""), str(latest.get("id") or ""))
+            latest_cursor = _event_cursor_for(latest)
+        oldest_cursor = _event_cursor_for(oldest) if oldest else None
+        if events:
+            status = "current"
+            status_text = "Event cursor is current."
+            recovery = {"action": "continue", "message": "Continue reading from latest_cursor or the next page cursor."}
+        elif unfiltered_events:
+            status = "filtered-empty"
+            status_text = "Slack events exist, but none match the supplied filters."
+            recovery = {"action": "relax_filters", "message": "Relax event_type, privacy, tenant, or account filters."}
+        else:
+            status = "empty"
+            status_text = "No Slack events are available for the selected scope."
+            recovery = {"action": "wait_or_sync", "message": "Wait for live sync or run a bounded backfill/reconcile for this tenant."}
         return {
             "schemaVersion": 1,
             "schema_version": 1,
             "service": "slack",
-            "status": "complete" if events else "no-events",
-            "statusText": "Event cursor is current." if events else "No matching Slack events are available.",
-            "status_text": "Event cursor is current." if events else "No matching Slack events are available.",
+            "status": status,
+            "statusText": status_text,
+            "status_text": status_text,
             "eventCount": len(events),
             "event_count": len(events),
+            "eventFamilyCounts": family_counts,
+            "event_family_counts": family_counts,
             "latestEventId": latest.get("id") if latest else None,
             "latest_event_id": latest.get("id") if latest else None,
             "latestRecordedAt": latest.get("recordedAt") if latest else None,
@@ -1645,8 +1740,32 @@ class SlackMirrorAppService:
             "latest_occurred_at": latest.get("occurredAt") if latest else None,
             "latestCursor": latest_cursor,
             "latest_cursor": latest_cursor,
+            "oldestEventId": oldest.get("id") if oldest else None,
+            "oldest_event_id": oldest.get("id") if oldest else None,
+            "oldestRecordedAt": oldest.get("recordedAt") if oldest else None,
+            "oldest_recorded_at": oldest.get("recordedAt") if oldest else None,
+            "oldestCursor": oldest_cursor,
+            "oldest_cursor": oldest_cursor,
+            "cursorRetention": {
+                "mode": "derived-from-current-state",
+                "oldestCursor": oldest_cursor,
+                "oldest_cursor": oldest_cursor,
+                "staleCursorStatus": "stale-cursor",
+                "stale_cursor_status": "stale-cursor",
+            },
+            "cursor_retention": {
+                "mode": "derived-from-current-state",
+                "oldestCursor": oldest_cursor,
+                "oldest_cursor": oldest_cursor,
+                "staleCursorStatus": "stale-cursor",
+                "stale_cursor_status": "stale-cursor",
+            },
             "partial": False,
             "failed": False,
+            "degraded": False,
+            "recovery": recovery,
+            "recoveryGuidance": recovery,
+            "recovery_guidance": recovery,
             "watermarks": list(watermark_by_type.values()),
             "descriptors": child_event_descriptors(),
         }
@@ -1667,12 +1786,86 @@ class SlackMirrorAppService:
             *self._message_child_events(conn, workspace_filter=workspace_filter or None),
             *self._file_child_events(conn, workspace_filter=workspace_filter or None),
             *self._export_child_events(workspace_filter=workspace_filter or None),
+            *self._export_lifecycle_events(workspace_filter=workspace_filter or None),
         ]
         if event_type_filter:
             events = [event for event in events if str(event.get("eventType") or "") in event_type_filter]
         if privacy_filter:
             events = [event for event in events if str(event.get("privacy") or "") in privacy_filter]
         events.sort(key=lambda event: (str(event.get("recordedAt") or ""), str(event.get("id") or "")))
+        return events
+
+    def _export_event_log_path(self) -> Path:
+        return resolve_export_root(self.config) / ".slack-mirror-events.jsonl"
+
+    def _append_export_lifecycle_event(
+        self,
+        *,
+        event_type: str,
+        export_id: str,
+        workspace: str,
+        manifest: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> None:
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        log_path = self._export_event_log_path()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "schemaVersion": 1,
+            "id": f"{event_type}|{export_id}|{now}",
+            "eventType": event_type,
+            "subject": {"kind": "slack-export", "id": export_id},
+            "occurredAt": now,
+            "recordedAt": now,
+            "title": {
+                "slack.export.renamed": "Slack export renamed",
+                "slack.export.deleted": "Slack export deleted",
+            }.get(event_type, "Slack export lifecycle event"),
+            "summary": {
+                "slack.export.renamed": f"Export {payload.get('oldExportId')} renamed to {payload.get('newExportId')}",
+                "slack.export.deleted": f"Export {export_id} deleted",
+            }.get(event_type, f"Export {export_id} lifecycle event"),
+            "serviceKind": "slack",
+            "accountKey": workspace or None,
+            "tenant": workspace or None,
+            "privacy": "user",
+            "sourceRefs": {
+                "export_id": export_id,
+                "old_export_id": payload.get("oldExportId"),
+                "new_export_id": payload.get("newExportId"),
+                "kind": manifest.get("kind"),
+                "bundle_url": manifest.get("bundle_url"),
+            },
+            "payload": {
+                **payload,
+                "kind": manifest.get("kind"),
+                "title": manifest.get("title"),
+                "itemCount": manifest.get("item_count"),
+                "resolvedCount": manifest.get("resolved_count"),
+                "fileCount": manifest.get("file_count"),
+            },
+        }
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+    def _export_lifecycle_events(self, *, workspace_filter: str | None) -> list[dict[str, Any]]:
+        log_path = self._export_event_log_path()
+        if not log_path.exists():
+            return []
+        events: list[dict[str, Any]] = []
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            workspace = str(event.get("tenant") or event.get("accountKey") or "").strip()
+            if workspace_filter and workspace != workspace_filter:
+                continue
+            events.append(self._event_with_aliases(event))
         return events
 
     def _event_with_aliases(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -1688,26 +1881,41 @@ class SlackMirrorAppService:
         payload.setdefault("nativeIds", source_refs)
         return payload
 
-    def _event_page(self, events: list[dict[str, Any]], *, limit: int, status: str) -> dict[str, Any]:
+    def _event_page(self, events: list[dict[str, Any]], *, limit: int, status: str, stale_cursor: bool = False) -> dict[str, Any]:
         page = events[:limit]
         next_cursor = None
+        oldest_cursor = _event_cursor_for(events[0]) if events else None
+        latest_cursor = _event_cursor_for(events[-1]) if events else None
         if page:
             last = page[-1]
-            next_cursor = _encode_event_cursor(str(last.get("recordedAt") or ""), str(last.get("id") or ""))
+            next_cursor = _event_cursor_for(last)
             for event in page:
-                event["cursor"] = _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
+                event["cursor"] = _event_cursor_for(event)
+        status_text = "Event page read completed."
+        if stale_cursor:
+            status_text = "The supplied cursor is older than the current event window; reset from oldest_cursor or latest_cursor."
         return {
             "schemaVersion": 1,
             "schema_version": 1,
             "service": "slack",
             "status": status,
-            "statusText": "Event page read completed.",
-            "status_text": "Event page read completed.",
+            "statusText": status_text,
+            "status_text": status_text,
             "events": page,
             "nextCursor": next_cursor,
             "next_cursor": next_cursor,
+            "oldestCursor": oldest_cursor,
+            "oldest_cursor": oldest_cursor,
+            "latestCursor": latest_cursor,
+            "latest_cursor": latest_cursor,
             "hasMore": len(events) > limit,
             "has_more": len(events) > limit,
+            "staleCursor": stale_cursor,
+            "stale_cursor": stale_cursor,
+            "recovery": {
+                "action": "reset_cursor" if stale_cursor else "continue",
+                "message": status_text if stale_cursor else "Continue with next_cursor when hasMore is true.",
+            },
             "count": len(page),
         }
 

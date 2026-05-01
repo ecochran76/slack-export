@@ -480,13 +480,18 @@ rows. Current event families include:
 - `slack.thread_reply.observed`
 - `slack.file.linked`
 - `slack.export.created`
+- `slack.export.renamed`
+- `slack.export.deleted`
 
 The response includes `events`, `nextCursor`, `hasMore`, `count`, `status`, and
 `service: slack`. It also includes snake_case aliases such as `next_cursor`,
 `has_more`, and per-row `event_type`, `occurred_at`, `recorded_at`,
 `source_refs`, and `native_ids` so parent UX layers do not have to parse
 Slack-specific field casing. Cursors are opaque to Receipts and other parent UX
-layers. `capabilities.eventCursorRead` is true when this route is present.
+layers. When a supplied `after` cursor is older than the current derived event
+window, the route returns `status: stale-cursor`, `staleCursor: true`, and
+`recovery.action: reset_cursor`; parent readers should resume from
+`oldestCursor` or refresh from `latestCursor`. `capabilities.eventCursorRead` is true when this route is present.
 `capabilities.eventFollow` remains false until Slack Mirror exposes a dedicated
 follow/SSE/streaming surface.
 
@@ -494,12 +499,20 @@ follow/SSE/streaming surface.
 `service_kind`, `event_type`, and `privacy` filters as `/v1/events`. The
 response includes:
 
-- `status`: `complete` when matching events exist, otherwise `no-events`
+- `status`: `current` when matching events exist, `filtered-empty` when events
+  exist but filters match none, or `empty` when no events exist for the selected
+  scope
 - `event_count`
+- `event_family_counts`
 - `latest_event_id`
 - `latest_recorded_at`
 - `latest_occurred_at`
 - `latest_cursor`
+- `oldest_event_id`
+- `oldest_recorded_at`
+- `oldest_cursor`
+- `cursor_retention`
+- `recovery`
 - `watermarks`: per-event-type count and latest cursor metadata
 - `descriptors`: the current stable event descriptor list
 

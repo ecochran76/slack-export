@@ -728,6 +728,7 @@ Actionable plans:
 - `docs/dev/plans/0144-2026-05-01-receipts-compatibility-smoke-gate.md`
 - `docs/dev/plans/0145-2026-05-01-receipts-service-profile-contract.md`
 - `docs/dev/plans/0146-2026-05-01-receipts-identity-display-fixtures.md`
+- `docs/dev/plans/0147-2026-05-01-receipts-event-readiness-lifecycle.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -811,9 +812,10 @@ Current state:
     explicit UI ownership metadata.
   - H4 pinned guest-facing identity/display fixtures across search,
     context-window, selected-result artifacts, and event projections.
-- The next Receipts homework priority is H3 event readiness/lifecycle expansion
-  so Live View can explain current, empty, degraded, and behind states without
-  scraping logs.
+- H3 event readiness/lifecycle expansion is active: Slack-owned event status is
+  being hardened with oldest/latest cursor metadata, stale-cursor recovery,
+  family counts, clearer empty/filter states, and export rename/delete lifecycle
+  events so Receipts Live View does not need to scrape logs.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

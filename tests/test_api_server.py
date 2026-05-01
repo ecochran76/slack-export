@@ -168,6 +168,8 @@ class ApiServerTests(unittest.TestCase):
                 "slack.thread_reply.observed",
                 "slack.file.linked",
                 "slack.export.created",
+                "slack.export.renamed",
+                "slack.export.deleted",
             },
         )
         self.assertEqual(profile["events"]["cursor"], {"opaque": True, "owner": "slack"})
@@ -398,6 +400,9 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(payload["service"], "slack")
         self.assertEqual(payload["status"], "complete")
         self.assertEqual(payload["count"], 1)
+        self.assertFalse(payload["stale_cursor"])
+        self.assertTrue(payload["oldest_cursor"])
+        self.assertTrue(payload["latest_cursor"])
         self.assertEqual(payload["events"][0]["eventType"], "slack.message.observed")
         self.assertEqual(payload["events"][0]["event_type"], "slack.message.observed")
         self.assertEqual(payload["events"][0]["tenant"], "default")
@@ -413,8 +418,12 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         status_payload = status.json()
         self.assertTrue(status_payload["ok"])
-        self.assertEqual(status_payload["status"], "complete")
+        self.assertEqual(status_payload["status"], "current")
         self.assertEqual(status_payload["event_count"], 1)
+        self.assertEqual(status_payload["event_family_counts"], {"slack.message.observed": 1})
+        self.assertTrue(status_payload["oldest_cursor"])
+        self.assertTrue(status_payload["latest_cursor"])
+        self.assertEqual(status_payload["recovery"]["action"], "continue")
         self.assertEqual(status_payload["watermarks"][0]["event_type"], "slack.message.observed")
         self.assertIn("slack.message.observed", {item["event_type"] for item in status_payload["descriptors"]})
 
