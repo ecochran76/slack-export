@@ -6004,3 +6004,29 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - documentation-only handoff; no Slack runtime mutation was performed
   - `git diff --check`
+
+## Turn 311 | 2026-05-02
+
+- Accepted Receipts full-event-stream direction:
+  - Receipts owns the parent full-stream UX, subscriber filters, and subscriber
+    bookmarks
+  - Slack Mirror owns Slack-native event capture, redaction, event identity,
+    cursors, and child-side filter execution
+- Opened the bounded P12 plan:
+  - `docs/dev/plans/0153-2026-05-02-receipts-full-event-stream.md`
+- Implemented the first child-side filter slice:
+  - `/v1/events` and `/v1/events/status` now accept actor, native actor id,
+    channel, native channel id, subject kind, and subject id filters
+  - message/thread event rows now expose actor aliases for parent filtering
+  - `/v1/service-profile` route templates advertise the richer filter
+    vocabulary while keeping `eventFollow: false`
+- Recorded the remaining live-stream boundary:
+  - true subscription/follow support still requires a durable append-only event
+    journal plus a follow/SSE or long-poll endpoint before Slack Mirror can
+    advertise `eventFollow: true`
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_app_service.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_list_child_events_pages_committed_events_with_opaque_cursors tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

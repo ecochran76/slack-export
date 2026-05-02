@@ -737,13 +737,27 @@ class AppServiceTests(unittest.TestCase):
         filtered = service.list_child_events(conn, tenant="default", event_type="slack.file.linked", limit=10)
         self.assertEqual([event["eventType"] for event in filtered["events"]], ["slack.file.linked"])
 
+        actor_filtered = service.list_child_events(conn, tenant="default", actor_ref="Eric", channel_ref="general", limit=10)
+        self.assertEqual([event["eventType"] for event in actor_filtered["events"]], ["slack.message.observed", "slack.thread_reply.observed"])
+        self.assertEqual(actor_filtered["events"][0]["actor_user_id"], "U1")
+        self.assertEqual(actor_filtered["events"][0]["actor_label"], "Eric")
+
+        subject_filtered = service.list_child_events(
+            conn,
+            tenant="default",
+            subject_kind="slack-message",
+            subject_id="message|default|C123|10.0",
+            limit=10,
+        )
+        self.assertEqual([event["eventType"] for event in subject_filtered["events"]], ["slack.message.observed"])
+
         upsert_message(
             conn,
             workspace_id,
             "C123",
             {"ts": "12.0", "user": "U1", "text": "another root message", "channel": "C123"},
         )
-        status = service.child_event_status(conn, tenant="default", event_type="slack.message.observed")
+        status = service.child_event_status(conn, tenant="default", event_type="slack.message.observed", actor_user_id="U1")
         self.assertEqual(status["service"], "slack")
         self.assertEqual(status["status"], "current")
         self.assertEqual(status["event_count"], 2)

@@ -579,6 +579,17 @@ recommended production signature mode.
 - `service_kind`: optional `slack` or `slack-mirror`
 - `event_type`: exact event type or comma-separated event types
 - `privacy`: exact privacy class or comma-separated privacy classes
+- `actor_ref`: child-owned actor label, name, or native user id filter; `actor`
+  is accepted as an alias
+- `actor_user_id`: native Slack user id filter; `user_id` is accepted as an
+  alias
+- `channel_ref`: child-owned channel label, name, or native channel id filter;
+  `channel` is accepted as an alias
+- `channel_id`: native Slack channel id filter
+- `subject_kind`: stable event subject kind such as `slack-message`,
+  `slack-file`, or `slack-export`
+- `subject_id`: stable child-owned subject id such as
+  `message|default|C123|1712870400.000100`
 
 The first event surface is read-only and derives committed product events from
 durable Slack Mirror state rather than exposing raw webhook/socket transport
@@ -604,8 +615,8 @@ window, the route returns `status: stale-cursor`, `staleCursor: true`, and
 follow/SSE/streaming surface.
 
 `GET /v1/events/status` accepts the same `tenant`, `account_key`,
-`service_kind`, `event_type`, and `privacy` filters as `/v1/events`. The
-response includes:
+`service_kind`, `event_type`, `privacy`, actor, channel, and subject filters as
+`/v1/events`. The response includes:
 
 - `status`: `current` when matching events exist, `filtered-empty` when events
   exist but filters match none, or `empty` when no events exist for the selected
@@ -623,6 +634,16 @@ response includes:
 - `recovery`
 - `watermarks`: per-event-type count and latest cursor metadata
 - `descriptors`: the current stable event descriptor list
+
+Receipts owns full-stream UX, subscriptions, and parent-side subscriber
+bookmarks. Slack Mirror owns Slack-native event capture, cursor identity,
+filter vocabulary, and redaction. Before `eventFollow` can become true, Slack
+Mirror must move beyond derived current-state reads for follow semantics and add
+a durable append-only event journal plus a live stream route. Planned event
+families for that follow-ready journal include reaction added/removed,
+user/profile status changes when Slack Mirror ingests them, channel membership
+changes, message edits/deletes/tombstones, outbound write results, and sync or
+runtime status lifecycle changes.
 
 `GET /v1/service-profile` advertises `capabilities.eventDescriptors: true` and
 `capabilities.eventStatus: true` when this metadata is available. Current

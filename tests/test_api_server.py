@@ -112,11 +112,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(profile["routes"]["workspaceSearchTemplate"], "/v1/workspaces/{workspace}/search/corpus")
         self.assertEqual(
             profile["routes"]["events"],
-            "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
+            "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
         )
         self.assertEqual(
             profile["routes"]["eventStatus"],
-            "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}",
+            "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
         )
         self.assertEqual(
             profile["routes"]["contextWindow"],
@@ -292,11 +292,11 @@ class ApiServerTests(unittest.TestCase):
             )
             self.assertEqual(
                 profile_payload["routes"]["events"],
-                "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}",
+                "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
             )
             self.assertEqual(
                 profile_payload["routes"]["eventStatus"],
-                "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}",
+                "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
             )
             self.assertIn("eventDescriptors", profile_payload)
             self.assertEqual(profile_payload["events"]["cursor"]["owner"], "slack")
@@ -460,7 +460,14 @@ class ApiServerTests(unittest.TestCase):
 
         first = requests.get(
             f"{self.base_url}/v1/events",
-            params={"tenant": "default", "event_type": "slack.message.observed", "limit": "1"},
+            params={
+                "tenant": "default",
+                "event_type": "slack.message.observed",
+                "actor_ref": "Eric",
+                "channel_ref": "general",
+                "subject_kind": "slack-message",
+                "limit": "1",
+            },
             timeout=5,
         )
 
@@ -478,11 +485,13 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(payload["events"][0]["tenant"], "default")
         self.assertEqual(payload["events"][0]["source_refs"]["channel_id"], "C123")
         self.assertEqual(payload["events"][0]["payload"]["senderLabel"], "Eric")
+        self.assertEqual(payload["events"][0]["actor_user_id"], "U1")
+        self.assertEqual(payload["events"][0]["actor_label"], "Eric")
         self.assertNotIn("10.0", payload["nextCursor"])
 
         status = requests.get(
             f"{self.base_url}/v1/events/status",
-            params={"tenant": "default", "event_type": "slack.message.observed"},
+            params={"tenant": "default", "event_type": "slack.message.observed", "actor_user_id": "U1", "channel_id": "C123"},
             timeout=5,
         )
         self.assertEqual(status.status_code, 200)

@@ -450,6 +450,78 @@ def _event_cursor_for(event: dict[str, Any]) -> str:
     return _encode_event_cursor(str(event.get("recordedAt") or ""), str(event.get("id") or ""))
 
 
+def _event_filter_values(*values: Any) -> set[str]:
+    tokens: set[str] = set()
+    for value in values:
+        for part in str(value or "").split(","):
+            token = part.strip()
+            if token:
+                tokens.add(token.lower())
+    return tokens
+
+
+def _event_value_matches(filters: set[str], candidates: list[Any]) -> bool:
+    if not filters:
+        return True
+    normalized_candidates = {str(candidate or "").strip().lower() for candidate in candidates if str(candidate or "").strip()}
+    return bool(filters & normalized_candidates)
+
+
+def _event_matches_receipts_filters(
+    event: dict[str, Any],
+    *,
+    actor_ref: str | None,
+    actor_user_id: str | None,
+    channel_ref: str | None,
+    channel_id: str | None,
+    subject_kind: str | None,
+    subject_id: str | None,
+) -> bool:
+    source_refs = dict(event.get("sourceRefs") or event.get("source_refs") or {})
+    payload = dict(event.get("payload") or {})
+    actor = dict(event.get("actor") or payload.get("actor") or {})
+    subject = dict(event.get("subject") or {})
+    actor_filters = _event_filter_values(actor_ref)
+    actor_id_filters = _event_filter_values(actor_user_id)
+    channel_filters = _event_filter_values(channel_ref)
+    channel_id_filters = _event_filter_values(channel_id)
+    subject_kind_filters = _event_filter_values(subject_kind)
+    subject_id_filters = _event_filter_values(subject_id)
+    if not _event_value_matches(
+        actor_filters,
+        [
+            actor.get("label"),
+            actor.get("name"),
+            actor.get("id"),
+            event.get("actorLabel"),
+            event.get("actor_label"),
+            payload.get("senderLabel"),
+            source_refs.get("user_id"),
+            source_refs.get("user_name"),
+            source_refs.get("user_label"),
+        ],
+    ):
+        return False
+    if not _event_value_matches(actor_id_filters, [actor.get("id"), event.get("actorUserId"), event.get("actor_user_id"), source_refs.get("user_id")]):
+        return False
+    if not _event_value_matches(
+        channel_filters,
+        [
+            source_refs.get("channel_id"),
+            source_refs.get("channel_name"),
+            payload.get("channelLabel"),
+        ],
+    ):
+        return False
+    if not _event_value_matches(channel_id_filters, [source_refs.get("channel_id")]):
+        return False
+    if not _event_value_matches(subject_kind_filters, [subject.get("kind")]):
+        return False
+    if not _event_value_matches(subject_id_filters, [subject.get("id")]):
+        return False
+    return True
+
+
 def _sqlite_timestamp_to_iso(value: Any) -> str | None:
     text = str(value or "").strip()
     if not text:
@@ -1620,6 +1692,12 @@ class SlackMirrorAppService:
         account_key: str | None = None,
         event_type: str | None = None,
         privacy: str | None = None,
+        actor_ref: str | None = None,
+        actor_user_id: str | None = None,
+        channel_ref: str | None = None,
+        channel_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_id: str | None = None,
     ) -> dict[str, Any]:
         if service_kind and str(service_kind).strip().lower() not in {"slack", "slack-mirror"}:
             return self._event_page([], limit=max(1, min(int(limit), 100)), status="complete")
@@ -1631,6 +1709,12 @@ class SlackMirrorAppService:
             account_key=account_key,
             event_type=event_type,
             privacy=privacy,
+            actor_ref=actor_ref,
+            actor_user_id=actor_user_id,
+            channel_ref=channel_ref,
+            channel_id=channel_id,
+            subject_kind=subject_kind,
+            subject_id=subject_id,
         )
         stale_cursor = False
         if after_tuple is not None:
@@ -1654,6 +1738,12 @@ class SlackMirrorAppService:
         account_key: str | None = None,
         event_type: str | None = None,
         privacy: str | None = None,
+        actor_ref: str | None = None,
+        actor_user_id: str | None = None,
+        channel_ref: str | None = None,
+        channel_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_id: str | None = None,
     ) -> dict[str, Any]:
         if service_kind and str(service_kind).strip().lower() not in {"slack", "slack-mirror"}:
             events: list[dict[str, Any]] = []
@@ -1664,6 +1754,12 @@ class SlackMirrorAppService:
                 account_key=account_key,
                 event_type=event_type,
                 privacy=privacy,
+                actor_ref=actor_ref,
+                actor_user_id=actor_user_id,
+                channel_ref=channel_ref,
+                channel_id=channel_id,
+                subject_kind=subject_kind,
+                subject_id=subject_id,
             )
         unfiltered_events: list[dict[str, Any]] = []
         if not service_kind or str(service_kind).strip().lower() in {"slack", "slack-mirror"}:
@@ -1673,6 +1769,12 @@ class SlackMirrorAppService:
                 account_key=account_key,
                 event_type=None,
                 privacy=None,
+                actor_ref=None,
+                actor_user_id=None,
+                channel_ref=None,
+                channel_id=None,
+                subject_kind=None,
+                subject_id=None,
             )
         latest = events[-1] if events else None
         oldest = events[0] if events else None
@@ -1778,6 +1880,12 @@ class SlackMirrorAppService:
         account_key: str | None,
         event_type: str | None,
         privacy: str | None,
+        actor_ref: str | None,
+        actor_user_id: str | None,
+        channel_ref: str | None,
+        channel_id: str | None,
+        subject_kind: str | None,
+        subject_id: str | None,
     ) -> list[dict[str, Any]]:
         privacy_filter = {part.strip() for part in str(privacy or "").split(",") if part.strip()}
         event_type_filter = {part.strip() for part in str(event_type or "").split(",") if part.strip()}
@@ -1792,6 +1900,20 @@ class SlackMirrorAppService:
             events = [event for event in events if str(event.get("eventType") or "") in event_type_filter]
         if privacy_filter:
             events = [event for event in events if str(event.get("privacy") or "") in privacy_filter]
+        if any([actor_ref, actor_user_id, channel_ref, channel_id, subject_kind, subject_id]):
+            events = [
+                event
+                for event in events
+                if _event_matches_receipts_filters(
+                    event,
+                    actor_ref=actor_ref,
+                    actor_user_id=actor_user_id,
+                    channel_ref=channel_ref,
+                    channel_id=channel_id,
+                    subject_kind=subject_kind,
+                    subject_id=subject_id,
+                )
+            ]
         events.sort(key=lambda event: (str(event.get("recordedAt") or ""), str(event.get("id") or "")))
         return events
 
@@ -1871,6 +1993,7 @@ class SlackMirrorAppService:
     def _event_with_aliases(self, event: dict[str, Any]) -> dict[str, Any]:
         payload = dict(event)
         source_refs = dict(payload.get("sourceRefs") or {})
+        actor = dict(payload.get("actor") or {})
         payload.setdefault("event_type", payload.get("eventType"))
         payload.setdefault("occurred_at", payload.get("occurredAt"))
         payload.setdefault("recorded_at", payload.get("recordedAt"))
@@ -1879,6 +2002,8 @@ class SlackMirrorAppService:
         payload.setdefault("source_refs", source_refs)
         payload.setdefault("native_ids", source_refs)
         payload.setdefault("nativeIds", source_refs)
+        payload.setdefault("actor_user_id", payload.get("actorUserId") or actor.get("id") or source_refs.get("user_id"))
+        payload.setdefault("actor_label", payload.get("actorLabel") or actor.get("label") or source_refs.get("user_label"))
         return payload
 
     def _event_page(self, events: list[dict[str, Any]], *, limit: int, status: str, stale_cursor: bool = False) -> dict[str, Any]:
@@ -1964,6 +2089,13 @@ class SlackMirrorAppService:
                             if text
                             else f"{sender_label} in {channel_label}"
                         ),
+                        "actor": {
+                            "kind": "slack-user",
+                            "id": row.get("user_id"),
+                            "label": sender_label,
+                        },
+                        "actorUserId": row.get("user_id"),
+                        "actorLabel": sender_label,
                         "serviceKind": "slack",
                         "accountKey": workspace,
                         "tenant": workspace,
@@ -1976,6 +2108,7 @@ class SlackMirrorAppService:
                             "ts": ts,
                             "thread_ts": row.get("thread_ts"),
                             "user_id": row.get("user_id"),
+                            "user_label": sender_label,
                         },
                         "payload": {
                             "channelLabel": channel_label,

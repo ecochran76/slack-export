@@ -732,6 +732,7 @@ Actionable plans:
 - `docs/dev/plans/0148-2026-05-01-receipts-tenant-maintenance-capabilities.md`
 - `docs/dev/plans/0149-2026-05-01-receipts-reference-child-boundary-review.md`
 - `docs/dev/plans/0152-2026-05-01-receipts-tenant-mutation-handshake.md`
+- `docs/dev/plans/0153-2026-05-02-receipts-full-event-stream.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -834,6 +835,13 @@ Current state:
   responses now declare the child-owned executable source, same-origin/session
   requirements, response shape, idempotency posture, and post-action refresh
   recommendations needed before Receipts opens parent-side dispatch.
+- Receipts is the parent owner for full-stream event UX and subscriber
+  filtering. Slack Mirror now treats `0153` as the active child-side event
+  stream lane: current `/v1/events` and `/v1/events/status` reads support
+  actor, channel, and subject filters for Receipts-grade subset reads, while
+  `eventFollow` remains false until Slack Mirror ships a durable append-only
+  event journal and live follow/stream route for reactions, status changes, and
+  other non-current-state event families.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture
