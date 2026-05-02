@@ -6066,3 +6066,10 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+- Managed runtime refresh:
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service`
+  - managed DB migration check confirmed `child_event_journal` exists
+  - live `GET /v1/service-profile` on `http://127.0.0.1:8787` returned
+    `eventFollow: false`, `descriptorCount: 15`, and descriptors for
+    `slack.reaction.added` plus `slack.user.profile.changed`
