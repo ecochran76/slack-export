@@ -854,6 +854,10 @@ Current state:
   `/v1/events/follow`, a bounded long-poll JSON route over the append-only
   child event journal. Receipts still owns subscription definitions and parent
   subscriber bookmarks; Slack-owned follow cursors remain opaque.
+- Slack Mirror now journals the first operational event families for Receipts
+  subscriptions: outbound message/reply write results plus tenant live-sync and
+  initial-sync request actions. Remaining P12 event work is optional SSE,
+  backfill of old raw event rows if needed, and richer channel lifecycle rows.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

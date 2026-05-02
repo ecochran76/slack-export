@@ -612,6 +612,11 @@ Current journal-backed event families include:
 - `slack.channel.member_joined`
 - `slack.channel.member_left`
 - `slack.user.profile.changed`
+- `slack.outbound.message.sent`
+- `slack.outbound.thread_reply.sent`
+- `slack.outbound.write.failed`
+- `slack.runtime.live_sync.changed`
+- `slack.sync.initial_sync.requested`
 
 Current derived current-state event families include:
 
@@ -672,10 +677,10 @@ Receipts owns full-stream UX, subscriptions, and parent-side subscriber
 bookmarks. Slack Mirror owns Slack-native event capture, cursor identity,
 filter vocabulary, and redaction. The first follow contract is bounded
 long-poll rather than SSE so Receipts can consume it through the existing child
-adapter/proxy path. Remaining planned journal families include outbound write
-results, sync or runtime status lifecycle changes, richer channel lifecycle
-events, and any additional Slack-native status events the service starts
-ingesting.
+adapter/proxy path. Operational journal rows currently cover outbound write
+results and tenant live-sync/backfill requests; remaining planned journal
+families include richer channel lifecycle events and any additional
+Slack-native status events the service starts ingesting.
 
 `GET /v1/service-profile` advertises `capabilities.eventDescriptors: true` and
 `capabilities.eventStatus: true` when this metadata is available. Current
@@ -1269,6 +1274,13 @@ Semantics:
 - repeated requests with the same workspace, action kind, and idempotency key return the existing action instead of sending a second Slack write
 - idempotent replay is visible in the returned payload through `idempotent_replay`
 - the result shape is the same whether the caller uses API or MCP
+- first-attempt outbound write results also emit append-only child journal
+  events for Receipts subscriptions:
+  - `slack.outbound.message.sent`
+  - `slack.outbound.thread_reply.sent`
+  - `slack.outbound.write.failed`
+- idempotent replays return the existing outbound action and do not emit a new
+  journal row
 
 ## Channel Management Success
 

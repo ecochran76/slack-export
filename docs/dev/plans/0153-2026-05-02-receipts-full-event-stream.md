@@ -11,7 +11,7 @@ cursor-backed read surfaces over committed Slack product events derived from
 durable mirrored state. The shipped event families cover messages, thread
 replies, linked files, and managed export lifecycle events. The service profile
 correctly advertises `eventCursorRead: true`, `eventDescriptors: true`,
-`eventStatus: true`, and `eventFollow: false`.
+`eventStatus: true`, and `eventFollow: true`.
 
 The first Receipts-grade filter slice is shipped: event reads and status now
 accept actor, actor user id, channel, channel id, subject kind, and subject id
@@ -29,6 +29,11 @@ JSON over the append-only child event journal, and `/v1/service-profile`
 advertises `eventFollow: true` with the follow route template. Follow does not
 replay derived current-state rows such as `slack.message.observed`.
 
+The first operational journal slice is shipped: outbound message/reply write
+results and tenant live-sync/backfill requests now emit append-only journal
+rows so Receipts subscriptions can observe child-owned operational state
+changes without scraping logs or tenant tiles.
+
 Receipts is the parent UX owner for watching the full event stream and managing
 subscriber filters. Slack Mirror remains the child owner for Slack event
 capture, redaction, event identity, cursor semantics, and native Slack filters.
@@ -37,8 +42,8 @@ capture, redaction, event identity, cursor semantics, and native Slack filters.
 
 - Add a Receipts-grade filter vocabulary to Slack-owned event read/status
   surfaces.
-- Keep current event-follow capability disabled until Slack Mirror has a real
-  append-only event journal and live stream endpoint.
+- Keep event-follow backed by the append-only event journal instead of derived
+  current-state rows.
 - Define the remaining event families needed for subscriptions such as
   reactions from a named actor on one tenant or status changes from a named
   actor on another tenant.
@@ -60,8 +65,8 @@ capture, redaction, event identity, cursor semantics, and native Slack filters.
   watermarks.
 - Event rows expose stable actor aliases for message/thread events where Slack
   Mirror has sender provenance.
-- `/v1/service-profile` route templates advertise the filter vocabulary while
-  keeping `eventFollow: false`.
+- `/v1/service-profile` route templates advertise the filter vocabulary and the
+  bounded follow route.
 - `docs/API_MCP_CONTRACT.md` records the Receipts/Slack ownership split and the
   append-only journal requirement for full-stream subscriptions.
 
@@ -69,8 +74,7 @@ capture, redaction, event identity, cursor semantics, and native Slack filters.
 
 - Backfill existing raw Slack event rows into the child event journal if older
   live-intake events need to appear in Receipts.
-- Emit journal rows for outbound write results, sync/runtime status changes,
-  and richer Slack channel lifecycle events.
+- Emit journal rows for richer Slack channel lifecycle events.
 - Decide later whether SSE adds enough value beyond bounded long-poll to justify
   an additional transport.
 - Add subscription-focused smoke tests that model Receipts filters such as

@@ -250,6 +250,76 @@ CHILD_EVENT_DESCRIPTORS: tuple[dict[str, Any], ...] = (
         "safeForRoles": ["owner", "user"],
     },
     {
+        "event_type": "slack.outbound.message.sent",
+        "eventType": "slack.outbound.message.sent",
+        "label": "Outbound message sent",
+        "summary": "A Slack Mirror outbound message write completed successfully.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "message text is preview-limited; native ids and action ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.outbound.thread_reply.sent",
+        "eventType": "slack.outbound.thread_reply.sent",
+        "label": "Outbound thread reply sent",
+        "summary": "A Slack Mirror outbound thread reply write completed successfully.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "reply text is preview-limited; native ids and action ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.outbound.write.failed",
+        "eventType": "slack.outbound.write.failed",
+        "label": "Outbound write failed",
+        "summary": "A Slack Mirror outbound write failed before Slack confirmed delivery.",
+        "privacy": "user",
+        "subject_kind": "slack-outbound-action",
+        "subjectKind": "slack-outbound-action",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "error text is exposed; message text is preview-limited",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.runtime.live_sync.changed",
+        "eventType": "slack.runtime.live_sync.changed",
+        "label": "Live sync action processed",
+        "summary": "A Slack Mirror tenant live-sync start, restart, or stop action was processed.",
+        "privacy": "user",
+        "subject_kind": "slack-runtime",
+        "subjectKind": "slack-runtime",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "tenant, action, dry-run state, and unit labels may be exposed; secrets are not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.sync.initial_sync.requested",
+        "eventType": "slack.sync.initial_sync.requested",
+        "label": "Initial sync requested",
+        "summary": "A Slack Mirror tenant initial history sync/backfill action was requested.",
+        "privacy": "user",
+        "subject_kind": "slack-sync",
+        "subjectKind": "slack-sync",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "tenant, action, options, and command labels may be exposed; secrets are not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
         "event_type": "slack.file.linked",
         "eventType": "slack.file.linked",
         "label": "File linked",
@@ -669,6 +739,11 @@ def _journal_event_title(event_type: str) -> str:
         "slack.channel.member_joined": "Slack channel member joined",
         "slack.channel.member_left": "Slack channel member left",
         "slack.user.profile.changed": "Slack user profile changed",
+        "slack.outbound.message.sent": "Slack outbound message sent",
+        "slack.outbound.thread_reply.sent": "Slack outbound thread reply sent",
+        "slack.outbound.write.failed": "Slack outbound write failed",
+        "slack.runtime.live_sync.changed": "Slack live sync action processed",
+        "slack.sync.initial_sync.requested": "Slack initial sync requested",
     }.get(event_type, event_type or "Slack event")
 
 
@@ -693,6 +768,19 @@ def _journal_event_summary(event_type: str, row: dict[str, Any], payload: dict[s
     if event_type == "slack.user.profile.changed":
         status_text = payload.get("statusText")
         return f"{actor} profile/status changed: {status_text}" if status_text else f"{actor} profile/status changed"
+    if event_type in {"slack.outbound.message.sent", "slack.outbound.thread_reply.sent"}:
+        text = _truncate_text(payload.get("textPreview"), 120)
+        location = f" in {channel}" if channel else ""
+        return f"Outbound write sent{location}: {text}" if text else f"Outbound write sent{location}"
+    if event_type == "slack.outbound.write.failed":
+        return f"Outbound write failed: {_truncate_text(payload.get('error'), 120)}"
+    if event_type == "slack.runtime.live_sync.changed":
+        action = payload.get("action") or "live-sync"
+        status = payload.get("status") or "processed"
+        return f"Live sync {action} {status}"
+    if event_type == "slack.sync.initial_sync.requested":
+        status = payload.get("status") or "requested"
+        return f"Initial sync {status}"
     return _journal_event_title(event_type)
 
 
@@ -5762,6 +5850,68 @@ class SlackMirrorAppService:
                 (status, json.dumps(response, sort_keys=True) if response is not None else None, error, workspace_id, action_id),
             )
 
+    def _append_outbound_child_event(
+        self,
+        conn,
+        *,
+        workspace_id: int,
+        workspace: str,
+        action: dict[str, Any],
+        auth_mode: str,
+        status: str,
+        response: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        action_id = int(action["id"])
+        kind = str(action.get("kind") or "message")
+        channel_id = str((response or {}).get("channel") or action.get("channel_id") or "")
+        response_ts = str((response or {}).get("ts") or "").strip()
+        event_type = (
+            "slack.outbound.write.failed"
+            if status == "failed"
+            else "slack.outbound.thread_reply.sent"
+            if kind == "thread_reply"
+            else "slack.outbound.message.sent"
+        )
+        subject_kind = "slack-outbound-action" if status == "failed" or not response_ts else "slack-message"
+        subject_id = (
+            f"message|{workspace}|{channel_id}|{response_ts}"
+            if subject_kind == "slack-message"
+            else f"outbound|{workspace}|{action_id}"
+        )
+        source_refs = {
+            "workspace": workspace,
+            "action_id": action_id,
+            "kind": kind,
+            "channel_id": channel_id or None,
+            "thread_ts": action.get("thread_ts"),
+            "idempotency_key": action.get("idempotency_key"),
+            "auth_mode": auth_mode,
+            "ts": response_ts or None,
+        }
+        payload = {
+            "actionId": action_id,
+            "kind": kind,
+            "status": status,
+            "authMode": auth_mode,
+            "textPreview": _truncate_text(action.get("text"), 160),
+            "idempotencyKey": action.get("idempotency_key"),
+            "threadTs": action.get("thread_ts"),
+            "responseOk": bool((response or {}).get("ok")) if response is not None else None,
+            "error": _truncate_text(error, 240) if error else None,
+        }
+        db.append_child_event(
+            conn,
+            workspace_id=workspace_id,
+            event_id=f"{event_type}|{action_id}|{status}",
+            event_type=event_type,
+            subject_kind=subject_kind,
+            subject_id=subject_id,
+            channel_id=channel_id or None,
+            source_refs={key: value for key, value in source_refs.items() if value is not None},
+            payload={key: value for key, value in payload.items() if value is not None},
+        )
+
     def send_message(
         self,
         conn,
@@ -5805,6 +5955,15 @@ class SlackMirrorAppService:
                 status="sent",
                 response=response,
             )
+            self._append_outbound_child_event(
+                conn,
+                workspace_id=workspace_id,
+                workspace=workspace,
+                action=action,
+                auth_mode=auth_mode,
+                status="sent",
+                response=response,
+            )
             self._queue_listener_deliveries(
                 conn,
                 workspace_id=workspace_id,
@@ -5821,6 +5980,15 @@ class SlackMirrorAppService:
                 conn,
                 action_id=int(action["id"]),
                 workspace_id=workspace_id,
+                status="failed",
+                error=str(exc),
+            )
+            self._append_outbound_child_event(
+                conn,
+                workspace_id=workspace_id,
+                workspace=workspace,
+                action=action,
+                auth_mode=auth_mode,
                 status="failed",
                 error=str(exc),
             )
@@ -5870,6 +6038,15 @@ class SlackMirrorAppService:
                 status="sent",
                 response=response,
             )
+            self._append_outbound_child_event(
+                conn,
+                workspace_id=workspace_id,
+                workspace=workspace,
+                action=action,
+                auth_mode=auth_mode,
+                status="sent",
+                response=response,
+            )
             self._queue_listener_deliveries(
                 conn,
                 workspace_id=workspace_id,
@@ -5892,6 +6069,15 @@ class SlackMirrorAppService:
                 conn,
                 action_id=int(action["id"]),
                 workspace_id=workspace_id,
+                status="failed",
+                error=str(exc),
+            )
+            self._append_outbound_child_event(
+                conn,
+                workspace_id=workspace_id,
+                workspace=workspace,
+                action=action,
+                auth_mode=auth_mode,
                 status="failed",
                 error=str(exc),
             )

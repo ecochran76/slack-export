@@ -6102,3 +6102,27 @@ This file is the dated turn log for planning and execution continuity.
     `/v1/events/follow` route template
   - direct unauthenticated `GET /v1/events/follow` returned `AUTH_REQUIRED`,
     confirming the installed UI service protects the route like `/v1/events`
+
+## Turn 314 | 2026-05-02
+
+- Continued the P12 full-event-stream lane:
+  - outbound message and thread-reply writes now emit append-only child journal
+    rows for sent results and failed writes
+  - tenant live-sync actions now emit `slack.runtime.live_sync.changed`
+    journal rows
+  - tenant initial-sync/backfill requests now emit
+    `slack.sync.initial_sync.requested` journal rows
+  - `/v1/service-profile` descriptors now include the new operational event
+    families for Receipts subscriptions
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+- Managed runtime refresh:
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service`
+  - live `GET /v1/service-profile` on `http://127.0.0.1:8787` returned
+    `eventFollow: true`, `descriptorCount: 20`, and all five new operational
+    descriptors

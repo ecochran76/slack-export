@@ -179,6 +179,11 @@ class ApiServerTests(unittest.TestCase):
                 "slack.channel.member_joined",
                 "slack.channel.member_left",
                 "slack.user.profile.changed",
+                "slack.outbound.message.sent",
+                "slack.outbound.thread_reply.sent",
+                "slack.outbound.write.failed",
+                "slack.runtime.live_sync.changed",
+                "slack.sync.initial_sync.requested",
                 "slack.file.linked",
                 "slack.export.created",
                 "slack.export.renamed",
@@ -363,6 +368,20 @@ class ApiServerTests(unittest.TestCase):
             self.assertFalse(msg.json()["action"]["retryable"])
             client.open_direct_message.assert_called_once_with(user_id="UEGM25PMG")
             self.assertEqual(client.send_message.call_count, 1)
+
+            outbound_event = requests.get(
+                f"{self.base_url}/v1/events/follow",
+                params={"tenant": "default", "event_type": "slack.outbound.message.sent", "timeout_ms": "0"},
+                timeout=5,
+            )
+            self.assertEqual(outbound_event.status_code, 200)
+            outbound_payload = outbound_event.json()
+            self.assertEqual(outbound_payload["count"], 1)
+            self.assertEqual(outbound_payload["events"][0]["eventType"], "slack.outbound.message.sent")
+            self.assertEqual(outbound_payload["events"][0]["subject"]["kind"], "slack-message")
+            self.assertEqual(outbound_payload["events"][0]["payload"]["status"], "sent")
+            self.assertEqual(outbound_payload["events"][0]["payload"]["textPreview"], "hello")
+            self.assertEqual(outbound_payload["events"][0]["source_refs"]["idempotency_key"], "msg-1")
 
             replay = requests.post(
                 f"{self.base_url}/v1/workspaces/default/messages",
@@ -658,6 +677,15 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(live.json()["operation"]["status"], "planned")
         self.assertEqual(live.json()["action"], "restart")
         self.assertIn("slack-mirror-daemon-polymer.service", live.json()["commands"][0])
+        live_event = requests.get(
+            f"{self.base_url}/v1/events/follow",
+            params={"tenant": "polymer", "event_type": "slack.runtime.live_sync.changed", "timeout_ms": "0"},
+            timeout=5,
+        )
+        self.assertEqual(live_event.status_code, 200)
+        self.assertEqual(live_event.json()["count"], 1)
+        self.assertEqual(live_event.json()["events"][0]["payload"]["action"], "restart")
+        self.assertEqual(live_event.json()["events"][0]["payload"]["status"], "planned")
 
         backfill = requests.post(
             f"{self.base_url}/v1/tenants/polymer/backfill",
@@ -670,6 +698,15 @@ class ApiServerTests(unittest.TestCase):
         self.assertTrue(backfill.json()["refresh"]["poll"])
         self.assertEqual(backfill.json()["action"], "backfill")
         self.assertIn("--channel-limit", backfill.json()["commands"][0])
+        sync_event = requests.get(
+            f"{self.base_url}/v1/events/follow",
+            params={"tenant": "polymer", "event_type": "slack.sync.initial_sync.requested", "timeout_ms": "0"},
+            timeout=5,
+        )
+        self.assertEqual(sync_event.status_code, 200)
+        self.assertEqual(sync_event.json()["count"], 1)
+        self.assertEqual(sync_event.json()["events"][0]["subject"]["kind"], "slack-sync")
+        self.assertEqual(sync_event.json()["events"][0]["payload"]["channelLimit"], 3)
 
         retire = requests.post(
             f"{self.base_url}/v1/tenants/polymer/retire",

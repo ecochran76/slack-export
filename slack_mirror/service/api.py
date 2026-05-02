@@ -7,6 +7,7 @@ import mimetypes
 import os
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from html import escape
@@ -16,6 +17,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 from slack_mirror import __version__
+from slack_mirror.core import db as core_db
 from slack_mirror.core.config import load_config
 from slack_mirror.exports import build_export_manifest, list_export_manifests, resolve_export_base_urls, resolve_export_root, safe_export_path
 from slack_mirror.service.frontend_auth import FrontendAuthConfig, FrontendAuthSession
@@ -425,6 +427,46 @@ def _tenant_mutation_operation(
         "safe_to_persist": ["schema", "service", "kind", "action", "tenant", "status", "dry_run", "changed", "message"],
         "refresh": _tenant_mutation_refresh(tenant=tenant, include_runtime=include_runtime_refresh, poll=poll_refresh),
     }
+
+
+def _record_tenant_operation_event(
+    service: Any,
+    *,
+    tenant: str,
+    event_type: str,
+    subject_kind: str,
+    action: str,
+    status: str,
+    dry_run: bool,
+    commands: list[Any] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    safe_commands = [[str(part) for part in command] if isinstance(command, list) else str(command) for command in (commands or [])]
+    try:
+        conn = service.connect()
+        row = core_db.get_workspace_by_name(conn, tenant)
+        workspace_id = int(row["id"]) if row else core_db.upsert_workspace(conn, name=tenant)
+        core_db.append_child_event(
+            conn,
+            workspace_id=workspace_id,
+            event_id=f"{event_type}|{tenant}|{action}|{status}|{'dry-run' if dry_run else 'apply'}|{time.time_ns()}",
+            event_type=event_type,
+            subject_kind=subject_kind,
+            subject_id=f"{subject_kind}|{tenant}",
+            privacy="user",
+            source_refs={"workspace": tenant, "tenant": tenant, "action": action, "dry_run": dry_run},
+            payload={
+                "tenant": tenant,
+                "action": action,
+                "status": "planned" if dry_run else status,
+                "dryRun": dry_run,
+                "commands": safe_commands,
+                **(payload or {}),
+            },
+        )
+    except Exception:
+        # Event emission must not change tenant operation success/failure semantics.
+        return
 
 
 def _tenant_execution_contract() -> dict[str, Any]:
@@ -3623,6 +3665,17 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, operation="tenants.live")
                     return
+                _record_tenant_operation_event(
+                    service,
+                    tenant=tenant_name,
+                    event_type="slack.runtime.live_sync.changed",
+                    subject_kind="slack-runtime",
+                    action=result.action,
+                    status="completed",
+                    dry_run=result.dry_run,
+                    commands=result.commands,
+                    payload={"operation": f"{result.action}_live_sync"},
+                )
                 _json_response(
                     self,
                     200,
@@ -3665,6 +3718,22 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, operation="tenants.backfill")
                     return
+                _record_tenant_operation_event(
+                    service,
+                    tenant=tenant_name,
+                    event_type="slack.sync.initial_sync.requested",
+                    subject_kind="slack-sync",
+                    action=result.action,
+                    status="started",
+                    dry_run=result.dry_run,
+                    commands=result.commands,
+                    payload={
+                        "authMode": str(body.get("auth_mode") or "user"),
+                        "includeMessages": bool(body.get("include_messages", True)),
+                        "includeFiles": bool(body.get("include_files", False)),
+                        "channelLimit": int(body.get("channel_limit") or 10),
+                    },
+                )
                 _json_response(
                     self,
                     200,
