@@ -716,6 +716,8 @@ def _maintenance_action(
     requires_confirmation: bool = False,
     confirmation_value: str | None = None,
     body_template: dict[str, Any] | None = None,
+    refresh_routes: list[str] | None = None,
+    poll_after_dispatch: bool = False,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": action_id,
@@ -726,6 +728,17 @@ def _maintenance_action(
         "disabled_reason": None if enabled else disabled_reason or "Action is not available in the current tenant state.",
         "dangerous": dangerous,
         "requires_confirmation": requires_confirmation,
+        "executable_source": "tenant_status",
+        "transport_mode": "same-origin-child-session",
+        "response_shape": "tenant_maintenance_operation_v1",
+        "idempotency": {
+            "supported": False,
+            "duplicate_policy": "caller must suppress duplicate clicks and refresh tenant status before retrying",
+        },
+        "refresh_recommendation": {
+            "routes": refresh_routes or ["/v1/tenants", path.rsplit("/", 1)[0] if path.count("/") > 2 else path],
+            "poll_after_dispatch": poll_after_dispatch,
+        },
     }
     if confirmation_value is not None:
         payload["confirmation_value"] = confirmation_value
@@ -737,6 +750,8 @@ def _maintenance_action(
 def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
     """Return redacted tenant-management actions for parent UX capability discovery."""
     name = str(status.get("name") or "")
+    tenant_routes = ["/v1/tenants", f"/v1/tenants/{name}"]
+    runtime_routes = [*tenant_routes, "/v1/runtime/status"]
     enabled = bool(status.get("enabled"))
     credential_ready = bool(status.get("credential_ready"))
     db_synced = bool(status.get("db_synced"))
@@ -780,6 +795,7 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
             path=f"/v1/tenants/{name}/credentials",
             enabled=True,
             body_template={"credentials": "{credential_fields}"},
+            refresh_routes=tenant_routes,
         ),
         _maintenance_action(
             action_id="activate",
@@ -789,6 +805,8 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
             enabled=(not enabled and credential_ready),
             disabled_reason=activate_reason,
             body_template={"skip_live_units": False},
+            refresh_routes=runtime_routes,
+            poll_after_dispatch=True,
         ),
         _maintenance_action(
             action_id="start_live_sync",
@@ -798,6 +816,8 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
             enabled=(live_block_reason is None and not live_active),
             disabled_reason=live_block_reason or "Live sync is already active; use restart or stop.",
             body_template={"action": "start"},
+            refresh_routes=runtime_routes,
+            poll_after_dispatch=True,
         ),
         _maintenance_action(
             action_id="restart_live_sync",
@@ -807,6 +827,8 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
             enabled=(live_block_reason is None and (live_active or live_failed)),
             disabled_reason=live_block_reason or "Live sync is not running; use start instead.",
             body_template={"action": "restart"},
+            refresh_routes=runtime_routes,
+            poll_after_dispatch=True,
         ),
         _maintenance_action(
             action_id="stop_live_sync",
@@ -819,6 +841,8 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
             requires_confirmation=True,
             confirmation_value=name,
             body_template={"action": "stop"},
+            refresh_routes=runtime_routes,
+            poll_after_dispatch=True,
         ),
         _maintenance_action(
             action_id="run_initial_sync",
@@ -833,6 +857,8 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
                 "include_files": False,
                 "channel_limit": 10,
             },
+            refresh_routes=runtime_routes,
+            poll_after_dispatch=True,
         ),
         _maintenance_action(
             action_id="retire",
@@ -845,6 +871,8 @@ def tenant_maintenance_actions(status: dict[str, Any]) -> list[dict[str, Any]]:
             requires_confirmation=True,
             confirmation_value=name,
             body_template={"confirm": name, "delete_db": False, "stop_live_units": True},
+            refresh_routes=["/v1/tenants", "/v1/runtime/status"],
+            poll_after_dispatch=True,
         ),
     ]
 

@@ -370,6 +370,118 @@ def _validate_same_origin_post(
     return None
 
 
+def _tenant_write_csrf_contract() -> dict[str, Any]:
+    return {
+        "mode": "same-origin-origin-or-referer",
+        "tokenRequired": False,
+        "nonceRequired": False,
+        "customHeaderRequired": False,
+        "failureCode": "CSRF_FAILED",
+        "metadataEndpoint": "/v1/service-profile",
+    }
+
+
+def _tenant_mutation_refresh(*, tenant: str, include_runtime: bool = False, poll: bool = False) -> dict[str, Any]:
+    routes = ["/v1/tenants"]
+    if tenant:
+        routes.append(f"/v1/tenants/{tenant}")
+    if include_runtime:
+        routes.append("/v1/runtime/status")
+    return {
+        "recommended": True,
+        "routes": routes,
+        "poll": poll,
+        "poll_interval_ms": 2000 if poll else None,
+    }
+
+
+def _tenant_mutation_operation(
+    *,
+    action: str,
+    tenant: str,
+    status: str = "completed",
+    message: str,
+    dry_run: bool = False,
+    changed: bool | None = None,
+    include_runtime_refresh: bool = False,
+    poll_refresh: bool = False,
+) -> dict[str, Any]:
+    return {
+        "schema": "tenant_maintenance_operation_v1",
+        "service": "slack",
+        "kind": "tenant_maintenance",
+        "action": action,
+        "tenant": tenant,
+        "status": "planned" if dry_run else status,
+        "operation_id": None,
+        "idempotency": {
+            "supported": False,
+            "key": None,
+            "duplicate_policy": "parent/client must suppress duplicate clicks and refresh tenant status before retrying",
+        },
+        "dry_run": dry_run,
+        "changed": changed,
+        "message": message,
+        "safe_to_persist": ["schema", "service", "kind", "action", "tenant", "status", "dry_run", "changed", "message"],
+        "refresh": _tenant_mutation_refresh(tenant=tenant, include_runtime=include_runtime_refresh, poll=poll_refresh),
+    }
+
+
+def _tenant_execution_contract() -> dict[str, Any]:
+    return {
+        "version": 1,
+        "executableSource": "tenant_status_maintenance_actions",
+        "profileActionsExecutable": False,
+        "transport": {
+            "mode": "same-origin-child-session",
+            "pathPolicy": "root-relative-child-path-only",
+            "rejectAbsoluteUrls": True,
+            "receiptsBffPrefix": "/api/children/slack",
+            "sameOriginWrites": True,
+        },
+        "session": {
+            "endpoint": "/auth/session",
+            "credential": "child-session-cookie",
+            "sufficientForWritesWhenAuthenticated": True,
+            "states": ["authenticated", "unauthenticated"],
+            "expiredOrRevokedBehavior": "normalized_to_unauthenticated",
+            "insufficientPermissionBehavior": "not_currently_distinguished_no_role_model",
+        },
+        "csrf": _tenant_write_csrf_contract(),
+        "mutationResponse": {
+            "shape": "tenant_maintenance_operation_v1",
+            "successFields": ["ok", "operation", "refresh"],
+            "errorEnvelope": "shared_service_error_envelope",
+            "errorCodes": [
+                "AUTH_REQUIRED",
+                "CSRF_FAILED",
+                "INVALID_ARGUMENT",
+                "NOT_FOUND",
+                "CONFLICT",
+                "SERVICE_UNAVAILABLE",
+                "INTERNAL",
+            ],
+        },
+        "idempotency": {
+            "supported": False,
+            "header": None,
+            "bodyField": None,
+            "clientRequirement": "suppress duplicate clicks, keep one dispatch in flight, and refresh tenant status before retry",
+        },
+        "postActionRefresh": {
+            "defaultRoutes": ["/v1/tenants", "/v1/tenants/{tenant}"],
+            "runtimeRoutesForActions": [
+                "activate",
+                "start_live_sync",
+                "restart_live_sync",
+                "stop_live_sync",
+                "run_initial_sync",
+                "retire",
+            ],
+        },
+    }
+
+
 def _requires_same_origin_write(path: str) -> bool:
     if path in {"/auth/register", "/auth/login", "/auth/logout"}:
         return True
@@ -501,6 +613,7 @@ def _service_profile_payload() -> dict[str, Any]:
             "auth": "child-session",
             "sameOriginWrites": True,
             "credentialsRedacted": True,
+            "executionContract": _tenant_execution_contract(),
             "listUrl": "/v1/tenants",
             "statusUrlTemplate": "/v1/tenants/{tenant}",
             "onboardUrl": "/v1/tenants/onboard",
@@ -515,6 +628,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "dangerous": False,
                     "requiresConfirmation": False,
                     "enabledWhen": "operator has child session",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"name": "{tenant}", "domain": "{slackDomain}", "display_name": "{displayName}"},
                 },
                 {
@@ -525,6 +640,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "dangerous": False,
                     "requiresConfirmation": False,
                     "enabledWhen": "tenant exists",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"credentials": "{credential_fields}"},
                 },
                 {
@@ -535,6 +652,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "dangerous": False,
                     "requiresConfirmation": False,
                     "enabledWhen": "tenant is disabled and required credentials are present",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"skip_live_units": False},
                 },
                 {
@@ -545,6 +664,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "dangerous": False,
                     "requiresConfirmation": False,
                     "enabledWhen": "tenant is active, synced, credential-ready, and live units are not active",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"action": "start"},
                 },
                 {
@@ -555,6 +676,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "dangerous": False,
                     "requiresConfirmation": False,
                     "enabledWhen": "tenant is active, synced, credential-ready, and live units are active or failed",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"action": "restart"},
                 },
                 {
@@ -566,6 +689,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "requiresConfirmation": True,
                     "confirmationField": "confirm",
                     "enabledWhen": "tenant is active, synced, credential-ready, and live units are active",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"action": "stop"},
                 },
                 {
@@ -576,6 +701,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "dangerous": False,
                     "requiresConfirmation": False,
                     "enabledWhen": "tenant is active, synced, credential-ready, and no backfill queue is already syncing",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {
                         "auth_mode": "user",
                         "include_messages": True,
@@ -592,6 +719,8 @@ def _service_profile_payload() -> dict[str, Any]:
                     "requiresConfirmation": True,
                     "confirmationField": "confirm",
                     "enabledWhen": "tenant is not protected",
+                    "executable": False,
+                    "executableSource": "profile_template",
                     "bodyTemplate": {"confirm": "{tenant}", "delete_db": False, "stop_live_units": True},
                 },
             ],
@@ -2367,12 +2496,14 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
 
             if path == "/auth/session":
                 session_payload = self._frontend_auth_session()
+                session_state = "authenticated" if session_payload.authenticated else "unauthenticated"
                 _json_response(
                     self,
                     200,
                     {
                         "ok": True,
                         "session": {
+                            "state": session_state,
                             "authenticated": session_payload.authenticated,
                             "user_id": session_payload.user_id,
                             "username": session_payload.username,
@@ -2380,6 +2511,16 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                             "session_id": session_payload.session_id,
                             "auth_source": session_payload.auth_source,
                             "expires_at": session_payload.expires_at,
+                            "permissions": {
+                                "tenantMaintenanceRead": session_payload.authenticated,
+                                "tenantMaintenanceWrite": session_payload.authenticated,
+                            },
+                            "tenantMaintenance": {
+                                "writeReady": session_payload.authenticated,
+                                "transportMode": "same-origin-child-session",
+                                "csrf": _tenant_write_csrf_contract(),
+                                "executionContractVersion": 1,
+                            },
                         },
                     },
                 )
@@ -3325,6 +3466,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     201,
                     {
                         "ok": True,
+                        "operation": _tenant_mutation_operation(
+                            action="onboard",
+                            tenant=str(result.tenant.get("name") or tenant_name),
+                            status="completed",
+                            message=f"Tenant scaffold created for {result.tenant.get('name') or tenant_name}.",
+                            dry_run=False,
+                            changed=result.changed,
+                        ),
+                        "refresh": _tenant_mutation_refresh(tenant=str(result.tenant.get("name") or tenant_name)),
                         "changed": result.changed,
                         "config_path": result.config_path,
                         "backup_path": result.backup_path,
@@ -3354,6 +3504,15 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     200,
                     {
                         "ok": True,
+                        "operation": _tenant_mutation_operation(
+                            action="install_credentials",
+                            tenant=tenant_name,
+                            status="completed",
+                            message=f"Credentials processed for {tenant_name}.",
+                            dry_run=result.dry_run,
+                            changed=result.changed,
+                        ),
+                        "refresh": _tenant_mutation_refresh(tenant=tenant_name),
                         "changed": result.changed,
                         "dry_run": result.dry_run,
                         "dotenv_path": result.dotenv_path,
@@ -3385,6 +3544,17 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     200,
                     {
                         "ok": True,
+                        "operation": _tenant_mutation_operation(
+                            action="activate",
+                            tenant=tenant_name,
+                            status="completed",
+                            message=f"Activation processed for {tenant_name}.",
+                            dry_run=result.dry_run,
+                            changed=result.changed,
+                            include_runtime_refresh=True,
+                            poll_refresh=True,
+                        ),
+                        "refresh": _tenant_mutation_refresh(tenant=tenant_name, include_runtime=True, poll=True),
                         "changed": result.changed,
                         "dry_run": result.dry_run,
                         "config_path": result.config_path,
@@ -3416,6 +3586,17 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     200,
                     {
                         "ok": True,
+                        "operation": _tenant_mutation_operation(
+                            action=f"{result.action}_live_sync",
+                            tenant=tenant_name,
+                            status="completed",
+                            message=f"Live sync action {result.action} processed for {tenant_name}.",
+                            dry_run=result.dry_run,
+                            changed=None,
+                            include_runtime_refresh=True,
+                            poll_refresh=True,
+                        ),
+                        "refresh": _tenant_mutation_refresh(tenant=tenant_name, include_runtime=True, poll=True),
                         "action": result.action,
                         "dry_run": result.dry_run,
                         "commands": result.commands,
@@ -3447,6 +3628,17 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     200,
                     {
                         "ok": True,
+                        "operation": _tenant_mutation_operation(
+                            action="run_initial_sync",
+                            tenant=tenant_name,
+                            status="started",
+                            message=f"Initial sync action processed for {tenant_name}.",
+                            dry_run=result.dry_run,
+                            changed=None,
+                            include_runtime_refresh=True,
+                            poll_refresh=True,
+                        ),
+                        "refresh": _tenant_mutation_refresh(tenant=tenant_name, include_runtime=True, poll=True),
                         "action": result.action,
                         "dry_run": result.dry_run,
                         "commands": result.commands,
@@ -3479,6 +3671,17 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     200,
                     {
                         "ok": True,
+                        "operation": _tenant_mutation_operation(
+                            action="retire",
+                            tenant=tenant_name,
+                            status="completed",
+                            message=f"Retire action processed for {tenant_name}.",
+                            dry_run=result.dry_run,
+                            changed=result.changed,
+                            include_runtime_refresh=True,
+                            poll_refresh=True,
+                        ),
+                        "refresh": _tenant_mutation_refresh(tenant=tenant_name, include_runtime=True, poll=True),
                         "changed": result.changed,
                         "dry_run": result.dry_run,
                         "config_path": result.config_path,

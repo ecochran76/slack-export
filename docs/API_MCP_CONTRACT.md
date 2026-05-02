@@ -184,6 +184,9 @@ Current semantics:
 - `POST /auth/register`, `POST /auth/login`, and `POST /auth/logout` require a same-origin `Origin` or `Referer` header and fail with `CSRF_FAILED` otherwise
 - `POST /auth/sessions/{id}/revoke` follows the same same-origin browser rule and only operates on sessions owned by the authenticated user
 - `POST /auth/login` is subject to a bounded failed-login throttle and returns `429 RATE_LIMITED` with retry metadata when the configured threshold is exceeded
+- `GET /auth/session` includes `session.state`, tenant-maintenance write permission booleans, and the same CSRF metadata advertised in `/v1/service-profile`
+- expired or revoked child sessions currently normalize to `state: "unauthenticated"`; there is no role-based insufficient-permission state yet
+- same-origin child-session writes do not require a CSRF token, nonce, or custom header; the required CSRF check is a matching `Origin` or `Referer`
 - protected routes currently include:
   - `/`
   - `/exports/*`
@@ -457,6 +460,89 @@ Credential presence remains redacted. Tenant mutations remain child-session and
 same-origin protected; Receipts should call these routes through the child
 service rather than scrape `/settings/tenants` or duplicate Slack lifecycle
 logic.
+
+### Tenant Maintenance Execution Handshake
+
+`tenantMaintenance.executionContract` is the Slack-owned handshake for parent
+UX layers that want to execute tenant maintenance actions.
+
+Receipts should treat only concrete per-tenant `maintenance_actions` entries
+from `/v1/tenants` or `/v1/tenants/{tenant}` as executable. Profile-level
+`tenantMaintenance.actions` entries are non-executable templates used for
+capability discovery and labeling.
+
+Stable per-tenant action fields:
+
+- `id`
+- `label`
+- `method`
+- `path`
+- `enabled`
+- `disabled_reason`
+- `dangerous`
+- `requires_confirmation`
+- `confirmation_value` when typed confirmation is required
+- `body_template`
+- `executable_source`
+- `transport_mode`
+- `response_shape`
+- `idempotency`
+- `refresh_recommendation`
+
+Transport and session rules:
+
+- dispatch through the parent BFF must use root-relative child paths under the
+  Slack child service, for example `/api/children/slack/v1/tenants/{tenant}/live`
+- absolute URLs, protocol-relative URLs, and service-escaping paths must be
+  rejected by the parent before dispatch
+- authenticated child-session cookies are sufficient for writes
+- the child requires same-origin `Origin` or `Referer` validation and returns
+  `CSRF_FAILED` when that validation fails
+- no CSRF token, nonce, or custom header is required at this layer
+
+Idempotency rules:
+
+- Slack tenant maintenance writes do not currently support a child-owned
+  idempotency key, header, or body field
+- Receipts must keep one dispatch in flight, suppress duplicate clicks, and
+  refresh tenant status before retrying
+- duplicate or stale actions should be rendered from the refreshed
+  `maintenance_actions` state rather than guessed from parent-side state
+
+Successful tenant mutation responses include the existing action-specific
+fields plus:
+
+- `operation.schema: "tenant_maintenance_operation_v1"`
+- `operation.service: "slack"`
+- `operation.kind: "tenant_maintenance"`
+- `operation.action`
+- `operation.tenant`
+- `operation.status`
+- `operation.operation_id`, currently `null` unless a future action has a
+  durable child operation id
+- `operation.idempotency.supported`, currently `false`
+- `operation.message`
+- `operation.safe_to_persist`
+- top-level `refresh` with recommended follow-up routes and polling guidance
+
+Error responses use the shared service error envelope. Parent UIs should branch
+on these stable categories:
+
+- `AUTH_REQUIRED`
+- `CSRF_FAILED`
+- `INVALID_ARGUMENT`
+- `NOT_FOUND`
+- `CONFLICT`
+- `SERVICE_UNAVAILABLE`
+- `INTERNAL`
+
+Post-action refresh rules:
+
+- refresh `/v1/tenants` after every action
+- refresh `/v1/tenants/{tenant}` when the tenant still exists
+- refresh `/v1/runtime/status` after activation, live-sync start/restart/stop,
+  initial sync, and retirement actions
+- honor `refresh.poll` for asynchronous or runtime-affecting actions
 
 `ui.surfaceOwnership` is the boundary map for shared parent interfaces:
 

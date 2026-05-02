@@ -184,6 +184,13 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(tenant_maintenance["auth"], "child-session")
         self.assertTrue(tenant_maintenance["sameOriginWrites"])
         self.assertTrue(tenant_maintenance["credentialsRedacted"])
+        execution_contract = tenant_maintenance["executionContract"]
+        self.assertEqual(execution_contract["executableSource"], "tenant_status_maintenance_actions")
+        self.assertFalse(execution_contract["profileActionsExecutable"])
+        self.assertEqual(execution_contract["csrf"]["mode"], "same-origin-origin-or-referer")
+        self.assertFalse(execution_contract["csrf"]["tokenRequired"])
+        self.assertEqual(execution_contract["mutationResponse"]["shape"], "tenant_maintenance_operation_v1")
+        self.assertFalse(execution_contract["idempotency"]["supported"])
         self.assertEqual(tenant_maintenance["listUrl"], "/v1/tenants")
         self.assertEqual(tenant_maintenance["statusUrlTemplate"], "/v1/tenants/{tenant}")
         self.assertEqual(tenant_maintenance["actionField"], "maintenance_actions")
@@ -205,6 +212,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(dangerous_actions, {"stop_live_sync", "retire"})
         confirming_actions = {item["id"] for item in tenant_maintenance["actions"] if item["requiresConfirmation"]}
         self.assertEqual(confirming_actions, {"stop_live_sync", "retire"})
+        self.assertFalse(any(item["executable"] for item in tenant_maintenance["actions"]))
 
         source_metadata = profile["sourceMetadata"]
         self.assertIn("user_label", source_metadata["labelFields"])
@@ -506,6 +514,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertIn("install_credentials", default_actions)
         self.assertFalse(default_actions["retire"]["enabled"])
         self.assertTrue(default_actions["retire"]["dangerous"])
+        self.assertEqual(default_actions["install_credentials"]["executable_source"], "tenant_status")
+        self.assertEqual(default_actions["install_credentials"]["transport_mode"], "same-origin-child-session")
+        self.assertEqual(default_actions["install_credentials"]["response_shape"], "tenant_maintenance_operation_v1")
+        self.assertFalse(default_actions["install_credentials"]["idempotency"]["supported"])
+        self.assertIn("/v1/tenants/default", default_actions["install_credentials"]["refresh_recommendation"]["routes"])
         self.assertNotIn("xoxb-test-token", json.dumps(tenants.json()))
 
         manifest_path = self.root / "polymer.rendered.json"
@@ -523,6 +536,9 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201)
         payload = created.json()
         self.assertTrue(payload["ok"])
+        self.assertEqual(payload["operation"]["schema"], "tenant_maintenance_operation_v1")
+        self.assertEqual(payload["operation"]["action"], "onboard")
+        self.assertIn("/v1/tenants/polymer", payload["refresh"]["routes"])
         self.assertEqual(payload["tenant"]["name"], "polymer")
         self.assertEqual(payload["tenant"]["next_action"], "credentials_required")
         self.assertTrue(manifest_path.exists())
@@ -561,6 +577,9 @@ class ApiServerTests(unittest.TestCase):
             timeout=5,
         )
         self.assertEqual(credentials.status_code, 200)
+        self.assertEqual(credentials.json()["operation"]["action"], "install_credentials")
+        self.assertEqual(credentials.json()["operation"]["tenant"], "polymer")
+        self.assertIn("message", credentials.json()["operation"]["safe_to_persist"])
         self.assertTrue(credentials.json()["tenant"]["credential_ready"])
         self.assertNotIn("xoxb-polymer", json.dumps(credentials.json()))
 
@@ -572,6 +591,8 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertEqual(activated.status_code, 200)
         self.assertTrue(activated.json()["ok"])
+        self.assertEqual(activated.json()["operation"]["action"], "activate")
+        self.assertIn("/v1/runtime/status", activated.json()["refresh"]["routes"])
         self.assertTrue(activated.json()["tenant"]["enabled"])
         self.assertFalse(activated.json()["live_units_installed"])
 
@@ -582,6 +603,8 @@ class ApiServerTests(unittest.TestCase):
             timeout=5,
         )
         self.assertEqual(live.status_code, 200)
+        self.assertEqual(live.json()["operation"]["action"], "restart_live_sync")
+        self.assertEqual(live.json()["operation"]["status"], "planned")
         self.assertEqual(live.json()["action"], "restart")
         self.assertIn("slack-mirror-daemon-polymer.service", live.json()["commands"][0])
 
@@ -592,6 +615,8 @@ class ApiServerTests(unittest.TestCase):
             timeout=5,
         )
         self.assertEqual(backfill.status_code, 200)
+        self.assertEqual(backfill.json()["operation"]["action"], "run_initial_sync")
+        self.assertTrue(backfill.json()["refresh"]["poll"])
         self.assertEqual(backfill.json()["action"], "backfill")
         self.assertIn("--channel-limit", backfill.json()["commands"][0])
 
@@ -602,6 +627,7 @@ class ApiServerTests(unittest.TestCase):
             timeout=5,
         )
         self.assertEqual(retire.status_code, 200)
+        self.assertEqual(retire.json()["operation"]["action"], "retire")
         self.assertTrue(retire.json()["db_deleted"])
 
     def test_tenant_settings_page_lists_onboarding_surface(self):
@@ -1325,7 +1351,11 @@ class ApiServerTests(unittest.TestCase):
         auth_session = session.get(f"{base_url}/auth/session", timeout=5)
         self.assertEqual(auth_session.status_code, 200)
         self.assertTrue(auth_session.json()["session"]["authenticated"])
+        self.assertEqual(auth_session.json()["session"]["state"], "authenticated")
         self.assertEqual(auth_session.json()["session"]["username"], "eric")
+        self.assertTrue(auth_session.json()["session"]["permissions"]["tenantMaintenanceWrite"])
+        self.assertEqual(auth_session.json()["session"]["tenantMaintenance"]["transportMode"], "same-origin-child-session")
+        self.assertFalse(auth_session.json()["session"]["tenantMaintenance"]["csrf"]["tokenRequired"])
         current_session_id = auth_session.json()["session"]["session_id"]
 
         sessions_listing = session.get(f"{base_url}/auth/sessions", timeout=5)

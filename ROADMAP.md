@@ -731,6 +731,7 @@ Actionable plans:
 - `docs/dev/plans/0147-2026-05-01-receipts-event-readiness-lifecycle.md`
 - `docs/dev/plans/0148-2026-05-01-receipts-tenant-maintenance-capabilities.md`
 - `docs/dev/plans/0149-2026-05-01-receipts-reference-child-boundary-review.md`
+- `docs/dev/plans/0152-2026-05-01-receipts-tenant-mutation-handshake.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -828,6 +829,11 @@ Current state:
   for sync, storage, search, projection, evidence, events, reports, tenant
   maintenance, and Slack-native guardrails. Consolidated handoff:
   `docs/dev/notes/0009-2026-05-01-receipts-h1-h6-contract-handoff.md`.
+- The Receipts tenant-mutation handshake is complete under `0152`:
+  `/v1/service-profile`, `/auth/session`, `/v1/tenants`, and tenant mutation
+  responses now declare the child-owned executable source, same-origin/session
+  requirements, response shape, idempotency posture, and post-action refresh
+  recommendations needed before Receipts opens parent-side dispatch.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

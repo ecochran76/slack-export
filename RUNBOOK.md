@@ -5964,3 +5964,26 @@ This file is the dated turn log for planning and execution continuity.
 - Validation:
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 309 | 2026-05-01
+
+- Answered the Receipts tenant executable-flow handshake:
+  - `docs/dev/plans/0152-2026-05-01-receipts-tenant-mutation-handshake.md`
+- Implemented:
+  - added `tenantMaintenance.executionContract` to `/v1/service-profile`
+  - marked profile-level tenant actions as non-executable templates
+  - added executable source, transport, response-shape, idempotency, and refresh
+    metadata to per-tenant `maintenance_actions`
+  - expanded `/auth/session` with session state, tenant-maintenance permission
+    booleans, and tenant-maintenance CSRF metadata
+  - added safe `tenant_maintenance_operation_v1` operation metadata and
+    top-level refresh recommendations to tenant mutation responses
+  - documented the Slack-owned handshake in `docs/API_MCP_CONTRACT.md`
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/api.py slack_mirror/service/tenant_onboarding.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable tests.test_api_server.ApiServerTests.test_tenant_status_and_onboard_api tests.test_api_server.ApiServerTests.test_frontend_auth_protects_runtime_reports_and_supports_local_login -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/service-profile`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
