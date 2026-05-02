@@ -335,6 +335,21 @@ class SlackMirrorMcpServer:
                 },
             ),
             _tool(
+                "channels.create",
+                "Create or reuse a Slack channel and optionally invite resolved users",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "name": {"type": "string"},
+                        "is_private": {"type": "boolean", "default": False},
+                        "invitees": {"type": "array", "items": {"type": "string"}, "default": []},
+                        "options": {"type": "object", "default": {}},
+                    },
+                    "required": ["workspace", "name"],
+                },
+            ),
+            _tool(
                 "threads.reply",
                 "Send a reply in a thread",
                 {
@@ -671,6 +686,17 @@ class SlackMirrorMcpServer:
                     workspace=str(args["workspace"]),
                     channel_ref=str(args["channel_ref"]),
                     text=str(args["text"]),
+                    options=dict(args.get("options") or {}),
+                )
+            )
+        if name == "channels.create":
+            return self._mcp_result(
+                self.service.create_channel(
+                    conn,
+                    workspace=str(args["workspace"]),
+                    name=str(args["name"]),
+                    is_private=bool(args.get("is_private", False)),
+                    invitees=list(args.get("invitees") or []),
                     options=dict(args.get("options") or {}),
                 )
             )

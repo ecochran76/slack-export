@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from slack_mirror import __version__
+from slack_mirror.core.db import upsert_user
 from slack_mirror.service.app import LiveValidationResult
 from slack_mirror.service.mcp import SlackMirrorMcpServer, run_mcp_stdio
 
@@ -101,6 +102,7 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("search.profiles", names)
         self.assertIn("search.semantic_readiness", names)
         self.assertIn("messages.send", names)
+        self.assertIn("channels.create", names)
         self.assertIn("listeners.register", names)
 
     def test_initialize_negotiates_supported_protocol_version(self):
@@ -256,6 +258,40 @@ class McpServerTests(unittest.TestCase):
         )
         self.assertIn('"idempotent_replay": true', replay["result"]["content"][0]["text"])
 
+        conn = self.server.service.connect()
+        self.addCleanup(conn.close)
+        workspace_id = self.server.service.workspace_id(conn, "default")
+        upsert_user(conn, workspace_id, {"id": "U111", "name": "baker", "profile": {"display_name": "Baker"}})
+        upsert_user(conn, workspace_id, {"id": "U222", "name": "michael", "profile": {"display_name": "Michael"}})
+        with patch("slack_mirror.service.app.SlackApiClient") as mock_client_cls:
+            client = mock_client_cls.return_value
+            client.create_conversation.return_value = {
+                "ok": True,
+                "channel": {"id": "GCHAN1", "name": "project-alpha", "is_private": True},
+            }
+            client.invite_to_conversation.return_value = {"ok": True, "channel": {"id": "GCHAN1"}}
+            channel_create = self.server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 32,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "channels.create",
+                        "arguments": {
+                            "workspace": "default",
+                            "name": "Project Alpha",
+                            "is_private": True,
+                            "invitees": ["Baker", "Michael"],
+                            "options": {"auth_mode": "user"},
+                        },
+                    },
+                }
+            )
+        channel_payload = _result_payload(channel_create)
+        self.assertTrue(channel_payload["created"])
+        self.assertEqual(channel_payload["name"], "project-alpha")
+        self.assertEqual(channel_payload["channel_id"], "GCHAN1")
+
         register = self.server.handle_request(
             {
                 "jsonrpc": "2.0",
@@ -272,8 +308,6 @@ class McpServerTests(unittest.TestCase):
         )
         self.assertIn('"name": "hook"', register["result"]["content"][0]["text"])
 
-        conn = self.server.service.connect()
-        self.addCleanup(conn.close)
         self.server.service.ingest_event(
             conn,
             workspace="default",

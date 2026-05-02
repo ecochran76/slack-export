@@ -348,6 +348,66 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(rows[0]["latest_message_day"], "2024-04-11")
         self.assertEqual(rows[1]["channel_class"], "im")
 
+    def test_create_channel_normalizes_name_and_invites_users(self):
+        workspace_id = self.service.workspace_id(self.conn, "soylei")
+        upsert_user(self.conn, workspace_id, {"id": "U111", "name": "baker", "profile": {"display_name": "Baker"}})
+        upsert_user(self.conn, workspace_id, {"id": "U222", "name": "michael", "profile": {"display_name": "Michael"}})
+
+        with patch("slack_mirror.service.app.SlackApiClient") as mock_client_cls:
+            client = mock_client_cls.return_value
+            client.create_conversation.return_value = {
+                "ok": True,
+                "channel": {"id": "GCHAN1", "name": "project-alpha", "is_private": True},
+            }
+            client.invite_to_conversation.return_value = {"ok": True, "channel": {"id": "GCHAN1"}}
+
+            payload = self.service.create_channel(
+                self.conn,
+                workspace="soylei",
+                name="Project Alpha",
+                is_private=True,
+                invitees=["Baker", "@Michael"],
+                options={"auth_mode": "user"},
+            )
+
+        self.assertTrue(payload["created"])
+        self.assertEqual(payload["name"], "project-alpha")
+        self.assertEqual(payload["requested_name"], "Project Alpha")
+        self.assertEqual(payload["channel_id"], "GCHAN1")
+        self.assertEqual(payload["invited_user_ids"], ["U111", "U222"])
+        client.create_conversation.assert_called_once_with(name="project-alpha", is_private=True)
+        client.invite_to_conversation.assert_called_once_with(channel="GCHAN1", users=["U111", "U222"])
+        calls = [call.args[0] for call in mock_client_cls.call_args_list]
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(token.startswith("xoxp-") for token in calls))
+
+        channel = self.conn.execute(
+            "SELECT name, is_private FROM channels WHERE workspace_id = ? AND channel_id = ?",
+            (workspace_id, "GCHAN1"),
+        ).fetchone()
+        self.assertEqual(dict(channel), {"name": "project-alpha", "is_private": 1})
+        members = self.conn.execute(
+            "SELECT user_id FROM channel_members WHERE workspace_id = ? AND channel_id = ? ORDER BY user_id",
+            (workspace_id, "GCHAN1"),
+        ).fetchall()
+        self.assertEqual([row["user_id"] for row in members], ["U111", "U222"])
+
+    def test_create_channel_resolves_invitees_before_slack_write(self):
+        workspace_id = self.service.workspace_id(self.conn, "soylei")
+        upsert_user(self.conn, workspace_id, {"id": "U111", "name": "baker", "profile": {"display_name": "Baker"}})
+
+        with patch("slack_mirror.service.app.SlackApiClient") as mock_client_cls:
+            with self.assertRaisesRegex(ValueError, "was not found"):
+                self.service.create_channel(
+                    self.conn,
+                    workspace="soylei",
+                    name="Project Alpha",
+                    is_private=True,
+                    invitees=["Baker", "Missing Person"],
+                )
+
+        mock_client_cls.assert_not_called()
+
     def test_build_search_context_pack_resolves_message_and_derived_targets(self):
         workspace_id = self.service.workspace_id(self.conn, "default")
         upsert_channel(self.conn, workspace_id, {"id": "C123", "name": "general", "is_private": False})

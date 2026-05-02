@@ -5920,3 +5920,33 @@ This file is the dated turn log for planning and execution continuity.
   - skill frontmatter validation
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 307 | 2026-05-01
+
+- Added agent skills and service support for Slack channel management:
+  - `docs/dev/plans/0151-2026-05-01-agent-skills-channel-management.md`
+- Implemented:
+  - added Slack API helpers for `conversations.create` and
+    `conversations.invite`
+  - added a shared `create_channel` service operation that normalizes channel
+    names, resolves invitees before creation, reuses compatible mirrored
+    same-name channels, and persists created channels plus invited members
+  - exposed `channels.create` through MCP and
+    `POST /v1/workspaces/{workspace}/channels` through the local API
+  - added `agent-skills/slack-mirror-channel-management/SKILL.md` and routed it
+    from the Slack Mirror orchestrator skill
+  - documented channel-management semantics in the API/MCP contract and
+    repo-bundled skill docs
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/core/slack_api.py slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py tests/test_app_service.py tests/test_api_server.py tests/test_mcp_server.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_create_channel_normalizes_name_and_invites_users tests.test_app_service.AppServiceTests.test_create_channel_resolves_invitees_before_slack_write -v`
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_channel_create_api_normalizes_and_invites_users tests.test_mcp_server.McpServerTests.test_initialize_and_tools_list tests.test_mcp_server.McpServerTests.test_message_send_and_listener_tools -v`
+  - `bash -n scripts/install_agent_skills.sh`
+  - `scripts/install_agent_skills.sh --dry-run`
+  - skill frontmatter validation
+  - `scripts/install_agent_skills.sh`
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/health`
+  - MCP stdio `tools/list` through `/home/ecochran76/.local/bin/slack-mirror-mcp` confirmed `channels.create`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

@@ -3558,6 +3558,24 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                 _json_response(self, 200, {"ok": True, "action": payload})
                 return
 
+            m = re.fullmatch(r"/v1/workspaces/([^/]+)/channels", path)
+            if m:
+                conn = service.connect()
+                try:
+                    payload = service.create_channel(
+                        conn,
+                        workspace=m.group(1),
+                        name=str(body.get("name") or ""),
+                        is_private=bool(body.get("is_private", False)),
+                        invitees=list(body.get("invitees") or []),
+                        options=dict(body.get("options") or {}),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, workspace=m.group(1), operation="channels.create")
+                    return
+                _json_response(self, 201 if payload.get("created") else 200, {"ok": True, "channel": payload})
+                return
+
             m = re.fullmatch(r"/v1/workspaces/([^/]+)/threads/([^/]+)/replies", path)
             if m:
                 conn = service.connect()

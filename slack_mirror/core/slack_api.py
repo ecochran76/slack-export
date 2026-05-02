@@ -153,6 +153,14 @@ class SlackApiClient:
     def open_direct_message(self, *, user_id: str) -> dict[str, Any]:
         return self._call_with_backoff(self.client.conversations_open, users=user_id).data
 
+    def create_conversation(self, *, name: str, is_private: bool = False) -> dict[str, Any]:
+        return self._call_with_backoff(self.client.conversations_create, name=name, is_private=is_private).data
+
+    def invite_to_conversation(self, *, channel: str, users: list[str]) -> dict[str, Any]:
+        if not users:
+            raise ValueError("users is required")
+        return self._call_with_backoff(self.client.conversations_invite, channel=channel, users=",".join(users)).data
+
     def send_message(self, *, channel: str, text: str, **kwargs: Any) -> dict[str, Any]:
         return self._call_with_backoff(self.client.chat_postMessage, channel=channel, text=text, **kwargs).data
 

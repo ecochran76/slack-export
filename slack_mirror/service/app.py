@@ -2822,6 +2822,111 @@ class SlackMirrorAppService:
             return str(channel_id)
         return self.resolve_channel_ref(conn, workspace_id, ref)
 
+    def normalize_channel_name(self, name: str) -> str:
+        normalized = re.sub(r"[^a-z0-9_-]+", "-", str(name or "").strip().lower())
+        normalized = re.sub(r"-+", "-", normalized).strip("-_")
+        if not normalized:
+            raise ValueError("channel name is required")
+        if len(normalized) > 80:
+            raise ValueError("channel name must be 80 characters or fewer after normalization")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", normalized):
+            raise ValueError(f"channel name is not Slack-compatible after normalization: {normalized}")
+        return normalized
+
+    def _find_channel_by_name(self, conn, *, workspace_id: int, name: str) -> dict[str, Any] | None:
+        row = conn.execute(
+            """
+            SELECT channel_id, name, is_private, is_im, is_mpim, raw_json
+            FROM channels
+            WHERE workspace_id = ? AND lower(name) = lower(?)
+            ORDER BY channel_id
+            LIMIT 1
+            """,
+            (workspace_id, name),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def create_channel(
+        self,
+        conn,
+        *,
+        workspace: str,
+        name: str,
+        is_private: bool = False,
+        invitees: list[str] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        options = dict(options or {})
+        auth_mode = str(options.pop("auth_mode", "bot"))
+        requested_name = str(name or "").strip()
+        channel_name = self.normalize_channel_name(requested_name)
+        workspace_id = self.workspace_id(conn, workspace)
+        invitee_refs = [str(invitee).strip() for invitee in (invitees or []) if str(invitee).strip()]
+        invited_user_ids: list[str] = []
+        for invitee in invitee_refs:
+            user_id = self.resolve_user_ref(conn, workspace_id, invitee)
+            if not user_id:
+                raise ValueError(f"User reference '{invitee}' was not found in workspace")
+            invited_user_ids.append(user_id)
+
+        existing = self._find_channel_by_name(conn, workspace_id=workspace_id, name=channel_name)
+        created = False
+        channel: dict[str, Any]
+        if existing:
+            if bool(existing.get("is_im")) or bool(existing.get("is_mpim")):
+                raise ValueError(f"Existing conversation '{channel_name}' is not a channel")
+            if bool(existing.get("is_private")) != bool(is_private):
+                requested_kind = "private" if is_private else "public"
+                existing_kind = "private" if existing.get("is_private") else "public"
+                raise ValueError(
+                    f"Existing channel '{channel_name}' is {existing_kind}; refusing to treat it as {requested_kind}"
+                )
+            try:
+                raw = json.loads(str(existing.get("raw_json") or "{}"))
+            except json.JSONDecodeError:
+                raw = {}
+            channel = raw if isinstance(raw, dict) else {}
+            channel.setdefault("id", str(existing["channel_id"]))
+            channel.setdefault("name", str(existing["name"]))
+            channel.setdefault("is_private", bool(existing.get("is_private")))
+        else:
+            token = self.workspace_token(workspace, auth_mode=auth_mode, purpose="write")
+            client = SlackApiClient(token)
+            response = client.create_conversation(name=channel_name, is_private=bool(is_private))
+            channel = dict(response.get("channel") or {})
+            channel_id = str(channel.get("id") or "")
+            if not channel_id:
+                raise ValueError("Slack did not return a created channel id")
+            db.upsert_channel(conn, workspace_id, channel)
+            created = True
+
+        channel_id = str(channel.get("id") or "")
+        if not channel_id:
+            raise ValueError("channel id is required")
+
+        invite_response: dict[str, Any] | None = None
+        if invited_user_ids:
+            token = self.workspace_token(workspace, auth_mode=auth_mode, purpose="write")
+            client = SlackApiClient(token)
+            invite_response = client.invite_to_conversation(channel=channel_id, users=invited_user_ids)
+            for user_id in invited_user_ids:
+                db.upsert_channel_member(conn, workspace_id, channel_id, user_id)
+
+        return {
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "requested_name": requested_name,
+            "name": channel_name,
+            "channel_id": channel_id,
+            "is_private": bool(is_private),
+            "created": created,
+            "invited_user_ids": invited_user_ids,
+            "invitees": invitee_refs,
+            "channel": channel,
+            "invite_response": invite_response,
+            "auth_mode": auth_mode,
+        }
+
     def list_workspaces(self, conn) -> list[dict[str, Any]]:
         return [dict(row) for row in list_workspaces(conn)]
 

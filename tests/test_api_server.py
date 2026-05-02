@@ -379,6 +379,41 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertIn("summary", status.json())
 
+    def test_channel_create_api_normalizes_and_invites_users(self):
+        service = get_app_service(str(self.config_path))
+        conn = service.connect()
+        self.addCleanup(conn.close)
+        workspace_id = service.workspace_id(conn, "soylei")
+        upsert_user(conn, workspace_id, {"id": "U111", "name": "baker", "profile": {"display_name": "Baker"}})
+        upsert_user(conn, workspace_id, {"id": "U222", "name": "michael", "profile": {"display_name": "Michael"}})
+
+        with patch("slack_mirror.service.app.SlackApiClient") as mock_client_cls:
+            client = mock_client_cls.return_value
+            client.create_conversation.return_value = {
+                "ok": True,
+                "channel": {"id": "GCHAN1", "name": "project-alpha", "is_private": True},
+            }
+            client.invite_to_conversation.return_value = {"ok": True, "channel": {"id": "GCHAN1"}}
+
+            response = requests.post(
+                f"{self.base_url}/v1/workspaces/soylei/channels",
+                json={
+                    "name": "Project Alpha",
+                    "is_private": True,
+                    "invitees": ["Baker", "Michael"],
+                    "options": {"auth_mode": "user"},
+                },
+                timeout=5,
+            )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()["channel"]
+        self.assertTrue(payload["created"])
+        self.assertEqual(payload["name"], "project-alpha")
+        self.assertEqual(payload["channel_id"], "GCHAN1")
+        client.create_conversation.assert_called_once_with(name="project-alpha", is_private=True)
+        client.invite_to_conversation.assert_called_once_with(channel="GCHAN1", users=["U111", "U222"])
+
     def test_context_window_endpoint_pages_message_context(self):
         service = get_app_service(str(self.config_path))
         conn = service.connect()

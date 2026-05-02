@@ -11,10 +11,12 @@ Included skills:
 - `slack-mirror-search`
 - `slack-mirror-export`
 - `slack-mirror-send`
+- `slack-mirror-channel-management`
 
 Example prompts these skills are intended to support:
 
 - "Send Michael a note about this on the SoyLei tenant from my user account."
+- "Create a private SoyLei channel called Project Alpha and invite Baker and Michael."
 - "What did Baker say about amazon today?"
 - "Find the thread about the website outage in SoyLei and export the context."
 
@@ -47,4 +49,5 @@ scripts/install_agent_skills.sh --dry-run
 
 - Skills are plain skill folders with `SKILL.md` frontmatter and markdown instructions.
 - The installer synchronizes only the repo-owned Slack Mirror skill folders, preserving unrelated skills in the target runtime.
-- `slack-mirror-send` describes real outbound writes. Agents should use Slack Mirror MCP tools when available, include an idempotency key, and set `options.auth_mode="user"` when the user explicitly asks to send from their user account.
+- `slack-mirror-send` describes real outbound message writes. Agents should use Slack Mirror MCP tools when available, include an idempotency key, and set `options.auth_mode="user"` when the user explicitly asks to send from their user account.
+- `slack-mirror-channel-management` describes real channel-management writes. It uses `channels.create`, resolves invitees before creation, reports normalized channel names, and should not be used when tenant, privacy, or invitees are ambiguous.

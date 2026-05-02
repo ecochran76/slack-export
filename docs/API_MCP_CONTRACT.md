@@ -80,6 +80,7 @@ Supported release-baseline MCP tool groups:
 - conversation discovery and scoped review: `conversations.list`, `search.conversation`
 - search and retrieval diagnostics: `search.corpus`, `search.context_pack`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
 - outbound actions: `messages.send`, `threads.reply`
+- channel management: `channels.create`
 - listener workflow: `listeners.register`, `listeners.list`, `listeners.status`, `listeners.unregister`, `deliveries.list`, `deliveries.ack`
 
 Recommended operator preflight from MCP clients:
@@ -93,6 +94,8 @@ Recommended operator preflight from MCP clients:
 - call `search.readiness` or `search.semantic_readiness` before assuming semantic coverage is complete
 
 Outbound tools are real writes. Use them only after workspace token verification, and prefer an `options.idempotency_key` for retryable sends. `messages.send` accepts channel references or DM-style targets according to the shared outbound service contract; `threads.reply` requires an existing channel reference and thread timestamp/reference.
+
+Channel-management tools are also real writes. `channels.create` normalizes the requested name to a Slack-compatible lowercase name, resolves invitees before creating a new Slack channel, creates or reuses a mirrored same-name channel when public/private settings match, and invites the resolved users.
 
 Listener tools are for agent-consumable event delivery. Register a listener with `listeners.register`, inspect it with `listeners.status`, poll work with `deliveries.list`, and acknowledge completion or failure with `deliveries.ack`.
 
@@ -1127,6 +1130,38 @@ Semantics:
 - repeated requests with the same workspace, action kind, and idempotency key return the existing action instead of sending a second Slack write
 - idempotent replay is visible in the returned payload through `idempotent_replay`
 - the result shape is the same whether the caller uses API or MCP
+
+## Channel Management Success
+
+API:
+
+- `POST /v1/workspaces/{workspace}/channels`
+
+MCP:
+
+- `channels.create`
+
+Request fields:
+
+- `workspace`
+- `name`
+- `is_private`
+- `invitees`
+- `options.auth_mode`
+
+Successful channel-management actions return:
+
+- `workspace`
+- `requested_name`
+- `name`
+- `channel_id`
+- `is_private`
+- `created`
+- `invited_user_ids`
+- `invitees`
+- `auth_mode`
+
+Slack Mirror resolves invitees against mirrored users before creating a new channel. If a user reference is missing or ambiguous, the operation fails before the Slack write. If a same-name mirrored channel already exists, Slack Mirror reuses it only when the requested public/private setting matches.
 
 ## Listener Registration
 
