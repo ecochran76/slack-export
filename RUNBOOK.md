@@ -6073,3 +6073,32 @@ This file is the dated turn log for planning and execution continuity.
   - live `GET /v1/service-profile` on `http://127.0.0.1:8787` returned
     `eventFollow: false`, `descriptorCount: 15`, and descriptors for
     `slack.reaction.added` plus `slack.user.profile.changed`
+
+## Turn 313 | 2026-05-02
+
+- Continued the P12 full-event-stream lane:
+  - added `GET /v1/events/follow` as a bounded long-poll JSON route over the
+    append-only child event journal
+  - follow accepts the same Receipts-grade filters as `/v1/events` plus
+    `timeout_ms`
+  - follow is journal-only and does not replay derived current-state rows such
+    as `slack.message.observed`
+  - `/v1/service-profile` now advertises `eventFollow: true`,
+    `routes.eventFollow`, `events.followUrlTemplate`, and
+    `events.followMode: bounded-long-poll`
+- Receipts handoff:
+  - `../receipts/docs/dev/notes/0027-2026-05-02-slack-event-follow-handoff.md`
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
+- Managed runtime refresh:
+  - `/home/ecochran76/.local/share/slack-mirror/venv/bin/python -m pip install -e /home/ecochran76/workspace.local/slack-export`
+  - `systemctl --user restart slack-mirror-api.service`
+  - live `GET /v1/service-profile` on `http://127.0.0.1:8787` returned
+    `eventFollow: true`, `events.followMode: bounded-long-poll`, and the
+    `/v1/events/follow` route template
+  - direct unauthenticated `GET /v1/events/follow` returned `AUTH_REQUIRED`,
+    confirming the installed UI service protects the route like `/v1/events`

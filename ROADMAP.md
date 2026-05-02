@@ -842,16 +842,18 @@ Current state:
 - Receipts is the parent owner for full-stream event UX and subscriber
   filtering. Slack Mirror now treats `0153` as the active child-side event
   stream lane: current `/v1/events` and `/v1/events/status` reads support
-  actor, channel, and subject filters for Receipts-grade subset reads, while
-  `eventFollow` remains false until Slack Mirror ships a live follow/stream
-  route over the durable append-only event journal.
+  actor, channel, and subject filters for Receipts-grade subset reads.
 - Slack Mirror now has the first append-only child event journal slice for live
   intake: message creates, thread-reply creates, message changes/deletes,
   reaction add/remove events, channel member join/leave events, and
   user/profile status changes are journaled when Slack Mirror receives the
-  corresponding Slack event. Remaining P12 event work is stream/follow,
+  corresponding Slack event. Remaining P12 event work is optional SSE,
   backfill of old raw event rows if needed, and journal rows for outbound
   writes plus sync/runtime status lifecycle.
+- Slack Mirror now advertises `eventFollow: true` with
+  `/v1/events/follow`, a bounded long-poll JSON route over the append-only
+  child event journal. Receipts still owns subscription definitions and parent
+  subscriber bookmarks; Slack-owned follow cursors remain opaque.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

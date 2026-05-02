@@ -377,6 +377,7 @@ API:
 
 - `GET /v1/service-profile`
 - `GET /v1/events`
+- `GET /v1/events/follow`
 - `GET /v1/context-window`
 - `GET /v1/workspaces/{workspace}/channels`
 - `GET /v1/exports`
@@ -393,6 +394,7 @@ Current semantics:
 - `GET /v1/service-profile` returns a machine-readable child-service profile for parent UX layers such as Receipts
 - `GET /v1/events` returns a cursor-backed page of Slack-owned committed product events
 - `GET /v1/events/status` returns child-owned event readiness and watermark metadata
+- `GET /v1/events/follow` returns a bounded long-poll page over Slack-owned journal events
 - `GET /v1/context-window` returns a cursor-backed Slack-owned message context stream for a selected search result
 - `GET /v1/workspaces/{workspace}/channels` provides valid mirrored channel choices for the browser export picker
 - `POST /v1/exports` supports bounded managed bundle creation for `kind=channel-day` and `kind=selected-results`
@@ -629,8 +631,21 @@ layers. When a supplied `after` cursor is older than the current derived event
 window, the route returns `status: stale-cursor`, `staleCursor: true`, and
 `recovery.action: reset_cursor`; parent readers should resume from
 `oldestCursor` or refresh from `latestCursor`. `capabilities.eventCursorRead` is true when this route is present.
-`capabilities.eventFollow` remains false until Slack Mirror exposes a dedicated
-follow/SSE/streaming surface.
+
+`GET /v1/events/follow` accepts the same filters as `/v1/events`, plus
+`timeout_ms`. It is a bounded long-poll JSON surface over the append-only child
+event journal only; it does not replay derived current-state rows such as
+`slack.message.observed`. The service caps the wait to 30 seconds. The response
+shape matches `/v1/events` and adds:
+
+- `follow.mode`: `bounded-long-poll`
+- `follow.journal_only`: true
+- `follow.timeout_ms`: the effective wait budget
+
+`capabilities.eventFollow` is true when this route is available. Parent
+subscribers should keep their own subscription definitions and bookmarks, pass
+Slack-owned opaque cursors back as `after`, and treat an empty follow response
+as a timeout rather than an error.
 
 `GET /v1/events/status` accepts the same `tenant`, `account_key`,
 `service_kind`, `event_type`, `privacy`, actor, channel, and subject filters as
@@ -655,9 +670,9 @@ follow/SSE/streaming surface.
 
 Receipts owns full-stream UX, subscriptions, and parent-side subscriber
 bookmarks. Slack Mirror owns Slack-native event capture, cursor identity,
-filter vocabulary, and redaction. Before `eventFollow` can become true, Slack
-Mirror must expose a live stream route over the journal and prove bounded
-subscriber behavior. Remaining planned journal families include outbound write
+filter vocabulary, and redaction. The first follow contract is bounded
+long-poll rather than SSE so Receipts can consume it through the existing child
+adapter/proxy path. Remaining planned journal families include outbound write
 results, sync or runtime status lifecycle changes, richer channel lifecycle
 events, and any additional Slack-native status events the service starts
 ingesting.

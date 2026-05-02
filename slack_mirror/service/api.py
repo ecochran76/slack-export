@@ -546,13 +546,14 @@ def _service_profile_payload() -> dict[str, Any]:
             "eventCursorRead": True,
             "eventDescriptors": True,
             "eventStatus": True,
-            "eventFollow": False,
+            "eventFollow": True,
             "managementActions": True,
         },
         "routes": {
             "health": "/v1/health",
             "events": "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
             "eventStatus": "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
+            "eventFollow": "/v1/events/follow?tenant={tenant}&after={cursor}&limit={limit}&timeout_ms={timeoutMs}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
             "search": "/v1/search/corpus",
             "workspaceSearchTemplate": "/v1/workspaces/{workspace}/search/corpus",
             "messageDetailTemplate": "/v1/workspaces/{workspace}/messages/{channel_id}/{ts}",
@@ -604,6 +605,9 @@ def _service_profile_payload() -> dict[str, Any]:
         "events": {
             "listUrlTemplate": "/v1/events?tenant={tenant}&after={cursor}&limit={limit}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
             "statusUrlTemplate": "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
+            "followUrlTemplate": "/v1/events/follow?tenant={tenant}&after={cursor}&limit={limit}&timeout_ms={timeoutMs}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
+            "followMode": "bounded-long-poll",
+            "follow_mode": "bounded-long-poll",
             "cursor": {"opaque": True, "owner": "slack"},
             "descriptors": child_event_descriptors(),
         },
@@ -2472,6 +2476,32 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     )
                 except Exception as exc:  # noqa: BLE001
                     _service_error_response(self, exc, path=path, operation="events.status")
+                    return
+                _json_response(self, 200, {"ok": True, **payload})
+                return
+
+            if path == "/v1/events/follow":
+                conn = service.connect()
+                try:
+                    payload = service.follow_child_events(
+                        conn,
+                        tenant=str(query.get("tenant", [""])[0] or "").strip() or None,
+                        after=str(query.get("after", [""])[0] or "").strip() or None,
+                        limit=int(query.get("limit", [50])[0]),
+                        timeout_ms=int(query.get("timeout_ms", query.get("timeoutMs", [0]))[0]),
+                        service_kind=str(query.get("service_kind", [""])[0] or "").strip() or None,
+                        account_key=str(query.get("account_key", [""])[0] or "").strip() or None,
+                        event_type=str(query.get("event_type", [""])[0] or "").strip() or None,
+                        privacy=str(query.get("privacy", [""])[0] or "").strip() or None,
+                        actor_ref=str(query.get("actor_ref", query.get("actor", [""]))[0] or "").strip() or None,
+                        actor_user_id=str(query.get("actor_user_id", query.get("user_id", [""]))[0] or "").strip() or None,
+                        channel_ref=str(query.get("channel_ref", query.get("channel", [""]))[0] or "").strip() or None,
+                        channel_id=str(query.get("channel_id", [""])[0] or "").strip() or None,
+                        subject_kind=str(query.get("subject_kind", [""])[0] or "").strip() or None,
+                        subject_id=str(query.get("subject_id", [""])[0] or "").strip() or None,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="events.follow")
                     return
                 _json_response(self, 200, {"ok": True, **payload})
                 return

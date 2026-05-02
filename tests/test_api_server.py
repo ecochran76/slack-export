@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import requests
 
-from slack_mirror.core.db import upsert_channel, upsert_message, upsert_user
+from slack_mirror.core.db import append_child_event, upsert_channel, upsert_message, upsert_user
 from slack_mirror.service.api import _resolve_operator_frontend_root, create_api_server
 from slack_mirror.service.app import LiveValidationResult, get_app_service
 
@@ -105,7 +105,7 @@ class ApiServerTests(unittest.TestCase):
         self.assertTrue(required_capabilities.issubset(profile["capabilities"]))
         for capability in required_capabilities:
             self.assertTrue(profile["capabilities"][capability], capability)
-        self.assertFalse(profile["capabilities"]["eventFollow"])
+        self.assertTrue(profile["capabilities"]["eventFollow"])
 
         self.assertEqual(profile["routes"]["health"], "/v1/health")
         self.assertEqual(profile["routes"]["search"], "/v1/search/corpus")
@@ -117,6 +117,10 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(
             profile["routes"]["eventStatus"],
             "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
+        )
+        self.assertEqual(
+            profile["routes"]["eventFollow"],
+            "/v1/events/follow?tenant={tenant}&after={cursor}&limit={limit}&timeout_ms={timeoutMs}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
         )
         self.assertEqual(
             profile["routes"]["contextWindow"],
@@ -294,7 +298,7 @@ class ApiServerTests(unittest.TestCase):
             self.assertTrue(profile_payload["capabilities"]["eventCursorRead"])
             self.assertTrue(profile_payload["capabilities"]["eventDescriptors"])
             self.assertTrue(profile_payload["capabilities"]["eventStatus"])
-            self.assertFalse(profile_payload["capabilities"]["eventFollow"])
+            self.assertTrue(profile_payload["capabilities"]["eventFollow"])
             self.assertEqual(
                 profile_payload["routes"]["contextWindow"],
                 "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
@@ -307,6 +311,7 @@ class ApiServerTests(unittest.TestCase):
                 profile_payload["routes"]["eventStatus"],
                 "/v1/events/status?tenant={tenant}&event_type={eventType}&privacy={privacy}&actor_ref={actorRef}&channel_ref={channelRef}&subject_kind={subjectKind}&subject_id={subjectId}",
             )
+            self.assertEqual(profile_payload["events"]["followMode"], "bounded-long-poll")
             self.assertIn("eventDescriptors", profile_payload)
             self.assertEqual(profile_payload["events"]["cursor"]["owner"], "slack")
             self.assertEqual(profile_payload["artifacts"]["htmlUrlTemplate"], "/exports/{exportId}")
@@ -522,6 +527,34 @@ class ApiServerTests(unittest.TestCase):
         )
         self.assertEqual(after.status_code, 200)
         self.assertEqual(after.json()["count"], 0)
+
+        append_child_event(
+            conn,
+            workspace_id=workspace_id,
+            event_id="slack.reaction.added|api-follow",
+            event_type="slack.reaction.added",
+            subject_kind="slack-message",
+            subject_id="message|default|C123|10.0",
+            actor_user_id="U1",
+            channel_id="C123",
+            occurred_at="1970-01-01T00:00:10Z",
+            recorded_at="1970-01-01T00:00:10Z",
+            source_refs={"workspace": "default", "channel_id": "C123", "ts": "10.0", "user_id": "U1", "reaction": "eyes"},
+            payload={"reaction": "eyes"},
+        )
+        follow = requests.get(
+            f"{self.base_url}/v1/events/follow",
+            params={"tenant": "default", "event_type": "slack.reaction.added", "actor_ref": "Eric", "timeout_ms": "0"},
+            timeout=5,
+        )
+        self.assertEqual(follow.status_code, 200)
+        follow_payload = follow.json()
+        self.assertTrue(follow_payload["ok"])
+        self.assertEqual(follow_payload["count"], 1)
+        self.assertEqual(follow_payload["follow"]["mode"], "bounded-long-poll")
+        self.assertTrue(follow_payload["follow"]["journal_only"])
+        self.assertEqual(follow_payload["events"][0]["eventType"], "slack.reaction.added")
+        self.assertEqual(follow_payload["events"][0]["payload"]["reaction"], "eyes")
 
     def test_tenant_status_and_onboard_api(self):
         tenants = requests.get(f"{self.base_url}/v1/tenants", timeout=5)

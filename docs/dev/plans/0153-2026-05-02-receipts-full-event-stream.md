@@ -24,6 +24,11 @@ message changes, message deletes, reaction add/remove events, channel member
 join/leave events, and user/profile status changes when Slack Mirror receives
 the corresponding Slack event.
 
+The first follow slice is shipped: `/v1/events/follow` exposes bounded long-poll
+JSON over the append-only child event journal, and `/v1/service-profile`
+advertises `eventFollow: true` with the follow route template. Follow does not
+replay derived current-state rows such as `slack.message.observed`.
+
 Receipts is the parent UX owner for watching the full event stream and managing
 subscriber filters. Slack Mirror remains the child owner for Slack event
 capture, redaction, event identity, cursor semantics, and native Slack filters.
@@ -66,8 +71,8 @@ capture, redaction, event identity, cursor semantics, and native Slack filters.
   live-intake events need to appear in Receipts.
 - Emit journal rows for outbound write results, sync/runtime status changes,
   and richer Slack channel lifecycle events.
-- Add a stream/follow API, likely SSE or bounded long-poll first, and only then
-  flip `capabilities.eventFollow` to true.
+- Decide later whether SSE adds enough value beyond bounded long-poll to justify
+  an additional transport.
 - Add subscription-focused smoke tests that model Receipts filters such as
   "reactions from Michael on default" and "status changes from Baker on
   SoyLei".
@@ -75,7 +80,8 @@ capture, redaction, event identity, cursor semantics, and native Slack filters.
 ## Definition Of Done
 
 - The read/status filter slice is implemented and covered by targeted tests.
-- The live-follow gap remains explicit in docs and service profile capability
-  metadata.
-- The next slice can start from a concrete append-only event-journal plan rather
-  than rediscovering current limitations.
+- The append-only journal slice is implemented and covered by targeted tests.
+- The bounded long-poll follow slice is implemented, covered by targeted tests,
+  and deployed to the managed local API.
+- Remaining event-family and optional-SSE gaps remain explicit in docs and
+  service profile metadata.

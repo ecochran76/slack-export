@@ -1872,6 +1872,7 @@ class SlackMirrorAppService:
         channel_id: str | None = None,
         subject_kind: str | None = None,
         subject_id: str | None = None,
+        journal_only: bool = False,
     ) -> dict[str, Any]:
         if service_kind and str(service_kind).strip().lower() not in {"slack", "slack-mirror"}:
             return self._event_page([], limit=max(1, min(int(limit), 100)), status="complete")
@@ -1889,6 +1890,7 @@ class SlackMirrorAppService:
             channel_id=channel_id,
             subject_kind=subject_kind,
             subject_id=subject_id,
+            include_derived=not journal_only,
         )
         stale_cursor = False
         if after_tuple is not None:
@@ -1902,6 +1904,62 @@ class SlackMirrorAppService:
             ]
         status = "stale-cursor" if stale_cursor else "complete"
         return self._event_page(events, limit=item_limit, status=status, stale_cursor=stale_cursor)
+
+    def follow_child_events(
+        self,
+        conn,
+        *,
+        tenant: str | None = None,
+        after: str | None = None,
+        limit: int = 50,
+        timeout_ms: int = 0,
+        service_kind: str | None = None,
+        account_key: str | None = None,
+        event_type: str | None = None,
+        privacy: str | None = None,
+        actor_ref: str | None = None,
+        actor_user_id: str | None = None,
+        channel_ref: str | None = None,
+        channel_id: str | None = None,
+        subject_kind: str | None = None,
+        subject_id: str | None = None,
+    ) -> dict[str, Any]:
+        wait_seconds = max(0.0, min(float(timeout_ms) / 1000.0, 30.0))
+        deadline = time.monotonic() + wait_seconds
+        while True:
+            payload = self.list_child_events(
+                conn,
+                tenant=tenant,
+                after=after,
+                limit=limit,
+                service_kind=service_kind,
+                account_key=account_key,
+                event_type=event_type,
+                privacy=privacy,
+                actor_ref=actor_ref,
+                actor_user_id=actor_user_id,
+                channel_ref=channel_ref,
+                channel_id=channel_id,
+                subject_kind=subject_kind,
+                subject_id=subject_id,
+                journal_only=True,
+            )
+            if payload["count"] or payload["stale_cursor"] or time.monotonic() >= deadline:
+                payload["follow"] = {
+                    "mode": "bounded-long-poll",
+                    "journalOnly": True,
+                    "journal_only": True,
+                    "timeoutMs": int(wait_seconds * 1000),
+                    "timeout_ms": int(wait_seconds * 1000),
+                }
+                payload["statusText"] = (
+                    "Journal follow returned matching event(s)."
+                    if payload["count"]
+                    else "Journal follow timed out without matching events."
+                )
+                payload["status_text"] = payload["statusText"]
+                return payload
+            time.sleep(0.25)
 
     def child_event_status(
         self,
@@ -1934,6 +1992,7 @@ class SlackMirrorAppService:
                 channel_id=channel_id,
                 subject_kind=subject_kind,
                 subject_id=subject_id,
+                include_derived=True,
             )
         unfiltered_events: list[dict[str, Any]] = []
         if not service_kind or str(service_kind).strip().lower() in {"slack", "slack-mirror"}:
@@ -1949,6 +2008,7 @@ class SlackMirrorAppService:
                 channel_id=None,
                 subject_kind=None,
                 subject_id=None,
+                include_derived=True,
             )
         latest = events[-1] if events else None
         oldest = events[0] if events else None
@@ -2060,17 +2120,21 @@ class SlackMirrorAppService:
         channel_id: str | None,
         subject_kind: str | None,
         subject_id: str | None,
+        include_derived: bool = True,
     ) -> list[dict[str, Any]]:
         privacy_filter = {part.strip() for part in str(privacy or "").split(",") if part.strip()}
         event_type_filter = {part.strip() for part in str(event_type or "").split(",") if part.strip()}
         workspace_filter = str(tenant or account_key or "").strip()
-        events = [
-            *self._journal_child_events(conn, workspace_filter=workspace_filter or None),
-            *self._message_child_events(conn, workspace_filter=workspace_filter or None),
-            *self._file_child_events(conn, workspace_filter=workspace_filter or None),
-            *self._export_child_events(workspace_filter=workspace_filter or None),
-            *self._export_lifecycle_events(workspace_filter=workspace_filter or None),
-        ]
+        events = [*self._journal_child_events(conn, workspace_filter=workspace_filter or None)]
+        if include_derived:
+            events.extend(
+                [
+                    *self._message_child_events(conn, workspace_filter=workspace_filter or None),
+                    *self._file_child_events(conn, workspace_filter=workspace_filter or None),
+                    *self._export_child_events(workspace_filter=workspace_filter or None),
+                    *self._export_lifecycle_events(workspace_filter=workspace_filter or None),
+                ]
+            )
         if event_type_filter:
             events = [event for event in events if str(event.get("eventType") or "") in event_type_filter]
         if privacy_filter:
