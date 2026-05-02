@@ -5950,3 +5950,17 @@ This file is the dated turn log for planning and execution continuity.
   - MCP stdio `tools/list` through `/home/ecochran76/.local/bin/slack-mirror-mcp` confirmed `channels.create`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 308 | 2026-05-01
+
+- Received Receipts executable-flow handshake request:
+  - `docs/dev/notes/0010-2026-05-01-receipts-executable-flow-handshake-request.md`
+- Recorded Receipts' stop rule:
+  - no Slack tenant mutation dispatch from Receipts until Slack Export confirms
+    session/CSRF metadata, action metadata, mutation response shape,
+    idempotency behavior, and post-action refresh recommendations
+  - Receipts remains hard-disabled with `data-executable="false"` and
+    `data-child-response-status="not_dispatched"`
+- Validation:
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`
