@@ -26,6 +26,10 @@ class ProcessorTests(unittest.TestCase):
             self.assertEqual(result["processed"], 1)
             msg_count = conn.execute("SELECT COUNT(*) AS c FROM messages").fetchone()["c"]
             self.assertEqual(msg_count, 1)
+            journal = conn.execute("SELECT event_type, actor_user_id, channel_id FROM child_event_journal").fetchone()
+            self.assertEqual(journal["event_type"], "slack.message.created")
+            self.assertEqual(journal["actor_user_id"], "U1")
+            self.assertEqual(journal["channel_id"], "C1")
 
     def test_process_message_changed_and_deleted(self):
         with tempfile.TemporaryDirectory() as td:
@@ -66,6 +70,11 @@ class ProcessorTests(unittest.TestCase):
                 (ws_id, "C1", "2.2"),
             ).fetchone()["deleted"]
             self.assertEqual(deleted_flag, 1)
+            journal_types = [
+                row["event_type"]
+                for row in conn.execute("SELECT event_type FROM child_event_journal ORDER BY event_type").fetchall()
+            ]
+            self.assertEqual(journal_types, ["slack.message.changed", "slack.message.deleted"])
 
     def test_process_member_join_leave(self):
         with tempfile.TemporaryDirectory() as td:
@@ -93,6 +102,56 @@ class ProcessorTests(unittest.TestCase):
 
             member_count = conn.execute("SELECT COUNT(*) AS c FROM channel_members").fetchone()["c"]
             self.assertEqual(member_count, 0)
+            journal_types = [
+                row["event_type"]
+                for row in conn.execute("SELECT event_type FROM child_event_journal ORDER BY event_type").fetchall()
+            ]
+            self.assertEqual(journal_types, ["slack.channel.member_joined", "slack.channel.member_left"])
+
+    def test_process_reaction_and_user_profile_events_into_child_journal(self):
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "mirror.db"
+            conn = connect(str(db))
+            migrations = Path(__file__).resolve().parents[1] / "slack_mirror" / "core" / "migrations"
+            apply_migrations(conn, str(migrations))
+            ws_id = upsert_workspace(conn, name="default")
+
+            reaction_payload = {
+                "event_id": "E7",
+                "event_time": 129,
+                "event": {
+                    "type": "reaction_added",
+                    "user": "U3",
+                    "reaction": "eyes",
+                    "item": {"type": "message", "channel": "C3", "ts": "3.3"},
+                },
+            }
+            profile_payload = {
+                "event_id": "E8",
+                "event_time": 130,
+                "event": {
+                    "type": "user_change",
+                    "user": {
+                        "id": "U4",
+                        "name": "baker",
+                        "profile": {"display_name": "Baker", "status_text": "in the lab"},
+                    },
+                },
+            }
+            insert_event(conn, ws_id, "E7", "129", "reaction_added", reaction_payload)
+            insert_event(conn, ws_id, "E8", "130", "user_change", profile_payload)
+
+            result = process_pending_events(conn, ws_id, limit=10)
+            self.assertEqual(result["processed"], 2)
+            rows = conn.execute(
+                "SELECT event_type, actor_user_id, subject_id, payload_json FROM child_event_journal ORDER BY event_type"
+            ).fetchall()
+            self.assertEqual([row["event_type"] for row in rows], ["slack.reaction.added", "slack.user.profile.changed"])
+            self.assertEqual(rows[0]["actor_user_id"], "U3")
+            self.assertEqual(rows[0]["subject_id"], "message|default|C3|3.3")
+            self.assertIn('"reaction": "eyes"', rows[0]["payload_json"])
+            self.assertEqual(rows[1]["actor_user_id"], "U4")
+            self.assertIn('"statusText": "in the lab"', rows[1]["payload_json"])
 
     def test_run_processor_loop(self):
         with tempfile.TemporaryDirectory() as td:

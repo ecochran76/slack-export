@@ -124,6 +124,132 @@ CHILD_EVENT_DESCRIPTORS: tuple[dict[str, Any], ...] = (
         "safeForRoles": ["owner", "user"],
     },
     {
+        "event_type": "slack.message.created",
+        "eventType": "slack.message.created",
+        "label": "Message created",
+        "summary": "A Slack message create event was processed from live intake.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "message text is preview-limited; native ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.thread_reply.created",
+        "eventType": "slack.thread_reply.created",
+        "label": "Thread reply created",
+        "summary": "A Slack thread reply create event was processed from live intake.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "reply text is preview-limited; native ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.message.changed",
+        "eventType": "slack.message.changed",
+        "label": "Message changed",
+        "summary": "A Slack message edit/update event was processed from live intake.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "updated text is preview-limited; native ids stay in source refs",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.message.deleted",
+        "eventType": "slack.message.deleted",
+        "label": "Message deleted",
+        "summary": "A Slack message delete/tombstone event was processed from live intake.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "deleted message bodies are not exposed",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.reaction.added",
+        "eventType": "slack.reaction.added",
+        "label": "Reaction added",
+        "summary": "A Slack reaction was added to a mirrored message.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "reaction name and native ids are exposed; message body is not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.reaction.removed",
+        "eventType": "slack.reaction.removed",
+        "label": "Reaction removed",
+        "summary": "A Slack reaction was removed from a mirrored message.",
+        "privacy": "user",
+        "subject_kind": "slack-message",
+        "subjectKind": "slack-message",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "reaction name and native ids are exposed; message body is not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.channel.member_joined",
+        "eventType": "slack.channel.member_joined",
+        "label": "Channel member joined",
+        "summary": "A Slack user joined a channel.",
+        "privacy": "user",
+        "subject_kind": "slack-channel",
+        "subjectKind": "slack-channel",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "channel and user ids are exposed; no message bodies are included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.channel.member_left",
+        "eventType": "slack.channel.member_left",
+        "label": "Channel member left",
+        "summary": "A Slack user left a channel.",
+        "privacy": "user",
+        "subject_kind": "slack-channel",
+        "subjectKind": "slack-channel",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "channel and user ids are exposed; no message bodies are included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
+        "event_type": "slack.user.profile.changed",
+        "eventType": "slack.user.profile.changed",
+        "label": "User profile changed",
+        "summary": "A Slack user profile or status change was processed from live intake.",
+        "privacy": "user",
+        "subject_kind": "slack-user",
+        "subjectKind": "slack-user",
+        "payload_stability": "stable",
+        "payloadStability": "stable",
+        "redaction": "profile/status display fields may be exposed; raw profile payload is not included",
+        "safe_for_roles": ["owner", "user"],
+        "safeForRoles": ["owner", "user"],
+    },
+    {
         "event_type": "slack.file.linked",
         "eventType": "slack.file.linked",
         "label": "File linked",
@@ -520,6 +646,54 @@ def _event_matches_receipts_filters(
     if not _event_value_matches(subject_id_filters, [subject.get("id")]):
         return False
     return True
+
+
+def _json_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    try:
+        payload = json.loads(str(value or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _journal_event_title(event_type: str) -> str:
+    return {
+        "slack.message.created": "Slack message created",
+        "slack.thread_reply.created": "Slack thread reply created",
+        "slack.message.changed": "Slack message changed",
+        "slack.message.deleted": "Slack message deleted",
+        "slack.reaction.added": "Slack reaction added",
+        "slack.reaction.removed": "Slack reaction removed",
+        "slack.channel.member_joined": "Slack channel member joined",
+        "slack.channel.member_left": "Slack channel member left",
+        "slack.user.profile.changed": "Slack user profile changed",
+    }.get(event_type, event_type or "Slack event")
+
+
+def _journal_event_summary(event_type: str, row: dict[str, Any], payload: dict[str, Any]) -> str:
+    actor = row.get("actor_label") or row.get("actor_user_id") or "Slack user"
+    channel = f"#{row.get('channel_name')}" if row.get("channel_name") else row.get("channel_id")
+    reaction = payload.get("reaction")
+    if event_type in {"slack.message.created", "slack.thread_reply.created", "slack.message.changed"}:
+        text = _truncate_text(payload.get("textPreview"), 120)
+        location = f" in {channel}" if channel else ""
+        return f"{actor}{location}: {text}" if text else f"{actor}{location}"
+    if event_type == "slack.message.deleted":
+        return f"{actor} deleted a message" + (f" in {channel}" if channel else "")
+    if event_type == "slack.reaction.added":
+        return f"{actor} added :{reaction}: reaction" if reaction else f"{actor} added a reaction"
+    if event_type == "slack.reaction.removed":
+        return f"{actor} removed :{reaction}: reaction" if reaction else f"{actor} removed a reaction"
+    if event_type == "slack.channel.member_joined":
+        return f"{actor} joined {channel}" if channel else f"{actor} joined a channel"
+    if event_type == "slack.channel.member_left":
+        return f"{actor} left {channel}" if channel else f"{actor} left a channel"
+    if event_type == "slack.user.profile.changed":
+        status_text = payload.get("statusText")
+        return f"{actor} profile/status changed: {status_text}" if status_text else f"{actor} profile/status changed"
+    return _journal_event_title(event_type)
 
 
 def _sqlite_timestamp_to_iso(value: Any) -> str | None:
@@ -1891,6 +2065,7 @@ class SlackMirrorAppService:
         event_type_filter = {part.strip() for part in str(event_type or "").split(",") if part.strip()}
         workspace_filter = str(tenant or account_key or "").strip()
         events = [
+            *self._journal_child_events(conn, workspace_filter=workspace_filter or None),
             *self._message_child_events(conn, workspace_filter=workspace_filter or None),
             *self._file_child_events(conn, workspace_filter=workspace_filter or None),
             *self._export_child_events(workspace_filter=workspace_filter or None),
@@ -1915,6 +2090,87 @@ class SlackMirrorAppService:
                 )
             ]
         events.sort(key=lambda event: (str(event.get("recordedAt") or ""), str(event.get("id") or "")))
+        return events
+
+    def _journal_child_events(self, conn, *, workspace_filter: str | None) -> list[dict[str, Any]]:
+        params: list[Any] = []
+        workspace_clause = ""
+        if workspace_filter:
+            workspace_clause = "WHERE w.name = ?"
+            params.append(workspace_filter)
+        try:
+            rows = conn.execute(
+                f"""
+                SELECT w.name AS workspace,
+                       ce.workspace_id,
+                       ce.event_id,
+                       ce.event_type,
+                       ce.subject_kind,
+                       ce.subject_id,
+                       ce.actor_user_id,
+                       COALESCE(ce.actor_label, u.display_name, u.real_name, u.username, ce.actor_user_id) AS actor_label,
+                       ce.channel_id,
+                       c.name AS channel_name,
+                       ce.privacy,
+                       ce.occurred_at,
+                       ce.recorded_at,
+                       ce.source_refs_json,
+                       ce.payload_json
+                FROM child_event_journal ce
+                JOIN workspaces w ON w.id = ce.workspace_id
+                LEFT JOIN users u ON u.workspace_id = ce.workspace_id AND u.user_id = ce.actor_user_id
+                LEFT JOIN channels c ON c.workspace_id = ce.workspace_id AND c.channel_id = ce.channel_id
+                {workspace_clause}
+                """,
+                tuple(params),
+            ).fetchall()
+        except Exception:  # noqa: BLE001 - older fixture DBs may not have the journal table yet.
+            return []
+        events: list[dict[str, Any]] = []
+        for row_obj in rows:
+            row = dict(row_obj)
+            source_refs = _json_dict(row.get("source_refs_json"))
+            source_refs.setdefault("workspace", row.get("workspace"))
+            if row.get("channel_id"):
+                source_refs.setdefault("channel_id", row.get("channel_id"))
+            if row.get("channel_name"):
+                source_refs.setdefault("channel_name", row.get("channel_name"))
+            if row.get("actor_user_id"):
+                source_refs.setdefault("user_id", row.get("actor_user_id"))
+            if row.get("actor_label"):
+                source_refs.setdefault("user_label", row.get("actor_label"))
+            payload = _json_dict(row.get("payload_json"))
+            if row.get("channel_id"):
+                payload.setdefault("channelLabel", f"#{row.get('channel_name')}" if row.get("channel_name") else row.get("channel_id"))
+            if row.get("actor_label"):
+                payload.setdefault("senderLabel", row.get("actor_label"))
+            event_type = str(row.get("event_type") or "")
+            subject = {"kind": row.get("subject_kind"), "id": row.get("subject_id")}
+            actor = None
+            if row.get("actor_user_id") or row.get("actor_label"):
+                actor = {"kind": "slack-user", "id": row.get("actor_user_id"), "label": row.get("actor_label")}
+            events.append(
+                self._event_with_aliases(
+                    {
+                        "id": str(row.get("event_id") or ""),
+                        "eventType": event_type,
+                        "subject": subject,
+                        "actor": actor,
+                        "actorUserId": row.get("actor_user_id"),
+                        "actorLabel": row.get("actor_label"),
+                        "occurredAt": _sqlite_timestamp_to_iso(row.get("occurred_at")),
+                        "recordedAt": _sqlite_timestamp_to_iso(row.get("recorded_at")),
+                        "title": _journal_event_title(event_type),
+                        "summary": _journal_event_summary(event_type, row, payload),
+                        "serviceKind": "slack",
+                        "accountKey": row.get("workspace"),
+                        "tenant": row.get("workspace"),
+                        "privacy": row.get("privacy") or "user",
+                        "sourceRefs": source_refs,
+                        "payload": payload,
+                    }
+                )
+            )
         return events
 
     def _export_event_log_path(self) -> Path:

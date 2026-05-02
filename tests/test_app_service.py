@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from slack_mirror.core.db import (
+    append_child_event,
     connect,
     enqueue_derived_text_job,
     get_derived_text,
@@ -757,6 +758,33 @@ class AppServiceTests(unittest.TestCase):
             "C123",
             {"ts": "12.0", "user": "U1", "text": "another root message", "channel": "C123"},
         )
+        append_child_event(
+            conn,
+            workspace_id=workspace_id,
+            event_id="slack.reaction.added|fixture",
+            event_type="slack.reaction.added",
+            subject_kind="slack-message",
+            subject_id="message|default|C123|12.0",
+            actor_user_id="U1",
+            channel_id="C123",
+            occurred_at="1970-01-01T00:00:12Z",
+            recorded_at="1970-01-01T00:00:12Z",
+            source_refs={"workspace": "default", "channel_id": "C123", "ts": "12.0", "user_id": "U1", "reaction": "eyes"},
+            payload={"reaction": "eyes"},
+        )
+        reaction_events = service.list_child_events(
+            conn,
+            tenant="default",
+            event_type="slack.reaction.added",
+            actor_ref="Eric",
+            channel_id="C123",
+            subject_id="message|default|C123|12.0",
+            limit=10,
+        )
+        self.assertEqual(reaction_events["count"], 1)
+        self.assertEqual(reaction_events["events"][0]["payload"]["reaction"], "eyes")
+        self.assertEqual(reaction_events["events"][0]["actor_label"], "Eric")
+
         status = service.child_event_status(conn, tenant="default", event_type="slack.message.observed", actor_user_id="U1")
         self.assertEqual(status["service"], "slack")
         self.assertEqual(status["status"], "current")

@@ -6035,3 +6035,34 @@ This file is the dated turn log for planning and execution continuity.
   - `systemctl --user restart slack-mirror-api.service`
   - live `GET /v1/service-profile` on `http://127.0.0.1:8787` returned
     `eventFollow: false` and route templates containing the new event filters
+
+## Turn 312 | 2026-05-02
+
+- Incorporated the latest Receipts handoff note into Slack Export's active
+  work list:
+  - Receipts note:
+    `../receipts/docs/dev/notes/0026-2026-05-02-slack-runtime-api-pause-decision.md`
+  - local mirror:
+    `docs/dev/notes/0011-2026-05-02-receipts-runtime-api-pause-handoff.md`
+  - Slack Export decision plan:
+    `docs/dev/plans/0154-2026-05-02-receipts-runtime-api-pause-decision.md`
+  - decision: no distinct Slack-owned API pause/suspend semantic yet; Receipts
+    may keep `pause` as a parent-side alias for stopping
+    `slack-mirror-api.service`
+- Continued the P12 full-event-stream lane under:
+  - `docs/dev/plans/0153-2026-05-02-receipts-full-event-stream.md`
+- Added the first append-only child event journal slice:
+  - migration `0014_child_event_journal.sql`
+  - DB helper for idempotent child event journal writes
+  - live processor journal emission for message creates, thread-reply creates,
+    message changes/deletes, reaction add/remove events, channel member
+    join/leave events, and user/profile status changes
+  - `/v1/events` and `/v1/events/status` now read journal events alongside the
+    existing derived current-state event rows
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/core/db.py slack_mirror/service/processor.py slack_mirror/service/app.py tests/test_processor.py tests/test_app_service.py tests/test_api_server.py`
+  - `./.venv/bin/python -m unittest tests.test_processor -v`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_list_child_events_pages_committed_events_with_opaque_cursors tests.test_api_server.ApiServerTests.test_events_endpoint_pages_committed_child_events tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable -v`
+  - `./.venv/bin/python scripts/smoke_receipts_compatibility.py --json`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

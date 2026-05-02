@@ -1341,6 +1341,65 @@ def insert_event(
         )
 
 
+def append_child_event(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: int,
+    event_id: str,
+    event_type: str,
+    subject_kind: str,
+    subject_id: str,
+    actor_user_id: str | None = None,
+    actor_label: str | None = None,
+    channel_id: str | None = None,
+    privacy: str = "user",
+    occurred_at: str | None = None,
+    recorded_at: str | None = None,
+    source_refs: dict[str, Any] | None = None,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    if not event_id or not event_type or not subject_kind or not subject_id:
+        return
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO child_event_journal(
+              workspace_id, event_id, event_type, subject_kind, subject_id,
+              actor_user_id, actor_label, channel_id, privacy, occurred_at,
+              recorded_at, source_refs_json, payload_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?)
+            ON CONFLICT(workspace_id, event_id) DO UPDATE SET
+              event_type=excluded.event_type,
+              subject_kind=excluded.subject_kind,
+              subject_id=excluded.subject_id,
+              actor_user_id=excluded.actor_user_id,
+              actor_label=excluded.actor_label,
+              channel_id=excluded.channel_id,
+              privacy=excluded.privacy,
+              occurred_at=excluded.occurred_at,
+              recorded_at=excluded.recorded_at,
+              source_refs_json=excluded.source_refs_json,
+              payload_json=excluded.payload_json
+            """,
+            (
+                workspace_id,
+                event_id,
+                event_type,
+                subject_kind,
+                subject_id,
+                actor_user_id,
+                actor_label,
+                channel_id,
+                privacy,
+                occurred_at,
+                recorded_at,
+                json.dumps(source_refs or {}, sort_keys=True),
+                json.dumps(payload or {}, sort_keys=True),
+            ),
+        )
+
+
 def mark_event_status(
     conn: sqlite3.Connection,
     workspace_id: int,

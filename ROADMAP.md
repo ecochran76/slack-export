@@ -111,6 +111,7 @@ Purpose:
 
 Actionable plans:
 - `docs/dev/plans/0005-2026-04-10-live-ops-runtime-hardening.md`
+- `docs/dev/plans/0154-2026-05-02-receipts-runtime-api-pause-decision.md`
 
 Current state:
 - supported live topology is documented
@@ -119,6 +120,9 @@ Current state:
 - live validation, smoke-check, and bounded recovery flows now define the supported unattended operator contract
 - queue backlog, queue errors, duplicate topology, inactive units, and stale mirror freshness are all surfaced through supported status paths
 - restart-only remediations are supported automatically, while config/token/DB/topology cleanup remains explicitly operator-owned
+- Receipts runtime API `pause` is accepted only as a parent-side alias for
+  stopping `slack-mirror-api.service`; Slack Export does not currently define a
+  distinct durable paused state or pause/suspend contract
 
 Legacy context:
 - `docs/dev/LIVE_MODE.md`
@@ -839,9 +843,15 @@ Current state:
   filtering. Slack Mirror now treats `0153` as the active child-side event
   stream lane: current `/v1/events` and `/v1/events/status` reads support
   actor, channel, and subject filters for Receipts-grade subset reads, while
-  `eventFollow` remains false until Slack Mirror ships a durable append-only
-  event journal and live follow/stream route for reactions, status changes, and
-  other non-current-state event families.
+  `eventFollow` remains false until Slack Mirror ships a live follow/stream
+  route over the durable append-only event journal.
+- Slack Mirror now has the first append-only child event journal slice for live
+  intake: message creates, thread-reply creates, message changes/deletes,
+  reaction add/remove events, channel member join/leave events, and
+  user/profile status changes are journaled when Slack Mirror receives the
+  corresponding Slack event. Remaining P12 event work is stream/follow,
+  backfill of old raw event rows if needed, and journal rows for outbound
+  writes plus sync/runtime status lifecycle.
 
 Shared-library gate:
 - do not extract shared libraries yet as speculative architecture

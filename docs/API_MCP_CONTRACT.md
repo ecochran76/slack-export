@@ -593,7 +593,25 @@ recommended production signature mode.
 
 The first event surface is read-only and derives committed product events from
 durable Slack Mirror state rather than exposing raw webhook/socket transport
-rows. Current event families include:
+rows. It now combines two child-owned sources:
+
+- an append-only child event journal for live-intake lifecycle events
+- derived current-state events for existing mirrored messages, files, and
+  managed export artifacts
+
+Current journal-backed event families include:
+
+- `slack.message.created`
+- `slack.thread_reply.created`
+- `slack.message.changed`
+- `slack.message.deleted`
+- `slack.reaction.added`
+- `slack.reaction.removed`
+- `slack.channel.member_joined`
+- `slack.channel.member_left`
+- `slack.user.profile.changed`
+
+Current derived current-state event families include:
 
 - `slack.message.observed`
 - `slack.thread_reply.observed`
@@ -638,12 +656,11 @@ follow/SSE/streaming surface.
 Receipts owns full-stream UX, subscriptions, and parent-side subscriber
 bookmarks. Slack Mirror owns Slack-native event capture, cursor identity,
 filter vocabulary, and redaction. Before `eventFollow` can become true, Slack
-Mirror must move beyond derived current-state reads for follow semantics and add
-a durable append-only event journal plus a live stream route. Planned event
-families for that follow-ready journal include reaction added/removed,
-user/profile status changes when Slack Mirror ingests them, channel membership
-changes, message edits/deletes/tombstones, outbound write results, and sync or
-runtime status lifecycle changes.
+Mirror must expose a live stream route over the journal and prove bounded
+subscriber behavior. Remaining planned journal families include outbound write
+results, sync or runtime status lifecycle changes, richer channel lifecycle
+events, and any additional Slack-native status events the service starts
+ingesting.
 
 `GET /v1/service-profile` advertises `capabilities.eventDescriptors: true` and
 `capabilities.eventStatus: true` when this metadata is available. Current

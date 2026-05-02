@@ -13,6 +13,17 @@ replies, linked files, and managed export lifecycle events. The service profile
 correctly advertises `eventCursorRead: true`, `eventDescriptors: true`,
 `eventStatus: true`, and `eventFollow: false`.
 
+The first Receipts-grade filter slice is shipped: event reads and status now
+accept actor, actor user id, channel, channel id, subject kind, and subject id
+filters, and message/thread rows expose actor aliases where Slack Mirror has
+sender provenance.
+
+The first append-only journal slice is shipped: live-intake processing now
+records committed child events for message creates, thread-reply creates,
+message changes, message deletes, reaction add/remove events, channel member
+join/leave events, and user/profile status changes when Slack Mirror receives
+the corresponding Slack event.
+
 Receipts is the parent UX owner for watching the full event stream and managing
 subscriber filters. Slack Mirror remains the child owner for Slack event
 capture, redaction, event identity, cursor semantics, and native Slack filters.
@@ -51,12 +62,10 @@ capture, redaction, event identity, cursor semantics, and native Slack filters.
 
 ## Remaining Work
 
-- Add a durable append-only event journal owned by `slack_mirror.service` or
-  `slack_mirror.sync`.
-- Emit journal rows for message creates, edits, deletes, thread replies,
-  reactions, channel membership changes, user/profile status changes where
-  Slack Mirror has source events, outbound write results, and sync/runtime
-  status changes.
+- Backfill existing raw Slack event rows into the child event journal if older
+  live-intake events need to appear in Receipts.
+- Emit journal rows for outbound write results, sync/runtime status changes,
+  and richer Slack channel lifecycle events.
 - Add a stream/follow API, likely SSE or bounded long-poll first, and only then
   flip `capabilities.eventFollow` to true.
 - Add subscription-focused smoke tests that model Receipts filters such as
