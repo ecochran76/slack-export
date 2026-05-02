@@ -5987,3 +5987,20 @@ This file is the dated turn log for planning and execution continuity.
   - `systemctl --user restart slack-mirror-api.service && sleep 1 && curl -sS http://127.0.0.1:8787/v1/service-profile`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 310 | 2026-05-02
+
+- Received Receipts runtime API pause handoff:
+  - `docs/dev/notes/0011-2026-05-02-receipts-runtime-api-pause-handoff.md`
+- Recorded current Receipts behavior:
+  - Receipts exposes start, stop, restart, and pause for
+    `slack-mirror-api.service`
+  - Receipts currently maps pause to `systemctl --user stop
+    slack-mirror-api.service`
+  - this is a UI/operator alias, not a new Slack Export runtime semantic
+- Slack Export homework:
+  - decide whether a first-class API pause/suspend contract should exist
+  - if yes, define route/CLI, scope, status shape, and safe response envelope
+- Validation:
+  - documentation-only handoff; no Slack runtime mutation was performed
+  - `git diff --check`
