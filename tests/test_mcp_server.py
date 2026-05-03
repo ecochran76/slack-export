@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from slack_mirror import __version__
-from slack_mirror.core.db import upsert_user
+from slack_mirror.core.db import upsert_channel, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.service.app import LiveValidationResult
 from slack_mirror.service.mcp import SlackMirrorMcpServer, run_mcp_stdio
 
@@ -97,6 +97,9 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("conversations.list", names)
         self.assertIn("search.conversation", names)
         self.assertIn("search.corpus", names)
+        self.assertIn("permalink.resolve", names)
+        self.assertIn("thread.get", names)
+        self.assertIn("thread.from_permalink", names)
         self.assertIn("search.health", names)
         self.assertIn("search.readiness", names)
         self.assertIn("search.profiles", names)
@@ -669,6 +672,53 @@ class McpServerTests(unittest.TestCase):
             member_query="Michael",
             limit=10,
         )
+
+    def test_thread_from_permalink_tool(self):
+        conn = self.server.service.connect()
+        workspace_id = upsert_workspace(
+            conn,
+            name="soylei",
+            team_id="T456",
+            config={"name": "soylei"},
+        )
+        upsert_channel(conn, workspace_id, {"id": "C06L8DVBWQP", "name": "website", "is_private": False})
+        upsert_user(conn, workspace_id, {"id": "U1", "name": "michael", "profile": {"display_name": "Michael"}})
+        upsert_message(conn, workspace_id, "C06L8DVBWQP", {"ts": "1777682271.668819", "user": "U1", "text": "root"})
+        upsert_message(
+            conn,
+            workspace_id,
+            "C06L8DVBWQP",
+            {
+                "ts": "1777774228.756839",
+                "thread_ts": "1777682271.668819",
+                "user": "U1",
+                "text": "remove the legacy Formerly SIP-1132 text",
+            },
+        )
+
+        result = self.server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 701,
+                "method": "tools/call",
+                "params": {
+                    "name": "thread.from_permalink",
+                    "arguments": {
+                        "url": (
+                            "https://soyleiinnovations.slack.com/archives/C06L8DVBWQP/"
+                            "p1777774228756839?thread_ts=1777682271.668819&cid=C06L8DVBWQP"
+                        )
+                    },
+                },
+            }
+        )
+
+        payload = _result_payload(result)["result"]
+        self.assertEqual(payload["resolution"]["workspace"], "soylei")
+        self.assertEqual(payload["resolution"]["message_ts"], "1777774228.756839")
+        self.assertEqual(payload["thread"]["itemCount"], 2)
+        self.assertEqual(payload["thread"]["items"][1]["senderLabel"], "Michael")
+        self.assertTrue(payload["thread"]["items"][1]["selected"])
 
     def test_search_conversation_discovers_and_scopes_results(self):
         with patch.object(

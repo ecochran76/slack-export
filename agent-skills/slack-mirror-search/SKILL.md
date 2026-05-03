@@ -12,12 +12,15 @@ Prefer MCP tools when available:
 1. `health`
 2. `runtime.status`
 3. `workspace.status` for the target workspace
-4. `search.corpus` for broad corpus search
-5. `search.conversation` when the user names a channel/person/conversation
-6. `search.context_pack` when hits need surrounding messages
+4. `thread.from_permalink` when the user gives a Slack archive permalink
+5. `search.corpus` for broad corpus search
+6. `search.conversation` when the user names a channel/person/conversation
+7. `search.context_pack` when hits need surrounding messages
 
 Fallback CLI:
 
+- `slack-mirror-user messages permalink-resolve '<slack-url>' --json`
+- `slack-mirror-user messages thread --workspace <ws> --channel <channel_id> --thread-ts <ts> --json`
 - `slack-mirror-user search corpus --workspace <ws> --query "..." --mode <mode> --limit <n> --json`
 - `slack-mirror-user search context-pack --targets-json '<targets>' --before 2 --after 2 --json`
 
@@ -48,6 +51,20 @@ For named conversations or DMs:
 - Use `conversations.list` with `member_query`, `name_query`, or
   `channel_type`, then `search.conversation`.
 - Do not guess private channel ids from display text.
+
+For direct Slack permalinks:
+
+- If the user provides a URL containing `/archives/<channel>/p<ts>`, call
+  `thread.from_permalink` first.
+- Do not start with semantic/hybrid search when the URL already contains the
+  channel id, message timestamp, and often `thread_ts`.
+- Do not open browser Slack unless mirror lookup fails and the operator needs
+  live Slack state.
+- If `thread.from_permalink` reports the thread is not mirrored, run
+  `workspace.status` and a freshness diagnostic for that workspace/channel
+  before trying unrelated workspace-wide searches.
+- CLI fallback: resolve the URL with `messages permalink-resolve`, then call
+  `messages thread` with the returned workspace, channel id, and thread ts.
 
 ## Query operators
 

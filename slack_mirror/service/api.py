@@ -602,6 +602,8 @@ def _service_profile_payload() -> dict[str, Any]:
             "derivedTextDetailTemplate": "/v1/workspaces/{workspace}/derived-text/{source_kind}/{source_id}",
             "contextWindow": "/v1/context-window?result_id={resultId}&direction={direction}&cursor={cursor}&limit={limit}",
             "contextPack": "/v1/search/context-pack",
+            "permalinkResolve": "/v1/permalink/resolve?url={url}",
+            "threadGet": "/v1/workspaces/{workspace}/threads/{channel_id}/{thread_ts}?selected_ts={selectedTs}",
         },
         "queryOperators": [
             {"name": "before", "support": "supported"},
@@ -2497,6 +2499,39 @@ def create_api_server(*, bind: str, port: int, config_path: str | None = None) -
                     _service_error_response(self, exc, path=path, operation="context_window.get")
                     return
                 _json_response(self, 200, {"ok": True, "contextWindow": payload})
+                return
+
+            if path == "/v1/permalink/resolve":
+                conn = service.connect()
+                try:
+                    payload = service.resolve_slack_permalink(
+                        conn,
+                        url=str(query.get("url", [""])[0]),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="permalink.resolve")
+                    return
+                _json_response(self, 200, {"ok": True, "resolution": payload})
+                return
+
+            m = re.fullmatch(r"/v1/workspaces/([^/]+)/threads/([^/]+)/([^/]+)", path)
+            if m:
+                conn = service.connect()
+                try:
+                    payload = service.build_thread_context(
+                        conn,
+                        workspace=unquote(m.group(1)),
+                        channel_id=unquote(m.group(2)),
+                        thread_ts=unquote(m.group(3)),
+                        selected_ts=str(query.get("selected_ts", [""])[0] or "").strip() or None,
+                        include_text=query.get("include_text", ["1"])[0] not in {"0", "false", "no"},
+                        max_text_chars=int(query.get("max_text_chars", [4000])[0]),
+                        limit=int(query.get("limit", [200])[0]),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _service_error_response(self, exc, path=path, operation="thread.get")
+                    return
+                _json_response(self, 200, {"ok": True, "thread": payload})
                 return
 
             if path == "/v1/events/status":

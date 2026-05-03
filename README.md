@@ -111,6 +111,8 @@ slack-mirror search corpus --workspace default --query "incident review" --retri
 slack-mirror search context-pack --targets-json '[{"kind":"message","workspace":"default","channel_id":"C123","ts":"1712870400.000100"}]' --before 2 --after 2 --json
 slack-mirror search context-pack --targets-json '[{"kind":"message","workspace":"default","channel_id":"C123","ts":"1712870400.000100"}]' --managed-export --title "Selected incident context" --json
 curl 'http://slack.localhost/v1/context-window?result_id=message%7Cdefault%7CC123%7C1712870400.000100&direction=around&limit=25'
+slack-mirror-user messages permalink-resolve 'https://soyleiinnovations.slack.com/archives/C06L8DVBWQP/p1777774228756839?thread_ts=1777682271.668819&cid=C06L8DVBWQP' --json
+slack-mirror-user messages thread --workspace soylei --channel C06L8DVBWQP --thread-ts 1777682271.668819 --selected-ts 1777774228.756839 --json
 slack-mirror search scale-review --workspace default --profiles baseline --query "incident review" --repeats 2 --limit 5 --json
 slack-mirror search benchmark-validate --workspace default --dataset ./docs/dev/benchmarks/slack_live_relevance_noncontent.jsonl --profiles baseline,local-bge-http --json
 slack-mirror search profile-benchmark --workspace default --dataset ./docs/dev/benchmarks/slack_smoke.jsonl --profiles baseline,local-bge-http --json
@@ -173,6 +175,10 @@ The current repo has:
 - lexical ranking caps repeated hits for a single query term and adds distinct query-concept coverage evidence, so rows that cover more of a multi-term intent are not buried by repetition of one term
 - selected corpus `action_target` values can now be expanded into bounded context packs through CLI/API/MCP, including before/hit/after message context, derived-text chunk context, and linked Slack messages for file-backed derived text
 - selected Slack message `action_target.id` values can now be opened through `/v1/context-window` as cursor-backed channel or thread streams for shared parent UX layers such as Receipts
+- direct Slack archive permalinks can now be resolved into mirrored workspace,
+  channel, message, and thread identity, and mirrored threads can be fetched
+  directly through CLI/API/MCP without browser Slack login or brittle timestamp
+  searches
 - selected corpus `action_target` values can now be persisted as managed `selected-results` export bundles, with a neutral `selected-results.json` artifact, a provider-neutral `events` projection for communication-event convergence, a polished human-readable HTML report at `/exports/{export_id}`, and a manifest for later report rendering or agent handoff
 - Receipts guest-grant assertion headers are accepted on export/artifact read routes, with optional HMAC verification through `SLACK_MIRROR_RECEIPTS_CHILD_GRANT_SHARED_SECRET` or `RECEIPTS_CHILD_GRANT_SHARED_SECRET`; `/v1/service-profile` advertises the concrete guest-safe artifact routes and local-only mutation/search routes
 - `/v1/events` now exposes a cursor-backed page of committed Slack product events for parent UX layers, combining an append-only child event journal for live-intake lifecycle events with derived current-state rows for mirrored messages, linked files, and managed exports

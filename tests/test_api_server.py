@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import requests
 
-from slack_mirror.core.db import append_child_event, upsert_channel, upsert_message, upsert_user
+from slack_mirror.core.db import append_child_event, upsert_channel, upsert_message, upsert_user, upsert_workspace
 from slack_mirror.service.api import _resolve_operator_frontend_root, create_api_server
 from slack_mirror.service.app import LiveValidationResult, get_app_service
 
@@ -477,6 +477,54 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(payload["items"][1]["senderLabel"], "Eric")
         self.assertFalse(payload["pageInfo"]["hasBefore"])
         self.assertFalse(payload["pageInfo"]["hasAfter"])
+
+    def test_permalink_resolve_and_thread_endpoint(self):
+        service = get_app_service(str(self.config_path))
+        conn = service.connect()
+        workspace_id = upsert_workspace(
+            conn,
+            name="soylei",
+            team_id="T456",
+            config={"name": "soylei"},
+        )
+        upsert_channel(conn, workspace_id, {"id": "C06L8DVBWQP", "name": "website", "is_private": False})
+        upsert_user(conn, workspace_id, {"id": "U1", "name": "michael", "profile": {"display_name": "Michael"}})
+        upsert_message(conn, workspace_id, "C06L8DVBWQP", {"ts": "1777682271.668819", "user": "U1", "text": "root"})
+        upsert_message(
+            conn,
+            workspace_id,
+            "C06L8DVBWQP",
+            {
+                "ts": "1777774228.756839",
+                "thread_ts": "1777682271.668819",
+                "user": "U1",
+                "text": "hide the Applications page nav entry",
+            },
+        )
+        permalink = (
+            "https://soyleiinnovations.slack.com/archives/C06L8DVBWQP/"
+            "p1777774228756839?thread_ts=1777682271.668819&cid=C06L8DVBWQP"
+        )
+
+        resolution_response = requests.get(
+            f"{self.base_url}/v1/permalink/resolve",
+            params={"url": permalink},
+            timeout=5,
+        )
+        thread_response = requests.get(
+            f"{self.base_url}/v1/workspaces/soylei/threads/C06L8DVBWQP/1777682271.668819",
+            params={"selected_ts": "1777774228.756839"},
+            timeout=5,
+        )
+
+        self.assertEqual(resolution_response.status_code, 200)
+        self.assertEqual(resolution_response.json()["resolution"]["message_ts"], "1777774228.756839")
+        self.assertTrue(resolution_response.json()["resolution"]["thread_mirrored"])
+        self.assertEqual(thread_response.status_code, 200)
+        thread = thread_response.json()["thread"]
+        self.assertEqual(thread["itemCount"], 2)
+        self.assertTrue(thread["items"][1]["selected"])
+        self.assertEqual(thread["items"][1]["text"], "hide the Applications page nav entry")
 
     def test_events_endpoint_pages_committed_child_events(self):
         service = get_app_service(str(self.config_path))

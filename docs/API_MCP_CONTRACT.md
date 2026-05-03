@@ -78,6 +78,7 @@ Supported release-baseline MCP tool groups:
 
 - runtime and install health: `health`, `runtime.status`, `runtime.live_validation`, `runtime.report.latest`, `workspaces.list`, `workspace.status`
 - conversation discovery and scoped review: `conversations.list`, `search.conversation`
+- direct thread retrieval: `permalink.resolve`, `thread.get`, `thread.from_permalink`
 - search and retrieval diagnostics: `search.corpus`, `search.context_pack`, `search.readiness`, `search.health`, `search.profiles`, `search.semantic_readiness`
 - outbound actions: `messages.send`, `threads.reply`
 - channel management: `channels.create`
@@ -90,6 +91,7 @@ Recommended operator preflight from MCP clients:
 - call `runtime.live_validation` when the client needs stricter workspace, token, queue, DB, and live-unit health
 - call `workspace.status` before workspace-scoped search or outbound actions
 - call `conversations.list` when the client needs to discover MPDM, IM, private-channel, or public-channel candidates before searching or exporting context
+- call `thread.from_permalink` when the user provides a Slack archive permalink; do not start with semantic search or browser Slack when the URL already carries workspace/channel/thread identity
 - call `search.conversation` when the client wants discovery, scoped search, and ready-to-expand context/export payloads in one read-only workflow
 - call `search.readiness` or `search.semantic_readiness` before assuming semantic coverage is complete
 
@@ -154,6 +156,26 @@ returns `action_targets` plus explicit `search.context_pack` and
 `search.context_export` argument payloads. Derived-text attachment hits are not
 treated as conversation-scoped by this helper until the derived-text lane has a
 first-class channel provenance filter.
+
+`permalink.resolve` is read-only and parses Slack archive URLs of the form
+`https://<workspace>.slack.com/archives/<channel>/p<timestamp>?thread_ts=<ts>`.
+It resolves the Slack workspace domain against configured/mirrored workspace
+domains, converts Slack `/p...` timestamps into dotted Slack timestamps, reports
+whether the selected message and thread are mirrored, and returns next-call
+payloads for thread retrieval and context-window inspection.
+
+`thread.get` is read-only and accepts `workspace`, `channel_id`, `thread_ts`,
+optional `selected_ts`, `include_text`, `max_text_chars`, and `limit`. It
+returns root plus replies in chronological order from the local mirror with
+safe sender labels, transformed display text, raw text when transformation was
+needed, native ids, source refs, action targets, and Slack file metadata where
+available.
+
+`thread.from_permalink` combines `permalink.resolve` and `thread.get` into the
+agent-facing one-call workflow. If the permalink resolves but the thread is not
+mirrored, the response still includes the resolution and mirror-status flags so
+the client can report a freshness gap instead of guessing with unrelated
+searches.
 
 ## Frontend Auth
 
@@ -719,6 +741,14 @@ The response is shaped for parent UX layers such as Receipts:
 - `pageInfo.afterCursor`
 
 Cursor values are intentionally opaque. Receipts and other parents should pass them back unchanged instead of parsing Slack timestamps, thread roots, channel IDs, or SQLite ordering.
+
+Direct Slack permalink routes:
+
+- `GET /v1/permalink/resolve?url=<slack-url>` returns the same permalink
+  resolution fields as the MCP `permalink.resolve` tool.
+- `GET /v1/workspaces/{workspace}/threads/{channel_id}/{thread_ts}` returns the
+  same thread payload as MCP `thread.get`; optional query fields are
+  `selected_ts`, `include_text`, `max_text_chars`, and `limit`.
 
 Receipts guest-grant artifact reads:
 

@@ -6126,3 +6126,34 @@ This file is the dated turn log for planning and execution continuity.
   - live `GET /v1/service-profile` on `http://127.0.0.1:8787` returned
     `eventFollow: true`, `descriptorCount: 20`, and all five new operational
     descriptors
+
+## Turn 315 | 2026-05-03
+
+- Incorporated the SoyLei website handoff note into Slack Export work:
+  - `docs/dev/notes/0012-2026-05-03-direct-slack-permalink-thread-handoff.md`
+  - opened and closed
+    `docs/dev/plans/0155-2026-05-03-direct-permalink-thread-retrieval.md`
+- Added direct Slack permalink and thread retrieval:
+  - shared service parser for Slack archive permalinks
+  - workspace-domain resolution with exact domain matching plus a safe unique
+    legacy fallback for configs that only name the workspace
+  - CLI `messages permalink-resolve` and `messages thread`
+  - API `GET /v1/permalink/resolve` and
+    `GET /v1/workspaces/{workspace}/threads/{channel_id}/{thread_ts}`
+  - MCP `permalink.resolve`, `thread.get`, and `thread.from_permalink`
+- Updated agent-facing guidance:
+  - `agent-skills/slack-mirror-search/SKILL.md` now says direct Slack URLs
+    should use permalink/thread retrieval before semantic search or browser
+    Slack
+  - `docs/API_MCP_CONTRACT.md` and `README.md` document the new surfaces
+- Live smoke against the SoyLei `#website` permalink from the handoff passed:
+  - resolver mapped `soyleiinnovations.slack.com` to workspace `soylei`
+  - selected message `1777774228.756839` and thread root
+    `1777682271.668819` were mirrored
+  - thread retrieval returned 8 items and selected message metadata with 3
+    artifacts
+- Validation:
+  - `./.venv/bin/python -m py_compile slack_mirror/service/app.py slack_mirror/service/api.py slack_mirror/service/mcp.py slack_mirror/cli/main.py tests/test_app_service.py tests/test_api_server.py tests/test_mcp_server.py tests/test_cli.py`
+  - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_resolve_permalink_and_build_thread_context tests.test_api_server.ApiServerTests.test_permalink_resolve_and_thread_endpoint tests.test_mcp_server.McpServerTests.test_thread_from_permalink_tool tests.test_cli.CliTests.test_parse_messages_permalink_and_thread tests.test_mcp_server.McpServerTests.test_initialize_and_tools_list tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow tests.test_mcp_server.McpServerTests.test_search_conversation_discovers_and_scopes_results -v`
+  - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
+  - `git diff --check`

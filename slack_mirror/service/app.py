@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from html import escape as html_escape
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from slack_mirror.core import db
 from slack_mirror.core.config import load_config
@@ -566,6 +567,40 @@ def _slack_ts_to_iso(value: Any) -> str | None:
     except (TypeError, ValueError):
         return None
     return datetime.fromtimestamp(numeric, tz=UTC).isoformat().replace("+00:00", "Z")
+
+
+def _slack_permalink_ts(value: str) -> str:
+    token = str(value or "").strip()
+    if token.startswith("p"):
+        token = token[1:]
+    if not re.fullmatch(r"\d{11,}", token):
+        raise ValueError("Slack permalink message timestamp is not valid")
+    return f"{token[:-6]}.{token[-6:]}"
+
+
+def _parse_slack_permalink(url: str) -> dict[str, str]:
+    parsed = urlparse(str(url or "").strip())
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("Slack permalink must be an http(s) URL")
+    hostname = str(parsed.hostname or "").lower()
+    if not hostname.endswith(".slack.com"):
+        raise ValueError("Slack permalink host must end with .slack.com")
+    domain = hostname.removesuffix(".slack.com")
+    match = re.fullmatch(r"/archives/([^/]+)/p(\d+)", parsed.path)
+    if not match:
+        raise ValueError("Slack permalink path must look like /archives/<channel>/p<timestamp>")
+    channel_id = match.group(1)
+    message_ts = _slack_permalink_ts(match.group(2))
+    query = parse_qs(parsed.query)
+    query_channel = str((query.get("cid") or [""])[0] or "").strip()
+    thread_ts = str((query.get("thread_ts") or [""])[0] or "").strip() or message_ts
+    return {
+        "url": str(url or "").strip(),
+        "domain": domain,
+        "channel_id": query_channel or channel_id,
+        "message_ts": message_ts,
+        "thread_ts": thread_ts,
+    }
 
 
 def _decode_stable_part(value: str) -> str:
@@ -1943,6 +1978,201 @@ class SlackMirrorAppService:
             },
         }
 
+    def resolve_slack_permalink(self, conn, *, url: str) -> dict[str, Any]:
+        parsed = _parse_slack_permalink(url)
+        workspace_row = self._workspace_row_for_slack_domain(conn, parsed["domain"])
+        workspace = str(workspace_row["name"])
+        workspace_id = int(workspace_row["id"])
+        channel_id = parsed["channel_id"]
+        message_ts = parsed["message_ts"]
+        thread_ts = parsed["thread_ts"]
+        channel_row = conn.execute(
+            """
+            SELECT channel_id, name, is_private, is_im, is_mpim
+            FROM channels
+            WHERE workspace_id = ? AND channel_id = ?
+            LIMIT 1
+            """,
+            (workspace_id, channel_id),
+        ).fetchone()
+        message_row = self._message_context_row(
+            conn,
+            workspace=workspace,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            ts=message_ts,
+        )
+        root_row = self._message_context_row(
+            conn,
+            workspace=workspace,
+            workspace_id=workspace_id,
+            channel_id=channel_id,
+            ts=thread_ts,
+        )
+        thread_count_row = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM messages
+            WHERE workspace_id = ? AND channel_id = ? AND (ts = ? OR thread_ts = ?)
+            """,
+            (workspace_id, channel_id, thread_ts, thread_ts),
+        ).fetchone()
+        thread_count = int(thread_count_row["count"] or 0) if thread_count_row else 0
+        action_target = {
+            "version": 1,
+            "kind": "message",
+            "id": f"message|{workspace}|{channel_id}|{message_ts}",
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "channel_id": channel_id,
+            "channel_name": channel_row["name"] if channel_row else None,
+            "ts": message_ts,
+            "thread_ts": thread_ts,
+            "selection_label": f"{workspace}:{channel_id}:{message_ts}",
+        }
+        return {
+            "schema_version": 1,
+            "kind": "slack_permalink_resolution",
+            "url": parsed["url"],
+            "workspace_domain": parsed["domain"],
+            "workspace": workspace,
+            "workspace_id": workspace_id,
+            "team_id": workspace_row["team_id"],
+            "channel_id": channel_id,
+            "channel_name": channel_row["name"] if channel_row else None,
+            "channel_mirrored": channel_row is not None,
+            "message_ts": message_ts,
+            "thread_ts": thread_ts,
+            "message_mirrored": message_row is not None,
+            "thread_root_mirrored": root_row is not None,
+            "thread_message_count": thread_count,
+            "thread_mirrored": thread_count > 0,
+            "action_target": action_target,
+            "next_calls": {
+                "thread_get": {
+                    "cli": f"slack-mirror messages thread --workspace {workspace} --channel {channel_id} --thread-ts {thread_ts} --selected-ts {message_ts} --json",
+                    "api": f"/v1/workspaces/{workspace}/threads/{channel_id}/{thread_ts}?selected_ts={message_ts}",
+                    "mcp": {
+                        "tool": "thread.get",
+                        "arguments": {
+                            "workspace": workspace,
+                            "channel_id": channel_id,
+                            "thread_ts": thread_ts,
+                            "selected_ts": message_ts,
+                        },
+                    },
+                },
+                "context_window": {
+                    "result_id": action_target["id"],
+                    "api": f"/v1/context-window?result_id={action_target['id']}&direction=around&limit=25",
+                },
+            },
+        }
+
+    def build_thread_context(
+        self,
+        conn,
+        *,
+        workspace: str,
+        channel_id: str,
+        thread_ts: str,
+        selected_ts: str | None = None,
+        include_text: bool = True,
+        max_text_chars: int = 4000,
+        limit: int = 200,
+    ) -> dict[str, Any]:
+        workspace_name = str(workspace or "").strip()
+        channel = str(channel_id or "").strip()
+        root_ts = str(thread_ts or "").strip()
+        selected = str(selected_ts or "").strip() or root_ts
+        if not workspace_name or not channel or not root_ts:
+            raise ValueError("workspace, channel_id, and thread_ts are required")
+        workspace_id = self.workspace_id(conn, workspace_name)
+        item_limit = max(1, min(int(limit), 500))
+        text_limit = max(0, int(max_text_chars))
+        rows = conn.execute(
+            """
+            SELECT m.channel_id, c.name AS channel_name, m.ts, m.thread_ts, m.user_id,
+                   u.username AS user_name,
+                   u.display_name AS user_display_name,
+                   COALESCE(u.display_name, u.real_name, u.username, m.user_id) AS user_label,
+                   m.subtype, m.text, m.edited_ts, m.deleted, m.raw_json
+            FROM messages m
+            LEFT JOIN channels c ON c.workspace_id = m.workspace_id AND c.channel_id = m.channel_id
+            LEFT JOIN users u ON u.workspace_id = m.workspace_id AND u.user_id = m.user_id
+            WHERE m.workspace_id = ? AND m.channel_id = ? AND (m.ts = ? OR m.thread_ts = ?)
+            ORDER BY CAST(m.ts AS REAL) ASC
+            LIMIT ?
+            """,
+            (workspace_id, channel, root_ts, root_ts, item_limit),
+        ).fetchall()
+        if not rows:
+            raise ValueError("thread not found in workspace")
+        row_dicts = [dict(row) for row in rows]
+        mention_ids = {mention_id for row in row_dicts for mention_id in slack_user_mention_ids(row.get("text"))}
+        mention_labels = workspace_user_mention_labels(conn, workspace_id=workspace_id, user_ids=mention_ids)
+        items = []
+        for row in row_dicts:
+            item = self._project_context_window_message(
+                row,
+                workspace=workspace_name,
+                workspace_id=workspace_id,
+                selected_ts=selected,
+                stream_kind="slack-thread",
+                thread_root=root_ts,
+                include_text=include_text,
+                max_text_chars=text_limit,
+                mention_labels=mention_labels,
+            )
+            self._enrich_message_artifacts(conn, workspace_id=workspace_id, channel_id=channel, ts=str(row.get("ts") or ""), item=item)
+            items.append(item)
+        channel_name = row_dicts[0].get("channel_name")
+        return {
+            "schemaVersion": 1,
+            "kind": "slack_thread",
+            "service": "slack",
+            "workspace": workspace_name,
+            "workspaceId": workspace_id,
+            "channelId": channel,
+            "channelName": channel_name,
+            "threadTs": root_ts,
+            "selectedTs": selected,
+            "streamId": f"slack-thread|{workspace_name}|{channel}|{root_ts}",
+            "streamLabel": f"{'#' + channel_name if channel_name else channel} / thread",
+            "itemCount": len(items),
+            "root": items[0] if items and str(items[0]["nativeIds"]["ts"]) == root_ts else None,
+            "items": items,
+        }
+
+    def build_thread_from_permalink(
+        self,
+        conn,
+        *,
+        url: str,
+        include_text: bool = True,
+        max_text_chars: int = 4000,
+        limit: int = 200,
+    ) -> dict[str, Any]:
+        resolution = self.resolve_slack_permalink(conn, url=url)
+        thread = None
+        if resolution.get("thread_mirrored"):
+            thread = self.build_thread_context(
+                conn,
+                workspace=str(resolution["workspace"]),
+                channel_id=str(resolution["channel_id"]),
+                thread_ts=str(resolution["thread_ts"]),
+                selected_ts=str(resolution["message_ts"]),
+                include_text=include_text,
+                max_text_chars=max_text_chars,
+                limit=limit,
+            )
+        return {
+            "schema_version": 1,
+            "kind": "slack_thread_from_permalink",
+            "resolution": resolution,
+            "thread": thread,
+        }
+
     def list_child_events(
         self,
         conn,
@@ -2927,6 +3157,92 @@ class SlackMirrorAppService:
                     "unresolvedUserPlaceholder": "@unresolved-slack-user",
                 }
         return item
+
+    def _workspace_row_for_slack_domain(self, conn, domain: str):
+        normalized_domain = str(domain or "").strip().lower()
+        if not normalized_domain:
+            raise ValueError("Slack permalink is missing a workspace domain")
+        fuzzy_config_matches: list[str] = []
+        for ws_cfg in self.workspace_configs():
+            cfg_name = str(ws_cfg.get("name") or "").strip()
+            cfg_domain = str(ws_cfg.get("domain") or "").strip().lower()
+            if normalized_domain in {cfg_domain, cfg_name.lower()}:
+                self.workspace_id(conn, cfg_name)
+                row = get_workspace_by_name(conn, cfg_name)
+                if row is not None:
+                    return row
+            if cfg_name and (normalized_domain.startswith(cfg_name.lower()) or cfg_name.lower() in normalized_domain):
+                fuzzy_config_matches.append(cfg_name)
+        if len(set(fuzzy_config_matches)) == 1:
+            cfg_name = sorted(set(fuzzy_config_matches))[0]
+            self.workspace_id(conn, cfg_name)
+            row = get_workspace_by_name(conn, cfg_name)
+            if row is not None:
+                return row
+        row = conn.execute(
+            """
+            SELECT id, name, team_id, domain, config_json
+            FROM workspaces
+            WHERE lower(coalesce(domain, '')) = lower(?) OR lower(name) = lower(?)
+            LIMIT 1
+            """,
+            (normalized_domain, normalized_domain),
+        ).fetchone()
+        if row is not None:
+            return row
+        raise ValueError(f"No configured Slack Mirror workspace matches Slack domain '{domain}'")
+
+    def _enrich_message_artifacts(
+        self,
+        conn,
+        *,
+        workspace_id: int,
+        channel_id: str,
+        ts: str,
+        item: dict[str, Any],
+    ) -> None:
+        rows = conn.execute(
+            """
+            SELECT f.file_id, f.name, f.title, f.mimetype, f.size, f.local_path, f.checksum
+            FROM message_files mf
+            LEFT JOIN files f ON f.workspace_id = mf.workspace_id AND f.file_id = mf.file_id
+            WHERE mf.workspace_id = ? AND mf.channel_id = ? AND mf.ts = ?
+            """,
+            (workspace_id, channel_id, ts),
+        ).fetchall()
+        if not rows:
+            return
+        by_id = {str(row["file_id"] or ""): dict(row) for row in rows}
+        artifacts = list(item.get("artifacts") or [])
+        seen = {str(artifact.get("id") or "") for artifact in artifacts if isinstance(artifact, dict)}
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                continue
+            file_row = by_id.get(str(artifact.get("id") or ""))
+            if not file_row:
+                continue
+            artifact.setdefault("name", file_row.get("name"))
+            artifact.setdefault("title", file_row.get("title"))
+            artifact.setdefault("mimetype", file_row.get("mimetype"))
+            artifact["size"] = file_row.get("size")
+            artifact["localPath"] = file_row.get("local_path")
+            artifact["checksum"] = file_row.get("checksum")
+        for file_id, file_row in by_id.items():
+            if file_id in seen:
+                continue
+            artifacts.append(
+                {
+                    "kind": "slack-file",
+                    "id": file_id,
+                    "name": file_row.get("name"),
+                    "title": file_row.get("title"),
+                    "mimetype": file_row.get("mimetype"),
+                    "size": file_row.get("size"),
+                    "localPath": file_row.get("local_path"),
+                    "checksum": file_row.get("checksum"),
+                }
+            )
+        item["artifacts"] = artifacts
 
     def _message_context_row(
         self,

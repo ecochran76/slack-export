@@ -844,6 +844,48 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.json)
         self.assertTrue(hasattr(args, "func"))
 
+    def test_parse_messages_permalink_and_thread(self):
+        parser = build_parser()
+        permalink_args = parser.parse_args(
+            [
+                "messages",
+                "permalink-resolve",
+                "https://soyleiinnovations.slack.com/archives/C06L8DVBWQP/p1777774228756839",
+                "--json",
+            ]
+        )
+        self.assertEqual(permalink_args.messages_cmd, "permalink-resolve")
+        self.assertTrue(permalink_args.json)
+        self.assertTrue(hasattr(permalink_args, "func"))
+
+        thread_args = parser.parse_args(
+            [
+                "messages",
+                "thread",
+                "--workspace",
+                "soylei",
+                "--channel",
+                "C06L8DVBWQP",
+                "--thread-ts",
+                "1777682271.668819",
+                "--selected-ts",
+                "1777774228.756839",
+                "--limit",
+                "50",
+                "--no-text",
+                "--json",
+            ]
+        )
+        self.assertEqual(thread_args.messages_cmd, "thread")
+        self.assertEqual(thread_args.workspace, "soylei")
+        self.assertEqual(thread_args.channel, "C06L8DVBWQP")
+        self.assertEqual(thread_args.thread_ts, "1777682271.668819")
+        self.assertEqual(thread_args.selected_ts, "1777774228.756839")
+        self.assertEqual(thread_args.limit, 50)
+        self.assertTrue(thread_args.no_text)
+        self.assertTrue(thread_args.json)
+        self.assertTrue(hasattr(thread_args, "func"))
+
     def test_parse_search_health(self):
         parser = build_parser()
         args = parser.parse_args(

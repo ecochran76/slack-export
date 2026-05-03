@@ -18,6 +18,7 @@ from slack_mirror.core.db import (
     upsert_channel_member,
     upsert_derived_text,
     upsert_derived_text_chunk_embedding,
+    upsert_file,
     upsert_message,
     upsert_message_embedding,
     upsert_user,
@@ -638,6 +639,59 @@ class AppServiceTests(unittest.TestCase):
         self.assertEqual(payload["streamLabel"], "#general / thread")
         self.assertEqual([item["timestamp"] for item in payload["items"]], ["11.0", "12.0"])
         self.assertEqual(payload["items"][0]["nativeIds"]["threadTs"], "11.0")
+
+    def test_resolve_permalink_and_build_thread_context(self):
+        workspace_id = upsert_workspace(
+            self.conn,
+            name="soylei",
+            team_id="T456",
+            config={"name": "soylei"},
+        )
+        upsert_channel(self.conn, workspace_id, {"id": "C06L8DVBWQP", "name": "website", "is_private": False})
+        upsert_user(self.conn, workspace_id, {"id": "U1", "name": "michael", "profile": {"display_name": "Michael"}})
+        upsert_file(
+            self.conn,
+            workspace_id,
+            {"id": "F1", "name": "review.png", "title": "Review Screenshot", "mimetype": "image/png", "size": 123},
+            local_path="/tmp/review.png",
+        )
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C06L8DVBWQP",
+            {"ts": "1777682271.668819", "user": "U1", "text": "root", "channel": "C06L8DVBWQP"},
+        )
+        upsert_message(
+            self.conn,
+            workspace_id,
+            "C06L8DVBWQP",
+            {
+                "ts": "1777774228.756839",
+                "thread_ts": "1777682271.668819",
+                "user": "U1",
+                "text": "bottom content appears cut off",
+                "channel": "C06L8DVBWQP",
+                "files": [{"id": "F1", "name": "review.png", "title": "Review Screenshot", "mimetype": "image/png"}],
+            },
+        )
+        url = (
+            "https://soyleiinnovations.slack.com/archives/C06L8DVBWQP/"
+            "p1777774228756839?thread_ts=1777682271.668819&cid=C06L8DVBWQP"
+        )
+
+        resolution = self.service.resolve_slack_permalink(self.conn, url=url)
+        thread = self.service.build_thread_from_permalink(self.conn, url=url)["thread"]
+
+        self.assertEqual(resolution["workspace"], "soylei")
+        self.assertEqual(resolution["channel_id"], "C06L8DVBWQP")
+        self.assertEqual(resolution["message_ts"], "1777774228.756839")
+        self.assertEqual(resolution["thread_ts"], "1777682271.668819")
+        self.assertTrue(resolution["message_mirrored"])
+        self.assertTrue(resolution["thread_mirrored"])
+        self.assertEqual(thread["itemCount"], 2)
+        self.assertEqual(thread["items"][1]["senderLabel"], "Michael")
+        self.assertTrue(thread["items"][1]["selected"])
+        self.assertEqual(thread["items"][1]["artifacts"][0]["localPath"], "/tmp/review.png")
 
     def test_list_child_events_pages_committed_events_with_opaque_cursors(self):
         export_root = self.root / "event-exports"

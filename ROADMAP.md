@@ -737,6 +737,7 @@ Actionable plans:
 - `docs/dev/plans/0149-2026-05-01-receipts-reference-child-boundary-review.md`
 - `docs/dev/plans/0152-2026-05-01-receipts-tenant-mutation-handshake.md`
 - `docs/dev/plans/0153-2026-05-02-receipts-full-event-stream.md`
+- `docs/dev/plans/0155-2026-05-03-direct-permalink-thread-retrieval.md`
 
 Current state:
 - Slack Mirror already has the strongest export/report baseline among the
@@ -782,6 +783,10 @@ Current state:
   `action_target.id` values, returning Receipts-compatible cursor-backed
   channel or thread streams with human sender/channel labels and native Slack
   provenance preserved under machine-readable fields
+- Slack Mirror now tracks direct Slack permalink handling as a first-class
+  context-retrieval requirement so agents can resolve URL-provided
+  workspace/channel/thread identity before falling back to search or browser
+  Slack
 - Receipts now forwards a constrained guest-grant assertion when a guest opens
   a granted child report artifact through the parent BFF. Slack Mirror now
   consumes those headers on export/artifact read routes, supports optional HMAC

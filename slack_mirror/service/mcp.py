@@ -255,6 +255,48 @@ class SlackMirrorMcpServer:
                 },
             ),
             _tool(
+                "permalink.resolve",
+                "Resolve a Slack archive permalink into mirrored workspace, channel, message, and thread identity",
+                {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                    "required": ["url"],
+                },
+            ),
+            _tool(
+                "thread.get",
+                "Get a mirrored Slack thread by workspace, channel id, and thread timestamp",
+                {
+                    "type": "object",
+                    "properties": {
+                        "workspace": {"type": "string"},
+                        "channel_id": {"type": "string"},
+                        "thread_ts": {"type": "string"},
+                        "selected_ts": {"type": "string"},
+                        "include_text": {"type": "boolean", "default": True},
+                        "max_text_chars": {"type": "integer", "default": 4000},
+                        "limit": {"type": "integer", "default": 200},
+                    },
+                    "required": ["workspace", "channel_id", "thread_ts"],
+                },
+            ),
+            _tool(
+                "thread.from_permalink",
+                "Resolve a Slack permalink and return the mirrored thread when available",
+                {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                        "include_text": {"type": "boolean", "default": True},
+                        "max_text_chars": {"type": "integer", "default": 4000},
+                        "limit": {"type": "integer", "default": 200},
+                    },
+                    "required": ["url"],
+                },
+            ),
+            _tool(
                 "search.context_export",
                 "Persist selected search action targets as a managed selected-results export",
                 {
@@ -623,6 +665,35 @@ class SlackMirrorMcpServer:
                         after=int(args.get("after", 2)),
                         include_text=bool(args.get("include_text", True)),
                         max_text_chars=int(args.get("max_text_chars", 4000)),
+                    )
+                }
+            )
+        if name == "permalink.resolve":
+            return self._mcp_result({"resolution": self.service.resolve_slack_permalink(conn, url=str(args["url"]))})
+        if name == "thread.get":
+            return self._mcp_result(
+                {
+                    "thread": self.service.build_thread_context(
+                        conn,
+                        workspace=str(args["workspace"]),
+                        channel_id=str(args["channel_id"]),
+                        thread_ts=str(args["thread_ts"]),
+                        selected_ts=str(args["selected_ts"]) if args.get("selected_ts") is not None else None,
+                        include_text=bool(args.get("include_text", True)),
+                        max_text_chars=int(args.get("max_text_chars", 4000)),
+                        limit=int(args.get("limit", 200)),
+                    )
+                }
+            )
+        if name == "thread.from_permalink":
+            return self._mcp_result(
+                {
+                    "result": self.service.build_thread_from_permalink(
+                        conn,
+                        url=str(args["url"]),
+                        include_text=bool(args.get("include_text", True)),
+                        max_text_chars=int(args.get("max_text_chars", 4000)),
+                        limit=int(args.get("limit", 200)),
                     )
                 }
             )

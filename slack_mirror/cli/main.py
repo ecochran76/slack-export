@@ -1043,6 +1043,49 @@ def cmd_messages_list(args: argparse.Namespace) -> int:
             print(f"[{r['channel_name']}] {r['user_label']} @ {r['ts']}: {r['text'][:80]}")
     return 0
 
+
+def cmd_messages_permalink_resolve(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    payload = service.resolve_slack_permalink(conn, url=args.url)
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"{payload['workspace']} {payload['channel_id']} "
+            f"message={payload['message_ts']} thread={payload['thread_ts']} "
+            f"message_mirrored={payload['message_mirrored']} thread_mirrored={payload['thread_mirrored']}"
+        )
+    return 0
+
+
+def cmd_messages_thread(args: argparse.Namespace) -> int:
+    from slack_mirror.service.app import get_app_service
+
+    service = get_app_service(args.config)
+    conn = service.connect()
+    payload = service.build_thread_context(
+        conn,
+        workspace=args.workspace,
+        channel_id=args.channel,
+        thread_ts=args.thread_ts,
+        selected_ts=args.selected_ts,
+        include_text=not args.no_text,
+        max_text_chars=args.max_text_chars,
+        limit=args.limit,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"{payload['workspace']} {payload['streamLabel']} thread={payload['threadTs']} items={payload['itemCount']}")
+        for item in payload["items"]:
+            marker = "*" if item.get("selected") else "-"
+            text = str(item.get("text") or "").replace("\n", " ")
+            print(f"{marker} {item['senderLabel']} @ {item['timestamp']}: {text[:120]}")
+    return 0
+
 def cmd_search_keyword(args: argparse.Namespace) -> int:
     from slack_mirror.search.embeddings import build_embedding_provider
     from slack_mirror.search.keyword import search_messages
@@ -3455,6 +3498,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_messages_list.add_argument("--limit", type=int, default=1000, help="maximum results")
     p_messages_list.add_argument("--json", action="store_true")
     p_messages_list.set_defaults(func=cmd_messages_list)
+    p_permalink = messages_sub.add_parser("permalink-resolve", help="resolve a Slack archive permalink")
+    p_permalink.add_argument("url", help="Slack archive permalink")
+    p_permalink.add_argument("--json", action="store_true")
+    p_permalink.set_defaults(func=cmd_messages_permalink_resolve)
+    p_thread = messages_sub.add_parser("thread", help="get a mirrored Slack thread")
+    p_thread.add_argument("--workspace", required=True, help="workspace name")
+    p_thread.add_argument("--channel", required=True, help="Slack channel id")
+    p_thread.add_argument("--thread-ts", required=True, help="Slack thread root timestamp")
+    p_thread.add_argument("--selected-ts", help="optional selected message timestamp")
+    p_thread.add_argument("--limit", type=int, default=200, help="maximum thread messages")
+    p_thread.add_argument("--max-text-chars", type=int, default=4000, help="maximum text characters per message")
+    p_thread.add_argument("--no-text", action="store_true", help="omit message text")
+    p_thread.add_argument("--json", action="store_true")
+    p_thread.set_defaults(func=cmd_messages_thread)
 
     search = sub.add_parser("search", help="local keyword/semantic search commands")
     search_sub = search.add_subparsers(dest="search_cmd")
