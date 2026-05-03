@@ -6157,3 +6157,32 @@ This file is the dated turn log for planning and execution continuity.
   - `./.venv/bin/python -m unittest tests.test_app_service.AppServiceTests.test_resolve_permalink_and_build_thread_context tests.test_api_server.ApiServerTests.test_permalink_resolve_and_thread_endpoint tests.test_mcp_server.McpServerTests.test_thread_from_permalink_tool tests.test_cli.CliTests.test_parse_messages_permalink_and_thread tests.test_mcp_server.McpServerTests.test_initialize_and_tools_list tests.test_api_server.ApiServerTests.test_service_profile_receipts_contract_is_stable tests.test_api_server.ApiServerTests.test_health_workspaces_and_outbound_listener_flow tests.test_mcp_server.McpServerTests.test_search_conversation_discovers_and_scopes_results -v`
   - `python /home/ecochran76/workspace.local/agent-policies/repo-policy-selector/scripts/audit_planning_contract.py --repo-root /home/ecochran76/workspace.local/slack-export --json`
   - `git diff --check`
+
+## Turn 316 | 2026-05-03
+
+- Updated the Slack Mirror skill deployment after the direct permalink/thread
+  retrieval slice:
+  - `slack-mirror-search` was already updated and installed with the new
+    `thread.from_permalink` / `messages permalink-resolve` workflow
+  - `slack-mirror-orchestrator` now routes Slack archive permalink requests to
+    `slack-mirror-search` before broad search or browser Slack
+  - installed repo skills to OpenClaw, Codex shared skills, and Gemini skill
+    roots
+- Ran `skill-consolidation` inventory checks:
+  - repo `agent-skills` exposes 7 Slack Mirror skills
+  - `slack-mirror` is flagged as a large family with an existing orchestrator
+  - Codex shared skill inventory exposes 63 skills and flags large families:
+    `canva`, `litscout`, `slack-mirror`, `canvas`, and `imcli`
+  - OpenClaw skill inventory exposes 61 skills and flags large families:
+    `gog`, `canva`, `litscout`, `slack-mirror`, `canvas`, and `imcli`
+- Decision:
+  - keep Slack Mirror sub-skills exposed for now because they map to distinct
+    user intents and installable workflows
+  - consider a future dedicated consolidation branch that converts some
+    Slack Mirror sub-skills into orchestrator references if skill pressure
+    becomes more important than direct trigger precision
+- Validation:
+  - repo, Codex shared, OpenClaw, and Gemini installed
+    `slack-mirror-orchestrator` copies all include the permalink routing rule
+  - `python /home/ecochran76/.codex/shared/skills/skill-consolidation/scripts/inventory_skills.py /home/ecochran76/workspace.local/slack-export/agent-skills --format markdown --out /tmp/slack-export-repo-skill-inventory-after.md`
+  - `git diff --check`
